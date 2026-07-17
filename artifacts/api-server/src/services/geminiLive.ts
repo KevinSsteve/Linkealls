@@ -1,11 +1,14 @@
 import { GoogleGenAI, Modality } from "@google/genai";
 import { logger } from "../lib/logger.js";
 
-const MODEL = "models/gemini-2.0-flash-live-001";
+// gemini-2.0-flash-live-001 is not available via the standard AI Studio API key.
+// gemini-2.5-flash-native-audio-latest is confirmed working with bidiGenerateContent.
+const MODEL = "gemini-2.5-flash-native-audio-latest";
 
 const GREETING_PROMPT =
-  "Greet the user warmly and tell them you're ready to chat. " +
-  "Keep it short and friendly — one or two sentences. Respond in the same language as this instruction — use Portuguese if unsure.";
+  "Greet the user warmly and let them know you're ready to chat. " +
+  "Keep it short and friendly — one or two sentences. " +
+  "Respond in Portuguese (Portugal) unless the user speaks another language.";
 
 const SYSTEM_PROMPT =
   "You are a helpful AI assistant in a real-time voice call. " +
@@ -36,6 +39,9 @@ export async function createGeminiLiveSession(
 
   const ai = new GoogleGenAI({ apiKey });
 
+  let setupComplete = false;
+  let pendingGreeting = false;
+
   const session = await ai.live.connect({
     model: MODEL,
     config: {
@@ -53,6 +59,15 @@ export async function createGeminiLiveSession(
       },
 
       onmessage: (message) => {
+        // Wait for setupComplete before we consider the session usable
+        if (message.setupComplete && !setupComplete) {
+          setupComplete = true;
+          logger.info("Gemini Live setupComplete received");
+          if (pendingGreeting) {
+            sendGreetingInternal();
+          }
+        }
+
         // Extract audio chunks from model turn
         const parts = message.serverContent?.modelTurn?.parts ?? [];
         for (const part of parts) {
@@ -74,14 +89,29 @@ export async function createGeminiLiveSession(
         callbacks.onError(error);
       },
 
-      onclose: (event) => {
-        logger.info({ event }, "Gemini Live session closed");
+      onclose: (event: { code?: number; reason?: string }) => {
+        logger.info(
+          { code: event?.code, reason: event?.reason },
+          "Gemini Live session closed",
+        );
         callbacks.onClose();
       },
     },
   });
 
-  // session is fully resolved here — safe to close over it
+  function sendGreetingInternal() {
+    try {
+      session.sendClientContent({
+        turns: [{ role: "user", parts: [{ text: GREETING_PROMPT }] }],
+        turnComplete: true,
+      });
+      logger.info("Gemini greeting sent");
+    } catch (err) {
+      logger.error({ err }, "Failed to send Gemini greeting");
+    }
+  }
+
+  // session is fully resolved here — safe to call methods on it
   return {
     sendAudio: (base64Data: string) => {
       session.sendRealtimeInput({
@@ -90,10 +120,12 @@ export async function createGeminiLiveSession(
     },
 
     sendGreeting: () => {
-      session.sendClientContent({
-        turns: [{ role: "user", parts: [{ text: GREETING_PROMPT }] }],
-        turnComplete: true,
-      });
+      if (setupComplete) {
+        sendGreetingInternal();
+      } else {
+        // setupComplete hasn't arrived yet — defer until it does
+        pendingGreeting = true;
+      }
     },
 
     close: () => {
