@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "Chamada por Voz com IA"
+version = "1.0.0"
+id = "artifacts/voice-call"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22643
+
+[services.development]
+run = "pnpm --filter @workspace/voice-call run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/voice-call", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/voice-call/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22643"
+BASE_PATH = "/"
