@@ -1,14 +1,16 @@
 import {
   GoogleGenAI,
   Modality,
+  ThinkingLevel,
   StartSensitivity,
   EndSensitivity,
 } from "@google/genai";
 import { logger } from "../lib/logger.js";
 
-// gemini-2.0-flash-live-001 does NOT exist for AI Studio keys.
-// gemini-2.5-flash-native-audio-latest is confirmed working with bidiGenerateContent.
-const MODEL = "gemini-2.5-flash-native-audio-latest";
+// gemini-3.1-flash-live-preview: latest real-time voice model from Google.
+// Optimised for very low latency, full-duplex conversation, and barge-in.
+// Migrated from gemini-2.5-flash-native-audio-latest per official migration guide.
+const MODEL = "gemini-3.1-flash-live-preview";
 
 // Best practice (Google docs): explicitly command the output language with
 // "UNMISTAKABLY" to ensure consistent Portuguese output.
@@ -26,13 +28,16 @@ LANGUAGE:
 RESPOND UNMISTAKABLY IN EUROPEAN PORTUGUESE (Portugal). If the user switches language, follow them.
 
 CONVERSATIONAL RULES:
-- Greet the user once at the start and wait for them to speak.
+- Greet the user warmly once at the start and wait for them to speak.
 - Stay on whatever topic the user wants — this is an open conversation loop.
 - If you don't understand something, ask one short clarifying question.
 - Never say "As an AI..." or disclaim your limitations unprompted.
 `.trim();
 
-const GREETING_TEXT = "Olá! Estou aqui e pronto para conversar. Em que posso ajudar?";
+// In gemini-3.1, sendClientContent is only for seeding initial history.
+// Use sendRealtimeInput({ text }) to send text during an active session.
+const GREETING_TEXT =
+  "Olá! Estou aqui e pronto para conversar. Em que posso ajudar?";
 
 export interface GeminiLiveSession {
   sendAudio: (base64Data: string) => void;
@@ -68,22 +73,22 @@ export async function createGeminiLiveSession(
     config: {
       responseModalities: [Modality.AUDIO],
 
-      // Voice selection — Kore is clear and natural for Portuguese
+      // Voice — Kore is clear and natural for Portuguese
       speechConfig: {
         voiceConfig: {
           prebuiltVoiceConfig: { voiceName: "Kore" },
         },
       },
 
-      // Disable dynamic thinking for lowest latency (real-time conversation)
-      // (gemini-2.5-flash uses thinkingBudget; 0 = disabled)
-      thinkingConfig: { thinkingBudget: 0 },
+      // gemini-3.1 uses thinkingLevel (not thinkingBudget).
+      // MINIMAL is the default and optimises for lowest latency.
+      thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
 
       // Enable transcription of both AI output and user input
       outputAudioTranscription: {},
       inputAudioTranscription: {},
 
-      // VAD tuning: detect speech start quickly, wait a bit before ending turn
+      // VAD tuning: detect speech start quickly, wait before ending turn
       realtimeInputConfig: {
         automaticActivityDetection: {
           startOfSpeechSensitivity: StartSensitivity.START_SENSITIVITY_HIGH,
@@ -120,24 +125,32 @@ export async function createGeminiLiveSession(
         const sc = message.serverContent;
         if (!sc) return;
 
-        // AI audio chunks
+        // gemini-3.1: a SINGLE event may contain multiple parts simultaneously
+        // (e.g. inlineData audio chunk + transcript text in the same parts array).
+        // Iterate ALL parts and handle each type independently.
         const parts = sc.modelTurn?.parts ?? [];
         for (const part of parts) {
           if (part.inlineData?.data) {
+            // Audio chunk
             callbacks.onAudio(part.inlineData.data);
+          }
+          if (part.text) {
+            // Text part within model turn (transcript or inline text response)
+            callbacks.onTranscript(part.text);
           }
         }
 
-        // AI speech transcription (what the AI just said, as text)
-        const outputTranscript = (sc as Record<string, unknown>).outputTranscription as
+        // outputTranscription / inputTranscription are separate serverContent
+        // fields (present in both 2.5 and 3.1, delivered as their own events)
+        const sc2 = sc as Record<string, unknown>;
+        const outputTranscript = sc2.outputTranscription as
           | { text?: string }
           | undefined;
         if (outputTranscript?.text) {
           callbacks.onTranscript(outputTranscript.text);
         }
 
-        // User speech transcription (what the user just said, as text)
-        const inputTranscript = (sc as Record<string, unknown>).inputTranscription as
+        const inputTranscript = sc2.inputTranscription as
           | { text?: string }
           | undefined;
         if (inputTranscript?.text) {
@@ -169,11 +182,10 @@ export async function createGeminiLiveSession(
 
   function sendGreetingInternal() {
     try {
-      session.sendClientContent({
-        turns: [{ role: "user", parts: [{ text: `Please greet the user. Say exactly: "${GREETING_TEXT}"` }] }],
-        turnComplete: true,
-      });
-      logger.info("Gemini greeting sent");
+      // gemini-3.1: use sendRealtimeInput for text sent during an active session.
+      // sendClientContent is reserved for seeding initial history only.
+      session.sendRealtimeInput({ text: GREETING_TEXT });
+      logger.info("Gemini greeting sent via sendRealtimeInput");
     } catch (err) {
       logger.error({ err }, "Failed to send Gemini greeting");
     }

@@ -1,1 +1,1 @@
-- [Gemini Live model names](gemini-live-models.md) — gemini-2.0-flash-live-001 does NOT work; use gemini-2.5-flash-native-audio-latest for bidiGenerateContent.
+- [Gemini Live model names](gemini-live-models.md) — 3.1-flash-live-preview is current; 2.0-flash-live-001 doesn't exist; key 2.5→3.1 migration diffs inside.
