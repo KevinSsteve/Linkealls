@@ -1,0 +1,115 @@
+# MVP - Plataforma de Chamada por Voz com IA (Sem Login)
+
+Quero construir um MVP funcional de uma plataforma de chamadas por voz com IA.
+
+O objetivo NÃO é criar um WhatsApp ou uma plataforma completa.
+
+Quero apenas provar que consigo iniciar uma chamada pela Internet e conversar com uma IA em tempo real.
+
+## Objetivo
+
+Criar uma aplicação web onde o utilizador clique em **"Iniciar Chamada"**, permita acesso ao microfone e converse naturalmente com uma IA.
+
+A IA deve responder por voz em tempo real, simulando uma chamada telefónica.
+
+Não quero chat de texto.
+
+Toda a interação deve ser apenas por voz.
+
+## Tecnologias
+
+Utilize:
+
+* React
+* Vite
+* Node.js
+* Express
+* WebRTC para captura de áudio
+* OpenAI Realtime API (WebSocket) para conversa em tempo real
+
+## Interface
+
+Muito simples.
+
+Uma única página contendo:
+
+* Botão "Iniciar chamada"
+* Botão "Encerrar chamada"
+* Indicador:
+
+  * Desligado
+  * Ligando...
+  * Em chamada
+* Indicador visual quando a IA está a falar
+* Indicador visual quando o utilizador está a falar
+
+Nada mais.
+
+Sem CSS elaborado.
+
+Sem design.
+
+## Fluxo
+
+1. Abrir a aplicação.
+2. Clicar em "Iniciar chamada".
+3. Pedir permissão do microfone.
+4. Abrir ligação à OpenAI Realtime API.
+5. Capturar áudio do microfone.
+6. Enviar áudio continuamente.
+7. Receber resposta em áudio.
+8. Reproduzir imediatamente.
+9. Permitir interrupções naturais (barge-in), como numa conversa humana.
+10. Ao clicar "Encerrar", fechar todas as conexões e libertar o microfone.
+
+## Requisitos
+
+* Conversação totalmente em tempo real.
+* Latência mínima.
+* Voz natural.
+* Suporte para falar por cima da IA e ela adaptar-se.
+* Reconexão automática em caso de falha.
+
+## Estrutura do projeto
+
+/frontend
+
+/backend
+
+/server
+
+/components
+
+/hooks
+
+/services
+
+## Código
+
+Escreva código limpo.
+
+Separe responsabilidades.
+
+Não coloque toda a lógica num único ficheiro.
+
+Comente apenas onde necessário.
+
+## Não implementar
+
+* Login
+* Base de dados
+* Utilizadores
+* Contactos
+* Histórico
+* Mensagens
+* Design
+* Notificações
+* Autenticação
+* Grupos
+* Chamadas entre pessoas
+
+## Resultado esperado
+
+Ao abrir o navegador, devo conseguir clicar em "Iniciar chamada" e conversar com uma IA exatamente como numa chamada de voz pela Internet, com áudio bidirecional em tempo real.
+
+O projeto deve ficar pronto para, no futuro, adicionar contactos, contas, chamadas entre utilizadores e agentes de IA.
