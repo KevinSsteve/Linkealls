@@ -1,14 +1,20 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Modality } from "@google/genai";
 import { logger } from "../lib/logger.js";
 
 const MODEL = "models/gemini-2.0-flash-live-001";
 
+const GREETING_PROMPT =
+  "Greet the user warmly and tell them you're ready to chat. " +
+  "Keep it short and friendly — one or two sentences. Respond in the same language as this instruction — use Portuguese if unsure.";
+
 const SYSTEM_PROMPT =
-  "You are a helpful AI assistant. Speak naturally and concisely as if in a real-time phone conversation. " +
-  "Keep your responses brief and conversational. Respond in the same language the user speaks.";
+  "You are a helpful AI assistant in a real-time voice call. " +
+  "Be concise and conversational, as if on a phone call. " +
+  "Respond in the same language the user speaks.";
 
 export interface GeminiLiveSession {
   sendAudio: (base64Data: string) => void;
+  sendGreeting: () => void;
   close: () => void;
 }
 
@@ -33,22 +39,21 @@ export async function createGeminiLiveSession(
   const session = await ai.live.connect({
     model: MODEL,
     config: {
-      responseModalities: ["AUDIO"],
+      responseModalities: [Modality.AUDIO],
       speechConfig: {
         voiceConfig: {
           prebuiltVoiceConfig: { voiceName: "Aoede" },
         },
       },
-      systemInstruction: {
-        parts: [{ text: SYSTEM_PROMPT }],
-      },
+      systemInstruction: SYSTEM_PROMPT,
     },
     callbacks: {
       onopen: () => {
         logger.info("Gemini Live session opened");
       },
+
       onmessage: (message) => {
-        // Handle audio parts from model turn
+        // Extract audio chunks from model turn
         const parts = message.serverContent?.modelTurn?.parts ?? [];
         for (const part of parts) {
           if (part.inlineData?.data) {
@@ -56,7 +61,6 @@ export async function createGeminiLiveSession(
           }
         }
 
-        // Handle turn state
         if (message.serverContent?.turnComplete) {
           callbacks.onTurnComplete();
         }
@@ -64,10 +68,12 @@ export async function createGeminiLiveSession(
           callbacks.onInterrupted();
         }
       },
+
       onerror: (error) => {
         logger.error({ error }, "Gemini Live error");
         callbacks.onError(error);
       },
+
       onclose: (event) => {
         logger.info({ event }, "Gemini Live session closed");
         callbacks.onClose();
@@ -75,21 +81,26 @@ export async function createGeminiLiveSession(
     },
   });
 
+  // session is fully resolved here — safe to close over it
   return {
     sendAudio: (base64Data: string) => {
-      session.send({
-        realtimeInput: {
-          mediaChunks: [
-            { mimeType: "audio/pcm;rate=16000", data: base64Data },
-          ],
-        },
+      session.sendRealtimeInput({
+        audio: { data: base64Data, mimeType: "audio/pcm;rate=16000" },
       });
     },
+
+    sendGreeting: () => {
+      session.sendClientContent({
+        turns: [{ role: "user", parts: [{ text: GREETING_PROMPT }] }],
+        turnComplete: true,
+      });
+    },
+
     close: () => {
       try {
         session.close();
       } catch {
-        // Ignore close errors
+        // ignore
       }
     },
   };

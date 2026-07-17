@@ -38,6 +38,8 @@ export function setupVoiceWebSocket(server: Server): void {
         geminiSession = session;
         sendToClient({ type: "ready" });
         logger.info("Gemini Live session ready for client");
+        // Trigger AI greeting — session is fully resolved here
+        session.sendGreeting();
       })
       .catch((err) => {
         logger.error({ err }, "Failed to create Gemini session");
