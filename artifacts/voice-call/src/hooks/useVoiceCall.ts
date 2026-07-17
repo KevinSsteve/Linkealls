@@ -9,6 +9,8 @@ export interface VoiceCallState {
   callState: CallState;
   isAiSpeaking: boolean;
   isUserSpeaking: boolean;
+  aiTranscript: string;
+  userTranscript: string;
   errorMessage: string | null;
   startCall: () => void;
   endCall: () => void;
@@ -20,6 +22,8 @@ export function useVoiceCall(): VoiceCallState {
   const [callState, setCallState] = useState<CallState>("idle");
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
   const [isUserSpeaking, setIsUserSpeaking] = useState(false);
+  const [aiTranscript, setAiTranscript] = useState("");
+  const [userTranscript, setUserTranscript] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const serviceRef = useRef<CallService | null>(null);
@@ -44,6 +48,8 @@ export function useVoiceCall(): VoiceCallState {
     serviceRef.current = null;
     setIsAiSpeaking(false);
     setIsUserSpeaking(false);
+    setAiTranscript("");
+    setUserTranscript("");
   }, []);
 
   const startCall = useCallback(() => {
@@ -53,13 +59,14 @@ export function useVoiceCall(): VoiceCallState {
 
     setCallState("connecting");
     setErrorMessage(null);
+    setAiTranscript("");
+    setUserTranscript("");
 
     const player = new AudioPlayer();
     playerRef.current = player;
 
     const service = new CallService({
       onReady: () => {
-        // Start capturing audio from the microphone
         startAudioCapture((base64) => {
           service.sendAudio(base64);
         })
@@ -92,8 +99,17 @@ export function useVoiceCall(): VoiceCallState {
       },
 
       onInterrupted: () => {
+        // Immediately discard buffered audio so AI stops talking (barge-in)
         player.interrupt();
         setIsAiSpeaking(false);
+      },
+
+      onTranscript: (text) => {
+        setAiTranscript(text);
+      },
+
+      onUserTranscript: (text) => {
+        setUserTranscript(text);
       },
 
       onError: (message) => {
@@ -128,6 +144,8 @@ export function useVoiceCall(): VoiceCallState {
     callState,
     isAiSpeaking,
     isUserSpeaking,
+    aiTranscript,
+    userTranscript,
     errorMessage,
     startCall,
     endCall,

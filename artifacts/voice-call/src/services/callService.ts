@@ -3,6 +3,8 @@ export type ServerMessage =
   | { type: "audio"; data: string }
   | { type: "turn_complete" }
   | { type: "interrupted" }
+  | { type: "transcript"; text: string }
+  | { type: "user_transcript"; text: string }
   | { type: "closed" }
   | { type: "error"; message: string };
 
@@ -11,6 +13,8 @@ export interface CallServiceCallbacks {
   onAudio: (base64: string) => void;
   onTurnComplete: () => void;
   onInterrupted: () => void;
+  onTranscript?: (text: string) => void;
+  onUserTranscript?: (text: string) => void;
   onError: (message: string) => void;
   onClose: () => void;
 }
@@ -45,6 +49,12 @@ export class CallService {
             break;
           case "interrupted":
             this.callbacks.onInterrupted();
+            break;
+          case "transcript":
+            this.callbacks.onTranscript?.(msg.text);
+            break;
+          case "user_transcript":
+            this.callbacks.onUserTranscript?.(msg.text);
             break;
           case "error":
             this.callbacks.onError(msg.message);

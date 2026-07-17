@@ -1,5 +1,6 @@
 const TARGET_SAMPLE_RATE = 16000;
-const CHUNK_DURATION_MS = 80; // Send 80ms chunks for low latency
+// Docs recommend 20–40 ms chunks for lowest latency
+const CHUNK_DURATION_MS = 30;
 
 /** Linear-interpolation downsample from source rate to 16 kHz. */
 function downsample(
@@ -50,7 +51,7 @@ export interface AudioCapture {
 
 /**
  * Starts capturing microphone audio, downsamples to 16 kHz, and delivers
- * base64-encoded Int16 PCM chunks to `onChunk` every ~80 ms.
+ * base64-encoded Int16 PCM chunks to `onChunk` every ~30 ms.
  */
 export async function startAudioCapture(
   onChunk: (base64: string) => void,
@@ -60,6 +61,7 @@ export async function startAudioCapture(
       echoCancellation: true,
       noiseSuppression: true,
       autoGainControl: true,
+      sampleRate: TARGET_SAMPLE_RATE,
     },
   });
 

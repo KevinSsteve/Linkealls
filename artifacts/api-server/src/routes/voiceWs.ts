@@ -1,30 +1,52 @@
-import { WebSocketServer, type WebSocket } from "ws";
+import { WebSocketServer, WebSocket } from "ws";
+import type { IncomingMessage } from "http";
 import type { Server } from "http";
 import { createGeminiLiveSession } from "../services/geminiLive.js";
 import { logger } from "../lib/logger.js";
 
+type ServerMessage =
+  | { type: "ready" }
+  | { type: "audio"; data: string }
+  | { type: "turn_complete" }
+  | { type: "interrupted" }
+  | { type: "transcript"; text: string }
+  | { type: "user_transcript"; text: string }
+  | { type: "closed" }
+  | { type: "error"; message: string };
+
 export function setupVoiceWebSocket(server: Server): void {
   const wss = new WebSocketServer({ server, path: "/api/voice-ws" });
 
-  wss.on("connection", (ws: WebSocket) => {
+  wss.on("connection", (ws: WebSocket, _req: IncomingMessage) => {
     logger.info("Voice WebSocket client connected");
-    let geminiSession: { sendAudio: (b64: string) => void; close: () => void } | null = null;
+
+    let geminiSession: Awaited<ReturnType<typeof createGeminiLiveSession>> | null = null;
     let closed = false;
 
-    const sendToClient = (payload: unknown) => {
-      if (!closed && ws.readyState === ws.OPEN) {
-        ws.send(JSON.stringify(payload));
+    function sendToClient(msg: ServerMessage) {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(msg));
       }
-    };
+    }
 
-    // Initialise Gemini Live session
     createGeminiLiveSession({
-      onAudio: (base64) => sendToClient({ type: "audio", data: base64 }),
-      onTurnComplete: () => sendToClient({ type: "turn_complete" }),
-      onInterrupted: () => sendToClient({ type: "interrupted" }),
-      onError: (err) => {
-        logger.error({ err }, "Gemini session error");
-        sendToClient({ type: "error", message: "AI service error" });
+      onAudio: (base64) => {
+        if (!closed) sendToClient({ type: "audio", data: base64 });
+      },
+      onTurnComplete: () => {
+        if (!closed) sendToClient({ type: "turn_complete" });
+      },
+      onInterrupted: () => {
+        if (!closed) sendToClient({ type: "interrupted" });
+      },
+      onTranscript: (text) => {
+        if (!closed) sendToClient({ type: "transcript", text });
+      },
+      onInputTranscript: (text) => {
+        if (!closed) sendToClient({ type: "user_transcript", text });
+      },
+      onError: () => {
+        if (!closed) sendToClient({ type: "error", message: "AI service error" });
       },
       onClose: () => {
         if (!closed) sendToClient({ type: "closed" });
@@ -38,7 +60,6 @@ export function setupVoiceWebSocket(server: Server): void {
         geminiSession = session;
         sendToClient({ type: "ready" });
         logger.info("Gemini Live session ready for client");
-        // Trigger AI greeting — session is fully resolved here
         session.sendGreeting();
       })
       .catch((err) => {
@@ -47,7 +68,6 @@ export function setupVoiceWebSocket(server: Server): void {
         ws.close();
       });
 
-    // Receive audio from browser and forward to Gemini
     ws.on("message", (data) => {
       try {
         const msg = JSON.parse(data.toString()) as { type: string; data?: string };
