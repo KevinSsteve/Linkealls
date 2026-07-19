@@ -54,12 +54,12 @@ export class AudioPlayer {
       try { source.stop(); } catch { /* already stopped */ }
     }
     this.activeSources = [];
-    this.nextPlayAt = this.ctx.currentTime;
+    if (this.ctx.state !== "closed") this.nextPlayAt = this.ctx.currentTime;
     this.isPlaying = false;
   }
 
   destroy(): void {
     this.interrupt();
-    void this.ctx.close();
+    if (this.ctx.state !== "closed") void this.ctx.close();
   }
 }

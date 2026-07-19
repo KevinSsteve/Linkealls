@@ -44,9 +44,11 @@ export async function startAudioCapture(onChunk: (base64: string) => void): Prom
   });
 
   const audioContext = new AudioContext();
-  const source = audioContext.createMediaStreamSource(stream);
-  const processorUrl = new URL("/audio-processor.js", window.location.origin).href;
+  // BASE_URL = "/ai-call-funnel/" (set by Vite from vite.config.ts `base`)
+  // Must use base-relative path so the proxy routes correctly in Replit
+  const processorUrl = import.meta.env.BASE_URL + "audio-processor.js";
   await audioContext.audioWorklet.addModule(processorUrl);
+  const source = audioContext.createMediaStreamSource(stream);
   const workletNode = new AudioWorkletNode(audioContext, "pcm-processor");
 
   let accumSamples: Float32Array[] = [];
@@ -79,10 +81,10 @@ export async function startAudioCapture(onChunk: (base64: string) => void): Prom
   return {
     getVolume: () => currentVolume,
     stop: () => {
-      workletNode.disconnect();
-      source.disconnect();
+      try { workletNode.disconnect(); } catch { /* already disconnected */ }
+      try { source.disconnect(); } catch { /* already disconnected */ }
       stream.getTracks().forEach((t) => t.stop());
-      void audioContext.close();
+      if (audioContext.state !== "closed") void audioContext.close();
     },
   };
 }

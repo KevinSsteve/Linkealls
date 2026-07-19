@@ -2,22 +2,15 @@ import { Chat } from "@/pages/Chat";
 
 export default function App() {
   return (
+    // Full-bleed on every screen size — no centering card, no maxWidth
     <div
-      className="flex items-center justify-center w-full bg-[#040810]"
-      style={{ minHeight: "100dvh" }}
+      className="w-full bg-[#080E18] flex flex-col overflow-hidden"
+      style={{
+        height: "100dvh",
+        paddingBottom: "env(safe-area-inset-bottom)",
+      }}
     >
-      {/* Center card on desktop; full screen on mobile */}
-      <div
-        className="relative w-full bg-[#080E18] flex flex-col overflow-hidden"
-        style={{
-          maxWidth: "430px",
-          height: "100dvh",
-          /* Push up to avoid iOS home bar */
-          paddingBottom: "env(safe-area-inset-bottom)",
-        }}
-      >
-        <Chat />
-      </div>
+      <Chat />
     </div>
   );
 }
