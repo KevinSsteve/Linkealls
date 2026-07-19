@@ -14,10 +14,20 @@ function int16ToFloat32(data: Int16Array): Float32Array {
   return out;
 }
 
+function safeClose(ctx: AudioContext): void {
+  // ctx.close() throws synchronously if already closed; always wrap.
+  try {
+    if (ctx.state !== "closed") ctx.close().catch(() => {});
+  } catch {
+    /* ignore */
+  }
+}
+
 export class AudioPlayer {
   private ctx: AudioContext;
   private nextPlayAt = 0;
   private activeSources: AudioBufferSourceNode[] = [];
+  private destroyed = false;
   isPlaying = false;
 
   constructor() {
@@ -25,28 +35,38 @@ export class AudioPlayer {
   }
 
   enqueue(base64: string): void {
-    const int16 = base64ToInt16(base64);
-    if (int16.length === 0) return;
+    if (this.destroyed || this.ctx.state === "closed") return;
+    try {
+      // Mobile browsers suspend AudioContext until user interaction; resume if needed.
+      if (this.ctx.state === "suspended") {
+        this.ctx.resume().catch(() => {});
+      }
 
-    const float32 = int16ToFloat32(int16);
-    const buffer = this.ctx.createBuffer(1, float32.length, PLAYBACK_SAMPLE_RATE);
-    buffer.getChannelData(0).set(float32);
+      const int16 = base64ToInt16(base64);
+      if (int16.length === 0) return;
 
-    const source = this.ctx.createBufferSource();
-    source.buffer = buffer;
-    source.connect(this.ctx.destination);
+      const float32 = int16ToFloat32(int16);
+      const buffer = this.ctx.createBuffer(1, float32.length, PLAYBACK_SAMPLE_RATE);
+      buffer.getChannelData(0).set(float32);
 
-    const now = this.ctx.currentTime;
-    const startAt = Math.max(now, this.nextPlayAt);
-    source.start(startAt);
-    this.nextPlayAt = startAt + buffer.duration;
-    this.isPlaying = true;
+      const source = this.ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(this.ctx.destination);
 
-    this.activeSources.push(source);
-    source.onended = () => {
-      this.activeSources = this.activeSources.filter((s) => s !== source);
-      if (this.activeSources.length === 0) this.isPlaying = false;
-    };
+      const now = this.ctx.currentTime;
+      const startAt = Math.max(now, this.nextPlayAt);
+      source.start(startAt);
+      this.nextPlayAt = startAt + buffer.duration;
+      this.isPlaying = true;
+
+      this.activeSources.push(source);
+      source.onended = () => {
+        this.activeSources = this.activeSources.filter((s) => s !== source);
+        if (this.activeSources.length === 0) this.isPlaying = false;
+      };
+    } catch {
+      /* ignore if context becomes invalid mid-playback */
+    }
   }
 
   interrupt(): void {
@@ -54,12 +74,16 @@ export class AudioPlayer {
       try { source.stop(); } catch { /* already stopped */ }
     }
     this.activeSources = [];
-    if (this.ctx.state !== "closed") this.nextPlayAt = this.ctx.currentTime;
+    try {
+      if (this.ctx.state !== "closed") this.nextPlayAt = this.ctx.currentTime;
+    } catch { /* ignore */ }
     this.isPlaying = false;
   }
 
   destroy(): void {
+    if (this.destroyed) return;
+    this.destroyed = true;
     this.interrupt();
-    if (this.ctx.state !== "closed") void this.ctx.close();
+    safeClose(this.ctx);
   }
 }

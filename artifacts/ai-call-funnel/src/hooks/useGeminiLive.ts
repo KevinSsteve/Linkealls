@@ -11,16 +11,6 @@ export interface TranscriptMessage {
   timestamp: Date;
 }
 
-type ServerMessage =
-  | { type: "ready" }
-  | { type: "audio"; data: string }
-  | { type: "turn_complete" }
-  | { type: "interrupted" }
-  | { type: "transcript"; text: string }
-  | { type: "user_transcript"; text: string }
-  | { type: "closed" }
-  | { type: "error"; message: string };
-
 export interface GeminiLiveState {
   callState: CallState;
   isAiSpeaking: boolean;
@@ -40,6 +30,7 @@ export function useGeminiLive(): GeminiLiveState {
   const [transcripts, setTranscripts] = useState<TranscriptMessage[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Use a ref for WebSocket so audio callbacks always see the live instance
   const wsRef = useRef<WebSocket | null>(null);
   const playerRef = useRef<AudioPlayer | null>(null);
   const captureRef = useRef<AudioCapture | null>(null);
@@ -47,7 +38,7 @@ export function useGeminiLive(): GeminiLiveState {
   const callStateRef = useRef<CallState>("idle");
   callStateRef.current = callState;
 
-  // Accumulate partial transcripts within a turn
+  // Partial transcript buffers — flushed on turn_complete / interrupted
   const aiPartialRef = useRef("");
   const userPartialRef = useRef("");
 
@@ -60,10 +51,16 @@ export function useGeminiLive(): GeminiLiveState {
   }, []);
 
   const cleanup = useCallback(() => {
-    if (vadTimerRef.current) { clearInterval(vadTimerRef.current); vadTimerRef.current = null; }
-    captureRef.current?.stop(); captureRef.current = null;
-    playerRef.current?.destroy(); playerRef.current = null;
-    wsRef.current?.close(); wsRef.current = null;
+    if (vadTimerRef.current) {
+      clearInterval(vadTimerRef.current);
+      vadTimerRef.current = null;
+    }
+    captureRef.current?.stop();
+    captureRef.current = null;
+    playerRef.current?.destroy();
+    playerRef.current = null;
+    wsRef.current?.close();
+    wsRef.current = null;
     setIsAiSpeaking(false);
     setIsUserSpeaking(false);
     aiPartialRef.current = "";
@@ -79,6 +76,7 @@ export function useGeminiLive(): GeminiLiveState {
     aiPartialRef.current = "";
     userPartialRef.current = "";
 
+    // Create player synchronously (AudioContext created within the user gesture chain)
     const player = new AudioPlayer();
     playerRef.current = player;
 
@@ -87,12 +85,23 @@ export function useGeminiLive(): GeminiLiveState {
     wsRef.current = ws;
 
     ws.onmessage = (event: MessageEvent<string>) => {
+      // Guard: if we already cleaned up, ignore late messages
+      if (wsRef.current !== ws) return;
+
       try {
-        const msg = JSON.parse(event.data) as ServerMessage;
+        const msg = JSON.parse(event.data) as
+          | { type: "ready" }
+          | { type: "audio"; data: string }
+          | { type: "turn_complete" }
+          | { type: "interrupted" }
+          | { type: "transcript"; text: string }
+          | { type: "user_transcript"; text: string }
+          | { type: "closed" }
+          | { type: "error"; message: string };
 
         switch (msg.type) {
           case "ready":
-            // Mic capture starts after "ready" — this is when we open the mic
+            // Start mic capture after the server confirms the AI session is ready
             startAudioCapture((base64) => {
               if (wsRef.current?.readyState === WebSocket.OPEN) {
                 wsRef.current.send(JSON.stringify({ type: "audio", data: base64 }));
@@ -106,20 +115,22 @@ export function useGeminiLive(): GeminiLiveState {
                 setCallState("active");
               })
               .catch(() => {
-                setErrorMessage("Acesso ao microfone negado.");
+                setErrorMessage("Acesso ao microfone negado. Permite o acesso e tenta de novo.");
                 setCallState("error");
                 cleanup();
               });
             break;
 
           case "audio":
-            player.enqueue(msg.data);
-            setIsAiSpeaking(true);
+            // Guard: only enqueue if player is still alive
+            if (playerRef.current === player) {
+              player.enqueue(msg.data);
+              setIsAiSpeaking(true);
+            }
             break;
 
           case "turn_complete":
             setIsAiSpeaking(false);
-            // Flush accumulated AI transcript for this turn
             if (aiPartialRef.current.trim()) {
               addTranscript("ai", aiPartialRef.current);
               aiPartialRef.current = "";
@@ -131,9 +142,8 @@ export function useGeminiLive(): GeminiLiveState {
             break;
 
           case "interrupted":
-            player.interrupt();
+            if (playerRef.current === player) player.interrupt();
             setIsAiSpeaking(false);
-            // Flush any partial before interruption
             if (aiPartialRef.current.trim()) {
               addTranscript("ai", aiPartialRef.current);
               aiPartialRef.current = "";
@@ -141,12 +151,10 @@ export function useGeminiLive(): GeminiLiveState {
             break;
 
           case "transcript":
-            // Accumulate AI transcript within a turn
             aiPartialRef.current += (aiPartialRef.current ? " " : "") + msg.text;
             break;
 
           case "user_transcript":
-            // Accumulate user transcript within a turn
             userPartialRef.current += (userPartialRef.current ? " " : "") + msg.text;
             break;
 
@@ -163,7 +171,9 @@ export function useGeminiLive(): GeminiLiveState {
             }
             break;
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore malformed messages */
+      }
     };
 
     ws.onerror = () => {
@@ -173,7 +183,11 @@ export function useGeminiLive(): GeminiLiveState {
     };
 
     ws.onclose = () => {
-      if (callStateRef.current !== "idle" && callStateRef.current !== "ended") {
+      if (
+        callStateRef.current !== "idle" &&
+        callStateRef.current !== "ended" &&
+        wsRef.current === ws
+      ) {
         cleanup();
       }
     };
@@ -184,6 +198,7 @@ export function useGeminiLive(): GeminiLiveState {
     setCallState("ended");
   }, [cleanup]);
 
+  // Clean up on unmount
   useEffect(() => () => cleanup(), [cleanup]);
 
   return { callState, isAiSpeaking, isUserSpeaking, transcripts, errorMessage, connect, disconnect };

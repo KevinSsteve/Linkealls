@@ -33,21 +33,42 @@ function int16ToBase64(data: Int16Array): string {
   return btoa(binary);
 }
 
+function safeClose(ctx: AudioContext): void {
+  try {
+    if (ctx.state !== "closed") ctx.close().catch(() => {});
+  } catch {
+    /* ignore */
+  }
+}
+
 export interface AudioCapture {
   getVolume: () => number;
   stop: () => void;
 }
 
-export async function startAudioCapture(onChunk: (base64: string) => void): Promise<AudioCapture> {
+export async function startAudioCapture(
+  onChunk: (base64: string) => void,
+): Promise<AudioCapture> {
   const stream = await navigator.mediaDevices.getUserMedia({
-    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+    audio: {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true,
+    },
   });
 
   const audioContext = new AudioContext();
-  // BASE_URL = "/ai-call-funnel/" (set by Vite from vite.config.ts `base`)
-  // Must use base-relative path so the proxy routes correctly in Replit
+
+  // Resume if suspended — required on mobile after user gesture
+  if (audioContext.state === "suspended") {
+    await audioContext.resume().catch(() => {});
+  }
+
+  // BASE_URL = "/ai-call-funnel/" (from vite.config.ts `base: basePath`)
+  // Vite serves public/ relative to base, so public/audio-processor.js → /ai-call-funnel/audio-processor.js
   const processorUrl = import.meta.env.BASE_URL + "audio-processor.js";
   await audioContext.audioWorklet.addModule(processorUrl);
+
   const source = audioContext.createMediaStreamSource(stream);
   const workletNode = new AudioWorkletNode(audioContext, "pcm-processor");
 
@@ -78,13 +99,16 @@ export async function startAudioCapture(onChunk: (base64: string) => void): Prom
 
   source.connect(workletNode);
 
+  let stopped = false;
   return {
     getVolume: () => currentVolume,
     stop: () => {
-      try { workletNode.disconnect(); } catch { /* already disconnected */ }
-      try { source.disconnect(); } catch { /* already disconnected */ }
+      if (stopped) return;   // idempotent
+      stopped = true;
+      try { workletNode.disconnect(); } catch { /* ignore */ }
+      try { source.disconnect(); } catch { /* ignore */ }
       stream.getTracks().forEach((t) => t.stop());
-      if (audioContext.state !== "closed") void audioContext.close();
+      safeClose(audioContext);
     },
   };
 }
