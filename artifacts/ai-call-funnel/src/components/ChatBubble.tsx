@@ -7,10 +7,18 @@ interface ChatBubbleProps {
 }
 
 export function ChatBubble({ role, text, isTyping }: ChatBubbleProps) {
+  /* ── System (centre pill) ── */
   if (role === "system") {
     return (
-      <div className="flex justify-center my-2 message-enter">
-        <span className="bg-[#FFF3CD] text-[#856404] text-xs px-3 py-1 rounded-full shadow-sm">
+      <div className="flex justify-center my-3 message-enter">
+        <span
+          className="text-[11px] px-3 py-1 rounded-full"
+          style={{
+            background: "rgba(255,200,80,0.1)",
+            color: "#A07C30",
+            border: "1px solid rgba(255,200,80,0.15)",
+          }}
+        >
           {text}
         </span>
       </div>
@@ -19,41 +27,64 @@ export function ChatBubble({ role, text, isTyping }: ChatBubbleProps) {
 
   const isUser = role === "user";
 
+  const bubbleBg = isUser
+    ? "linear-gradient(135deg, #1C5140 0%, #12362A 100%)"
+    : "linear-gradient(135deg, #172438 0%, #10192C 100%)";
+
+  const textColor = isUser ? "#C8F5E2" : "#C8DCF0";
+  const tailColor = isUser ? "#12362A" : "#10192C";
+
   return (
-    <div className={`flex message-enter ${isUser ? "justify-end" : "justify-start"} mb-1`}>
+    <div className={`flex message-enter mb-1 ${isUser ? "justify-end" : "justify-start"}`}>
       <div
-        className={`relative max-w-[78%] px-3 py-2 shadow-sm ${
-          isUser
-            ? "bg-[#DCF8C6] rounded-[16px_4px_16px_16px]"
-            : "bg-white rounded-[4px_16px_16px_16px]"
-        }`}
-        style={{ wordBreak: "break-word" }}
+        className="relative max-w-[78%] px-3.5 py-2.5 shadow-lg"
+        style={{
+          background: bubbleBg,
+          borderRadius: isUser ? "16px 4px 16px 16px" : "4px 16px 16px 16px",
+          border: isUser
+            ? "1px solid rgba(0,200,150,0.12)"
+            : "1px solid rgba(100,150,220,0.08)",
+          wordBreak: "break-word",
+        }}
       >
         {isTyping ? (
-          <div className="flex items-center gap-1 px-1 py-0.5 h-5">
-            <span className="typing-dot w-2 h-2 rounded-full bg-gray-400 inline-block" />
-            <span className="typing-dot w-2 h-2 rounded-full bg-gray-400 inline-block" />
-            <span className="typing-dot w-2 h-2 rounded-full bg-gray-400 inline-block" />
+          <div className="flex items-center gap-[5px] px-1 py-1">
+            <span
+              className="typing-dot w-2 h-2 rounded-full inline-block"
+              style={{ background: "#00C896" }}
+            />
+            <span
+              className="typing-dot w-2 h-2 rounded-full inline-block"
+              style={{ background: "#00C896" }}
+            />
+            <span
+              className="typing-dot w-2 h-2 rounded-full inline-block"
+              style={{ background: "#00C896" }}
+            />
           </div>
         ) : (
-          <p className="text-[14.5px] text-[#111B21] leading-[1.45]">{text}</p>
+          <p
+            className="text-[14.5px] leading-[1.5]"
+            style={{ color: textColor }}
+          >
+            {text}
+          </p>
         )}
-        {/* Tail pointer */}
+
+        {/* Tail */}
         {isUser ? (
           <svg
             className="absolute -right-[6px] bottom-0"
-            width="8" height="13" viewBox="0 0 8 13"
-            fill="none" xmlns="http://www.w3.org/2000/svg"
+            width="8" height="12" viewBox="0 0 8 12" fill="none"
           >
-            <path d="M7 0C7 0 0 6 0 13C3 13 7 10 7 10L7 0Z" fill="#DCF8C6" />
+            <path d="M7 0C7 0 0 5 0 12C3 12 7 9.5 7 9.5L7 0Z" fill={tailColor} />
           </svg>
         ) : (
           <svg
             className="absolute -left-[6px] bottom-0"
-            width="8" height="13" viewBox="0 0 8 13"
-            fill="none" xmlns="http://www.w3.org/2000/svg"
+            width="8" height="12" viewBox="0 0 8 12" fill="none"
           >
-            <path d="M1 0C1 0 8 6 8 13C5 13 1 10 1 10L1 0Z" fill="white" />
+            <path d="M1 0C1 0 8 5 8 12C5 12 1 9.5 1 9.5L1 0Z" fill={tailColor} />
           </svg>
         )}
       </div>
