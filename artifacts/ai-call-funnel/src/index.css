@@ -1,0 +1,83 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@theme inline {
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+
+  /* Chat palette */
+  --color-chat-bg: #EAE6DF;
+  --color-header-bg: #1F2C34;
+  --color-header-text: #FFFFFF;
+  --color-bubble-user: #DCF8C6;
+  --color-bubble-bot: #FFFFFF;
+  --color-bubble-user-text: #111B21;
+  --color-bubble-bot-text: #111B21;
+  --color-input-bg: #FFFFFF;
+  --color-send-btn: #00A884;
+  --color-online: #00A884;
+  --color-call-accept: #00A884;
+  --color-call-reject: #FF2D55;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Subtle chat background pattern */
+.chat-bg {
+  background-color: #EAE6DF;
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23c8bdb0' fill-opacity='0.18'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+
+/* Message entrance animation */
+@keyframes slideInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.message-enter {
+  animation: slideInUp 0.2s ease-out both;
+}
+
+/* Pulse ring for call modal */
+@keyframes pulseRing {
+  0%   { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+
+.pulse-ring {
+  animation: pulseRing 1.5s ease-out infinite;
+}
+
+/* Typing dots */
+@keyframes dot {
+  0%, 80%, 100% { transform: scale(0.8); opacity: 0.4; }
+  40%           { transform: scale(1.2); opacity: 1; }
+}
+
+.typing-dot:nth-child(1) { animation: dot 1.2s ease-in-out infinite 0ms; }
+.typing-dot:nth-child(2) { animation: dot 1.2s ease-in-out infinite 200ms; }
+.typing-dot:nth-child(3) { animation: dot 1.2s ease-in-out infinite 400ms; }
+
+/* Call screen slide up */
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+.slide-up {
+  animation: slideUp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 0; }

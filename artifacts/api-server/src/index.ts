@@ -1,6 +1,7 @@
 import http from "http";
 import app from "./app.js";
 import { setupVoiceWebSocket } from "./routes/voiceWs.js";
+import { setupCallFunnelWebSocket } from "./routes/callFunnelWs.js";
 import { logger } from "./lib/logger.js";
 
 const rawPort = process.env["PORT"];
@@ -20,6 +21,7 @@ if (Number.isNaN(port) || port <= 0) {
 const server = http.createServer(app);
 
 setupVoiceWebSocket(server);
+setupCallFunnelWebSocket(server);
 
 server.on("error", (err) => {
   logger.error({ err }, "Server error");

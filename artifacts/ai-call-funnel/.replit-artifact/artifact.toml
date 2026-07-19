@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/ai-call-funnel/"
+title = "AI Call Funnel"
+version = "1.0.0"
+id = "artifacts/ai-call-funnel"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/ai-call-funnel/" ]
+localPort = 18518
+
+[services.development]
+run = "pnpm --filter @workspace/ai-call-funnel run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/ai-call-funnel", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/ai-call-funnel/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18518"
+BASE_PATH = "/ai-call-funnel/"

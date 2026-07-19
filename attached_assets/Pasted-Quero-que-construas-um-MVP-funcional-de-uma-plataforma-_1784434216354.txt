@@ -1,0 +1,154 @@
+Quero que construas um MVP funcional de uma plataforma chamada AI Call Funnel.
+
+A plataforma é um qualificador geral de leads que recebem tráfego de anúncios (Instagram, Facebook, TikTok e Google).
+
+O utilizador clica num anúncio e cai numa página web mobile-first que se parece com o WhatsApp, mas com um design mais moderno, premium e otimizado para conversão.
+
+OBJETIVO DO MVP
+
+Criar uma experiência onde:
+
+1. O utilizador entra na página.
+2. A caixa de texto já vem pré-preenchida com a mensagem do anúncio.
+3. A mensagem NÃO aparece na conversa até o utilizador tocar em “Enviar”.
+4. Após o envio, o bot responde automaticamente.
+5. Depois de 1 segundo, a plataforma mostra uma chamada recebida.
+6. O utilizador toca em “Atender”.
+7. Inicia uma conversa de voz em tempo real com Gemini Live.
+8. A conversa é transcrita na tela.
+
+STACK OBRIGATÓRIA
+
+* Next.js 15 (App Router)
+* TypeScript
+* Tailwind CSS
+* WebRTC
+* Gemini Live API
+* Sem login
+* Sem base de dados
+* Apenas um MVP funcional
+
+FLUXO EXATO
+
+A página deve aceitar um parâmetro de mensagem na URL, por exemplo:
+
+/chat?message=Quero+saber+mais+sobre+isso
+
+COMPORTAMENTO DA INTERFACE
+
+Quando a página abrir:
+
+* Mostrar uma interface estilo WhatsApp.
+* A conversa deve estar vazia.
+* A caixa de texto na parte inferior deve vir pré-preenchida com:
+  “Quero saber mais sobre isso”
+* O botão de enviar deve estar ativo.
+
+IMPORTANTE:
+A mensagem NÃO deve aparecer na conversa automaticamente.
+
+Quando o utilizador tocar em “Enviar”:
+
+1. A mensagem aparece na conversa como mensagem do utilizador.
+2. O campo de texto fica vazio.
+3. O bot responde automaticamente com:
+   “Olá 👋 Obrigado pelo teu interesse. Vou ligar agora para te ajudar e perceber exatamente o que procuras.”
+
+Após 1 segundo da resposta do bot:
+
+* Abrir um modal fullscreen de chamada recebida.
+* Tocar um som de ringtone.
+* Mostrar:
+
+  * Nome: “Assistente IA”
+  * Estado: “A ligar…”
+  * Botão verde “Atender”
+  * Botão vermelho “Recusar”
+
+Quando o utilizador clicar em “Atender”:
+
+* Solicitar permissão do microfone.
+* Conectar ao Gemini Live via WebRTC.
+* Iniciar conversa de voz bidirecional em tempo real.
+* Mostrar transcrição da conversa em bolhas de chat.
+
+PROMPT DO AGENTE DE IA
+
+Usa este prompt de sistema:
+
+“Você é um assistente virtual especializado em qualificação de leads. O utilizador acabou de clicar num anúncio e atendeu uma chamada. Fale em português de Angola, de forma natural, breve, profissional e acolhedora. O objetivo é descobrir o que a pessoa procura, qual é o orçamento aproximado, o prazo de decisão e a melhor forma de contacto. Faça uma pergunta de cada vez, mantenha a conversa fluida e aja como um consultor humano premium.”
+
+DESIGN (MUITO IMPORTANTE)
+
+A interface deve lembrar o WhatsApp, mas ser visualmente superior.
+
+Quero:
+
+* Layout mobile-first (390x844).
+* Cabeçalho moderno com nome do assistente, avatar e status “online”.
+* Fundo limpo com padrão sutil.
+* Bolhas de mensagem premium com cantos arredondados.
+* Animações suaves de entrada.
+* Tipografia moderna.
+* Espaçamento generoso.
+* Ícones minimalistas.
+* Aparência de aplicativo nativo.
+
+A barra inferior deve ser muito parecida com o WhatsApp:
+
+* Campo de texto arredondado.
+* Placeholder moderno.
+* Botão de enviar circular.
+* Ícone de microfone quando o campo estiver vazio.
+
+MODAL DE CHAMADA
+
+O modal deve parecer uma chamada real de smartphone:
+
+* Fundo escuro com blur.
+* Avatar circular do assistente.
+* Animação pulsante.
+* Botões grandes estilo iPhone/WhatsApp.
+* Temporizador quando a chamada for atendida.
+
+ESTRUTURA ESPERADA
+
+Cria estes arquivos:
+
+* app/chat/page.tsx
+* components/ChatLayout.tsx
+* components/ChatBubble.tsx
+* components/ChatInput.tsx
+* components/IncomingCallModal.tsx
+* components/CallScreen.tsx
+* hooks/useGeminiLive.ts
+* lib/webrtc.ts
+* lib/gemini.ts
+
+COMPORTAMENTO IMPORTANTE
+
+* A mensagem automática deve vir da URL e ser colocada apenas dentro do campo de texto.
+* A conversa inicia vazia.
+* O envio depende da ação do utilizador.
+* A chamada só começa após o utilizador tocar em “Atender”.
+* A transcrição deve aparecer em tempo real.
+* Deve existir um botão “Terminar chamada”.
+* Ao terminar, mostrar:
+  “Obrigado pelo contacto. Um consultor poderá continuar o atendimento pelo WhatsApp.”
+
+ENTREGA
+
+Quero um MVP completamente funcional que rode com:
+
+npm install
+npm run dev
+
+E que permita:
+
+* Abrir a página com uma mensagem pré-preenchida no campo de texto.
+* O utilizador tocar em “Enviar”.
+* Ver a mensagem aparecer na conversa.
+* Receber a chamada na tela.
+* Atender.
+* Conversar por voz com Gemini Live em tempo real.
+* Ver a transcrição da conversa na interface.
