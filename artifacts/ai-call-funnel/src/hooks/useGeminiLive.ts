@@ -42,6 +42,10 @@ export function useGeminiLive(): GeminiLiveState {
   const aiPartialRef = useRef("");
   const userPartialRef = useRef("");
 
+  // True once the server has confirmed the Gemini session is open.
+  // Audio chunks are only sent after this point to avoid the server discarding them.
+  const wsReadyRef = useRef(false);
+
   const addTranscript = useCallback((role: "ai" | "user", text: string) => {
     if (!text.trim()) return;
     setTranscripts((prev) => [
@@ -66,6 +70,7 @@ export function useGeminiLive(): GeminiLiveState {
     playerRef.current = null;
     serviceRef.current?.disconnect();
     serviceRef.current = null;
+    wsReadyRef.current = false;
     setIsAiSpeaking(false);
     setIsUserSpeaking(false);
     aiPartialRef.current = "";
@@ -80,30 +85,47 @@ export function useGeminiLive(): GeminiLiveState {
     setTranscripts([]);
     aiPartialRef.current = "";
     userPartialRef.current = "";
+    wsReadyRef.current = false;
 
-    // Create player synchronously — AudioContext must be created inside the
-    // user-gesture call stack (button tap → connect).
+    // ── Step 1: AudioPlayer ──────────────────────────────────────────────────
+    // Must be created AND unlocked inside the user-gesture call stack so that
+    // iOS Safari grants audio playback permission.
     const player = new AudioPlayer();
+    player.unlock(); // plays a silent buffer to fully unlock the AudioContext
     playerRef.current = player;
 
+    // ── Step 2: Mic capture ──────────────────────────────────────────────────
+    // getUserMedia MUST be called inside the user-gesture call stack.
+    // If called from a WebSocket onmessage handler (as was done before), iOS
+    // shows no permission prompt and Android may block it silently.
+    startAudioCapture((base64) => {
+      // Only send audio after server confirms the Gemini session is ready.
+      if (wsReadyRef.current) {
+        serviceRef.current?.sendAudio(base64);
+      }
+    })
+      .then((capture) => {
+        captureRef.current = capture;
+        vadTimerRef.current = setInterval(() => {
+          setIsUserSpeaking(capture.getVolume() > VAD_THRESHOLD);
+        }, 100);
+        // If the server already sent "ready" before mic permission was granted,
+        // switch to active now.
+        if (wsReadyRef.current) setCallState("active");
+      })
+      .catch(() => {
+        setErrorMessage("Acesso ao microfone negado. Permite o acesso nas definições e tenta de novo.");
+        setCallState("error");
+        cleanup();
+      });
+
+    // ── Step 3: WebSocket ────────────────────────────────────────────────────
     const service = new CallFunnelService({
       onReady: () => {
-        // Mic capture starts after server confirms the Gemini session is ready.
-        startAudioCapture((base64) => {
-          service.sendAudio(base64);
-        })
-          .then((capture) => {
-            captureRef.current = capture;
-            vadTimerRef.current = setInterval(() => {
-              setIsUserSpeaking(capture.getVolume() > VAD_THRESHOLD);
-            }, 100);
-            setCallState("active");
-          })
-          .catch(() => {
-            setErrorMessage("Acesso ao microfone negado. Permite o acesso e tenta de novo.");
-            setCallState("error");
-            cleanup();
-          });
+        wsReadyRef.current = true;
+        // If mic permission was already granted, go active now.
+        // Otherwise wait for the startAudioCapture promise to resolve.
+        if (captureRef.current) setCallState("active");
       },
 
       onAudio: (base64) => {

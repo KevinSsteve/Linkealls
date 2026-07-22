@@ -22,13 +22,28 @@ export class AudioPlayer {
 
   constructor() {
     this.ctx = new AudioContext({ sampleRate: PLAYBACK_SAMPLE_RATE });
-    // Resume immediately — constructor is always called within a user-gesture chain.
+  }
+
+  /**
+   * Call this immediately after construction, while still inside the user-gesture
+   * call stack (button tap). Plays a silent buffer to fully unlock the AudioContext
+   * on iOS Safari and resumes it on Android Chrome.
+   */
+  unlock(): void {
+    try {
+      const buf = this.ctx.createBuffer(1, 1, this.ctx.sampleRate);
+      const src = this.ctx.createBufferSource();
+      src.buffer = buf;
+      src.connect(this.ctx.destination);
+      src.start(0);
+    } catch { /* ignore */ }
+
     if (this.ctx.state === "suspended") {
       this.ctx.resume().catch(() => {});
     }
   }
 
-  enqueue(base64: string): void {
+  private _scheduleBuffer(base64: string): void {
     if (this.ctx.state === "closed") return;
     try {
       const int16 = base64ToInt16(base64);
@@ -53,9 +68,22 @@ export class AudioPlayer {
         this.activeSources = this.activeSources.filter((s) => s !== source);
         if (this.activeSources.length === 0) this.isPlaying = false;
       };
-    } catch {
-      /* ignore if context became invalid */
+    } catch { /* ignore if context became invalid */ }
+  }
+
+  enqueue(base64: string): void {
+    if (this.ctx.state === "closed") return;
+
+    if (this.ctx.state === "suspended") {
+      // Resume first, then schedule — critical on mobile where context can be
+      // suspended even after unlock() if the page lost focus briefly.
+      this.ctx.resume()
+        .then(() => this._scheduleBuffer(base64))
+        .catch(() => {});
+      return;
     }
+
+    this._scheduleBuffer(base64);
   }
 
   interrupt(): void {
