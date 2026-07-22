@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from "react";
+import { CallFunnelService } from "../services/callFunnelService";
 import { startAudioCapture, type AudioCapture } from "../lib/audioCapture";
 import { AudioPlayer } from "../lib/audioPlayer";
 
@@ -30,15 +31,14 @@ export function useGeminiLive(): GeminiLiveState {
   const [transcripts, setTranscripts] = useState<TranscriptMessage[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Use a ref for WebSocket so audio callbacks always see the live instance
-  const wsRef = useRef<WebSocket | null>(null);
+  const serviceRef = useRef<CallFunnelService | null>(null);
   const playerRef = useRef<AudioPlayer | null>(null);
   const captureRef = useRef<AudioCapture | null>(null);
   const vadTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const callStateRef = useRef<CallState>("idle");
   callStateRef.current = callState;
 
-  // Partial transcript buffers — flushed on turn_complete / interrupted
+  // Partial transcript buffers — flushed to chat bubbles on turn_complete / interrupted
   const aiPartialRef = useRef("");
   const userPartialRef = useRef("");
 
@@ -46,7 +46,12 @@ export function useGeminiLive(): GeminiLiveState {
     if (!text.trim()) return;
     setTranscripts((prev) => [
       ...prev,
-      { id: `${Date.now()}-${Math.random()}`, role, text: text.trim(), timestamp: new Date() },
+      {
+        id: `${Date.now()}-${Math.random()}`,
+        role,
+        text: text.trim(),
+        timestamp: new Date(),
+      },
     ]);
   }, []);
 
@@ -59,8 +64,8 @@ export function useGeminiLive(): GeminiLiveState {
     captureRef.current = null;
     playerRef.current?.destroy();
     playerRef.current = null;
-    wsRef.current?.close();
-    wsRef.current = null;
+    serviceRef.current?.disconnect();
+    serviceRef.current = null;
     setIsAiSpeaking(false);
     setIsUserSpeaking(false);
     aiPartialRef.current = "";
@@ -76,121 +81,81 @@ export function useGeminiLive(): GeminiLiveState {
     aiPartialRef.current = "";
     userPartialRef.current = "";
 
-    // Create player synchronously (AudioContext created within the user gesture chain)
+    // Create player synchronously — AudioContext must be created inside the
+    // user-gesture call stack (button tap → connect).
     const player = new AudioPlayer();
     playerRef.current = player;
 
-    const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const ws = new WebSocket(`${proto}//${window.location.host}/api/call-funnel-ws`);
-    wsRef.current = ws;
-
-    ws.onmessage = (event: MessageEvent<string>) => {
-      // Guard: if we already cleaned up, ignore late messages
-      if (wsRef.current !== ws) return;
-
-      try {
-        const msg = JSON.parse(event.data) as
-          | { type: "ready" }
-          | { type: "audio"; data: string }
-          | { type: "turn_complete" }
-          | { type: "interrupted" }
-          | { type: "transcript"; text: string }
-          | { type: "user_transcript"; text: string }
-          | { type: "closed" }
-          | { type: "error"; message: string };
-
-        switch (msg.type) {
-          case "ready":
-            // Start mic capture after the server confirms the AI session is ready
-            startAudioCapture((base64) => {
-              if (wsRef.current?.readyState === WebSocket.OPEN) {
-                wsRef.current.send(JSON.stringify({ type: "audio", data: base64 }));
-              }
-            })
-              .then((capture) => {
-                captureRef.current = capture;
-                vadTimerRef.current = setInterval(() => {
-                  setIsUserSpeaking(capture.getVolume() > VAD_THRESHOLD);
-                }, 100);
-                setCallState("active");
-              })
-              .catch(() => {
-                setErrorMessage("Acesso ao microfone negado. Permite o acesso e tenta de novo.");
-                setCallState("error");
-                cleanup();
-              });
-            break;
-
-          case "audio":
-            // Guard: only enqueue if player is still alive
-            if (playerRef.current === player) {
-              player.enqueue(msg.data);
-              setIsAiSpeaking(true);
-            }
-            break;
-
-          case "turn_complete":
-            setIsAiSpeaking(false);
-            if (aiPartialRef.current.trim()) {
-              addTranscript("ai", aiPartialRef.current);
-              aiPartialRef.current = "";
-            }
-            if (userPartialRef.current.trim()) {
-              addTranscript("user", userPartialRef.current);
-              userPartialRef.current = "";
-            }
-            break;
-
-          case "interrupted":
-            if (playerRef.current === player) player.interrupt();
-            setIsAiSpeaking(false);
-            if (aiPartialRef.current.trim()) {
-              addTranscript("ai", aiPartialRef.current);
-              aiPartialRef.current = "";
-            }
-            break;
-
-          case "transcript":
-            aiPartialRef.current += (aiPartialRef.current ? " " : "") + msg.text;
-            break;
-
-          case "user_transcript":
-            userPartialRef.current += (userPartialRef.current ? " " : "") + msg.text;
-            break;
-
-          case "error":
-            setErrorMessage(msg.message);
+    const service = new CallFunnelService({
+      onReady: () => {
+        // Mic capture starts after server confirms the Gemini session is ready.
+        startAudioCapture((base64) => {
+          service.sendAudio(base64);
+        })
+          .then((capture) => {
+            captureRef.current = capture;
+            vadTimerRef.current = setInterval(() => {
+              setIsUserSpeaking(capture.getVolume() > VAD_THRESHOLD);
+            }, 100);
+            setCallState("active");
+          })
+          .catch(() => {
+            setErrorMessage("Acesso ao microfone negado. Permite o acesso e tenta de novo.");
             setCallState("error");
             cleanup();
-            break;
+          });
+      },
 
-          case "closed":
-            if (callStateRef.current !== "idle") {
-              setCallState("idle");
-              cleanup();
-            }
-            break;
+      onAudio: (base64) => {
+        player.enqueue(base64);
+        setIsAiSpeaking(true);
+      },
+
+      onTurnComplete: () => {
+        setIsAiSpeaking(false);
+        if (aiPartialRef.current.trim()) {
+          addTranscript("ai", aiPartialRef.current);
+          aiPartialRef.current = "";
         }
-      } catch {
-        /* ignore malformed messages */
-      }
-    };
+        if (userPartialRef.current.trim()) {
+          addTranscript("user", userPartialRef.current);
+          userPartialRef.current = "";
+        }
+      },
 
-    ws.onerror = () => {
-      setErrorMessage("Erro de ligação ao servidor.");
-      setCallState("error");
-      cleanup();
-    };
+      onInterrupted: () => {
+        player.interrupt();
+        setIsAiSpeaking(false);
+        if (aiPartialRef.current.trim()) {
+          addTranscript("ai", aiPartialRef.current);
+          aiPartialRef.current = "";
+        }
+      },
 
-    ws.onclose = () => {
-      if (
-        callStateRef.current !== "idle" &&
-        callStateRef.current !== "ended" &&
-        wsRef.current === ws
-      ) {
+      onTranscript: (text) => {
+        aiPartialRef.current += (aiPartialRef.current ? " " : "") + text;
+      },
+
+      onUserTranscript: (text) => {
+        userPartialRef.current += (userPartialRef.current ? " " : "") + text;
+      },
+
+      onError: (message) => {
+        setErrorMessage(message);
+        setCallState("error");
         cleanup();
-      }
-    };
+      },
+
+      onClose: () => {
+        if (callStateRef.current !== "idle" && callStateRef.current !== "ended") {
+          setCallState("idle");
+          cleanup();
+        }
+      },
+    });
+
+    serviceRef.current = service;
+    service.connect();
   }, [cleanup, addTranscript]);
 
   const disconnect = useCallback(() => {
@@ -198,7 +163,6 @@ export function useGeminiLive(): GeminiLiveState {
     setCallState("ended");
   }, [cleanup]);
 
-  // Clean up on unmount
   useEffect(() => () => cleanup(), [cleanup]);
 
   return { callState, isAiSpeaking, isUserSpeaking, transcripts, errorMessage, connect, disconnect };

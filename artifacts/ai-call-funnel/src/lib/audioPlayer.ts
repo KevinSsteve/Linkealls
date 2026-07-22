@@ -1,4 +1,4 @@
-const PLAYBACK_SAMPLE_RATE = 24000;
+const PLAYBACK_SAMPLE_RATE = 24000; // Gemini outputs 24 kHz PCM
 
 function base64ToInt16(base64: string): Int16Array {
   const binary = atob(base64);
@@ -14,34 +14,23 @@ function int16ToFloat32(data: Int16Array): Float32Array {
   return out;
 }
 
-function safeClose(ctx: AudioContext): void {
-  // ctx.close() throws synchronously if already closed; always wrap.
-  try {
-    if (ctx.state !== "closed") ctx.close().catch(() => {});
-  } catch {
-    /* ignore */
-  }
-}
-
 export class AudioPlayer {
   private ctx: AudioContext;
   private nextPlayAt = 0;
   private activeSources: AudioBufferSourceNode[] = [];
-  private destroyed = false;
   isPlaying = false;
 
   constructor() {
     this.ctx = new AudioContext({ sampleRate: PLAYBACK_SAMPLE_RATE });
+    // Resume immediately — constructor is always called within a user-gesture chain.
+    if (this.ctx.state === "suspended") {
+      this.ctx.resume().catch(() => {});
+    }
   }
 
   enqueue(base64: string): void {
-    if (this.destroyed || this.ctx.state === "closed") return;
+    if (this.ctx.state === "closed") return;
     try {
-      // Mobile browsers suspend AudioContext until user interaction; resume if needed.
-      if (this.ctx.state === "suspended") {
-        this.ctx.resume().catch(() => {});
-      }
-
       const int16 = base64ToInt16(base64);
       if (int16.length === 0) return;
 
@@ -65,25 +54,21 @@ export class AudioPlayer {
         if (this.activeSources.length === 0) this.isPlaying = false;
       };
     } catch {
-      /* ignore if context becomes invalid mid-playback */
+      /* ignore if context became invalid */
     }
   }
 
   interrupt(): void {
-    for (const source of this.activeSources) {
-      try { source.stop(); } catch { /* already stopped */ }
+    for (const s of this.activeSources) {
+      try { s.stop(); } catch { /* already stopped */ }
     }
     this.activeSources = [];
-    try {
-      if (this.ctx.state !== "closed") this.nextPlayAt = this.ctx.currentTime;
-    } catch { /* ignore */ }
+    this.nextPlayAt = 0;
     this.isPlaying = false;
   }
 
   destroy(): void {
-    if (this.destroyed) return;
-    this.destroyed = true;
     this.interrupt();
-    safeClose(this.ctx);
+    try { void this.ctx.close(); } catch { /* ignore */ }
   }
 }

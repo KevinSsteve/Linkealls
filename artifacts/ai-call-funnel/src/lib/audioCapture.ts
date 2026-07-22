@@ -33,14 +33,6 @@ function int16ToBase64(data: Int16Array): string {
   return btoa(binary);
 }
 
-function safeClose(ctx: AudioContext): void {
-  try {
-    if (ctx.state !== "closed") ctx.close().catch(() => {});
-  } catch {
-    /* ignore */
-  }
-}
-
 export interface AudioCapture {
   getVolume: () => number;
   stop: () => void;
@@ -59,13 +51,14 @@ export async function startAudioCapture(
 
   const audioContext = new AudioContext();
 
-  // Resume if suspended — required on mobile after user gesture
+  // Mobile browsers suspend AudioContext until a user gesture fires;
+  // by this point we are always inside a user-gesture chain (button tap → connect).
   if (audioContext.state === "suspended") {
-    await audioContext.resume().catch(() => {});
+    await audioContext.resume();
   }
 
-  // BASE_URL = "/ai-call-funnel/" (from vite.config.ts `base: basePath`)
-  // Vite serves public/ relative to base, so public/audio-processor.js → /ai-call-funnel/audio-processor.js
+  // Vite serves public/ files relative to the base path.
+  // BASE_URL = "/ai-call-funnel/" so the worklet is at /ai-call-funnel/audio-processor.js
   const processorUrl = import.meta.env.BASE_URL + "audio-processor.js";
   await audioContext.audioWorklet.addModule(processorUrl);
 
@@ -92,23 +85,19 @@ export async function startAudioCapture(
       for (const chunk of accumSamples) { merged.set(chunk, offset); offset += chunk.length; }
       accumSamples = [];
       accumLength = 0;
-      const downsampled = downsample(merged, audioContext.sampleRate, TARGET_SAMPLE_RATE);
-      onChunk(int16ToBase64(float32ToInt16(downsampled)));
+      onChunk(int16ToBase64(float32ToInt16(downsample(merged, audioContext.sampleRate, TARGET_SAMPLE_RATE))));
     }
   };
 
   source.connect(workletNode);
 
-  let stopped = false;
   return {
     getVolume: () => currentVolume,
     stop: () => {
-      if (stopped) return;   // idempotent
-      stopped = true;
       try { workletNode.disconnect(); } catch { /* ignore */ }
       try { source.disconnect(); } catch { /* ignore */ }
       stream.getTracks().forEach((t) => t.stop());
-      safeClose(audioContext);
+      try { void audioContext.close(); } catch { /* ignore */ }
     },
   };
 }
