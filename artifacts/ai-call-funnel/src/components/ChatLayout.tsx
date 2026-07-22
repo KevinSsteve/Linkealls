@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { Link } from "wouter";
 import { ArrowLeft, Video, Phone, MoreVertical } from "lucide-react";
 
 interface ChatLayoutProps {
@@ -63,9 +64,14 @@ export function ChatLayout({ children }: ChatLayoutProps) {
           <button className="hover:text-[#EAF0F7] transition-colors active:scale-90">
             <Phone size={20} />
           </button>
-          <button className="hover:text-[#EAF0F7] transition-colors active:scale-90">
+          {/* Owner area entry point (⋮ like WhatsApp's menu) */}
+          <Link
+            href="/dono"
+            className="hover:text-[#EAF0F7] transition-colors active:scale-90"
+            aria-label="Área do dono"
+          >
             <MoreVertical size={21} />
-          </button>
+          </Link>
         </div>
       </header>
 

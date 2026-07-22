@@ -2,38 +2,27 @@ import { WebSocketServer, WebSocket } from "ws";
 import type { IncomingMessage } from "http";
 import type { Server } from "http";
 import { createGeminiLiveSession } from "../services/geminiLive.js";
+import { getOrCreateProfile, buildCallAgentPrompt } from "../services/businessProfile.js";
 import { logger } from "../lib/logger.js";
 
-const CALL_FUNNEL_CONFIG = {
-  voiceName: "Kore",
-  systemPrompt: `
-Você é um assistente virtual especializado em qualificação de leads.
-O utilizador acabou de clicar num anúncio e atendeu uma chamada.
+const CALL_VOICE = "Kore";
 
-INÍCIO DA CHAMADA: Quando receberes a mensagem "inicio", responde IMEDIATAMENTE com:
-"Alô! Obrigado por atender. Como posso ajudá-lo hoje?"
-Não acrescentes nada mais — espera que o utilizador fale.
-
-Fale em português de Angola, de forma natural, breve, profissional e acolhedora.
-
-O objetivo é descobrir:
-1. O que a pessoa procura exatamente
-2. Qual é o orçamento aproximado
-3. O prazo de decisão
-4. A melhor forma de contacto
-
-REGRAS IMPORTANTES:
-- Faça UMA pergunta de cada vez
-- Mantenha a conversa fluida e natural
-- Aja como um consultor humano premium
-- Respostas curtas e directas (máximo 2 frases)
-- Nunca liste perguntas de uma vez
-- Seja caloroso e confiante
-
-RESPOND UNMISTAKABLY IN ANGOLAN PORTUGUESE. NUNCA mude de idioma.
-`.trim(),
-  greetingText: "inicio",
-};
+/**
+ * Loads the stored business profile and derives the agent's prompt from it.
+ * Falls back to the generic qualification script if the DB is unreachable or
+ * the profile is still empty — a broken profile must never block calls.
+ */
+async function resolveCallConfig() {
+  try {
+    const profile = await getOrCreateProfile();
+    const { systemPrompt, greetingText } = buildCallAgentPrompt(profile);
+    return { voiceName: CALL_VOICE, systemPrompt, greetingText };
+  } catch (err) {
+    logger.error({ err }, "Failed to load business profile; using generic prompt");
+    const { systemPrompt, greetingText } = buildCallAgentPrompt(null);
+    return { voiceName: CALL_VOICE, systemPrompt, greetingText };
+  }
+}
 
 type ServerMessage =
   | { type: "ready" }
@@ -72,7 +61,8 @@ export function setupCallFunnelWebSocket(server: Server): void {
       if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
     }
 
-    createGeminiLiveSession(CALL_FUNNEL_CONFIG, {
+    resolveCallConfig()
+      .then((config) => createGeminiLiveSession(config, {
       onAudio: (base64) => { if (!closed) sendToClient({ type: "audio", data: base64 }); },
       onTurnComplete: () => { if (!closed) sendToClient({ type: "turn_complete" }); },
       onInterrupted: () => { if (!closed) sendToClient({ type: "interrupted" }); },
@@ -80,7 +70,7 @@ export function setupCallFunnelWebSocket(server: Server): void {
       onInputTranscript: (text) => { if (!closed) sendToClient({ type: "user_transcript", text }); },
       onError: () => { if (!closed) sendToClient({ type: "error", message: "AI service error" }); },
       onClose: () => { if (!closed) sendToClient({ type: "closed" }); },
-    })
+    }))
       .then((session) => {
         if (closed) { session.close(); return; }
         geminiSession = session;
