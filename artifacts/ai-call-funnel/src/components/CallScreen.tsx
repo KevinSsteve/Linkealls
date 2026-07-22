@@ -1,12 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import { PhoneOff, Mic, MicOff } from "lucide-react";
-import { ChatBubble } from "./ChatBubble";
-import type { TranscriptMessage } from "../hooks/useGeminiLive";
+import { PhoneOff } from "lucide-react";
 
 interface CallScreenProps {
   isAiSpeaking: boolean;
   isUserSpeaking: boolean;
-  transcripts: TranscriptMessage[];
   onEnd: () => void;
 }
 
@@ -21,114 +18,128 @@ function useCallTimer() {
   return `${m}:${ss}`;
 }
 
-const BAR_HEIGHTS = [3, 6, 10, 14, 10, 6, 3];
+const NUM_BARS = 20;
 
-export function CallScreen({ isAiSpeaking, isUserSpeaking, transcripts, onEnd }: CallScreenProps) {
+export function CallScreen({ isAiSpeaking, isUserSpeaking, onEnd }: CallScreenProps) {
   const timer = useCallTimer();
-  const bottomRef = useRef<HTMLDivElement>(null);
   const [frame, setFrame] = useState(0);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [transcripts]);
 
   /* Animate audio bars */
   useEffect(() => {
-    if (!isAiSpeaking) return;
-    const id = setInterval(() => setFrame((f) => f + 1), 120);
+    const id = setInterval(() => setFrame((f) => f + 1), 80);
     return () => clearInterval(id);
-  }, [isAiSpeaking]);
+  }, []);
 
   return (
-    <div className="flex flex-col h-full overflow-hidden">
-      {/* ── Status bar ── */}
+    <div
+      className="flex flex-col h-full"
+      style={{ background: "linear-gradient(180deg, #060C14 0%, #071A11 100%)" }}
+    >
+      {/* ── Timer bar ── */}
       <div
-        className="flex items-center justify-between px-4 py-3 flex-shrink-0"
-        style={{
-          background: "linear-gradient(135deg, #093626 0%, #061F18 100%)",
-          borderBottom: "1px solid rgba(0,200,150,0.15)",
-        }}
+        className="flex items-center justify-between px-5 py-3 flex-shrink-0"
+        style={{ borderBottom: "1px solid rgba(0,200,150,0.1)" }}
       >
-        {/* Left: wave + label */}
-        <div className="flex items-center gap-2">
-          <div className="flex items-end gap-[3px] h-5">
-            {BAR_HEIGHTS.map((base, i) => {
-              const animated = isAiSpeaking
-                ? base + Math.sin((frame * 0.8 + i) * 1.3) * 5
-                : 3;
-              return (
-                <span
-                  key={i}
-                  className="rounded-full transition-all duration-150"
-                  style={{
-                    width: "3px",
-                    height: `${Math.max(3, animated)}px`,
-                    background: isAiSpeaking
-                      ? "rgba(0,200,150,0.85)"
-                      : "rgba(0,200,150,0.3)",
-                  }}
-                />
-              );
-            })}
-          </div>
-          <span className="text-xs font-medium" style={{ color: "#00C896" }}>
-            Em chamada
-          </span>
-        </div>
-
-        {/* Right: mic + timer */}
-        <div className="flex items-center gap-3">
-          {isUserSpeaking ? (
-            <Mic size={14} style={{ color: "#34D399" }} />
-          ) : (
-            <MicOff size={14} style={{ color: "#3E576F" }} />
-          )}
-          <span
-            className="font-mono text-sm font-semibold tabular-nums"
-            style={{ color: "#EAF0F7" }}
-          >
-            {timer}
-          </span>
-        </div>
+        <span className="text-sm font-medium" style={{ color: "#00C896" }}>
+          Em chamada
+        </span>
+        <span
+          className="font-mono text-sm font-semibold tabular-nums"
+          style={{ color: "#EAF0F7" }}
+        >
+          {timer}
+        </span>
       </div>
 
-      {/* ── Transcripts ── */}
-      <div className="flex-1 overflow-y-auto chat-bg px-3 py-4 min-h-0">
-        {transcripts.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full gap-4 opacity-40">
-            <div className="flex items-end gap-[5px] h-10">
-              {BAR_HEIGHTS.map((h, i) => (
-                <span
-                  key={i}
-                  className="rounded-full"
-                  style={{ width: "4px", height: `${h}px`, background: "#00C896" }}
-                />
-              ))}
-            </div>
-            <p className="text-sm text-center" style={{ color: "#7B96B2" }}>
-              A transcrição aparecerá aqui
-            </p>
-          </div>
-        ) : (
-          <>
-            {transcripts.map((t) => (
-              <ChatBubble
-                key={t.id}
-                role={t.role === "ai" ? "bot" : "user"}
-                text={t.text}
+      {/* ── Central visualizer ── */}
+      <div className="flex-1 flex flex-col items-center justify-center gap-10">
+        {/* Avatar ring */}
+        <div className="relative flex items-center justify-center">
+          {/* Pulsing outer ring when speaking */}
+          {isAiSpeaking && (
+            <>
+              <div
+                className="absolute rounded-full animate-ping"
+                style={{
+                  width: 128,
+                  height: 128,
+                  background: "rgba(0,200,150,0.15)",
+                  animationDuration: "1.4s",
+                }}
               />
-            ))}
-          </>
-        )}
+              <div
+                className="absolute rounded-full animate-ping"
+                style={{
+                  width: 104,
+                  height: 104,
+                  background: "rgba(0,200,150,0.2)",
+                  animationDuration: "1s",
+                  animationDelay: "0.2s",
+                }}
+              />
+            </>
+          )}
+          {/* Avatar circle */}
+          <div
+            className="relative w-24 h-24 rounded-full flex items-center justify-center text-3xl font-bold"
+            style={{
+              background: isAiSpeaking
+                ? "linear-gradient(135deg, #00C896 0%, #007A5E 100%)"
+                : "linear-gradient(135deg, #1A2F3E 0%, #0D1F2C 100%)",
+              boxShadow: isAiSpeaking
+                ? "0 0 40px rgba(0,200,150,0.4)"
+                : "0 0 20px rgba(0,0,0,0.4)",
+              transition: "all 0.3s ease",
+              color: isAiSpeaking ? "#fff" : "#3E576F",
+            }}
+          >
+            AI
+          </div>
+        </div>
 
-        {isAiSpeaking && <ChatBubble role="bot" text="" isTyping />}
-        <div ref={bottomRef} />
+        {/* Waveform bars */}
+        <div className="flex items-end gap-[3px]" style={{ height: 56 }}>
+          {Array.from({ length: NUM_BARS }).map((_, i) => {
+            const phase = (frame * 0.6 + i * 0.7) % (Math.PI * 2);
+            const heightPct = isAiSpeaking
+              ? 0.2 + 0.8 * Math.abs(Math.sin(phase))
+              : isUserSpeaking
+              ? 0.1 + 0.3 * Math.abs(Math.sin(phase * 1.5 + i))
+              : 0.06;
+            const h = Math.max(4, Math.round(heightPct * 56));
+            const active = isAiSpeaking || isUserSpeaking;
+            return (
+              <span
+                key={i}
+                className="rounded-full transition-all"
+                style={{
+                  width: "3px",
+                  height: `${h}px`,
+                  background: isAiSpeaking
+                    ? `rgba(0,200,150,${0.4 + 0.6 * heightPct})`
+                    : isUserSpeaking
+                    ? `rgba(52,211,153,${0.3 + 0.5 * heightPct})`
+                    : "rgba(62,87,111,0.4)",
+                  transitionDuration: active ? "80ms" : "300ms",
+                }}
+              />
+            );
+          })}
+        </div>
+
+        {/* Status label */}
+        <p
+          className="text-sm"
+          style={{ color: isAiSpeaking ? "#00C896" : isUserSpeaking ? "#34D399" : "#3E576F" }}
+        >
+          {isAiSpeaking ? "A falar…" : isUserSpeaking ? "A ouvir…" : "Em espera"}
+        </p>
       </div>
 
       {/* ── End call ── */}
       <div
-        className="flex justify-center py-5 flex-shrink-0"
-        style={{ borderTop: "1px solid #111E30", background: "#060C14" }}
+        className="flex justify-center py-8 flex-shrink-0"
+        style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}
       >
         <div className="flex flex-col items-center gap-2">
           <button

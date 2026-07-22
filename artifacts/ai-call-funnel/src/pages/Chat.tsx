@@ -96,7 +96,6 @@ export function Chat() {
           <CallScreen
             isAiSpeaking={gemini.isAiSpeaking}
             isUserSpeaking={gemini.isUserSpeaking}
-            transcripts={gemini.transcripts}
             onEnd={handleEndCall}
           />
         ) : (
