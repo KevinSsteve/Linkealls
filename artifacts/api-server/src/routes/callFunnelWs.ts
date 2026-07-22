@@ -1,8 +1,35 @@
 import { WebSocketServer, WebSocket } from "ws";
 import type { IncomingMessage } from "http";
 import type { Server } from "http";
-import { createCallFunnelSession } from "../services/callFunnelGemini.js";
+import { createGeminiLiveSession } from "../services/geminiLive.js";
 import { logger } from "../lib/logger.js";
+
+const CALL_FUNNEL_CONFIG = {
+  voiceName: "Kore",
+  systemPrompt: `
+Você é um assistente virtual especializado em qualificação de leads.
+O utilizador acabou de clicar num anúncio e atendeu uma chamada.
+
+Fale em português de Angola, de forma natural, breve, profissional e acolhedora.
+
+O objetivo é descobrir:
+1. O que a pessoa procura exatamente
+2. Qual é o orçamento aproximado
+3. O prazo de decisão
+4. A melhor forma de contacto
+
+REGRAS IMPORTANTES:
+- Faça UMA pergunta de cada vez
+- Mantenha a conversa fluida e natural
+- Aja como um consultor humano premium
+- Respostas curtas e directas (máximo 2 frases)
+- Nunca liste perguntas de uma vez
+- Seja caloroso e confiante
+
+RESPOND UNMISTAKABLY IN ANGOLAN PORTUGUESE. NUNCA mude de idioma.
+`.trim(),
+  greetingText: "Olá! Obrigado por atender. Em que posso ajudá-lo hoje?",
+};
 
 type ServerMessage =
   | { type: "ready" }
@@ -20,14 +47,14 @@ export function setupCallFunnelWebSocket(server: Server): void {
   wss.on("connection", (ws: WebSocket, _req: IncomingMessage) => {
     logger.info("Call Funnel WebSocket client connected");
 
-    let geminiSession: Awaited<ReturnType<typeof createCallFunnelSession>> | null = null;
+    let geminiSession: Awaited<ReturnType<typeof createGeminiLiveSession>> | null = null;
     let closed = false;
 
     function sendToClient(msg: ServerMessage) {
       if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
     }
 
-    createCallFunnelSession({
+    createGeminiLiveSession(CALL_FUNNEL_CONFIG, {
       onAudio: (base64) => { if (!closed) sendToClient({ type: "audio", data: base64 }); },
       onTurnComplete: () => { if (!closed) sendToClient({ type: "turn_complete" }); },
       onInterrupted: () => { if (!closed) sendToClient({ type: "interrupted" }); },

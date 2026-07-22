@@ -4,6 +4,30 @@ import type { Server } from "http";
 import { createGeminiLiveSession } from "../services/geminiLive.js";
 import { logger } from "../lib/logger.js";
 
+const VOICE_CONFIG = {
+  voiceName: "Kore",
+  systemPrompt: `
+You are a friendly and helpful AI voice assistant named Gemini.
+Your role is to have a natural, real-time voice conversation with the user.
+
+PERSONA:
+- Warm, concise, and conversational — as if on a phone call.
+- Keep answers short (1-3 sentences) unless the user explicitly wants detail.
+- Never list items or use bullet points — speak naturally.
+- Do not repeat what the user said back to them.
+
+LANGUAGE:
+RESPOND UNMISTAKABLY IN EUROPEAN PORTUGUESE (Portugal). If the user switches language, follow them.
+
+CONVERSATIONAL RULES:
+- Greet the user warmly once at the start and wait for them to speak.
+- Stay on whatever topic the user wants — this is an open conversation loop.
+- If you don't understand something, ask one short clarifying question.
+- Never say "As an AI..." or disclaim your limitations unprompted.
+`.trim(),
+  greetingText: "Olá! Estou aqui e pronto para conversar. Em que posso ajudar?",
+};
+
 type ServerMessage =
   | { type: "ready" }
   | { type: "audio"; data: string }
@@ -24,46 +48,27 @@ export function setupVoiceWebSocket(server: Server): void {
     let closed = false;
 
     function sendToClient(msg: ServerMessage) {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify(msg));
-      }
+      if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
     }
 
-    createGeminiLiveSession({
-      onAudio: (base64) => {
-        if (!closed) sendToClient({ type: "audio", data: base64 });
-      },
-      onTurnComplete: () => {
-        if (!closed) sendToClient({ type: "turn_complete" });
-      },
-      onInterrupted: () => {
-        if (!closed) sendToClient({ type: "interrupted" });
-      },
-      onTranscript: (text) => {
-        if (!closed) sendToClient({ type: "transcript", text });
-      },
-      onInputTranscript: (text) => {
-        if (!closed) sendToClient({ type: "user_transcript", text });
-      },
-      onError: () => {
-        if (!closed) sendToClient({ type: "error", message: "AI service error" });
-      },
-      onClose: () => {
-        if (!closed) sendToClient({ type: "closed" });
-      },
+    createGeminiLiveSession(VOICE_CONFIG, {
+      onAudio: (base64) => { if (!closed) sendToClient({ type: "audio", data: base64 }); },
+      onTurnComplete: () => { if (!closed) sendToClient({ type: "turn_complete" }); },
+      onInterrupted: () => { if (!closed) sendToClient({ type: "interrupted" }); },
+      onTranscript: (text) => { if (!closed) sendToClient({ type: "transcript", text }); },
+      onInputTranscript: (text) => { if (!closed) sendToClient({ type: "user_transcript", text }); },
+      onError: () => { if (!closed) sendToClient({ type: "error", message: "AI service error" }); },
+      onClose: () => { if (!closed) sendToClient({ type: "closed" }); },
     })
       .then((session) => {
-        if (closed) {
-          session.close();
-          return;
-        }
+        if (closed) { session.close(); return; }
         geminiSession = session;
         sendToClient({ type: "ready" });
-        logger.info("Gemini Live session ready for client");
+        logger.info("Voice session ready, sending greeting");
         session.sendGreeting();
       })
       .catch((err) => {
-        logger.error({ err }, "Failed to create Gemini session");
+        logger.error({ err }, "Failed to create Voice session");
         sendToClient({ type: "error", message: "Failed to connect to AI service" });
         ws.close();
       });
@@ -75,7 +80,7 @@ export function setupVoiceWebSocket(server: Server): void {
           geminiSession.sendAudio(msg.data);
         }
       } catch (err) {
-        logger.error({ err }, "Failed to handle WebSocket message");
+        logger.error({ err }, "Failed to handle Voice WebSocket message");
       }
     });
 
