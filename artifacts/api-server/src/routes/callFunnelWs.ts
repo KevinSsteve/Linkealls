@@ -46,7 +46,21 @@ type ServerMessage =
   | { type: "error"; message: string };
 
 export function setupCallFunnelWebSocket(server: Server): void {
-  const wss = new WebSocketServer({ server, path: "/api/call-funnel-ws" });
+  // noServer + explicit upgrade routing: multiple WebSocketServer({ server, path })
+  // instances on one HTTP server abort each other's upgrades with HTTP 400.
+  const wss = new WebSocketServer({ noServer: true });
+
+  server.on("upgrade", (req, socket, head) => {
+    const pathname = new URL(req.url ?? "/", "http://localhost").pathname;
+    if (pathname === "/api/call-funnel-ws") {
+      wss.handleUpgrade(req, socket, head, (ws) => {
+        wss.emit("connection", ws, req);
+      });
+    } else {
+      socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
+      socket.destroy();
+    }
+  });
 
   wss.on("connection", (ws: WebSocket, _req: IncomingMessage) => {
     logger.info("Call Funnel WebSocket client connected");

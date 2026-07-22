@@ -126,7 +126,7 @@ export function useGeminiLive(): GeminiLiveState {
 
     serviceRef.current = service;
     service.connect();
-    console.log("[CallFunnel] WebSocket connecting to /api/call-funnel-ws");
+    console.log("[CallFunnel] WebSocket connecting");
 
     // ── Step 3: Mic capture ──────────────────────────────────────────────────
     // getUserMedia MUST be called inside the user-gesture call stack.

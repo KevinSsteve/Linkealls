@@ -72,10 +72,18 @@ export default defineConfig({
     fs: {
       strict: true,
     },
-    // Proxy /api/* to the API server so WebSocket upgrades work in dev mode.
-    // Without this, ws:// requests from the Vite dev server (port 18518) don't
-    // reach the API server (port 8080) through Replit's path-based proxy.
+    // Proxy <base>/api/* to the API server so WebSocket upgrades work in dev.
+    // Browser requests must stay under the artifact base path to reach this
+    // Vite server through Replit's path-based proxy; here we strip the base
+    // and forward to the API server on port 8080.
     proxy: {
+      [`${basePath.replace(/\/$/, '')}/api`]: {
+        target: 'http://localhost:8080',
+        ws: true,
+        changeOrigin: true,
+        rewrite: (p) =>
+          p.replace(basePath.replace(/\/$/, ''), ''),
+      },
       '/api': {
         target: 'http://localhost:8080',
         ws: true,

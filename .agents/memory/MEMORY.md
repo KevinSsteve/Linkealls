@@ -1,1 +1,2 @@
 - [Gemini Live model names](gemini-live-models.md) — 3.1-flash-live-preview is current; 2.0-flash-live-001 doesn't exist; key 2.5→3.1 migration diffs inside.
+- [WS upgrade conflicts & dev routing](ws-upgrade-conflicts.md) — never attach two WebSocketServer({server,path}) to one HTTP server (mutual 400s); dev WS URLs must stay under the artifact base path.

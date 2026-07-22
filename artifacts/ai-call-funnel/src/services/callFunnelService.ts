@@ -30,7 +30,16 @@ export class CallFunnelService {
 
   connect(): void {
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const url = `${proto}//${window.location.host}/api/call-funnel-ws`;
+    // In dev, requests must stay under the artifact base path (e.g.
+    // /ai-call-funnel/api/...) so they reach the Vite dev server, whose proxy
+    // forwards them to the API server. In production, the deployment proxy
+    // routes root /api/* directly to the API server.
+    const base = import.meta.env.BASE_URL; // ends with '/'
+    const apiPath = import.meta.env.DEV
+      ? `${base}api/call-funnel-ws`
+      : "/api/call-funnel-ws";
+    const url = `${proto}//${window.location.host}${apiPath}`;
+    console.log("[CallFunnel] WebSocket connecting to", url);
 
     this.ws = new WebSocket(url);
 
