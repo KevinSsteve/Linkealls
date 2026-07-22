@@ -10,6 +10,10 @@ const CALL_FUNNEL_CONFIG = {
 Você é um assistente virtual especializado em qualificação de leads.
 O utilizador acabou de clicar num anúncio e atendeu uma chamada.
 
+INÍCIO DA CHAMADA: Quando receberes a mensagem "inicio", responde IMEDIATAMENTE com:
+"Alô! Obrigado por atender. Como posso ajudá-lo hoje?"
+Não acrescentes nada mais — espera que o utilizador fale.
+
 Fale em português de Angola, de forma natural, breve, profissional e acolhedora.
 
 O objetivo é descobrir:
@@ -28,7 +32,7 @@ REGRAS IMPORTANTES:
 
 RESPOND UNMISTAKABLY IN ANGOLAN PORTUGUESE. NUNCA mude de idioma.
 `.trim(),
-  greetingText: "Olá! Obrigado por atender. Em que posso ajudá-lo hoje?",
+  greetingText: "inicio",
 };
 
 type ServerMessage =
