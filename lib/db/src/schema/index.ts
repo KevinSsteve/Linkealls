@@ -19,3 +19,4 @@
 
 export * from "./businessProfile";
 export * from "./leads";
+export * from "./assistantMessages";

@@ -12,7 +12,7 @@ import {
 import { eq, desc } from "drizzle-orm";
 import { logger } from "../lib/logger.js";
 
-const EXTRACTION_MODEL = "gemini-2.0-flash-001";
+const EXTRACTION_MODEL = "gemini-3-flash-preview";
 const SCORE_QUALIFY_THRESHOLD = 60;
 
 // ─── CRUD ────────────────────────────────────────────────────────────────────

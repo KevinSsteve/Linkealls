@@ -179,3 +179,66 @@ export function updateLeadState(
 export function getLeadsEventsUrl(): string {
   return `${API_BASE}/leads/events`;
 }
+
+// ─── Assistant API ────────────────────────────────────────────────────────────
+
+export type AssistantRole = "user" | "assistant" | "proactive";
+
+export interface AssistantMessageMeta {
+  pendingAction?: {
+    type: "update_lead_state";
+    leadId: string;
+    newState: string;
+    description: string;
+  };
+  draftMessage?: string;
+  proactiveType?: "lead_qualified" | "stale_leads" | "daily_summary";
+  leadId?: string;
+}
+
+export interface AssistantMessage {
+  id: string;
+  role: AssistantRole;
+  content: string;
+  meta: AssistantMessageMeta;
+  createdAt: string;
+}
+
+export function listAssistantMessages(): Promise<{ messages: AssistantMessage[] }> {
+  return request("/assistant/messages");
+}
+
+export function sendAssistantMessage(
+  message: string,
+): Promise<{ message: AssistantMessage }> {
+  return request("/assistant/chat", {
+    method: "POST",
+    body: JSON.stringify({ message }),
+  });
+}
+
+export function confirmAssistantAction(
+  messageId: string,
+  confirmed: boolean,
+): Promise<{ message: AssistantMessage }> {
+  return request("/assistant/confirm", {
+    method: "POST",
+    body: JSON.stringify({ messageId, confirmed }),
+  });
+}
+
+export function clearAssistantMessages(): Promise<{ cleared: boolean }> {
+  return request("/assistant/messages", { method: "DELETE" });
+}
+
+export function triggerDailySummary(): Promise<{ message: AssistantMessage }> {
+  return request("/assistant/proactive/daily", { method: "POST" });
+}
+
+export function triggerStaleLeadsCheck(): Promise<{ message: AssistantMessage | null; found: boolean }> {
+  return request("/assistant/proactive/stale", { method: "POST" });
+}
+
+export function getAssistantEventsUrl(): string {
+  return `${API_BASE}/assistant/events`;
+}

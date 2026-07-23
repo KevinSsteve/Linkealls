@@ -3,6 +3,7 @@ import { Chat } from "@/pages/Chat";
 import { Captacao } from "@/pages/Captacao";
 import { Owner } from "@/pages/Owner";
 import { Leads } from "@/pages/owner/Leads";
+import { Assistant } from "@/pages/owner/Assistant";
 
 // Serve under the artifact base path (e.g. /ai-call-funnel) in dev and prod.
 const routerBase = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -20,6 +21,7 @@ export default function App() {
       <Router base={routerBase}>
         <Switch>
           <Route path="/dono/leads" component={Leads} />
+          <Route path="/dono/assistente" component={Assistant} />
           <Route path="/dono" component={Owner} />
           <Route path="/captacao" component={Captacao} />
           <Route component={Chat} />
