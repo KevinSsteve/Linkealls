@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
-import { Brain, Globe, Sparkles, ArrowLeft, Loader2, AlertCircle, CheckCircle2, Users, Bot } from "lucide-react";
+import { Brain, Globe, Sparkles, ArrowLeft, Loader2, AlertCircle, CheckCircle2, Users, Bot, Megaphone } from "lucide-react";
 import {
   getBusinessProfile,
   saveBusinessProfile,
@@ -193,6 +193,14 @@ export function Owner() {
         >
           <Bot className="w-4 h-4" />
           IA
+        </Link>
+        <Link
+          href="/dono/campanhas"
+          className="flex items-center gap-1.5 text-[13px] font-medium text-[#00A884] hover:text-[#02BD7E] transition-colors shrink-0"
+          aria-label="Campanhas"
+        >
+          <Megaphone className="w-4 h-4" />
+          Camps
         </Link>
       </header>
 

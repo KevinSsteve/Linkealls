@@ -242,3 +242,108 @@ export function triggerStaleLeadsCheck(): Promise<{ message: AssistantMessage | 
 export function getAssistantEventsUrl(): string {
   return `${API_BASE}/assistant/events`;
 }
+
+// ─── Campaigns API ────────────────────────────────────────────────────────────
+
+export type CampaignPlatform = "google" | "instagram" | "facebook" | "tiktok";
+export type CampaignStatus = "rascunho" | "ativa" | "pausada" | "encerrada";
+
+export interface CampaignCopy {
+  headline: string;
+  body: string;
+  cta: string;
+}
+
+export interface CampaignKit {
+  audience: {
+    demographics: string;
+    interests: string;
+    behaviours: string;
+    excludedAudiences: string;
+  };
+  budgetAllocation: {
+    suggestion: string;
+    dailyBudget: string;
+    bidStrategy: string;
+  };
+  copies: CampaignCopy[];
+  creativeBrief: {
+    format: string;
+    visualConcept: string;
+    doList: string[];
+    dontList: string[];
+  };
+  segmentationTips: string[];
+  estimatedReach: string;
+  keyMetricsToTrack: string[];
+  generatedAt: string;
+}
+
+export interface Campaign {
+  id: string;
+  name: string;
+  platform: CampaignPlatform;
+  objective: string;
+  budget: number;
+  status: CampaignStatus;
+  utmSlug: string;
+  kitJson: CampaignKit | null;
+  totalSpend: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CampaignMetrics {
+  campaignId: string;
+  totalLeads: number;
+  qualifiedLeads: number;
+  deliveredLeads: number;
+  qualificationRate: number;
+  avgScore: number | null;
+  totalSpend: number;
+  costPerLead: number | null;
+  costPerQualifiedLead: number | null;
+  captationUrl: string;
+}
+
+export function listCampaigns(): Promise<{ campaigns: Campaign[] }> {
+  return request("/campaigns");
+}
+
+export function getCampaignById(id: string): Promise<{ campaign: Campaign }> {
+  return request(`/campaigns/${id}`);
+}
+
+export function createCampaign(data: {
+  name: string;
+  platform: CampaignPlatform;
+  objective: string;
+  budget: number;
+}): Promise<{ campaign: Campaign }> {
+  return request("/campaigns", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export function updateCampaignStatus(
+  id: string,
+  patch: { status?: CampaignStatus; budget?: number; totalSpend?: number },
+): Promise<{ campaign: Campaign }> {
+  return request(`/campaigns/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export function generateCampaignKit(id: string): Promise<{ campaign: Campaign }> {
+  return request(`/campaigns/${id}/generate`, { method: "POST" });
+}
+
+export function getCampaignMetrics(id: string): Promise<{ metrics: CampaignMetrics }> {
+  return request(`/campaigns/${id}/metrics`);
+}
+
+export function getCampaignOptimizations(id: string): Promise<{ suggestions: string[] }> {
+  return request(`/campaigns/${id}/optimize`);
+}
