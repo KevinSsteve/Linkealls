@@ -180,6 +180,20 @@ export function getLeadsEventsUrl(): string {
   return `${API_BASE}/leads/events`;
 }
 
+/**
+ * Visitor sends a text message after the call flow started.
+ * Returns Gemini's reply (already persisted in the lead record).
+ */
+export function sendLeadChat(
+  leadId: string,
+  message: string,
+): Promise<{ reply: string }> {
+  return request(`/leads/${leadId}/chat`, {
+    method: "POST",
+    body: JSON.stringify({ message }),
+  });
+}
+
 // ─── Assistant API ────────────────────────────────────────────────────────────
 
 export type AssistantRole = "user" | "assistant" | "proactive";

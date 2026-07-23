@@ -11,6 +11,7 @@ import {
 } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 import { logger } from "../lib/logger.js";
+import { getOrCreateProfile } from "./businessProfile.js";
 
 const EXTRACTION_MODEL = "gemini-3-flash-preview";
 const SCORE_QUALIFY_THRESHOLD = 60;
@@ -205,6 +206,85 @@ Responde APENAS com JSON válido, sem texto adicional.`;
       .set({ callEndedAt: new Date(), updatedAt: new Date() })
       .where(eq(leadsTable.id, leadId));
   }
+}
+
+// ─── Visitor text chat (Gemini-powered) ──────────────────────────────────────
+
+/**
+ * Handles a text message from a visitor after the call flow has started.
+ * Uses the business profile + full lead context to generate a Gemini reply,
+ * then persists both messages to the lead's chatMessages.
+ */
+export async function chatWithLead(
+  leadId: string,
+  userMessage: string,
+): Promise<{ reply: string }> {
+  const apiKey = process.env["GEMINI_API_KEY"];
+  if (!apiKey) throw new Error("GEMINI_API_KEY não configurado");
+
+  const [lead, profile] = await Promise.all([getLead(leadId), getOrCreateProfile()]);
+  if (!lead) throw new Error("Lead não encontrado");
+
+  // Build context blocks
+  const offeringsText = profile.offerings?.length
+    ? profile.offerings.map((o) => `- ${o.name}: ${o.description} (${o.price})`).join("\n")
+    : "(não configurado)";
+
+  const faqText = profile.faq?.length
+    ? profile.faq.map((f) => `P: ${f.question}\nR: ${f.answer}`).join("\n\n")
+    : "";
+
+  const systemInstruction = `És um assistente comercial de atendimento por texto para ${profile.name || "este negócio"}.
+Tom de voz: ${profile.toneOfVoice || "profissional e amigável"}.
+Sector: ${profile.sector || "não especificado"}.
+Descrição: ${profile.description || ""}.
+Público-alvo: ${profile.targetAudience || ""}.
+Diferenciais: ${(profile.differentials || []).join(", ")}.
+
+PRODUTOS/SERVIÇOS:
+${offeringsText}
+${faqText ? `\nPERGUNTAS FREQUENTES:\n${faqText}\n` : ""}
+REGRAS:
+- Responde de forma natural, útil e concisa (máximo 3 parágrafos curtos).
+- NÃO uses formatação markdown (sem asteriscos, sem #, sem bullets).
+- Quando fizer sentido, sugere ligar de volta ao cliente.
+- Escreve em Português de Angola (tratamento informal mas respeitoso).
+- Se não souberes uma resposta, diz honestamente e oferece alternativa.`;
+
+  // Build conversation content: chat history + call transcript (if any)
+  const history = lead.chatMessages
+    .map((m) => `${m.role === "user" ? "Cliente" : "Assistente"}: ${m.text}`)
+    .join("\n");
+
+  const transcriptBlock = lead.callTranscript
+    ? `\n\n[TRANSCRIÇÃO DA CHAMADA ANTERIOR]\n${lead.callTranscript.slice(0, 3000)}`
+    : "";
+
+  const prompt = `${history}${transcriptBlock}\n\nCliente: ${userMessage}\nAssistente:`;
+
+  const ai = new GoogleGenAI({ apiKey });
+  const response = await ai.models.generateContent({
+    model: EXTRACTION_MODEL,
+    contents: prompt,
+    config: { systemInstruction },
+  });
+
+  const reply = (response.text ?? "").trim() ||
+    "Desculpa, não consegui processar a tua mensagem. Tenta outra vez.";
+
+  // Persist both messages in the lead's chatMessages
+  const ts = new Date().toISOString();
+  const updated: ChatMessage[] = [
+    ...lead.chatMessages,
+    { role: "user" as const, text: userMessage, ts },
+    { role: "bot" as const, text: reply, ts: new Date(Date.now() + 1).toISOString() },
+  ];
+  await db
+    .update(leadsTable)
+    .set({ chatMessages: updated, updatedAt: new Date() })
+    .where(eq(leadsTable.id, leadId));
+
+  return { reply };
 }
 
 // ─── SSE notification bus ─────────────────────────────────────────────────────

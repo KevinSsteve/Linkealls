@@ -5,6 +5,7 @@ import {
   getLead,
   listLeads,
   updateLeadState,
+  chatWithLead,
   subscribeToLeadQualified,
 } from "../services/leads.js";
 import { leadOriginSchema, chatMessageSchema, updateLeadStateSchema } from "@workspace/db";
@@ -86,6 +87,25 @@ router.get("/leads/:id", async (req: Request, res: Response) => {
   } catch (err) {
     logger.error({ err }, "Failed to get lead");
     res.status(500).json({ error: "Erro ao carregar lead" });
+  }
+});
+
+// ─── Visitor text chat (Gemini) ───────────────────────────────────────────────
+
+router.post("/leads/:id/chat", async (req: Request, res: Response) => {
+  const id = String(req.params["id"] ?? "");
+  const schema = z.object({ message: z.string().min(1).max(2000) });
+  const parsed = schema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Mensagem inválida" });
+    return;
+  }
+  try {
+    const { reply } = await chatWithLead(id, parsed.data.message);
+    res.json({ reply });
+  } catch (err) {
+    logger.error({ err, id }, "Lead text chat failed");
+    res.status(500).json({ error: "Erro ao processar mensagem" });
   }
 });
 

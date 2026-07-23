@@ -1,12 +1,14 @@
 import { ReactNode } from "react";
 import { Link } from "wouter";
-import { ArrowLeft, Video, Phone, MoreVertical } from "lucide-react";
+import { ArrowLeft, Phone, MoreVertical } from "lucide-react";
 
 interface ChatLayoutProps {
   children: ReactNode;
+  onBack?: () => void;
+  onCall?: () => void;
 }
 
-export function ChatLayout({ children }: ChatLayoutProps) {
+export function ChatLayout({ children, onBack, onCall }: ChatLayoutProps) {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* ── Header ── */}
@@ -16,12 +18,15 @@ export function ChatLayout({ children }: ChatLayoutProps) {
           background: "linear-gradient(180deg, #060C14 0%, #080F1C 100%)",
           borderBottom: "1px solid #111E30",
           padding: "10px 14px",
-          /* Respect iOS notch */
           paddingTop: "calc(10px + env(safe-area-inset-top))",
         }}
       >
         {/* Back */}
-        <button className="p-1 -ml-1 rounded-full transition-colors active:bg-white/10 text-[#7B96B2]">
+        <button
+          onClick={onBack ?? (() => window.history.back())}
+          className="p-1 -ml-1 rounded-full transition-colors active:bg-white/10 text-[#7B96B2]"
+          aria-label="Voltar"
+        >
           <ArrowLeft size={22} />
         </button>
 
@@ -36,7 +41,7 @@ export function ChatLayout({ children }: ChatLayoutProps) {
           >
             A
           </div>
-          {/* Online */}
+          {/* Online dot */}
           <span
             className="absolute bottom-0 right-0 w-[11px] h-[11px] rounded-full border-2"
             style={{ backgroundColor: "#34D399", borderColor: "#060C14" }}
@@ -58,12 +63,16 @@ export function ChatLayout({ children }: ChatLayoutProps) {
 
         {/* Icons */}
         <div className="flex items-center gap-4" style={{ color: "#7B96B2" }}>
-          <button className="hover:text-[#EAF0F7] transition-colors active:scale-90">
-            <Video size={21} />
-          </button>
-          <button className="hover:text-[#EAF0F7] transition-colors active:scale-90">
+          {/* Phone — triggers a new call if handler provided */}
+          <button
+            onClick={onCall}
+            disabled={!onCall}
+            className="hover:text-[#EAF0F7] transition-colors active:scale-90 disabled:opacity-30 disabled:pointer-events-none"
+            aria-label="Iniciar chamada"
+          >
             <Phone size={20} />
           </button>
+
           {/* Owner area entry point (⋮ like WhatsApp's menu) */}
           <Link
             href="/dono"
