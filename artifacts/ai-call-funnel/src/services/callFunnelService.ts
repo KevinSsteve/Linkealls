@@ -28,7 +28,11 @@ export class CallFunnelService {
     this.callbacks = callbacks;
   }
 
-  connect(): void {
+  /**
+   * @param leadId - Optional lead ID to attach to the WS session so the server
+   *   can link transcripts to the correct lead for post-call extraction.
+   */
+  connect(leadId?: string): void {
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
     // In dev, requests must stay under the artifact base path (e.g.
     // /ai-call-funnel/api/...) so they reach the Vite dev server, whose proxy
@@ -38,7 +42,8 @@ export class CallFunnelService {
     const apiPath = import.meta.env.DEV
       ? `${base}api/call-funnel-ws`
       : "/api/call-funnel-ws";
-    const url = `${proto}//${window.location.host}${apiPath}`;
+    const qs = leadId ? `?leadId=${encodeURIComponent(leadId)}` : "";
+    const url = `${proto}//${window.location.host}${apiPath}${qs}`;
     console.log("[CallFunnel] WebSocket connecting to", url);
 
     this.ws = new WebSocket(url);
@@ -47,14 +52,14 @@ export class CallFunnelService {
       try {
         const msg = JSON.parse(event.data) as ServerMessage;
         switch (msg.type) {
-          case "ready":       this.callbacks.onReady(); break;
-          case "audio":       this.callbacks.onAudio(msg.data); break;
-          case "turn_complete": this.callbacks.onTurnComplete(); break;
-          case "interrupted": this.callbacks.onInterrupted(); break;
-          case "transcript":  this.callbacks.onTranscript?.(msg.text); break;
+          case "ready":           this.callbacks.onReady(); break;
+          case "audio":           this.callbacks.onAudio(msg.data); break;
+          case "turn_complete":   this.callbacks.onTurnComplete(); break;
+          case "interrupted":     this.callbacks.onInterrupted(); break;
+          case "transcript":      this.callbacks.onTranscript?.(msg.text); break;
           case "user_transcript": this.callbacks.onUserTranscript?.(msg.text); break;
-          case "error":       this.callbacks.onError(msg.message); break;
-          case "closed":      this.callbacks.onClose(); break;
+          case "error":           this.callbacks.onError(msg.message); break;
+          case "closed":          this.callbacks.onClose(); break;
         }
       } catch {
         // Ignore malformed messages

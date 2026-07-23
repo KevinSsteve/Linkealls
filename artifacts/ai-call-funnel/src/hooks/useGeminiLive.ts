@@ -16,7 +16,11 @@ export interface GeminiLiveState {
 
 const VAD_THRESHOLD = 0.012;
 
-export function useGeminiLive(): GeminiLiveState {
+/**
+ * @param leadId - When provided, passed to the WS server so the call session
+ *   is linked to the lead record for post-call extraction.
+ */
+export function useGeminiLive(leadId?: string | null): GeminiLiveState {
   const [callState, setCallState] = useState<CallState>("idle");
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
   const [isUserSpeaking, setIsUserSpeaking] = useState(false);
@@ -30,7 +34,6 @@ export function useGeminiLive(): GeminiLiveState {
   callStateRef.current = callState;
 
   // True once the server has confirmed the Gemini session is open.
-  // Audio chunks are only sent after this point to avoid the server discarding them.
   const wsReadyRef = useRef(false);
 
   const cleanup = useCallback(() => {
@@ -57,29 +60,20 @@ export function useGeminiLive(): GeminiLiveState {
     wsReadyRef.current = false;
 
     // ── Step 1: AudioPlayer ──────────────────────────────────────────────────
-    // Must be created AND unlocked inside the user-gesture call stack so that
-    // iOS Safari grants audio playback permission.
-    // Wrapped in try/catch: if AudioContext creation fails (e.g., browser limit),
-    // we still proceed with the WebSocket so Gemini at least connects.
     let player: AudioPlayer | null = null;
     try {
       player = new AudioPlayer();
-      player.unlock(); // plays a silent buffer to fully unlock the AudioContext on iOS
+      player.unlock();
       playerRef.current = player;
     } catch (e) {
       console.error("[CallFunnel] AudioPlayer creation failed:", e);
-      // Continue without playback — at least the WS/mic will work
     }
 
     // ── Step 2: WebSocket ────────────────────────────────────────────────────
-    // Connect WS IMMEDIATELY so that the server-side Gemini session starts
-    // opening while getUserMedia permission dialog may still be showing.
     const service = new CallFunnelService({
       onReady: () => {
         wsReadyRef.current = true;
         console.log("[CallFunnel] Server ready — Gemini session open");
-        // If mic permission was already granted, go active now.
-        // Otherwise wait for the startAudioCapture promise to resolve.
         if (captureRef.current) setCallState("active");
       },
 
@@ -101,11 +95,11 @@ export function useGeminiLive(): GeminiLiveState {
       },
 
       onTranscript: () => {
-        // Transcript received but not displayed — no-op
+        // Transcript received but not displayed — handled server-side
       },
 
       onUserTranscript: () => {
-        // User transcript received but not displayed — no-op
+        // User transcript handled server-side
       },
 
       onError: (message) => {
@@ -125,13 +119,12 @@ export function useGeminiLive(): GeminiLiveState {
     });
 
     serviceRef.current = service;
-    service.connect();
-    console.log("[CallFunnel] WebSocket connecting");
+    // Pass leadId as a query param so the server links transcripts to the lead
+    service.connect(leadId ?? undefined);
+    console.log("[CallFunnel] WebSocket connecting", leadId ? `(leadId=${leadId})` : "");
 
     // ── Step 3: Mic capture ──────────────────────────────────────────────────
-    // getUserMedia MUST be called inside the user-gesture call stack.
     startAudioCapture((base64) => {
-      // Only send audio after server confirms the Gemini session is ready.
       if (wsReadyRef.current) {
         serviceRef.current?.sendAudio(base64);
       }
@@ -142,8 +135,6 @@ export function useGeminiLive(): GeminiLiveState {
         vadTimerRef.current = setInterval(() => {
           setIsUserSpeaking(capture.getVolume() > VAD_THRESHOLD);
         }, 100);
-        // If the server already sent "ready" before mic permission was granted,
-        // switch to active now.
         if (wsReadyRef.current) setCallState("active");
       })
       .catch((err) => {
@@ -152,7 +143,7 @@ export function useGeminiLive(): GeminiLiveState {
         setCallState("error");
         cleanup();
       });
-  }, [cleanup]);
+  }, [cleanup, leadId]);
 
   const disconnect = useCallback(() => {
     cleanup();

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
-import { Brain, Globe, Sparkles, ArrowLeft, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Brain, Globe, Sparkles, ArrowLeft, Loader2, AlertCircle, CheckCircle2, Users } from "lucide-react";
 import {
   getBusinessProfile,
   saveBusinessProfile,
@@ -174,10 +174,18 @@ export function Owner() {
         <div className="w-9 h-9 rounded-full bg-[#00A884]/15 flex items-center justify-center">
           <Brain className="w-5 h-5 text-[#00A884]" />
         </div>
-        <div className="min-w-0">
+        <div className="flex-1 min-w-0">
           <h1 className="text-[15px] font-semibold text-slate-100 leading-tight">Cérebro do Negócio</h1>
           <p className="text-[12px] text-slate-500 leading-tight">A IA atende com este conhecimento</p>
         </div>
+        <Link
+          href="/dono/leads"
+          className="flex items-center gap-1.5 text-[13px] font-medium text-[#00A884] hover:text-[#02BD7E] transition-colors shrink-0"
+          aria-label="Caixa de leads"
+        >
+          <Users className="w-4 h-4" />
+          Leads
+        </Link>
       </header>
 
       {/* Alerts */}

@@ -1,3 +1,12 @@
+/**
+ * Página pública de captação de leads.
+ *
+ * Aceita parâmetros UTM na URL e inicia o funil (chat → chamada) igual ao Chat,
+ * mas registando o lead no backend com a origem.
+ * URL exemplo: /captacao?utm_source=facebook&utm_medium=cpc&utm_campaign=verao
+ *
+ * É esta página que os anúncios devem usar como destino.
+ */
 import { useState, useEffect, useRef, useCallback } from "react";
 import { ChatLayout } from "../components/ChatLayout";
 import { ChatBubble, type BubbleRole } from "../components/ChatBubble";
@@ -5,7 +14,7 @@ import { ChatInput } from "../components/ChatInput";
 import { IncomingCallModal } from "../components/IncomingCallModal";
 import { CallScreen } from "../components/CallScreen";
 import { useGeminiLive } from "../hooks/useGeminiLive";
-import { createLeadSession, type ChatMessage } from "../lib/api";
+import { createLeadSession, type LeadOrigin, type ChatMessage } from "../lib/api";
 
 interface Message {
   id: string;
@@ -14,24 +23,40 @@ interface Message {
   ts: string;
 }
 
-type Stage = "chat" | "typing" | "call_incoming" | "call_active" | "call_ended";
+type Stage = "chat" | "typing" | "call_incoming" | "call_active";
 
-export function Chat() {
-  const initialMessage = (() => {
-    try {
-      const p = new URLSearchParams(window.location.search);
-      return p.get("message") ?? "Quero saber mais sobre isso";
-    } catch {
-      return "Quero saber mais sobre isso";
-    }
-  })();
+function readUtmParams(): LeadOrigin {
+  try {
+    const p = new URLSearchParams(window.location.search);
+    return {
+      source:   p.get("utm_source")   ?? undefined,
+      medium:   p.get("utm_medium")   ?? undefined,
+      campaign: p.get("utm_campaign") ?? undefined,
+      content:  p.get("utm_content")  ?? undefined,
+      term:     p.get("utm_term")     ?? undefined,
+      url:      window.location.href,
+    };
+  } catch {
+    return {};
+  }
+}
 
-  const [inputValue, setInputValue] = useState(initialMessage);
+function readInitialMessage(): string {
+  try {
+    return new URLSearchParams(window.location.search).get("message") ?? "Quero saber mais sobre isso";
+  } catch {
+    return "Quero saber mais sobre isso";
+  }
+}
+
+export function Captacao() {
+  const [inputValue, setInputValue] = useState(readInitialMessage);
   const [messages, setMessages] = useState<Message[]>([]);
   const [stage, setStage] = useState<Stage>("chat");
   const [hasSent, setHasSent] = useState(false);
   const [leadId, setLeadId] = useState<string | null>(null);
 
+  const utmRef = useRef<LeadOrigin>(readUtmParams());
   const chatMsgsRef = useRef<ChatMessage[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const gemini = useGeminiLive(leadId);
@@ -63,15 +88,16 @@ export function Chat() {
       chatMsgsRef.current.push(botMsg);
       setStage("chat");
 
-      // Create lead session (no UTM on direct chat page)
+      // Create lead session in the background
       try {
         const { leadId: id } = await createLeadSession(
-          { url: window.location.href },
+          utmRef.current,
           chatMsgsRef.current,
         );
         setLeadId(id);
       } catch {
-        console.warn("[Chat] Failed to create lead session");
+        // Non-fatal — call still works without a lead record
+        console.warn("[Captacao] Failed to create lead session");
       }
 
       setTimeout(() => setStage("call_incoming"), 1000);
@@ -88,10 +114,7 @@ export function Chat() {
   const handleEndCall = useCallback(() => {
     gemini.disconnect();
     setStage("chat");
-    addMessage(
-      "bot",
-      "Obrigado pelo contacto. Um consultor poderá continuar o atendimento pelo WhatsApp.",
-    );
+    addMessage("bot", "Obrigado pelo contacto. Um consultor poderá continuar o atendimento pelo WhatsApp.");
   }, [gemini, addMessage]);
 
   useEffect(() => {
@@ -104,12 +127,10 @@ export function Chat() {
   return (
     <ChatLayout>
       <div className="flex flex-col h-full relative overflow-hidden">
-        {/* ── Incoming call overlay ── */}
         {stage === "call_incoming" && (
           <IncomingCallModal onAccept={handleAccept} onReject={handleReject} />
         )}
 
-        {/* ── Active call ── */}
         {stage === "call_active" ? (
           <CallScreen
             isAiSpeaking={gemini.isAiSpeaking}
@@ -118,9 +139,7 @@ export function Chat() {
           />
         ) : (
           <>
-            {/* ── Chat messages ── */}
             <div className="flex-1 overflow-y-auto chat-bg px-3 py-3 min-h-0">
-              {/* Date pill */}
               <div className="flex justify-center mb-3">
                 <span
                   className="text-[11px] px-3 py-1 rounded-full"
@@ -139,11 +158,9 @@ export function Chat() {
               ))}
 
               {stage === "typing" && <ChatBubble role="bot" text="" isTyping />}
-
               <div ref={bottomRef} />
             </div>
 
-            {/* ── Input ── */}
             <ChatInput
               value={inputValue}
               onChange={setInputValue}

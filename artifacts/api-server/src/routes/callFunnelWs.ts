@@ -3,6 +3,7 @@ import type { IncomingMessage } from "http";
 import type { Server } from "http";
 import { createGeminiLiveSession } from "../services/geminiLive.js";
 import { getOrCreateProfile, buildCallAgentPrompt } from "../services/businessProfile.js";
+import { updateLeadOnCallStart, processCallCompletion } from "../services/leads.js";
 import { logger } from "../lib/logger.js";
 
 const CALL_VOICE = "Kore";
@@ -16,11 +17,16 @@ async function resolveCallConfig() {
   try {
     const profile = await getOrCreateProfile();
     const { systemPrompt, greetingText } = buildCallAgentPrompt(profile);
-    return { voiceName: CALL_VOICE, systemPrompt, greetingText };
+    return {
+      voiceName: CALL_VOICE,
+      systemPrompt,
+      greetingText,
+      businessName: profile.name || "o negócio",
+    };
   } catch (err) {
     logger.error({ err }, "Failed to load business profile; using generic prompt");
     const { systemPrompt, greetingText } = buildCallAgentPrompt(null);
-    return { voiceName: CALL_VOICE, systemPrompt, greetingText };
+    return { voiceName: CALL_VOICE, systemPrompt, greetingText, businessName: "o negócio" };
   }
 }
 
@@ -40,8 +46,8 @@ export function setupCallFunnelWebSocket(server: Server): void {
   const wss = new WebSocketServer({ noServer: true });
 
   server.on("upgrade", (req, socket, head) => {
-    const pathname = new URL(req.url ?? "/", "http://localhost").pathname;
-    if (pathname === "/api/call-funnel-ws") {
+    const url = new URL(req.url ?? "/", "http://localhost");
+    if (url.pathname === "/api/call-funnel-ws") {
       wss.handleUpgrade(req, socket, head, (ws) => {
         wss.emit("connection", ws, req);
       });
@@ -51,26 +57,52 @@ export function setupCallFunnelWebSocket(server: Server): void {
     }
   });
 
-  wss.on("connection", (ws: WebSocket, _req: IncomingMessage) => {
-    logger.info("Call Funnel WebSocket client connected");
+  wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
+    // Extract leadId from query string if provided
+    const url = new URL(req.url ?? "/", "http://localhost");
+    const leadId = url.searchParams.get("leadId") ?? null;
+
+    logger.info({ leadId }, "Call Funnel WebSocket client connected");
 
     let geminiSession: Awaited<ReturnType<typeof createGeminiLiveSession>> | null = null;
     let closed = false;
+
+    // Accumulate full transcript for post-call extraction
+    const transcriptLines: string[] = [];
+    let businessName = "o negócio";
 
     function sendToClient(msg: ServerMessage) {
       if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
     }
 
+    // Mark lead as in-progress when call starts
+    if (leadId) {
+      updateLeadOnCallStart(leadId).catch((err) =>
+        logger.error({ err, leadId }, "Failed to mark lead em_atendimento"),
+      );
+    }
+
     resolveCallConfig()
-      .then((config) => createGeminiLiveSession(config, {
-      onAudio: (base64) => { if (!closed) sendToClient({ type: "audio", data: base64 }); },
-      onTurnComplete: () => { if (!closed) sendToClient({ type: "turn_complete" }); },
-      onInterrupted: () => { if (!closed) sendToClient({ type: "interrupted" }); },
-      onTranscript: (text) => { if (!closed) sendToClient({ type: "transcript", text }); },
-      onInputTranscript: (text) => { if (!closed) sendToClient({ type: "user_transcript", text }); },
-      onError: () => { if (!closed) sendToClient({ type: "error", message: "AI service error" }); },
-      onClose: () => { if (!closed) sendToClient({ type: "closed" }); },
-    }))
+      .then((config) => {
+        businessName = config.businessName;
+        return createGeminiLiveSession(config, {
+          onAudio: (base64) => { if (!closed) sendToClient({ type: "audio", data: base64 }); },
+          onTurnComplete: () => { if (!closed) sendToClient({ type: "turn_complete" }); },
+          onInterrupted: () => { if (!closed) sendToClient({ type: "interrupted" }); },
+          onTranscript: (text) => {
+            // AI speech transcript
+            transcriptLines.push(`Assistente: ${text}`);
+            if (!closed) sendToClient({ type: "transcript", text });
+          },
+          onInputTranscript: (text) => {
+            // User speech transcript
+            transcriptLines.push(`Cliente: ${text}`);
+            if (!closed) sendToClient({ type: "user_transcript", text });
+          },
+          onError: () => { if (!closed) sendToClient({ type: "error", message: "AI service error" }); },
+          onClose: () => { if (!closed) sendToClient({ type: "closed" }); },
+        });
+      })
       .then((session) => {
         if (closed) { session.close(); return; }
         geminiSession = session;
@@ -96,10 +128,18 @@ export function setupCallFunnelWebSocket(server: Server): void {
     });
 
     ws.on("close", () => {
-      logger.info("Call Funnel WebSocket client disconnected");
+      logger.info({ leadId }, "Call Funnel WebSocket client disconnected");
       closed = true;
       geminiSession?.close();
       geminiSession = null;
+
+      // Post-call extraction
+      if (leadId && transcriptLines.length > 0) {
+        const fullTranscript = transcriptLines.join("\n");
+        processCallCompletion(leadId, fullTranscript, businessName).catch((err) =>
+          logger.error({ err, leadId }, "processCallCompletion failed"),
+        );
+      }
     });
 
     ws.on("error", (err) => {
