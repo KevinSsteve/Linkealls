@@ -24,6 +24,7 @@ import {
   type Lead,
   type LeadState,
 } from "../../lib/api";
+import { OwnerNav } from "../../components/owner/OwnerNav";
 
 // ─── State badge config ───────────────────────────────────────────────────────
 
@@ -180,10 +181,10 @@ function LeadDetail({
     : null;
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col flex-1 min-h-0">
       {/* Header */}
       <div
-        className="flex items-center gap-3 px-4 py-3 border-b border-white/10"
+        className="flex items-center gap-3 px-4 py-3 border-b border-white/10 flex-shrink-0"
         style={{ background: "#111B27" }}
       >
         <button onClick={onBack} className="text-[#3E576F] hover:text-[#EAF0F7]">
@@ -480,6 +481,7 @@ export function Leads() {
             setSelectedLead(updated);
           }}
         />
+        <OwnerNav />
       </div>
     );
   }
@@ -582,6 +584,7 @@ export function Leads() {
           ))
         )}
       </div>
+      <OwnerNav />
     </div>
   );
 }

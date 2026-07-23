@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
-import { Brain, Globe, Sparkles, ArrowLeft, Loader2, AlertCircle, CheckCircle2, Users, Bot, Megaphone } from "lucide-react";
+import { Brain, Globe, Sparkles, ArrowLeft, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { OwnerNav } from "../components/owner/OwnerNav";
 import {
   getBusinessProfile,
   saveBusinessProfile,
@@ -178,30 +179,6 @@ export function Owner() {
           <h1 className="text-[15px] font-semibold text-slate-100 leading-tight">Cérebro do Negócio</h1>
           <p className="text-[12px] text-slate-500 leading-tight">A IA atende com este conhecimento</p>
         </div>
-        <Link
-          href="/dono/leads"
-          className="flex items-center gap-1.5 text-[13px] font-medium text-[#00A884] hover:text-[#02BD7E] transition-colors shrink-0"
-          aria-label="Caixa de leads"
-        >
-          <Users className="w-4 h-4" />
-          Leads
-        </Link>
-        <Link
-          href="/dono/assistente"
-          className="flex items-center gap-1.5 text-[13px] font-medium text-[#00A884] hover:text-[#02BD7E] transition-colors shrink-0"
-          aria-label="Assistente Vivo"
-        >
-          <Bot className="w-4 h-4" />
-          IA
-        </Link>
-        <Link
-          href="/dono/campanhas"
-          className="flex items-center gap-1.5 text-[13px] font-medium text-[#00A884] hover:text-[#02BD7E] transition-colors shrink-0"
-          aria-label="Campanhas"
-        >
-          <Megaphone className="w-4 h-4" />
-          Camps
-        </Link>
       </header>
 
       {/* Alerts */}
@@ -333,6 +310,7 @@ export function Owner() {
           )}
         </div>
       </main>
+      <OwnerNav />
     </div>
   );
 }

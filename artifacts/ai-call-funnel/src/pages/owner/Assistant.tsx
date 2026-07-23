@@ -29,6 +29,7 @@ import {
   type AssistantMessage,
 } from "../../lib/api";
 import { ChatInput } from "../../components/ChatInput";
+import { OwnerNav } from "../../components/owner/OwnerNav";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -482,6 +483,7 @@ export function Assistant() {
         onSend={() => void handleSend()}
         disabled={sending}
       />
+      <OwnerNav />
     </div>
   );
 }

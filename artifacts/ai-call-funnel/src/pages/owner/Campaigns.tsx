@@ -24,6 +24,7 @@ import {
   type Campaign,
   type CampaignPlatform,
 } from "../../lib/api";
+import { OwnerNav } from "../../components/owner/OwnerNav";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -331,6 +332,7 @@ export function Campaigns() {
       {showModal && (
         <CreateModal onClose={() => setShowModal(false)} onCreate={handleCreate} />
       )}
+      <OwnerNav />
     </div>
   );
 }

@@ -88,9 +88,10 @@ export function Chat() {
   const handleEndCall = useCallback(() => {
     gemini.disconnect();
     setStage("chat");
+    setHasSent(false); // unlock text input — visitor can continue chatting
     addMessage(
       "bot",
-      "Obrigado pelo contacto. Um consultor poderá continuar o atendimento pelo WhatsApp.",
+      "Chamada terminada 📞 Se tiveres mais alguma questão, escreve à vontade!",
     );
   }, [gemini, addMessage]);
 

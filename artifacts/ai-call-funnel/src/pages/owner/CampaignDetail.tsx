@@ -25,6 +25,7 @@ import {
   Play,
   Pause,
 } from "lucide-react";
+import { OwnerNav } from "../../components/owner/OwnerNav";
 import {
   getCampaignById,
   generateCampaignKit,
@@ -600,6 +601,7 @@ export function CampaignDetail() {
           </>
         )}
       </div>
+      <OwnerNav />
     </div>
   );
 }
