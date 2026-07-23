@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Router, Route, Switch } from "wouter";
 import { Chat } from "@/pages/Chat";
 import { Captacao } from "@/pages/Captacao";
@@ -11,15 +12,35 @@ import { Conversas } from "@/pages/owner/Conversas";
 // Serve under the artifact base path (e.g. /ai-call-funnel) in dev and prod.
 const routerBase = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+/**
+ * Sync --vh to the visual viewport height so the layout always fits the
+ * visible area — even when the virtual keyboard is open on iOS/Android.
+ */
+function useVisualViewportHeight() {
+  useEffect(() => {
+    const apply = () => {
+      const h = window.visualViewport?.height ?? window.innerHeight;
+      document.documentElement.style.setProperty("--vh", `${h}px`);
+    };
+    apply();
+    window.visualViewport?.addEventListener("resize", apply);
+    window.visualViewport?.addEventListener("scroll", apply);
+    window.addEventListener("resize", apply);
+    return () => {
+      window.visualViewport?.removeEventListener("resize", apply);
+      window.visualViewport?.removeEventListener("scroll", apply);
+      window.removeEventListener("resize", apply);
+    };
+  }, []);
+}
+
 export default function App() {
+  useVisualViewportHeight();
+
   return (
-    // Full-bleed on every screen size — no centering card, no maxWidth
     <div
       className="w-full bg-[#080E18] flex flex-col overflow-hidden"
-      style={{
-        height: "100dvh",
-        paddingBottom: "env(safe-area-inset-bottom)",
-      }}
+      style={{ height: "var(--vh, 100dvh)" }}
     >
       <Router base={routerBase}>
         <Switch>

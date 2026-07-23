@@ -1,12 +1,11 @@
 /**
- * Conversas — lista WhatsApp-style de todas as conversas da IA com clientes.
- * Mostra chat inicial + transcrição de chamada num único thread por lead.
+ * Conversas — lista estilo WhatsApp de todas as conversas da IA com clientes.
  */
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
-  ArrowLeft, User, MessageSquare, Phone, Bell,
-  Search, RefreshCw, ChevronRight, ExternalLink,
-  Star, DollarSign, Clock, MapPin, FileText,
+  ArrowLeft, User, Phone, Bell,
+  Search, ExternalLink, DollarSign, Clock, MapPin,
+  MessageCircle,
 } from "lucide-react";
 import {
   listLeads, getLeadDetail, updateLeadState,
@@ -22,16 +21,40 @@ const STATE_LABELS: Record<LeadState, string> = {
 };
 
 const STATE_COLORS: Record<LeadState, string> = {
-  novo:           "bg-blue-500/20 text-blue-300 border-blue-500/30",
-  em_atendimento: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30",
+  novo:           "bg-sky-500/20 text-sky-300 border-sky-500/30",
+  em_atendimento: "bg-amber-500/20 text-amber-300 border-amber-500/30",
   qualificado:    "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
   entregue:       "bg-teal-500/20 text-teal-300 border-teal-500/30",
   perdido:        "bg-red-500/20 text-red-300 border-red-500/30",
 };
 
+const STATE_DOT: Record<LeadState, string> = {
+  novo:           "#38BDF8",
+  em_atendimento: "#FBBF24",
+  qualificado:    "#34D399",
+  entregue:       "#2DD4BF",
+  perdido:        "#F87171",
+};
+
 const STATE_ORDER: LeadState[] = [
   "novo", "em_atendimento", "qualificado", "entregue", "perdido",
 ];
+
+// Avatar colours — assigned by name hash for visual variety
+const AVATAR_PALETTES = [
+  { bg: "#1A3828", text: "#4ADE80" },
+  { bg: "#1A2B45", text: "#60A5FA" },
+  { bg: "#3A1A2B", text: "#F472B6" },
+  { bg: "#2B1A3A", text: "#A78BFA" },
+  { bg: "#3A2B1A", text: "#FB923C" },
+  { bg: "#1A3A3A", text: "#22D3EE" },
+];
+
+function avatarPalette(name: string) {
+  let h = 0;
+  for (const c of name) h = h * 31 + c.charCodeAt(0);
+  return AVATAR_PALETTES[Math.abs(h) % AVATAR_PALETTES.length];
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -53,9 +76,9 @@ function getLeadPreview(lead: Lead) {
   const msgs = lead.chatMessages;
   if (!msgs.length) return "Sem mensagens";
   const last = msgs[msgs.length - 1];
-  const prefix = last.role === "user" ? "" : "🤖 ";
+  const prefix = last.role === "user" ? "Tu: " : "";
   const t = last.text;
-  return prefix + (t.length > 55 ? t.slice(0, 55) + "…" : t);
+  return prefix + (t.length > 50 ? t.slice(0, 50) + "…" : t);
 }
 
 function scoreColor(score: number) {
@@ -65,7 +88,6 @@ function scoreColor(score: number) {
   return "#EF4444";
 }
 
-/** Try to parse "User: …" / "AI: …" transcript lines. Falls back to raw block. */
 function parseTranscript(raw: string): Array<{ role: "user" | "ai"; text: string }> | null {
   const lines = raw.split("\n").map((l) => l.trim()).filter(Boolean);
   const parsed: Array<{ role: "user" | "ai"; text: string }> = [];
@@ -75,67 +97,101 @@ function parseTranscript(raw: string): Array<{ role: "user" | "ai"; text: string
       const role = /user|utilizador|cliente/i.test(m[1]) ? "user" : "ai";
       parsed.push({ role, text: m[2] });
     } else {
-      // Not parseable — return null so we fall back to raw block
       return null;
     }
   }
   return parsed.length ? parsed : null;
 }
 
-// ─── Conversation Row ─────────────────────────────────────────────────────────
+// ─── Conversation Row (WhatsApp style) ───────────────────────────────────────
 
-function ConversationRow({
-  lead, isNew, onClick,
-}: {
+function ConversationRow({ lead, isNew, onClick }: {
   lead: Lead; isNew: boolean; onClick: () => void;
 }) {
   const name = getLeadName(lead);
   const initials = name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
+  const palette = avatarPalette(name);
+  const preview = getLeadPreview(lead);
+  const dot = STATE_DOT[lead.state];
 
   return (
     <button
       onClick={onClick}
-      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/[0.03] transition-colors text-left border-b border-white/[0.04]"
+      className="w-full flex items-center gap-3 px-4 py-3 active:bg-white/[0.04] transition-colors text-left"
     >
-      {/* Avatar */}
+      {/* Avatar with state dot */}
       <div className="relative flex-shrink-0">
         <div
-          className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold"
-          style={{ background: "#1E2D3D", color: "#00BFA5" }}
+          className="w-12 h-12 rounded-full flex items-center justify-center text-[15px] font-bold"
+          style={{ background: palette.bg, color: palette.text }}
         >
-          {initials || <User size={16} />}
+          {initials || <User size={18} style={{ color: palette.text }} />}
         </div>
-        {isNew && (
-          <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-blue-500 border-2 border-[#0D1520]" />
-        )}
+        <span
+          className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2"
+          style={{ backgroundColor: dot, borderColor: "#0D1520" }}
+        />
       </div>
 
-      {/* Text */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between gap-2">
-          <span className="font-medium text-[#EAF0F7] text-sm truncate">{name}</span>
-          <span className="text-[10px] text-[#3E576F] flex-shrink-0">{formatTime(lead.createdAt)}</span>
-        </div>
-        <div className="flex items-center gap-2 mt-0.5">
+      {/* Content */}
+      <div className="flex-1 min-w-0 border-b border-white/[0.05] pb-3 pt-0.5">
+        <div className="flex items-baseline justify-between gap-2">
           <span
-            className={`text-[10px] px-1.5 py-0.5 rounded border flex-shrink-0 ${STATE_COLORS[lead.state]}`}
+            className="font-semibold text-[15px] truncate"
+            style={{ color: isNew ? "#EAF0F7" : "#B0C4D8" }}
           >
-            {STATE_LABELS[lead.state]}
+            {name}
           </span>
-          <span className="text-[11px] text-[#3E576F] truncate">{getLeadPreview(lead)}</span>
+          <span className="text-[11px] flex-shrink-0" style={{ color: isNew ? "#00BFA5" : "#3E576F" }}>
+            {formatTime(lead.updatedAt)}
+          </span>
+        </div>
+        <div className="flex items-center justify-between gap-2 mt-0.5">
+          <span
+            className="text-[13px] truncate flex-1 min-w-0"
+            style={{ color: isNew ? "#7B96B2" : "#3E576F" }}
+          >
+            {preview}
+          </span>
+          {isNew && (
+            <span className="flex-shrink-0 w-2 h-2 rounded-full bg-[#00BFA5]" />
+          )}
         </div>
       </div>
-
-      <ChevronRight size={14} className="text-[#3E576F] flex-shrink-0" />
     </button>
   );
 }
 
 // ─── Conversation Detail ──────────────────────────────────────────────────────
 
-function ConversationDetail({
-  lead: initialLead, onBack, onStateChange,
-}: {
+function Bubble({ isUser, text, ts }: { isUser: boolean; text: string; ts?: string }) {
+  return (
+    <div className={`flex mb-1.5 ${isUser ? "justify-end" : "justify-start"}`}>
+      <div
+        className="max-w-[78%] px-3.5 py-2 text-[14px] leading-relaxed"
+        style={{
+          borderRadius: isUser ? "18px 4px 18px 18px" : "4px 18px 18px 18px",
+          background: isUser
+            ? "linear-gradient(135deg, #1A4A35 0%, #0F3025 100%)"
+            : "#1A2535",
+          color: isUser ? "#D4F5E5" : "#C8DCF0",
+          border: isUser
+            ? "1px solid rgba(0,200,150,0.15)"
+            : "1px solid rgba(100,150,220,0.1)",
+        }}
+      >
+        {text}
+        {ts && (
+          <p className="text-[9px] mt-1 text-right" style={{ color: "#4A6580" }}>
+            {new Date(ts).toLocaleTimeString("pt-AO", { hour: "2-digit", minute: "2-digit" })}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ConversationDetail({ lead: initialLead, onBack, onStateChange }: {
   lead: Lead; onBack: () => void; onStateChange: (l: Lead) => void;
 }) {
   const [lead, setLead] = useState(initialLead);
@@ -163,172 +219,148 @@ function ConversationDetail({
     ? `https://wa.me/${waPhone}${lead.whatsappMessage ? `?text=${encodeURIComponent(lead.whatsappMessage)}` : ""}`
     : null;
 
+  const name = getLeadName(lead);
+  const palette = avatarPalette(name);
+  const initials = name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
   const parsedTranscript = lead.callTranscript ? parseTranscript(lead.callTranscript) : null;
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
       {/* Header */}
       <div
-        className="flex items-center gap-3 px-4 py-3 border-b border-white/10 flex-shrink-0"
-        style={{ background: "#111B27" }}
+        className="flex items-center gap-3 px-4 py-2.5 border-b border-white/[0.06] flex-shrink-0"
+        style={{ background: "#0D1824" }}
       >
-        <button onClick={onBack} className="text-[#3E576F] hover:text-[#EAF0F7] transition-colors">
+        <button
+          onClick={onBack}
+          className="text-[#3E576F] hover:text-[#EAF0F7] transition-colors p-1 -ml-1"
+        >
           <ArrowLeft size={20} />
         </button>
+        <div
+          className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
+          style={{ background: palette.bg, color: palette.text }}
+        >
+          {initials || <User size={14} style={{ color: palette.text }} />}
+        </div>
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-[#EAF0F7] text-sm truncate">{getLeadName(lead)}</p>
-          <p className="text-[11px] text-[#3E576F]">
-            {lead.qualificationData.interest ?? formatTime(lead.createdAt)}
+          <p className="font-semibold text-[#EAF0F7] text-sm truncate">{name}</p>
+          <p className="text-[11px] text-[#3E576F] truncate">
+            {lead.qualificationData.phone ?? lead.qualificationData.interest ?? formatTime(lead.createdAt)}
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {lead.score !== null && (
-            <span
-              className="text-xs font-bold px-2 py-0.5 rounded-full"
-              style={{ color: scoreColor(lead.score), background: scoreColor(lead.score) + "18" }}
-            >
-              {lead.score}/100
-            </span>
-          )}
-          <span className={`text-[10px] px-2 py-0.5 rounded border ${STATE_COLORS[lead.state]}`}>
-            {STATE_LABELS[lead.state]}
+        {lead.score !== null && (
+          <span
+            className="text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0"
+            style={{ color: scoreColor(lead.score), background: scoreColor(lead.score) + "18" }}
+          >
+            {lead.score}/100
           </span>
-        </div>
+        )}
       </div>
 
       {/* Thread */}
-      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1" style={{ background: "#080E18" }}>
+      <div
+        className="flex-1 overflow-y-auto px-3 py-4"
+        style={{ background: "#080E18" }}
+      >
         {/* Date pill */}
-        <div className="flex justify-center mb-3">
-          <span className="text-[10px] px-3 py-1 rounded-full"
-            style={{ background: "rgba(255,255,255,0.04)", color: "#3E576F", border: "1px solid rgba(255,255,255,0.06)" }}>
+        <div className="flex justify-center mb-4">
+          <span
+            className="text-[10px] px-3 py-1 rounded-full"
+            style={{ background: "#111B27", color: "#3E576F", border: "1px solid rgba(255,255,255,0.06)" }}
+          >
             {new Date(lead.createdAt).toLocaleDateString("pt-AO", { day: "2-digit", month: "long", year: "numeric" })}
           </span>
         </div>
 
         {/* Chat messages */}
-        {lead.chatMessages.map((m, i) => {
-          const isUser = m.role === "user";
-          return (
-            <div key={i} className={`flex mb-2 ${isUser ? "justify-end" : "justify-start"}`}>
-              <div
-                className="max-w-[78%] px-3 py-2 text-[13px] leading-relaxed"
-                style={{
-                  borderRadius: isUser ? "14px 4px 14px 14px" : "4px 14px 14px 14px",
-                  background: isUser
-                    ? "linear-gradient(135deg, #1C5140 0%, #12362A 100%)"
-                    : "linear-gradient(135deg, #1A2B3D 0%, #10192C 100%)",
-                  color: isUser ? "#C8F5E2" : "#C8DCF0",
-                  border: isUser
-                    ? "1px solid rgba(0,200,150,0.12)"
-                    : "1px solid rgba(100,150,220,0.08)",
-                }}
-              >
-                {m.text}
-                <p className="text-[9px] mt-1 text-right" style={{ color: "#3E576F" }}>
-                  {new Date(m.ts).toLocaleTimeString("pt-AO", { hour: "2-digit", minute: "2-digit" })}
-                </p>
-              </div>
-            </div>
-          );
-        })}
+        {lead.chatMessages.map((m, i) => (
+          <Bubble key={i} isUser={m.role === "user"} text={m.text} ts={m.ts} />
+        ))}
 
         {/* Voice call divider */}
         {lead.callTranscript && (
           <>
-            <div className="flex items-center gap-3 my-4">
-              <div className="flex-1 h-px bg-white/10" />
-              <div className="flex items-center gap-1.5 text-[11px] text-[#3E576F] px-2 py-1 rounded-full border border-white/10"
-                style={{ background: "#111B27" }}>
-                <Phone size={11} />
+            <div className="flex items-center gap-3 my-5">
+              <div className="flex-1 h-px bg-white/[0.06]" />
+              <div
+                className="flex items-center gap-1.5 text-[10px] text-[#3E576F] px-2.5 py-1 rounded-full"
+                style={{ background: "#111B27", border: "1px solid rgba(255,255,255,0.08)" }}
+              >
+                <Phone size={10} />
                 Chamada de voz
               </div>
-              <div className="flex-1 h-px bg-white/10" />
+              <div className="flex-1 h-px bg-white/[0.06]" />
             </div>
 
-            {/* Transcript bubbles or raw */}
-            {parsedTranscript ? (
-              parsedTranscript.map((line, i) => {
-                const isUser = line.role === "user";
-                return (
-                  <div key={i} className={`flex mb-2 ${isUser ? "justify-end" : "justify-start"}`}>
-                    <div
-                      className="max-w-[78%] px-3 py-2 text-[13px] leading-relaxed"
-                      style={{
-                        borderRadius: isUser ? "14px 4px 14px 14px" : "4px 14px 14px 14px",
-                        background: isUser
-                          ? "linear-gradient(135deg, #1C5140 0%, #12362A 100%)"
-                          : "linear-gradient(135deg, #1A2B3D 0%, #10192C 100%)",
-                        color: isUser ? "#C8F5E2" : "#C8DCF0",
-                        border: isUser
-                          ? "1px solid rgba(0,200,150,0.12)"
-                          : "1px solid rgba(100,150,220,0.08)",
-                      }}
-                    >
-                      {line.text}
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <div
-                className="rounded-xl px-3.5 py-3 text-xs text-[#B0C4D8] whitespace-pre-wrap font-mono leading-relaxed"
-                style={{ background: "#0F1923", border: "1px solid rgba(255,255,255,0.06)" }}
-              >
-                {lead.callTranscript}
-              </div>
-            )}
+            {parsedTranscript
+              ? parsedTranscript.map((line, i) => (
+                  <Bubble key={i} isUser={line.role === "user"} text={line.text} />
+                ))
+              : (
+                <div
+                  className="rounded-2xl px-4 py-3 text-xs text-[#B0C4D8] whitespace-pre-wrap leading-relaxed"
+                  style={{ background: "#111B27", border: "1px solid rgba(255,255,255,0.06)" }}
+                >
+                  {lead.callTranscript}
+                </div>
+              )}
           </>
         )}
 
         {/* AI summary */}
         {lead.aiSummary && (
-          <div className="mt-3 rounded-xl p-3"
-            style={{ background: "#0F1923", border: "1px solid rgba(0,191,165,0.12)" }}>
-            <p className="text-[10px] text-[#00BFA5] font-semibold mb-1 uppercase tracking-wider">Resumo da IA</p>
-            <p className="text-xs text-[#B0C4D8] leading-relaxed">{lead.aiSummary}</p>
+          <div
+            className="mt-4 rounded-2xl p-3.5"
+            style={{ background: "#111B27", border: "1px solid rgba(0,191,165,0.15)" }}
+          >
+            <p className="text-[10px] text-[#00BFA5] font-semibold mb-1.5 uppercase tracking-widest">
+              Resumo
+            </p>
+            <p className="text-[13px] text-[#B0C4D8] leading-relaxed">{lead.aiSummary}</p>
           </div>
         )}
 
         <div ref={bottomRef} />
       </div>
 
-      {/* Lead info footer */}
-      <div className="flex-shrink-0 border-t border-white/10" style={{ background: "#0C1520" }}>
-        {/* Qualification fields */}
+      {/* Footer */}
+      <div className="flex-shrink-0 border-t border-white/[0.06]" style={{ background: "#0A1420" }}>
+        {/* Quick info chips */}
         {(lead.qualificationData.phone || lead.qualificationData.budget || lead.qualificationData.timeline || lead.qualificationData.location) && (
-          <div className="flex flex-wrap gap-2 px-4 py-2 border-b border-white/[0.04]">
+          <div className="flex flex-wrap gap-1.5 px-4 py-2.5 border-b border-white/[0.04]">
             {lead.qualificationData.phone && (
-              <span className="flex items-center gap-1 text-[11px] text-[#B0C4D8] bg-white/[0.04] rounded px-2 py-1">
+              <span className="flex items-center gap-1 text-[11px] text-[#B0C4D8] rounded-full px-2.5 py-1" style={{ background: "#111B27" }}>
                 <Phone size={10} className="text-[#00BFA5]" /> {lead.qualificationData.phone}
               </span>
             )}
             {lead.qualificationData.budget && (
-              <span className="flex items-center gap-1 text-[11px] text-[#B0C4D8] bg-white/[0.04] rounded px-2 py-1">
+              <span className="flex items-center gap-1 text-[11px] text-[#B0C4D8] rounded-full px-2.5 py-1" style={{ background: "#111B27" }}>
                 <DollarSign size={10} className="text-[#00BFA5]" /> {lead.qualificationData.budget}
               </span>
             )}
             {lead.qualificationData.timeline && (
-              <span className="flex items-center gap-1 text-[11px] text-[#B0C4D8] bg-white/[0.04] rounded px-2 py-1">
+              <span className="flex items-center gap-1 text-[11px] text-[#B0C4D8] rounded-full px-2.5 py-1" style={{ background: "#111B27" }}>
                 <Clock size={10} className="text-[#00BFA5]" /> {lead.qualificationData.timeline}
               </span>
             )}
             {lead.qualificationData.location && (
-              <span className="flex items-center gap-1 text-[11px] text-[#B0C4D8] bg-white/[0.04] rounded px-2 py-1">
+              <span className="flex items-center gap-1 text-[11px] text-[#B0C4D8] rounded-full px-2.5 py-1" style={{ background: "#111B27" }}>
                 <MapPin size={10} className="text-[#00BFA5]" /> {lead.qualificationData.location}
               </span>
             )}
           </div>
         )}
 
-        {/* State chips */}
-        <div className="flex gap-1.5 px-4 py-2 overflow-x-auto scrollbar-none border-b border-white/[0.04]">
+        {/* State selector */}
+        <div className="flex gap-2 px-4 py-2.5 overflow-x-auto scrollbar-none border-b border-white/[0.04]">
           {STATE_ORDER.map((s) => (
             <button
               key={s}
               disabled={s === lead.state || updating}
               onClick={() => handleState(s)}
-              className={`flex-shrink-0 text-[10px] px-2.5 py-1 rounded-full border transition-all ${
+              className={`flex-shrink-0 text-[10px] px-3 py-1 rounded-full border transition-all ${
                 s === lead.state
                   ? `${STATE_COLORS[s]} font-semibold`
                   : "border-white/10 text-[#3E576F] hover:border-white/30 hover:text-[#B0C4D8]"
@@ -341,16 +373,17 @@ function ConversationDetail({
 
         {/* WhatsApp CTA */}
         {waUrl && (
-          <div className="px-4 py-2.5">
+          <div className="px-4 py-3">
             <a
               href={waUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 bg-[#25D366] text-white font-semibold text-sm py-2.5 rounded-xl hover:bg-[#1ebe5c] transition-colors"
+              className="flex items-center justify-center gap-2 text-white font-semibold text-sm py-3 rounded-2xl transition-colors"
+              style={{ background: "#25D366" }}
             >
-              <MessageSquare size={15} />
+              <MessageCircle size={16} />
               Continuar no WhatsApp
-              <ExternalLink size={12} />
+              <ExternalLink size={12} className="opacity-70" />
             </a>
           </div>
         )}
@@ -369,12 +402,10 @@ export function Conversas() {
   const [filter, setFilter] = useState<LeadState | "todos">("todos");
   const [newIds, setNewIds] = useState<Set<string>>(new Set());
   const [notification, setNotification] = useState<string | null>(null);
-  const eventSourceRef = useRef<EventSource | null>(null);
 
   const load = useCallback(async () => {
     try {
       const { leads: data } = await listLeads();
-      // sort by most recent activity
       setLeads([...data].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()));
     } finally {
       setLoading(false);
@@ -383,14 +414,12 @@ export function Conversas() {
 
   useEffect(() => { void load(); }, [load]);
 
-  // SSE real-time
   useEffect(() => {
     const es = new EventSource(getLeadsEventsUrl());
-    eventSourceRef.current = es;
     es.addEventListener("lead_qualified", (e) => {
       const { leadId } = JSON.parse((e as MessageEvent).data) as { leadId: string };
       setNewIds((prev) => new Set([...prev, leadId]));
-      setNotification("🎯 Novo lead qualificado!");
+      setNotification("Novo lead qualificado!");
       void load();
       setTimeout(() => setNotification(null), 5000);
     });
@@ -430,120 +459,113 @@ export function Conversas() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#080E18]">
+    <div className="flex flex-col h-full" style={{ background: "#0D1520" }}>
       {/* Header */}
       <div
-        className="flex items-center gap-3 px-4 py-3 border-b border-white/10 flex-shrink-0"
-        style={{ background: "#111B27" }}
+        className="flex items-center justify-between px-4 pt-4 pb-3 flex-shrink-0"
+        style={{ background: "#0D1520" }}
       >
-        <div className="w-9 h-9 rounded-full bg-[#00BFA5]/15 flex items-center justify-center flex-shrink-0">
-          <MessageSquare size={18} className="text-[#00BFA5]" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="font-semibold text-[#EAF0F7] text-sm">Conversas</p>
-          <p className="text-xs text-[#3E576F]">{leads.length} conversas com clientes</p>
+        <div>
+          <h1 className="text-[18px] font-bold text-[#EAF0F7] leading-tight">Conversas</h1>
+          <p className="text-[12px] text-[#3E576F] mt-0.5">
+            {leads.length > 0
+              ? `${leads.length} conversa${leads.length !== 1 ? "s" : ""} · ${qualifiedCount} qualificado${qualifiedCount !== 1 ? "s" : ""} · ${todayCount} hoje`
+              : "Nenhuma conversa ainda"}
+          </p>
         </div>
         <button
           onClick={load}
-          className="text-[#3E576F] hover:text-[#EAF0F7] transition-colors p-1"
-          title="Atualizar"
+          className="w-9 h-9 rounded-full flex items-center justify-center text-[#3E576F] hover:text-[#EAF0F7] hover:bg-white/[0.04] transition-colors"
+          aria-label="Atualizar"
         >
-          <RefreshCw size={16} />
+          <Search size={17} />
         </button>
       </div>
 
-      {/* Quick stats */}
-      <div className="flex items-center gap-4 px-4 py-2 border-b border-white/[0.04]" style={{ background: "#0C1520" }}>
-        <div className="text-center">
-          <p className="text-sm font-bold text-[#7B96B2]">{leads.length}</p>
-          <p className="text-[9px] text-[#3E576F]">Total</p>
-        </div>
-        <div className="w-px h-6 bg-white/10" />
-        <div className="text-center">
-          <p className="text-sm font-bold text-emerald-400">{qualifiedCount}</p>
-          <p className="text-[9px] text-[#3E576F]">Qualificados</p>
-        </div>
-        <div className="w-px h-6 bg-white/10" />
-        <div className="text-center">
-          <p className="text-sm font-bold text-blue-400">{todayCount}</p>
-          <p className="text-[9px] text-[#3E576F]">Hoje</p>
-        </div>
-      </div>
-
-      {/* Notification */}
-      {notification && (
-        <div className="mx-4 mt-2 flex items-center gap-2 bg-emerald-500/20 border border-emerald-500/30 rounded-lg px-3 py-2 flex-shrink-0">
-          <Bell size={13} className="text-emerald-400" />
-          <span className="text-xs text-emerald-300 font-medium">{notification}</span>
-        </div>
-      )}
-
       {/* Search */}
-      <div className="px-4 pt-3 pb-1 flex-shrink-0">
-        <div className="flex items-center gap-2 bg-[#111B27] border border-white/10 rounded-lg px-3 py-2">
-          <Search size={13} className="text-[#3E576F]" />
+      <div className="px-4 pb-2 flex-shrink-0">
+        <div
+          className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl"
+          style={{ background: "#111B27" }}
+        >
+          <Search size={14} className="text-[#3E576F] flex-shrink-0" />
           <input
-            className="flex-1 bg-transparent text-sm text-[#EAF0F7] placeholder:text-[#3E576F] outline-none"
-            placeholder="Pesquisar por nome, telefone…"
+            className="flex-1 bg-transparent text-[14px] text-[#EAF0F7] placeholder:text-[#3E576F] outline-none"
+            placeholder="Pesquisar…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            style={{ fontSize: "16px" }}
           />
         </div>
       </div>
 
       {/* Filter tabs */}
-      <div className="px-4 py-1.5 flex gap-2 overflow-x-auto scrollbar-none flex-shrink-0">
+      <div className="px-4 pb-1 flex gap-2 overflow-x-auto scrollbar-none flex-shrink-0">
         {(["todos", ...STATE_ORDER] as const).map((s) => (
           <button
             key={s}
             onClick={() => setFilter(s)}
-            className={`flex-shrink-0 text-[11px] px-2.5 py-1 rounded-full border transition-colors ${
+            className={`flex-shrink-0 text-[11px] px-3 py-1.5 rounded-full transition-colors ${
               filter === s
-                ? "bg-[#00BFA5] border-[#00BFA5] text-[#080E18] font-semibold"
-                : "border-white/10 text-[#3E576F] hover:text-[#EAF0F7]"
+                ? "bg-[#00BFA5] text-[#080E18] font-semibold"
+                : "text-[#3E576F] hover:text-[#7A9BB5]"
             }`}
+            style={filter !== s ? { background: "#111B27" } : {}}
           >
-            {s === "todos" ? "Todos" : STATE_LABELS[s]}
+            {s === "todos" ? "Todas" : STATE_LABELS[s]}
           </button>
         ))}
       </div>
 
+      {/* Notification bar */}
+      {notification && (
+        <div className="mx-4 mt-1 mb-1 flex items-center gap-2 rounded-xl px-3 py-2 flex-shrink-0"
+          style={{ background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.25)" }}>
+          <Bell size={12} className="text-emerald-400 flex-shrink-0" />
+          <span className="text-xs text-emerald-300 font-medium">{notification}</span>
+        </div>
+      )}
+
       {/* List */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto" style={{ background: "#0D1520" }}>
         {loading ? (
           <div className="flex items-center justify-center h-32 text-[#3E576F] text-sm">
             A carregar…
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-32 gap-2">
-            <MessageSquare size={28} className="text-[#3E576F] opacity-30" />
-            <p className="text-sm text-[#3E576F]">
+          <div className="flex flex-col items-center justify-center h-40 gap-3">
+            <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: "#111B27" }}>
+              <MessageCircle size={24} className="text-[#3E576F]" />
+            </div>
+            <p className="text-sm text-[#3E576F] text-center px-8">
               {leads.length === 0
-                ? "Ainda sem conversas — partilha o teu link de captação"
-                : "Nenhuma conversa com esses filtros"}
+                ? "Partilha o teu link de captação para receber os primeiros clientes"
+                : "Sem conversas com estes filtros"}
             </p>
           </div>
         ) : (
-          filtered.map((lead) => (
-            <ConversationRow
-              key={lead.id}
-              lead={lead}
-              isNew={newIds.has(lead.id)}
-              onClick={async () => {
-                try {
-                  const { lead: fresh } = await getLeadDetail(lead.id);
-                  setSelected(fresh);
-                } catch {
-                  setSelected(lead);
-                }
-                setNewIds((prev) => {
-                  const next = new Set(prev);
-                  next.delete(lead.id);
-                  return next;
-                });
-              }}
-            />
-          ))
+          <div>
+            {filtered.map((lead) => (
+              <ConversationRow
+                key={lead.id}
+                lead={lead}
+                isNew={newIds.has(lead.id)}
+                onClick={async () => {
+                  try {
+                    const { lead: fresh } = await getLeadDetail(lead.id);
+                    setSelected(fresh);
+                  } catch {
+                    setSelected(lead);
+                  }
+                  setNewIds((prev) => {
+                    const next = new Set(prev);
+                    next.delete(lead.id);
+                    return next;
+                  });
+                }}
+              />
+            ))}
+          </div>
         )}
       </div>
 

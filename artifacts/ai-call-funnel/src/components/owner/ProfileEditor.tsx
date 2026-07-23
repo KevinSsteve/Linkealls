@@ -48,7 +48,7 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
   };
 
   return (
-    <div className="space-y-4 pb-28">
+    <div className="space-y-4 pb-48">
       {/* Identity */}
       <div className={sectionCls}>
         <h3 className="text-sm font-semibold text-slate-200">Identidade</h3>
@@ -155,7 +155,7 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
       </div>
 
       {/* Sticky save bar */}
-      <div className="fixed bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-[#080E18] via-[#080E18]/95 to-transparent flex justify-center">
+      <div className="fixed left-0 right-0 p-3 bg-gradient-to-t from-[#080E18] via-[#080E18]/95 to-transparent flex justify-center z-10" style={{ bottom: "calc(60px + env(safe-area-inset-bottom, 0px))" }}>
         <div className="w-full max-w-2xl">
           <button
             onClick={handleSave}

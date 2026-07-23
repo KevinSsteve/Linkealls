@@ -7,7 +7,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Link } from "wouter";
 import {
   ArrowLeft,
-  Bot,
+  Zap,
   Trash2,
   BarChart2,
   AlertCircle,
@@ -136,10 +136,10 @@ function AssistantBubble({
 
   return (
     <div className={`flex mb-2 message-enter ${isUser ? "justify-end" : "justify-start"} px-3`}>
-      {/* Bot avatar */}
+      {/* Zap avatar */}
       {!isUser && (
         <div className="w-7 h-7 rounded-full bg-[#1A2B3D] flex items-center justify-center mr-2 mt-auto mb-1 flex-shrink-0">
-          <Bot size={13} className="text-[#00BFA5]" />
+          <Zap size={13} className="text-[#00BFA5]" />
         </div>
       )}
 
@@ -226,7 +226,7 @@ export function Assistant() {
   const bottomRef = useRef<HTMLDivElement>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
 
-  const scrollToBottom = useCallback(() => {
+  const scrollToZaptom = useCallback(() => {
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 80);
   }, []);
 
@@ -239,8 +239,8 @@ export function Assistant() {
   }, []);
 
   useEffect(() => {
-    if (messages.length > 0) scrollToBottom();
-  }, [messages, scrollToBottom]);
+    if (messages.length > 0) scrollToZaptom();
+  }, [messages, scrollToZaptom]);
 
   // SSE for proactive messages from other tabs / server events
   useEffect(() => {
@@ -277,7 +277,7 @@ export function Assistant() {
       createdAt: new Date().toISOString(),
     };
     setMessages((prev) => [...prev, optimisticMsg]);
-    scrollToBottom();
+    scrollToZaptom();
 
     try {
       const { message: reply } = await sendAssistantMessage(text);
@@ -290,7 +290,7 @@ export function Assistant() {
     } finally {
       setSending(false);
     }
-  }, [input, sending, scrollToBottom]);
+  }, [input, sending, scrollToZaptom]);
 
   const handleConfirm = useCallback(
     async (messageId: string, confirmed: boolean) => {
@@ -318,18 +318,18 @@ export function Assistant() {
     try {
       const { message } = await triggerDailySummary();
       setMessages((prev) => [...prev, message]);
-      scrollToBottom();
+      scrollToZaptom();
     } catch {
       setError("Não foi possível gerar o resumo");
     }
-  }, [scrollToBottom]);
+  }, [scrollToZaptom]);
 
   const handleStaleCheck = useCallback(async () => {
     try {
       const { message, found } = await triggerStaleLeadsCheck();
       if (message) {
         setMessages((prev) => [...prev, message]);
-        scrollToBottom();
+        scrollToZaptom();
       } else if (!found) {
         setError("Nenhum lead parado encontrado 👍");
         setTimeout(() => setError(null), 3000);
@@ -337,7 +337,7 @@ export function Assistant() {
     } catch {
       setError("Não foi possível verificar leads parados");
     }
-  }, [scrollToBottom]);
+  }, [scrollToZaptom]);
 
   const isEmpty = messages.length === 0 && !loading;
 
@@ -352,7 +352,7 @@ export function Assistant() {
           <ArrowLeft size={20} />
         </Link>
         <div className="w-9 h-9 rounded-full bg-[#00BFA5]/15 flex items-center justify-center flex-shrink-0">
-          <Bot size={18} className="text-[#00BFA5]" />
+          <Zap size={18} className="text-[#00BFA5]" />
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-[#EAF0F7] text-sm">Assistente Vivo</p>
@@ -397,7 +397,7 @@ export function Assistant() {
           <div className="flex flex-col items-center justify-center h-full px-4 gap-5">
             <div className="text-center space-y-2">
               <div className="w-14 h-14 rounded-2xl bg-[#00BFA5]/10 flex items-center justify-center mx-auto">
-                <Bot size={26} className="text-[#00BFA5]" />
+                <Zap size={26} className="text-[#00BFA5]" />
               </div>
               <p className="text-sm text-[#EAF0F7] font-medium">O teu assistente de negócios</p>
               <p className="text-xs text-[#3E576F] max-w-[260px] mx-auto">
@@ -451,7 +451,7 @@ export function Assistant() {
         {sending && (
           <div className="flex items-center gap-2 px-3 mb-2">
             <div className="w-7 h-7 rounded-full bg-[#1A2B3D] flex items-center justify-center flex-shrink-0">
-              <Bot size={13} className="text-[#00BFA5]" />
+              <Zap size={13} className="text-[#00BFA5]" />
             </div>
             <div
               className="px-3.5 py-2.5 rounded-lg"

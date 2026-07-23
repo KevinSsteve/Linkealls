@@ -35,14 +35,17 @@ export function ChatInput({ value, onChange, onSend, disabled }: ChatInputProps)
         background: "linear-gradient(180deg, #080F1C 0%, #060C14 100%)",
         borderTop: "1px solid #111E30",
         padding: "10px 14px",
+        /* Push above safe-area on notched phones */
+        paddingBottom: "calc(10px + env(safe-area-inset-bottom, 0px))",
       }}
     >
       {/* Text field */}
       <div
-        className="flex-1 flex items-end gap-2 rounded-2xl px-4 py-2.5 min-h-[44px]"
+        className="flex-1 flex items-center gap-2 rounded-full px-4"
         style={{
           background: "#10192A",
           border: "1px solid #1C2E45",
+          minHeight: "44px",
         }}
       >
         <textarea
@@ -53,12 +56,15 @@ export function ChatInput({ value, onChange, onSend, disabled }: ChatInputProps)
           onKeyDown={handleKey}
           disabled={disabled}
           placeholder="Mensagem"
-          className="flex-1 bg-transparent outline-none resize-none text-[14.5px] leading-[1.5] py-0.5"
+          className="flex-1 bg-transparent outline-none resize-none leading-[1.4] py-[11px]"
           style={{
             color: "#EAF0F7",
             caretColor: "#00C896",
             maxHeight: "120px",
             scrollbarWidth: "none",
+            /* 16 px prevents iOS Safari from auto-zooming on focus */
+            fontSize: "16px",
+            lineHeight: "1.4",
           }}
         />
       </div>

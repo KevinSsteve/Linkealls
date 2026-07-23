@@ -1,12 +1,12 @@
 import { useLocation } from "wouter";
 import { Link } from "wouter";
-import { Brain, MessageSquare, Bot, Megaphone } from "lucide-react";
+import { Store, MessageSquare, Zap, Megaphone } from "lucide-react";
 
 const TABS = [
-  { path: "/dono",            icon: Brain,          label: "Perfil",    exact: true  },
+  { path: "/dono",            icon: Store,          label: "Perfil",    exact: true  },
   { path: "/dono/conversas",  icon: MessageSquare,  label: "Conversas", exact: false },
-  { path: "/dono/assistente", icon: Bot,            label: "IA",        exact: false },
-  { path: "/dono/campanhas",  icon: Megaphone,      label: "Camps",     exact: false },
+  { path: "/dono/assistente", icon: Zap,            label: "Assistente",exact: false },
+  { path: "/dono/campanhas",  icon: Megaphone,      label: "Campanhas", exact: false },
 ] as const;
 
 export function OwnerNav() {

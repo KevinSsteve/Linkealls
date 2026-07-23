@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
-import { Brain, Globe, Sparkles, ArrowLeft, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Store, Globe, Sparkles, ArrowLeft, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { OwnerNav } from "../components/owner/OwnerNav";
 import {
   getBusinessProfile,
@@ -173,7 +173,7 @@ export function Owner() {
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div className="w-9 h-9 rounded-full bg-[#00A884]/15 flex items-center justify-center">
-          <Brain className="w-5 h-5 text-[#00A884]" />
+          <Store className="w-5 h-5 text-[#00A884]" />
         </div>
         <div className="flex-1 min-w-0">
           <h1 className="text-[15px] font-semibold text-slate-100 leading-tight">Cérebro do Negócio</h1>
@@ -211,7 +211,7 @@ export function Owner() {
             <div className="pt-6 space-y-6">
               <div className="text-center space-y-2">
                 <div className="w-16 h-16 mx-auto rounded-2xl bg-[#00A884]/15 flex items-center justify-center">
-                  <Brain className="w-8 h-8 text-[#00A884]" />
+                  <Store className="w-8 h-8 text-[#00A884]" />
                 </div>
                 <h2 className="text-xl font-semibold text-slate-100">Ensina a IA sobre o teu negócio</h2>
                 <p className="text-[14px] text-slate-400 max-w-md mx-auto">
