@@ -95,7 +95,7 @@ export function buildCallAgentPrompt(profile: BusinessProfile | null): {
   }
 
   const offerings = profile.offerings
-    .map((o) => `- ${o.name}${o.price ? ` (${o.price})` : ""}: ${o.description}`)
+    .map((o) => `- ${o.name}${o.price ? ` (${o.price})` : ""}${o.imageUrl ? " [TEM FOTO]" : ""}: ${o.description}`)
     .join("\n");
   const faq = profile.faq
     .map((f) => `P: ${f.question}\nR: ${f.answer}`)

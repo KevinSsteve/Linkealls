@@ -8,6 +8,8 @@ export interface Offering {
   description: string;
   /** Free-form price text, e.g. "50.000 Kz", "sob consulta". */
   price: string;
+  /** Optional product image — stored as an object-storage path served via /api/storage/objects/... */
+  imageUrl?: string;
 }
 
 export interface FaqItem {
@@ -51,6 +53,7 @@ export const offeringSchema = z.object({
   name: z.string().max(200),
   description: z.string().max(1000),
   price: z.string().max(100),
+  imageUrl: z.string().max(2000).optional(),
 });
 
 export const faqItemSchema = z.object({

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Plus, Trash2, Save, RefreshCw, Loader2 } from "lucide-react";
+import { useState, useRef, useCallback } from "react";
+import { Plus, Trash2, Save, RefreshCw, Loader2, Camera, X } from "lucide-react";
 import type { BusinessProfile, ProfileDraft, Offering, FaqItem } from "../../lib/api";
 
 const inputCls =
@@ -82,12 +82,12 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
         </div>
         {offerings.length === 0 && <EmptyHint text="Adiciona os produtos/serviços que a IA pode oferecer nas chamadas." />}
         {offerings.map((o, i) => (
-          <div key={i} className="border border-white/[0.06] rounded-lg p-3 space-y-2 relative">
-            <RemoveBtn onClick={() => setOfferings(offerings.filter((_, j) => j !== i))} />
-            <input className={inputCls} value={o.name} placeholder="Nome" onChange={(e) => setOfferings(offerings.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} />
-            <input className={inputCls} value={o.price} placeholder="Preço (ex.: 45.000 Kz, sob consulta)" onChange={(e) => setOfferings(offerings.map((x, j) => (j === i ? { ...x, price: e.target.value } : x)))} />
-            <textarea className={`${inputCls} min-h-[60px] resize-y`} value={o.description} placeholder="Descrição curta" onChange={(e) => setOfferings(offerings.map((x, j) => (j === i ? { ...x, description: e.target.value } : x)))} />
-          </div>
+          <OfferingCard
+            key={i}
+            offering={o}
+            onChange={(updated) => setOfferings(offerings.map((x, j) => (j === i ? updated : x)))}
+            onRemove={() => setOfferings(offerings.filter((_, j) => j !== i))}
+          />
         ))}
       </div>
 
@@ -167,6 +167,148 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ─── Image upload helpers ────────────────────────────────────────────────────
+
+async function requestUploadUrl(file: File): Promise<{ uploadURL: string; objectPath: string }> {
+  const res = await fetch("/api/storage/uploads/request-url", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type || "image/jpeg" }),
+  });
+  if (!res.ok) throw new Error("Erro ao obter URL de upload");
+  return res.json() as Promise<{ uploadURL: string; objectPath: string }>;
+}
+
+async function uploadToGcs(file: File, uploadURL: string): Promise<void> {
+  const res = await fetch(uploadURL, {
+    method: "PUT",
+    body: file,
+    headers: { "Content-Type": file.type || "image/jpeg" },
+  });
+  if (!res.ok) throw new Error("Erro ao enviar imagem");
+}
+
+// ─── Offering card with image upload ─────────────────────────────────────────
+
+function OfferingCard({
+  offering, onChange, onRemove,
+}: {
+  offering: Offering;
+  onChange: (o: Offering) => void;
+  onRemove: () => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImagePick = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const { uploadURL, objectPath } = await requestUploadUrl(file);
+      await uploadToGcs(file, uploadURL);
+      // Build the serving URL: /api/storage + objectPath
+      const imageUrl = `/api/storage${objectPath}`;
+      onChange({ ...offering, imageUrl });
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Falha no upload");
+    } finally {
+      setUploading(false);
+      // Reset input so same file can be re-selected
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }, [offering, onChange]);
+
+  const inputCls = "w-full bg-[#0D1826] border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-[#00A884]/60 transition-colors";
+
+  return (
+    <div className="border border-white/[0.06] rounded-lg p-3 space-y-2 relative">
+      <RemoveBtn onClick={onRemove} />
+
+      {/* Image area */}
+      <div className="flex items-start gap-3 pt-1">
+        {/* Thumbnail or placeholder */}
+        <div className="relative flex-shrink-0">
+          <div
+            className="w-20 h-20 rounded-xl overflow-hidden flex items-center justify-center"
+            style={{ background: "#0D1826", border: "1px solid rgba(255,255,255,0.08)" }}
+          >
+            {offering.imageUrl ? (
+              <img
+                src={offering.imageUrl}
+                alt={offering.name || "Produto"}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <Camera size={22} className="text-slate-600" />
+            )}
+            {uploading && (
+              <div className="absolute inset-0 flex items-center justify-center" style={{ background: "rgba(8,14,24,0.7)" }}>
+                <Loader2 size={18} className="animate-spin text-[#00A884]" />
+              </div>
+            )}
+          </div>
+
+          {/* Remove image button */}
+          {offering.imageUrl && !uploading && (
+            <button
+              onClick={() => onChange({ ...offering, imageUrl: undefined })}
+              className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full flex items-center justify-center"
+              style={{ background: "#EF4444" }}
+              aria-label="Remover imagem"
+            >
+              <X size={10} className="text-white" />
+            </button>
+          )}
+        </div>
+
+        {/* Upload button */}
+        <div className="flex flex-col gap-1.5 pt-1">
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="flex items-center gap-1.5 text-[12px] font-medium text-[#00A884] hover:text-[#02BD7E] disabled:opacity-50 transition-colors"
+          >
+            <Camera size={13} />
+            {offering.imageUrl ? "Alterar foto" : "Adicionar foto"}
+          </button>
+          <p className="text-[11px] text-slate-600">JPG ou PNG · máx. 5 MB</p>
+          {uploadError && <p className="text-[11px] text-red-400">{uploadError}</p>}
+        </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden"
+          onChange={handleImagePick}
+        />
+      </div>
+
+      <input
+        className={inputCls}
+        value={offering.name}
+        placeholder="Nome"
+        onChange={(e) => onChange({ ...offering, name: e.target.value })}
+      />
+      <input
+        className={inputCls}
+        value={offering.price}
+        placeholder="Preço (ex.: 45.000 Kz, sob consulta)"
+        onChange={(e) => onChange({ ...offering, price: e.target.value })}
+      />
+      <textarea
+        className={`${inputCls} min-h-[60px] resize-y`}
+        value={offering.description}
+        placeholder="Descrição curta"
+        onChange={(e) => onChange({ ...offering, description: e.target.value })}
+      />
     </div>
   );
 }

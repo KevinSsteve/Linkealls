@@ -1,30 +1,31 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { CallFunnelService } from "../services/callFunnelService";
+import { CallFunnelService, type ProductCard } from "../services/callFunnelService";
 import { startAudioCapture, type AudioCapture } from "../lib/audioCapture";
 import { AudioPlayer } from "../lib/audioPlayer";
 
 export type CallState = "idle" | "connecting" | "active" | "error" | "ended";
+export type { ProductCard };
 
 export interface GeminiLiveState {
   callState: CallState;
   isAiSpeaking: boolean;
   isUserSpeaking: boolean;
   errorMessage: string | null;
+  shownProducts: ProductCard[] | null;
   connect: () => void;
   disconnect: () => void;
+  sendText: (text: string) => void;
+  clearProducts: () => void;
 }
 
 const VAD_THRESHOLD = 0.012;
 
-/**
- * @param leadId - When provided, passed to the WS server so the call session
- *   is linked to the lead record for post-call extraction.
- */
 export function useGeminiLive(leadId?: string | null): GeminiLiveState {
   const [callState, setCallState] = useState<CallState>("idle");
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
   const [isUserSpeaking, setIsUserSpeaking] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [shownProducts, setShownProducts] = useState<ProductCard[] | null>(null);
 
   const serviceRef = useRef<CallFunnelService | null>(null);
   const playerRef = useRef<AudioPlayer | null>(null);
@@ -33,7 +34,6 @@ export function useGeminiLive(leadId?: string | null): GeminiLiveState {
   const callStateRef = useRef<CallState>("idle");
   callStateRef.current = callState;
 
-  // True once the server has confirmed the Gemini session is open.
   const wsReadyRef = useRef(false);
 
   const cleanup = useCallback(() => {
@@ -50,6 +50,7 @@ export function useGeminiLive(leadId?: string | null): GeminiLiveState {
     wsReadyRef.current = false;
     setIsAiSpeaking(false);
     setIsUserSpeaking(false);
+    setShownProducts(null);
   }, []);
 
   const connect = useCallback(() => {
@@ -57,9 +58,9 @@ export function useGeminiLive(leadId?: string | null): GeminiLiveState {
 
     setCallState("connecting");
     setErrorMessage(null);
+    setShownProducts(null);
     wsReadyRef.current = false;
 
-    // ── Step 1: AudioPlayer ──────────────────────────────────────────────────
     let player: AudioPlayer | null = null;
     try {
       player = new AudioPlayer();
@@ -69,7 +70,6 @@ export function useGeminiLive(leadId?: string | null): GeminiLiveState {
       console.error("[CallFunnel] AudioPlayer creation failed:", e);
     }
 
-    // ── Step 2: WebSocket ────────────────────────────────────────────────────
     const service = new CallFunnelService({
       onReady: () => {
         wsReadyRef.current = true;
@@ -94,12 +94,11 @@ export function useGeminiLive(leadId?: string | null): GeminiLiveState {
         setIsAiSpeaking(false);
       },
 
-      onTranscript: () => {
-        // Transcript received but not displayed — handled server-side
-      },
+      onTranscript: () => {},
+      onUserTranscript: () => {},
 
-      onUserTranscript: () => {
-        // User transcript handled server-side
+      onShowProducts: (products) => {
+        setShownProducts(products);
       },
 
       onError: (message) => {
@@ -119,11 +118,9 @@ export function useGeminiLive(leadId?: string | null): GeminiLiveState {
     });
 
     serviceRef.current = service;
-    // Pass leadId as a query param so the server links transcripts to the lead
     service.connect(leadId ?? undefined);
     console.log("[CallFunnel] WebSocket connecting", leadId ? `(leadId=${leadId})` : "");
 
-    // ── Step 3: Mic capture ──────────────────────────────────────────────────
     startAudioCapture((base64) => {
       if (wsReadyRef.current) {
         serviceRef.current?.sendAudio(base64);
@@ -150,7 +147,25 @@ export function useGeminiLive(leadId?: string | null): GeminiLiveState {
     setCallState("ended");
   }, [cleanup]);
 
+  const sendText = useCallback((text: string) => {
+    serviceRef.current?.sendText(text);
+  }, []);
+
+  const clearProducts = useCallback(() => {
+    setShownProducts(null);
+  }, []);
+
   useEffect(() => () => cleanup(), [cleanup]);
 
-  return { callState, isAiSpeaking, isUserSpeaking, errorMessage, connect, disconnect };
+  return {
+    callState,
+    isAiSpeaking,
+    isUserSpeaking,
+    errorMessage,
+    shownProducts,
+    connect,
+    disconnect,
+    sendText,
+    clearProducts,
+  };
 }

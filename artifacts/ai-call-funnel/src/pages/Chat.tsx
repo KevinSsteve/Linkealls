@@ -4,8 +4,9 @@ import { ChatBubble, type BubbleRole } from "../components/ChatBubble";
 import { ChatInput } from "../components/ChatInput";
 import { IncomingCallModal } from "../components/IncomingCallModal";
 import { CallScreen } from "../components/CallScreen";
-import { useGeminiLive } from "../hooks/useGeminiLive";
+import { useGeminiLive, type ProductCard } from "../hooks/useGeminiLive";
 import { createLeadSession, sendLeadChat, type ChatMessage } from "../lib/api";
+import { X, ShoppingBag, ImageOff } from "lucide-react";
 
 interface Message {
   id: string;
@@ -15,6 +16,124 @@ interface Message {
 }
 
 type Stage = "chat" | "typing" | "call_incoming" | "call_active" | "call_ended";
+
+// ─── Product Card component ────────────────────────────────────────────────
+
+function ProductCardItem({
+  product,
+  onSelect,
+}: {
+  product: ProductCard;
+  onSelect: () => void;
+}) {
+  const [imgError, setImgError] = useState(false);
+
+  return (
+    <div
+      className="flex-shrink-0 flex flex-col rounded-2xl overflow-hidden"
+      style={{
+        width: 150,
+        background: "linear-gradient(160deg, #111B2A 0%, #0D1520 100%)",
+        border: "1px solid rgba(255,255,255,0.08)",
+      }}
+    >
+      {/* Image */}
+      <div
+        className="w-full flex items-center justify-center"
+        style={{ height: 110, background: "#080E18", flexShrink: 0 }}
+      >
+        {product.imageUrl && !imgError ? (
+          <img
+            src={product.imageUrl}
+            alt={product.name}
+            className="w-full h-full object-cover"
+            onError={() => setImgError(true)}
+          />
+        ) : (
+          <div className="flex flex-col items-center gap-1.5">
+            <ShoppingBag size={28} className="text-[#3E576F]" />
+            {imgError && <ImageOff size={12} className="text-[#3E576F]" />}
+          </div>
+        )}
+      </div>
+
+      {/* Info */}
+      <div className="flex flex-col flex-1 p-2.5 gap-1">
+        <p className="text-[13px] font-semibold text-[#EAF0F7] leading-tight line-clamp-2">
+          {product.name}
+        </p>
+        {product.price && (
+          <p className="text-[12px] font-bold" style={{ color: "#00BFA5" }}>
+            {product.price}
+          </p>
+        )}
+        {product.description && (
+          <p className="text-[11px] text-[#4A6580] leading-relaxed line-clamp-2">
+            {product.description}
+          </p>
+        )}
+        <div className="mt-auto pt-1.5">
+          <button
+            onClick={onSelect}
+            className="w-full py-2 rounded-xl text-[12px] font-semibold transition-colors"
+            style={{ background: "#00BFA5", color: "#050D14" }}
+          >
+            Selecionar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Product Vitrine (bottom sheet overlay during call) ────────────────────
+
+function ProductVitrine({
+  products,
+  onSelect,
+  onClose,
+}: {
+  products: ProductCard[];
+  onSelect: (product: ProductCard) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="absolute inset-x-0 bottom-0 z-20 flex flex-col"
+      style={{
+        background: "linear-gradient(180deg, rgba(5,10,18,0) 0%, rgba(5,10,18,0.97) 8%, #050A12 100%)",
+        paddingTop: 32,
+        maxHeight: "70%",
+      }}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 pb-3 flex-shrink-0">
+        <div>
+          <p className="text-[14px] font-bold text-[#EAF0F7]">Escolhe o que queres 👇</p>
+          <p className="text-[11px] text-[#3E576F] mt-0.5">
+            {products.length} produto{products.length !== 1 ? "s" : ""} disponíve{products.length !== 1 ? "is" : "l"}
+          </p>
+        </div>
+        <button
+          onClick={onClose}
+          className="w-8 h-8 rounded-full flex items-center justify-center text-[#3E576F] hover:text-[#EAF0F7] transition-colors"
+          style={{ background: "rgba(255,255,255,0.06)" }}
+        >
+          <X size={15} />
+        </button>
+      </div>
+
+      {/* Horizontal scroll cards */}
+      <div className="flex gap-3 overflow-x-auto px-4 pb-5 scrollbar-none flex-shrink-0">
+        {products.map((p, i) => (
+          <ProductCardItem key={i} product={p} onSelect={() => onSelect(p)} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Chat component ────────────────────────────────────────────────────
 
 export function Chat() {
   const initialMessage = (() => {
@@ -30,18 +149,8 @@ export function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [stage, setStage] = useState<Stage>("chat");
 
-  /**
-   * isBusy — true only while an API call is in-flight (typing animation shown).
-   * Blocks input temporarily, never permanently.
-   */
   const [isBusy, setIsBusy] = useState(false);
-
-  /**
-   * callTriggered — true once the first message was sent and the call flow started.
-   * Subsequent messages go to Gemini text API instead of re-triggering the call.
-   */
   const [callTriggered, setCallTriggered] = useState(false);
-
   const [leadId, setLeadId] = useState<string | null>(null);
 
   const chatMsgsRef = useRef<ChatMessage[]>([]);
@@ -59,12 +168,10 @@ export function Chat() {
     return { role: role === "user" ? "user" : "bot", text, ts };
   }, []);
 
-  // ── First message: create lead + trigger call flow ──────────────────────────
+  // ── First message: create lead + trigger call flow ───────────────────────
   const handleFirstSend = useCallback(async (text: string) => {
     setIsBusy(true);
     setStage("typing");
-
-    // Small delay for typing feel
     await new Promise((r) => setTimeout(r, 1200));
 
     const botText =
@@ -73,7 +180,6 @@ export function Chat() {
     chatMsgsRef.current.push(botMsg);
     setStage("chat");
 
-    // Create lead session
     let newLeadId: string | null = null;
     try {
       const { leadId: id } = await createLeadSession(
@@ -88,18 +194,14 @@ export function Chat() {
 
     setCallTriggered(true);
     setIsBusy(false);
-
-    // Trigger incoming call after a moment
     setTimeout(() => setStage("call_incoming"), 1000);
-
     return newLeadId;
   }, [addMessage]);
 
-  // ── Subsequent messages: Gemini text chat ────────────────────────────────────
+  // ── Subsequent messages: Gemini text chat ───────────────────────────────
   const handleChatSend = useCallback(async (text: string, currentLeadId: string) => {
     setIsBusy(true);
     setStage("typing");
-
     try {
       const { reply } = await sendLeadChat(currentLeadId, text);
       addMessage("bot", reply);
@@ -111,7 +213,7 @@ export function Chat() {
     }
   }, [addMessage]);
 
-  // ── Main send handler ────────────────────────────────────────────────────────
+  // ── Main send handler ────────────────────────────────────────────────────
   const handleSend = useCallback(() => {
     const text = inputValue.trim();
     if (!text || isBusy) return;
@@ -125,7 +227,6 @@ export function Chat() {
     } else if (leadId) {
       void handleChatSend(text, leadId);
     } else {
-      // Lead creation failed earlier — still show a graceful message
       setIsBusy(true);
       setStage("typing");
       setTimeout(() => {
@@ -136,7 +237,7 @@ export function Chat() {
     }
   }, [inputValue, isBusy, callTriggered, leadId, addMessage, handleFirstSend, handleChatSend]);
 
-  // ── Call flow handlers ───────────────────────────────────────────────────────
+  // ── Call flow handlers ───────────────────────────────────────────────────
   const handleAccept = useCallback(() => {
     setStage("call_active");
     gemini.connect();
@@ -145,7 +246,6 @@ export function Chat() {
   const handleReject = useCallback(() => {
     setStage("chat");
     setIsBusy(false);
-    // Friendly message — IA explains it can continue by text
     addMessage(
       "bot",
       "Sem problema! 😊 Podes escrever aqui as tuas questões à vontade. Quando quiseres falar por voz, basta tocar no botão de chamada no topo.",
@@ -156,20 +256,25 @@ export function Chat() {
     gemini.disconnect();
     setStage("chat");
     setIsBusy(false);
-    // Let Gemini answer contextually via text — show a brief bridge message
     addMessage(
       "bot",
       "Chamada terminada 📞 Se tiveres mais alguma questão, escreve aqui. Estou à disposição!",
     );
   }, [gemini, addMessage]);
 
-  // ── Phone button in header: re-trigger call ──────────────────────────────────
+  // ── Product selection from vitrine ──────────────────────────────────────
+  const handleProductSelect = useCallback((product: ProductCard) => {
+    gemini.sendText(`Quero o ${product.name}`);
+    gemini.clearProducts();
+  }, [gemini]);
+
+  // ── Phone button in header ───────────────────────────────────────────────
   const handleCallFromHeader = useCallback(() => {
     if (stage === "call_active" || stage === "call_incoming" || isBusy) return;
     setStage("call_incoming");
   }, [stage, isBusy]);
 
-  // ── Error recovery ───────────────────────────────────────────────────────────
+  // ── Error recovery ───────────────────────────────────────────────────────
   useEffect(() => {
     if (gemini.callState === "error" && stage === "call_active") {
       setStage("chat");
@@ -178,7 +283,6 @@ export function Chat() {
     }
   }, [gemini.callState, stage, addMessage]);
 
-  // Whether the phone button should be available in header
   const canCall = callTriggered && stage === "chat" && !isBusy;
 
   return (
@@ -194,16 +298,25 @@ export function Chat() {
 
         {/* ── Active call ── */}
         {stage === "call_active" ? (
-          <CallScreen
-            isAiSpeaking={gemini.isAiSpeaking}
-            isUserSpeaking={gemini.isUserSpeaking}
-            onEnd={handleEndCall}
-          />
+          <div className="relative flex-1 min-h-0">
+            <CallScreen
+              isAiSpeaking={gemini.isAiSpeaking}
+              isUserSpeaking={gemini.isUserSpeaking}
+              onEnd={handleEndCall}
+            />
+            {/* ── Product vitrine overlay ── */}
+            {gemini.shownProducts && gemini.shownProducts.length > 0 && (
+              <ProductVitrine
+                products={gemini.shownProducts}
+                onSelect={handleProductSelect}
+                onClose={gemini.clearProducts}
+              />
+            )}
+          </div>
         ) : (
           <>
             {/* ── Chat messages ── */}
             <div className="flex-1 overflow-y-auto chat-bg px-3 py-3 min-h-0">
-              {/* Date pill */}
               <div className="flex justify-center mb-3">
                 <span
                   className="text-[11px] px-3 py-1 rounded-full"

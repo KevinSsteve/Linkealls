@@ -1,3 +1,10 @@
+export interface ProductCard {
+  name: string;
+  price: string;
+  description: string;
+  imageUrl?: string;
+}
+
 export type ServerMessage =
   | { type: "ready" }
   | { type: "audio"; data: string }
@@ -5,6 +12,7 @@ export type ServerMessage =
   | { type: "interrupted" }
   | { type: "transcript"; text: string }
   | { type: "user_transcript"; text: string }
+  | { type: "show_products"; products: ProductCard[] }
   | { type: "closed" }
   | { type: "error"; message: string };
 
@@ -15,6 +23,7 @@ export interface CallFunnelServiceCallbacks {
   onInterrupted: () => void;
   onTranscript?: (text: string) => void;
   onUserTranscript?: (text: string) => void;
+  onShowProducts?: (products: ProductCard[]) => void;
   onError: (message: string) => void;
   onClose: () => void;
 }
@@ -58,6 +67,7 @@ export class CallFunnelService {
           case "interrupted":     this.callbacks.onInterrupted(); break;
           case "transcript":      this.callbacks.onTranscript?.(msg.text); break;
           case "user_transcript": this.callbacks.onUserTranscript?.(msg.text); break;
+          case "show_products":   this.callbacks.onShowProducts?.(msg.products); break;
           case "error":           this.callbacks.onError(msg.message); break;
           case "closed":          this.callbacks.onClose(); break;
         }
@@ -78,6 +88,12 @@ export class CallFunnelService {
   sendAudio(base64: string): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({ type: "audio", data: base64 }));
+    }
+  }
+
+  sendText(text: string): void {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type: "user_text", text }));
     }
   }
 
