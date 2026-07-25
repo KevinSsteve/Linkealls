@@ -1,6 +1,9 @@
 /**
  * Lightweight user auth context.
  * Token + user info are stored in localStorage so they survive page reloads.
+ *
+ * Model: every user IS a business — their handle is their business slug.
+ * No separate "ownedSlug" field is needed.
  */
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
 
@@ -9,7 +12,6 @@ export interface AuthUser {
   phone: string;
   name: string;
   handle: string | null;
-  ownedSlug: string | null;
 }
 
 interface AuthState {
@@ -18,10 +20,9 @@ interface AuthState {
 }
 
 interface AuthContextValue extends AuthState {
-  login:        (user: AuthUser, token: string) => void;
-  logout:       () => void;
-  setHandle:    (handle: string) => void;
-  setOwnedSlug: (slug: string) => void;
+  login:     (user: AuthUser, token: string) => void;
+  logout:    () => void;
+  setHandle: (handle: string) => void;
   isLoggedIn: boolean;
 }
 
@@ -34,9 +35,9 @@ function loadInitial(): AuthState {
     const raw   = localStorage.getItem(KEY_USER);
     if (token && raw) {
       const user = JSON.parse(raw) as AuthUser;
-      // Back-fill ownedSlug for sessions stored before this field existed
-      if (!("ownedSlug" in user)) (user as AuthUser).ownedSlug = null;
-      return { token, user };
+      // Strip stale ownedSlug field that may exist in old localStorage sessions
+      const { id, phone, name, handle } = user as AuthUser & { ownedSlug?: unknown };
+      return { token, user: { id, phone, name, handle: handle ?? null } };
     }
   } catch { /* ignore */ }
   return { token: null, user: null };
@@ -68,17 +69,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const setOwnedSlug = useCallback((slug: string) => {
-    setState((prev) => {
-      if (!prev.user) return prev;
-      const updated = { ...prev.user, ownedSlug: slug };
-      localStorage.setItem(KEY_USER, JSON.stringify(updated));
-      return { ...prev, user: updated };
-    });
-  }, []);
-
   return (
-    <AuthContext.Provider value={{ ...state, login, logout, setHandle, setOwnedSlug, isLoggedIn: !!state.user }}>
+    <AuthContext.Provider value={{ ...state, login, logout, setHandle, isLoggedIn: !!state.user }}>
       {children}
     </AuthContext.Provider>
   );

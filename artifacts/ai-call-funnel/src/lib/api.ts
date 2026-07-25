@@ -17,7 +17,6 @@ export interface AuthUser {
   phone: string;
   name: string;
   handle: string | null;
-  ownedSlug: string | null;
 }
 
 export interface AuthResponse {
@@ -75,24 +74,6 @@ export async function setUserHandle(
   });
   const body = (await res.json()) as { user?: AuthUser; error?: string };
   if (!res.ok) throw new Error(body.error ?? "Erro ao guardar handle");
-  return body as { user: AuthUser };
-}
-
-export async function linkBusiness(
-  slug: string,
-  pin: string,
-  token: string,
-): Promise<{ user: AuthUser }> {
-  const res = await fetch(`${API_BASE}/user-auth/owned-slug`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify({ slug, pin }),
-  });
-  const body = (await res.json()) as { user?: AuthUser; error?: string };
-  if (!res.ok) throw new Error(body.error ?? "Erro ao vincular negócio");
   return body as { user: AuthUser };
 }
 
