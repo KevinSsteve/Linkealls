@@ -17,6 +17,7 @@ import { CallScreen } from "../components/CallScreen";
 import { useGeminiLive } from "../hooks/useGeminiLive";
 import { businessApi, type LeadOrigin, type ChatMessage } from "../lib/api";
 import { useBusinessSlug } from "../hooks/useBusinessSlug";
+import { recordVisit } from "../lib/visitedBusinesses";
 
 interface Message {
   id: string;
@@ -108,6 +109,7 @@ export function Captacao() {
           chatMsgsRef.current,
         );
         setLeadId(id);
+        recordVisit(businessSlug ?? "");
       } catch {
         // Non-fatal — call still works without a lead record
         console.warn("[Captacao] Failed to create lead session");

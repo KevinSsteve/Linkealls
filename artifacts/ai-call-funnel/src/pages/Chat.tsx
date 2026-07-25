@@ -8,6 +8,7 @@ import { CallScreen } from "../components/CallScreen";
 import { useGeminiLive, type ProductCard, type AgentMessage } from "../hooks/useGeminiLive";
 import { businessApi, type ChatMessage } from "../lib/api";
 import { useBusinessSlug } from "../hooks/useBusinessSlug";
+import { recordVisit } from "../lib/visitedBusinesses";
 import {
   X,
   ShoppingBag,
@@ -436,6 +437,7 @@ export function Chat() {
         );
         newLeadId = id;
         setLeadId(id);
+        recordVisit(businessSlug ?? "");
       } catch {
         console.warn("[Chat] Failed to create lead session");
       }

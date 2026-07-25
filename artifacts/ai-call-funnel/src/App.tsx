@@ -13,6 +13,7 @@ import { Assistant } from "@/pages/owner/Assistant";
 import { Campaigns } from "@/pages/owner/Campaigns";
 import { CampaignDetail } from "@/pages/owner/CampaignDetail";
 import { Conversas } from "@/pages/owner/Conversas";
+import { UserConversas } from "@/pages/UserConversas";
 
 // Serve under the artifact base path. With BASE_PATH="/" this is "".
 const routerBase = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -65,6 +66,9 @@ export default function App() {
                   {/* Auth */}
                   <Route path="/login"   component={LoginPage} />
                   <Route path="/registar" component={RegisterPage} />
+
+                  {/* User conversations */}
+                  <Route path="/conversas" component={UserConversas} />
 
                   {/* ── Multi-tenant routes (/e/:businessSlug/...) ─────────── */}
                   <Route path="/e/:businessSlug/dono/leads" component={Leads} />

@@ -4,8 +4,10 @@
  * Also injects JSON-LD (WebSite + ItemList) for GEO/SEO.
  */
 import { useState, useEffect } from "react";
-import { Link } from "wouter";
-import { Building2, ChevronRight, Loader2, Zap } from "lucide-react";
+import { Link, Redirect } from "wouter";
+import { Building2, ChevronRight, Loader2, Zap, LogIn, LogOut } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { userLogout } from "@/lib/api";
 
 interface Business {
   id: number;
@@ -87,9 +89,18 @@ function SkeletonCard() {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export function HomePage() {
+  const { user, isLoggedIn, token, logout } = useAuth();
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+
+  // Logged-in users land on their conversations page
+  if (isLoggedIn) return <Redirect to="/conversas" />;
+
+  const handleLogout = async () => {
+    if (token) await userLogout(token).catch(() => {});
+    logout();
+  };
 
   useEffect(() => {
     fetch(`${API_BASE}/businesses`)
@@ -171,12 +182,36 @@ export function HomePage() {
             </span>
           </div>
 
-          <span
-            className="text-xs px-2.5 py-1 rounded-full font-medium"
-            style={{ background: "#00A88415", color: "#00A884", border: "1px solid #00A88430" }}
-          >
-            Angola
-          </span>
+          <div className="flex items-center gap-2">
+            <span
+              className="text-xs px-2.5 py-1 rounded-full font-medium"
+              style={{ background: "#00A88415", color: "#00A884", border: "1px solid #00A88430" }}
+            >
+              Angola
+            </span>
+
+            {isLoggedIn ? (
+              <button
+                onClick={handleLogout}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium"
+                style={{ background: "#0D1826", color: "#7B96B2", border: "1px solid rgba(255,255,255,0.08)" }}
+                title={`Sair (${user?.name})`}
+              >
+                <LogOut size={13} />
+                <span className="hidden sm:inline">{user?.name?.split(" ")[0]}</span>
+              </button>
+            ) : (
+              <Link href="/login">
+                <button
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold"
+                  style={{ background: "#00A88415", color: "#00A884", border: "1px solid #00A88430" }}
+                >
+                  <LogIn size={13} />
+                  Entrar
+                </button>
+              </Link>
+            )}
+          </div>
         </div>
       </header>
 
