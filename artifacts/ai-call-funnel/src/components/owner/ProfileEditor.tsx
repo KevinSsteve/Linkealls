@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from "react";
-import { Plus, Trash2, Save, RefreshCw, Loader2, Camera, X } from "lucide-react";
+import { Plus, Trash2, Save, RefreshCw, Loader2, Camera, X, Phone } from "lucide-react";
 import type { BusinessProfile, ProfileDraft, Offering, FaqItem } from "../../lib/api";
 
 const inputCls =
@@ -135,6 +135,25 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
             <RemoveBtn inline onClick={() => setQualificationGoals(qualificationGoals.filter((_, j) => j !== i))} />
           </div>
         ))}
+      </div>
+
+      {/* Test call */}
+      <div className={sectionCls}>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-200">Testar a chamada</h3>
+            <p className="text-[13px] text-slate-500 mt-0.5">Simula o que um lead vai ouvir com o perfil actual.</p>
+          </div>
+          <a
+            href={`${import.meta.env.BASE_URL}?test=1`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-[#00A884]/10 text-[#00A884] hover:bg-[#00A884]/20 border border-[#00A884]/20 transition-colors"
+          >
+            <Phone className="w-4 h-4" />
+            Testar
+          </a>
+        </div>
       </div>
 
       {/* Re-analysis */}

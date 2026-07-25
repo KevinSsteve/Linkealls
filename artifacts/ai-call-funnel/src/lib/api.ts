@@ -16,6 +16,7 @@ export interface Offering {
   name: string;
   description: string;
   price: string;
+  imageUrl?: string;
 }
 
 export interface FaqItem {
@@ -360,4 +361,29 @@ export function getCampaignMetrics(id: string): Promise<{ metrics: CampaignMetri
 
 export function getCampaignOptimizations(id: string): Promise<{ suggestions: string[] }> {
   return request(`/campaigns/${id}/optimize`);
+}
+
+export function duplicateCampaign(id: string): Promise<{ campaign: Campaign }> {
+  return request(`/campaigns/${id}/duplicate`, { method: "POST" });
+}
+
+// ─── Analytics ────────────────────────────────────────────────────────────────
+
+export interface LeadSourceRow {
+  source: string;
+  campaign: string | null;
+  total: number;
+  qualified: number;
+  rate: number;
+}
+
+export interface LeadsAnalytics {
+  bySource: LeadSourceRow[];
+  total: number;
+  totalQualified: number;
+  overallRate: number;
+}
+
+export function getLeadsAnalytics(): Promise<{ analytics: LeadsAnalytics }> {
+  return request("/leads/analytics");
 }

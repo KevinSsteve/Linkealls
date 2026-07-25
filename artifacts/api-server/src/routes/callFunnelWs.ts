@@ -5,7 +5,7 @@ import { createGeminiLiveSession } from "../services/geminiLive.js";
 import { getOrCreateProfile, buildCallAgentPrompt } from "../services/businessProfile.js";
 import { updateLeadOnCallStart, processCallCompletion } from "../services/leads.js";
 import { logger } from "../lib/logger.js";
-import type { Offering } from "@workspace/db/schema/businessProfile";
+import type { Offering } from "@workspace/db";
 
 const CALL_VOICE = "Kore";
 

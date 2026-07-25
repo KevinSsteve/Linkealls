@@ -7,6 +7,7 @@ import {
   updateLeadState,
   chatWithLead,
   subscribeToLeadQualified,
+  getLeadsAnalytics,
 } from "../services/leads.js";
 import { leadOriginSchema, chatMessageSchema, updateLeadStateSchema } from "@workspace/db";
 import { logger } from "../lib/logger.js";
@@ -128,6 +129,18 @@ router.patch("/leads/:id/state", async (req: Request, res: Response) => {
   } catch (err) {
     logger.error({ err }, "Failed to update lead state");
     res.status(500).json({ error: "Erro ao atualizar estado" });
+  }
+});
+
+// ─── GET /leads/analytics ─────────────────────────────────────────────────────
+
+router.get("/leads/analytics", async (_req: Request, res: Response) => {
+  try {
+    const analytics = await getLeadsAnalytics();
+    res.json({ analytics });
+  } catch (err) {
+    logger.error({ err }, "Failed to get leads analytics");
+    res.status(500).json({ error: "Erro ao carregar analytics" });
   }
 });
 

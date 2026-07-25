@@ -2,7 +2,7 @@
  * Detalhe de campanha — kit gerado por IA + dashboard de atribuição + optimização.
  */
 import { useState, useEffect, useCallback } from "react";
-import { Link, useParams } from "wouter";
+import { Link, useParams, useLocation } from "wouter";
 import {
   ArrowLeft,
   Sparkles,
@@ -24,6 +24,7 @@ import {
   Megaphone,
   Play,
   Pause,
+  CopyPlus,
 } from "lucide-react";
 import { OwnerNav } from "../../components/owner/OwnerNav";
 import {
@@ -32,6 +33,7 @@ import {
   getCampaignMetrics,
   getCampaignOptimizations,
   updateCampaignStatus,
+  duplicateCampaign,
   type Campaign,
   type CampaignKit,
   type CampaignMetrics,
@@ -354,6 +356,7 @@ export function CampaignDetail() {
   const [error,        setError]        = useState<string | null>(null);
   const [tab,          setTab]          = useState<"kit" | "metricas">("kit");
   const [changingStatus, setChangingStatus] = useState(false);
+  const [duplicating,    setDuplicating]    = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -391,6 +394,19 @@ export function CampaignDetail() {
       setSuggestions(["Não foi possível gerar sugestões agora — tenta mais tarde."]);
     }
   }, [id]);
+
+  const [, navigate] = useLocation();
+
+  const handleDuplicate = useCallback(async () => {
+    setDuplicating(true);
+    try {
+      const { campaign: copy } = await duplicateCampaign(id);
+      navigate(`/dono/campanhas/${copy.id}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Erro ao duplicar");
+      setDuplicating(false);
+    }
+  }, [id, navigate]);
 
   const handleStatusToggle = useCallback(async () => {
     if (!campaign) return;
@@ -442,6 +458,17 @@ export function CampaignDetail() {
           <p className="font-semibold text-[#EAF0F7] text-sm truncate">{campaign.name}</p>
           <p className="text-xs text-[#3E576F]">{pm.label}</p>
         </div>
+        {/* Duplicate button */}
+        <button
+          onClick={handleDuplicate}
+          disabled={duplicating}
+          className="w-8 h-8 rounded-lg flex items-center justify-center transition-all active:scale-90"
+          style={{ background: "#0F1E2E", border: "1px solid rgba(255,255,255,0.08)", color: "#7B96B2" }}
+          title="Duplicar campanha"
+        >
+          {duplicating ? <Loader2 size={14} className="animate-spin" /> : <CopyPlus size={14} />}
+        </button>
+
         {nextStatus && (
           <button
             onClick={handleStatusToggle}

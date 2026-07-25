@@ -43,6 +43,40 @@ export async function createCampaign(data: {
   return inserted[0]!;
 }
 
+export async function duplicateCampaign(id: string): Promise<Campaign> {
+  const source = await getCampaign(id);
+  if (!source) throw new Error("Campanha não encontrada");
+
+  // Build a unique slug: append "-copia" then a counter until no collision
+  const baseSlug = slugify(`${source.name}-copia`);
+  let utmSlug = baseSlug;
+  let suffix = 2;
+  while (true) {
+    const existing = await db
+      .select({ id: campaignsTable.id })
+      .from(campaignsTable)
+      .where(eq(campaignsTable.utmSlug, utmSlug))
+      .limit(1);
+    if (existing.length === 0) break;
+    utmSlug = `${baseSlug}-${suffix++}`;
+  }
+
+  const inserted = await db
+    .insert(campaignsTable)
+    .values({
+      name: `${source.name} (cópia)`,
+      platform: source.platform,
+      objective: source.objective,
+      budget: source.budget,
+      status: "rascunho" as const,
+      utmSlug,
+      kitJson: null,
+      totalSpend: 0,
+    })
+    .returning();
+  return inserted[0]!;
+}
+
 export async function updateCampaign(
   id: string,
   patch: Partial<{

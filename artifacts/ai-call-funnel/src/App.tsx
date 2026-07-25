@@ -8,6 +8,7 @@ import { Assistant } from "@/pages/owner/Assistant";
 import { Campaigns } from "@/pages/owner/Campaigns";
 import { CampaignDetail } from "@/pages/owner/CampaignDetail";
 import { Conversas } from "@/pages/owner/Conversas";
+import { OwnerGate } from "@/components/owner/OwnerGate";
 
 // Serve under the artifact base path (e.g. /ai-call-funnel) in dev and prod.
 const routerBase = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -44,12 +45,12 @@ export default function App() {
     >
       <Router base={routerBase}>
         <Switch>
-          <Route path="/dono/leads" component={Leads} />
-          <Route path="/dono/conversas" component={Conversas} />
-          <Route path="/dono/assistente" component={Assistant} />
-          <Route path="/dono/campanhas/:id" component={CampaignDetail} />
-          <Route path="/dono/campanhas" component={Campaigns} />
-          <Route path="/dono" component={Owner} />
+          <Route path="/dono/leads">{() => <OwnerGate><Leads /></OwnerGate>}</Route>
+          <Route path="/dono/conversas">{() => <OwnerGate><Conversas /></OwnerGate>}</Route>
+          <Route path="/dono/assistente">{() => <OwnerGate><Assistant /></OwnerGate>}</Route>
+          <Route path="/dono/campanhas/:id">{() => <OwnerGate><CampaignDetail /></OwnerGate>}</Route>
+          <Route path="/dono/campanhas">{() => <OwnerGate><Campaigns /></OwnerGate>}</Route>
+          <Route path="/dono">{() => <OwnerGate><Owner /></OwnerGate>}</Route>
           <Route path="/captacao" component={Captacao} />
           <Route component={Chat} />
         </Switch>

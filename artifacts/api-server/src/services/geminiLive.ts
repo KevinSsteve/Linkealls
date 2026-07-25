@@ -117,7 +117,7 @@ export async function createGeminiLiveSession(
         }
 
         // ── Tool calls ───────────────────────────────────────────────────────
-        const toolCall = (message as Record<string, unknown>).toolCall as
+        const toolCall = (message as unknown as Record<string, unknown>).toolCall as
           | { functionCalls?: Array<{ id?: string; name?: string; args?: Record<string, unknown> }> }
           | undefined;
         if (toolCall?.functionCalls?.length && callbacks.onToolCall) {

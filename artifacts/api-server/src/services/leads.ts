@@ -9,7 +9,7 @@ import {
   type QualificationData,
   type LeadState,
 } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 import { logger } from "../lib/logger.js";
 import { getOrCreateProfile } from "./businessProfile.js";
 
@@ -39,6 +39,60 @@ export async function getLead(id: string): Promise<Lead | null> {
 
 export async function listLeads(): Promise<Lead[]> {
   return db.select().from(leadsTable).orderBy(desc(leadsTable.createdAt));
+}
+
+// ─── Analytics ────────────────────────────────────────────────────────────────
+
+export interface LeadSourceRow {
+  source: string;
+  campaign: string | null;
+  total: number;
+  qualified: number;
+  rate: number;
+}
+
+export interface LeadsAnalytics {
+  bySource: LeadSourceRow[];
+  total: number;
+  totalQualified: number;
+  overallRate: number;
+}
+
+export async function getLeadsAnalytics(): Promise<LeadsAnalytics> {
+  // Aggregate by utm_source + utm_campaign using Postgres JSONB extraction
+  const rows = await db.execute(sql`
+    SELECT
+      COALESCE(origin->>'utm_source', 'direto') AS source,
+      origin->>'utm_campaign' AS campaign,
+      COUNT(*)::int AS total,
+      COUNT(*) FILTER (WHERE state IN ('qualificado','entregue'))::int AS qualified
+    FROM leads
+    GROUP BY 1, 2
+    ORDER BY total DESC
+    LIMIT 50
+  `);
+
+  const bySource: LeadSourceRow[] = (rows.rows as Array<{
+    source: string;
+    campaign: string | null;
+    total: string;
+    qualified: string;
+  }>).map((r) => ({
+    source: r.source,
+    campaign: r.campaign ?? null,
+    total: Number(r.total),
+    qualified: Number(r.qualified),
+    rate: Number(r.total) > 0 ? Math.round((Number(r.qualified) / Number(r.total)) * 100) : 0,
+  }));
+
+  const total = bySource.reduce((s, r) => s + r.total, 0);
+  const totalQualified = bySource.reduce((s, r) => s + r.qualified, 0);
+  return {
+    bySource,
+    total,
+    totalQualified,
+    overallRate: total > 0 ? Math.round((totalQualified / total) * 100) : 0,
+  };
 }
 
 export async function updateLeadState(id: string, state: LeadState): Promise<Lead | null> {

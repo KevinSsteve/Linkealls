@@ -39,6 +39,8 @@ export const businessProfilesTable = pgTable("business_profiles", {
   analysisStatus: text("analysis_status").$type<AnalysisStatus>().notNull().default("idle"),
   analysisError: text("analysis_error"),
   lastAnalyzedAt: timestamp("last_analyzed_at"),
+  /** SHA-256 hex of the owner PIN (null = no PIN set yet). */
+  ownerPin: text("owner_pin"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

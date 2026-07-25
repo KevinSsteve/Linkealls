@@ -3,6 +3,7 @@ import {
   listCampaigns,
   getCampaign,
   createCampaign,
+  duplicateCampaign,
   updateCampaign,
   generateCampaignKit,
   getCampaignMetrics,
@@ -38,6 +39,12 @@ router.post("/campaigns", async (req: Request, res: Response) => {
     res.status(201).json({ campaign });
   } catch (err) {
     logger.error({ err }, "Failed to create campaign");
+    // Postgres unique violation
+    const pg = err as { code?: string };
+    if (pg.code === "23505") {
+      res.status(409).json({ error: "Já existe uma campanha com este nome. Escolhe um nome diferente." });
+      return;
+    }
     res.status(500).json({ error: "Erro ao criar campanha" });
   }
 });
@@ -72,6 +79,19 @@ router.patch("/campaigns/:id", async (req: Request, res: Response) => {
   } catch (err) {
     logger.error({ err }, "Failed to update campaign");
     res.status(500).json({ error: "Erro ao atualizar campanha" });
+  }
+});
+
+// ─── POST /campaigns/:id/duplicate ────────────────────────────────────────────
+
+router.post("/campaigns/:id/duplicate", async (req: Request, res: Response) => {
+  const id = String(req.params["id"] ?? "");
+  try {
+    const campaign = await duplicateCampaign(id);
+    res.status(201).json({ campaign });
+  } catch (err) {
+    logger.error({ err }, "Failed to duplicate campaign");
+    res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao duplicar campanha" });
   }
 });
 

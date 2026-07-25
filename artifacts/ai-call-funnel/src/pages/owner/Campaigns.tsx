@@ -13,16 +13,18 @@ import {
   Loader2,
   AlertCircle,
   ChevronRight,
-  Users,
-  Percent,
   BadgeCheck,
   TrendingUp,
+  BarChart2,
+  ExternalLink,
 } from "lucide-react";
 import {
   listCampaigns,
   createCampaign,
+  getLeadsAnalytics,
   type Campaign,
   type CampaignPlatform,
+  type LeadsAnalytics,
 } from "../../lib/api";
 import { OwnerNav } from "../../components/owner/OwnerNav";
 
@@ -179,6 +181,104 @@ function CreateModal({ onClose, onCreate }: {
   );
 }
 
+// ─── Analytics view ───────────────────────────────────────────────────────────
+
+function AnalyticsView() {
+  const [data,    setData]    = useState<LeadsAnalytics | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState<string | null>(null);
+
+  useEffect(() => {
+    getLeadsAnalytics()
+      .then(({ analytics }) => setData(analytics))
+      .catch(() => setError("Não foi possível carregar os dados"))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return (
+    <div className="flex items-center justify-center py-16">
+      <Loader2 size={20} className="animate-spin text-[#3E576F]" />
+    </div>
+  );
+
+  if (error) return (
+    <div className="mx-4 mt-4 flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+      <AlertCircle size={13} className="text-red-400" /> <span className="text-xs text-red-300">{error}</span>
+    </div>
+  );
+
+  if (!data || data.total === 0) return (
+    <div className="flex flex-col items-center justify-center py-16 gap-3 px-6 text-center">
+      <BarChart2 size={32} className="text-[#3E576F]" />
+      <p className="text-sm text-[#EAF0F7] font-medium">Sem dados ainda</p>
+      <p className="text-xs text-[#3E576F]">Os dados de atribuição aparecem assim que os primeiros leads chegarem pelos links rastreados.</p>
+    </div>
+  );
+
+  const maxTotal = Math.max(...data.bySource.map((r) => r.total), 1);
+
+  return (
+    <div className="p-4 space-y-4">
+      {/* Summary */}
+      <div className="grid grid-cols-3 gap-2">
+        {[
+          { label: "Total leads",    value: data.total,           color: "#7B96B2" },
+          { label: "Qualificados",   value: data.totalQualified,  color: "#00C896" },
+          { label: "Conversão",      value: `${data.overallRate}%`, color: "#F59E0B" },
+        ].map((s) => (
+          <div key={s.label} className="rounded-xl p-3 text-center"
+            style={{ background: "#111B27", border: "1px solid rgba(255,255,255,0.06)" }}>
+            <p className="text-xl font-bold" style={{ color: s.color }}>{s.value}</p>
+            <p className="text-[10px] text-[#3E576F] mt-0.5">{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* By source/campaign */}
+      <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.06)" }}>
+        <div className="px-4 py-2.5" style={{ background: "#111B27" }}>
+          <p className="text-xs font-semibold text-[#7B96B2] uppercase tracking-wider">Leads por fonte</p>
+        </div>
+        <div className="divide-y divide-white/[0.04]" style={{ background: "#0A1420" }}>
+          {data.bySource.map((row, i) => (
+            <div key={i} className="px-4 py-3 space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-[#EAF0F7] truncate">{row.source}</p>
+                  {row.campaign && (
+                    <p className="text-[10px] text-[#3E576F] truncate">utm_campaign: {row.campaign}</p>
+                  )}
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <p className="text-sm font-bold text-[#EAF0F7]">{row.total}</p>
+                  <p className="text-[10px]" style={{ color: row.rate >= 50 ? "#00C896" : row.rate >= 25 ? "#F59E0B" : "#7B96B2" }}>
+                    {row.rate}% conv.
+                  </p>
+                </div>
+              </div>
+              {/* Bar */}
+              <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{
+                    width: `${Math.round((row.total / maxTotal) * 100)}%`,
+                    background: row.rate >= 50 ? "#00C896" : row.rate >= 25 ? "#F59E0B" : "#4A6580",
+                  }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Tip */}
+      <p className="text-[11px] text-center text-[#3E576F] px-4">
+        Use os links rastreados de cada campanha para ver qual fonte converte melhor.
+      </p>
+    </div>
+  );
+}
+
 // ─── Campaign card ────────────────────────────────────────────────────────────
 
 function CampaignCard({ campaign }: { campaign: Campaign }) {
@@ -229,6 +329,7 @@ export function Campaigns() {
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [tab,       setTab]       = useState<"campanhas" | "analise">("campanhas");
   const [, navigate]              = useLocation();
 
   useEffect(() => {
@@ -269,63 +370,94 @@ export function Campaigns() {
         </button>
       </div>
 
-      {/* Error */}
-      {error && (
-        <div className="mx-4 mt-3 flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
-          <AlertCircle size={13} className="text-red-400" />
-          <span className="text-xs text-red-300">{error}</span>
-        </div>
-      )}
-
-      {/* Loading */}
-      {loading && (
-        <div className="flex items-center justify-center flex-1">
-          <Loader2 size={20} className="text-[#3E576F] animate-spin" />
-        </div>
-      )}
-
-      {/* Empty state */}
-      {!loading && campaigns.length === 0 && (
-        <div className="flex flex-col items-center justify-center flex-1 px-6 gap-4 text-center">
-          <div className="w-14 h-14 rounded-2xl bg-orange-500/10 flex items-center justify-center">
-            <Megaphone size={26} className="text-orange-400" />
-          </div>
-          <div>
-            <p className="text-sm font-medium text-[#EAF0F7]">Nenhuma campanha ainda</p>
-            <p className="text-xs text-[#3E576F] mt-1 max-w-[260px] mx-auto">
-              Cria a tua primeira campanha e a IA gera o kit completo — copies, públicos e briefs criativos.
-            </p>
-          </div>
+      {/* Tabs */}
+      <div className="flex border-b border-white/[0.06] flex-shrink-0" style={{ background: "#0A1420" }}>
+        {([
+          { key: "campanhas", label: "📢 Campanhas" },
+          { key: "analise",   label: "📊 Análise" },
+        ] as const).map((t) => (
           <button
-            onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 text-sm font-medium rounded-xl px-4 py-2.5 transition-all active:scale-95"
-            style={{ background: "linear-gradient(135deg, #00C896 0%, #007A5C 100%)", color: "#fff" }}
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className="flex-1 py-2.5 text-xs font-medium transition-colors"
+            style={{
+              color: tab === t.key ? "#00C896" : "#3E576F",
+              borderBottom: tab === t.key ? "2px solid #00C896" : "2px solid transparent",
+            }}
           >
-            <Plus size={15} />
-            Criar primeira campanha
+            {t.label}
           </button>
+        ))}
+      </div>
+
+      {/* Tab: Analytics */}
+      {tab === "analise" && (
+        <div className="flex-1 overflow-y-auto">
+          <AnalyticsView />
         </div>
       )}
 
-      {/* List */}
-      {!loading && campaigns.length > 0 && (
+      {/* Tab: Campaigns list */}
+      {tab === "campanhas" && (
         <>
-          {/* Summary row */}
-          <div className="grid grid-cols-3 gap-2 px-4 py-3 border-b border-white/[0.04]">
-            {[
-              { label: "Total", value: campaigns.length, icon: <Megaphone size={12} />, color: "#7B96B2" },
-              { label: "Ativas",   value: campaigns.filter((c) => c.status === "ativa").length,    icon: <TrendingUp size={12} />,  color: "#00C896" },
-              { label: "Com kit",  value: campaigns.filter((c) => c.kitJson).length,               icon: <BadgeCheck size={12} />,  color: "#F59E0B" },
-            ].map((s) => (
-              <div key={s.label} className="text-center">
-                <p className="text-[18px] font-bold" style={{ color: s.color }}>{s.value}</p>
-                <p className="text-[10px] text-[#3E576F]">{s.label}</p>
+          {/* Error */}
+          {error && (
+            <div className="mx-4 mt-3 flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2">
+              <AlertCircle size={13} className="text-red-400" />
+              <span className="text-xs text-red-300">{error}</span>
+            </div>
+          )}
+
+          {/* Loading */}
+          {loading && (
+            <div className="flex items-center justify-center flex-1">
+              <Loader2 size={20} className="text-[#3E576F] animate-spin" />
+            </div>
+          )}
+
+          {/* Empty state */}
+          {!loading && campaigns.length === 0 && (
+            <div className="flex flex-col items-center justify-center flex-1 px-6 gap-4 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-orange-500/10 flex items-center justify-center">
+                <Megaphone size={26} className="text-orange-400" />
               </div>
-            ))}
-          </div>
-          <div className="flex-1 overflow-y-auto">
-            {campaigns.map((c) => <CampaignCard key={c.id} campaign={c} />)}
-          </div>
+              <div>
+                <p className="text-sm font-medium text-[#EAF0F7]">Nenhuma campanha ainda</p>
+                <p className="text-xs text-[#3E576F] mt-1 max-w-[260px] mx-auto">
+                  Cria a tua primeira campanha e a IA gera o kit completo — copies, públicos e briefs criativos.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowModal(true)}
+                className="flex items-center gap-2 text-sm font-medium rounded-xl px-4 py-2.5 transition-all active:scale-95"
+                style={{ background: "linear-gradient(135deg, #00C896 0%, #007A5C 100%)", color: "#fff" }}
+              >
+                <Plus size={15} />
+                Criar primeira campanha
+              </button>
+            </div>
+          )}
+
+          {/* List */}
+          {!loading && campaigns.length > 0 && (
+            <>
+              <div className="grid grid-cols-3 gap-2 px-4 py-3 border-b border-white/[0.04]">
+                {[
+                  { label: "Total",   value: campaigns.length,                                    color: "#7B96B2" },
+                  { label: "Ativas",  value: campaigns.filter((c) => c.status === "ativa").length, color: "#00C896" },
+                  { label: "Com kit", value: campaigns.filter((c) => c.kitJson).length,           color: "#F59E0B" },
+                ].map((s) => (
+                  <div key={s.label} className="text-center">
+                    <p className="text-[18px] font-bold" style={{ color: s.color }}>{s.value}</p>
+                    <p className="text-[10px] text-[#3E576F]">{s.label}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                {campaigns.map((c) => <CampaignCard key={c.id} campaign={c} />)}
+              </div>
+            </>
+          )}
         </>
       )}
 
