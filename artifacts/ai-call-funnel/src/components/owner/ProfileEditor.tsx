@@ -1,7 +1,7 @@
-import { useState, useRef, useCallback } from "react";
-import { Plus, Trash2, Save, RefreshCw, Loader2, Camera, X, Phone, Bell, BellOff, BellRing, Store, Copy, Check, ExternalLink } from "lucide-react";
+import { useState, useRef, useCallback, useEffect } from "react";
+import { Plus, Trash2, Save, RefreshCw, Loader2, Camera, X, Phone, Bell, BellOff, BellRing, Store, Copy, Check, ExternalLink, Link } from "lucide-react";
 import { useNotifications } from "../../hooks/useNotifications";
-import { toggleCatalog } from "../../lib/api";
+import { toggleCatalog, saveCatalogSlug, checkSlugAvailability } from "../../lib/api";
 import type { BusinessProfile, ProfileDraft, Offering, FaqItem } from "../../lib/api";
 
 const inputCls =
@@ -19,18 +19,52 @@ interface Props {
   onReanalyze: (url: string) => void;
 }
 
+/** Validate slug format client-side: 3-60 chars, only lowercase letters, digits, hyphens. */
+function isValidSlugFormat(s: string) {
+  return /^[a-z0-9-]{3,60}$/.test(s);
+}
+
 function CatalogSection({ profile }: { profile: BusinessProfile }) {
   const [enabled, setEnabled] = useState(profile.catalogEnabled ?? true);
   const [toggling, setToggling] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [slugCopied, setSlugCopied] = useState(false);
 
-  const catalogUrl =
-    typeof window !== "undefined"
-      ? `${window.location.origin}${import.meta.env.BASE_URL}catalogo`
-      : "";
+  // Slug state
+  const [slug, setSlug] = useState(profile.catalogSlug ?? "");
+  const [slugStatus, setSlugStatus] = useState<"idle" | "checking" | "available" | "taken" | "invalid" | "saved">("idle");
+  const [slugSaving, setSlugSaving] = useState(false);
+  const slugDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const base = import.meta.env.BASE_URL;
+
+  const genericUrl = `${origin}${base}catalogo`;
+  const slugUrl = slug && isValidSlugFormat(slug) ? `${origin}${base}c/${slug}` : null;
 
   const productCount = profile.offerings?.length ?? 0;
   const isReady = profile.name?.trim().length > 0 && productCount > 0;
+
+  // Debounced slug availability check
+  useEffect(() => {
+    const trimmed = slug.trim().toLowerCase();
+    if (!trimmed) { setSlugStatus("idle"); return; }
+    if (!isValidSlugFormat(trimmed)) { setSlugStatus("invalid"); return; }
+    // Skip check if it's the same as what's already saved
+    if (trimmed === (profile.catalogSlug ?? "")) { setSlugStatus("idle"); return; }
+
+    setSlugStatus("checking");
+    if (slugDebounceRef.current) clearTimeout(slugDebounceRef.current);
+    slugDebounceRef.current = setTimeout(async () => {
+      try {
+        const res = await checkSlugAvailability(trimmed);
+        setSlugStatus(res.available ? "available" : "taken");
+      } catch {
+        setSlugStatus("idle");
+      }
+    }, 500);
+    return () => { if (slugDebounceRef.current) clearTimeout(slugDebounceRef.current); };
+  }, [slug, profile.catalogSlug]);
 
   const handleToggle = async () => {
     const next = !enabled;
@@ -45,15 +79,47 @@ function CatalogSection({ profile }: { profile: BusinessProfile }) {
     }
   };
 
-  const handleCopy = async () => {
+  const handleCopy = async (url: string, setFlag: (v: boolean) => void) => {
     try {
-      await navigator.clipboard.writeText(catalogUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      await navigator.clipboard.writeText(url);
+      setFlag(true);
+      setTimeout(() => setFlag(false), 2000);
+    } catch { /* ignore */ }
+  };
+
+  const handleSlugChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Auto-lowercase and strip invalid chars
+    const val = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "");
+    setSlug(val);
+    setSlugStatus("idle");
+  };
+
+  const handleSaveSlug = async () => {
+    const trimmed = slug.trim().toLowerCase();
+    setSlugSaving(true);
+    try {
+      await saveCatalogSlug(trimmed || null);
+      setSlugStatus("saved");
+      setTimeout(() => setSlugStatus("idle"), 2500);
     } catch {
-      // fallback: select text
+      setSlugStatus("idle");
+    } finally {
+      setSlugSaving(false);
     }
   };
+
+  const canSaveSlug =
+    !slugSaving &&
+    (slugStatus === "available" || (slug.trim() === "" && profile.catalogSlug));
+
+  const slugHint = (() => {
+    if (slugStatus === "checking") return { text: "A verificar…", color: "#94A3B8" };
+    if (slugStatus === "available") return { text: "✓ Disponível", color: "#4ADE80" };
+    if (slugStatus === "taken") return { text: "✗ Já está em uso", color: "#F87171" };
+    if (slugStatus === "invalid") return { text: "Usa apenas letras, números e hífens (mín. 3)", color: "#FBBF24" };
+    if (slugStatus === "saved") return { text: "✓ Guardado!", color: "#4ADE80" };
+    return null;
+  })();
 
   return (
     <div className={sectionCls}>
@@ -87,29 +153,84 @@ function CatalogSection({ profile }: { profile: BusinessProfile }) {
         </button>
       </div>
 
-      {/* Catalog URL */}
-      <div className="flex items-center gap-2">
-        <div className="flex-1 min-w-0 flex items-center gap-2 bg-[#0D1826] border border-white/10 rounded-lg px-3 py-2">
-          <span className="text-[12px] text-slate-400 truncate flex-1 font-mono">
-            {catalogUrl}
-          </span>
+      {/* Generic catalog URL */}
+      <div>
+        <p className="text-[11px] text-slate-500 mb-1.5 uppercase tracking-wide font-medium">Link genérico</p>
+        <div className="flex items-center gap-2">
+          <div className="flex-1 min-w-0 flex items-center gap-2 bg-[#0D1826] border border-white/10 rounded-lg px-3 py-2">
+            <span className="text-[12px] text-slate-400 truncate flex-1 font-mono">{genericUrl}</span>
+          </div>
+          <button
+            onClick={() => handleCopy(genericUrl, setCopied)}
+            className="shrink-0 flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-[12px] font-medium transition-colors bg-white/[0.06] text-slate-300 hover:bg-white/10 border border-white/10"
+            title="Copiar link genérico"
+          >
+            {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+          </button>
+          <a
+            href={genericUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-[12px] font-medium transition-colors bg-white/[0.06] text-slate-300 hover:bg-white/10 border border-white/10"
+            title="Ver catálogo"
+          >
+            <ExternalLink size={14} />
+          </a>
         </div>
-        <button
-          onClick={handleCopy}
-          className="shrink-0 flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-[12px] font-medium transition-colors bg-white/[0.06] text-slate-300 hover:bg-white/10 border border-white/10"
-          title="Copiar link"
-        >
-          {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
-        </button>
-        <a
-          href={catalogUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="shrink-0 flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-[12px] font-medium transition-colors bg-white/[0.06] text-slate-300 hover:bg-white/10 border border-white/10"
-          title="Ver catálogo"
-        >
-          <ExternalLink size={14} />
-        </a>
+      </div>
+
+      {/* Vanity slug */}
+      <div>
+        <p className="text-[11px] text-slate-500 mb-1.5 uppercase tracking-wide font-medium">Link personalizado</p>
+        <div className="flex items-center gap-2">
+          <div className="flex-1 min-w-0 flex items-center bg-[#0D1826] border border-white/10 rounded-lg px-3 py-2 gap-1.5 focus-within:border-[#00A884]/60 transition-colors">
+            <span className="text-[12px] text-slate-500 font-mono shrink-0">{`${base}c/`}</span>
+            <input
+              className="flex-1 min-w-0 bg-transparent text-[12px] text-slate-200 font-mono outline-none placeholder:text-slate-600"
+              placeholder="nome-do-negocio"
+              value={slug}
+              onChange={handleSlugChange}
+              maxLength={60}
+              spellCheck={false}
+            />
+          </div>
+          <button
+            onClick={handleSaveSlug}
+            disabled={!canSaveSlug}
+            className="shrink-0 flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-[12px] font-medium transition-colors bg-white/[0.06] text-slate-300 hover:bg-white/10 border border-white/10 disabled:opacity-40"
+            title="Guardar slug"
+          >
+            {slugSaving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
+          </button>
+        </div>
+        {slugHint && (
+          <p className="text-[11px] mt-1.5" style={{ color: slugHint.color }}>{slugHint.text}</p>
+        )}
+        {/* Slug preview & copy */}
+        {slugUrl && (
+          <div className="flex items-center gap-2 mt-2">
+            <div className="flex-1 min-w-0 flex items-center gap-2 bg-[#0D1826] border border-white/[0.06] rounded-lg px-3 py-2">
+              <Link size={12} className="text-[#00A884] shrink-0" />
+              <span className="text-[12px] text-[#00A884] truncate flex-1 font-mono">{slugUrl}</span>
+            </div>
+            <button
+              onClick={() => handleCopy(slugUrl, setSlugCopied)}
+              className="shrink-0 flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-[12px] font-medium transition-colors bg-[#00A884]/10 text-[#00A884] hover:bg-[#00A884]/20 border border-[#00A884]/20"
+              title="Copiar link personalizado"
+            >
+              {slugCopied ? <Check size={14} /> : <Copy size={14} />}
+            </button>
+            <a
+              href={slugUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="shrink-0 flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-[12px] font-medium transition-colors bg-[#00A884]/10 text-[#00A884] hover:bg-[#00A884]/20 border border-[#00A884]/20"
+              title="Abrir link personalizado"
+            >
+              <ExternalLink size={14} />
+            </a>
+          </div>
+        )}
       </div>
     </div>
   );

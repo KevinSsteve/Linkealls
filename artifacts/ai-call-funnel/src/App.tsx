@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Router, Route, Switch } from "wouter";
+import { Router, Route, Switch, Redirect } from "wouter";
 import { Chat } from "@/pages/Chat";
 import { Captacao } from "@/pages/Captacao";
 import { Catalogo } from "@/pages/Catalogo";
@@ -44,6 +44,8 @@ export default function App() {
       <Switch>
         {/* ── Public catalog: light theme, no dark wrapper ── */}
         <Route path="/catalogo" component={Catalogo} />
+        {/* ── Vanity slug: /c/:slug → renders the same Catalogo page ── */}
+        <Route path="/c/:slug" component={Catalogo} />
 
         {/* ── All other routes: dark wrapper ── */}
         <Route>

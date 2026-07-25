@@ -45,6 +45,8 @@ export const businessProfilesTable = pgTable("business_profiles", {
   pushSubscriptions: jsonb("push_subscriptions").$type<PushSubscriptionJSON[]>().notNull().default([]),
   /** Whether the public product catalog is visible to visitors. */
   catalogEnabled: boolean("catalog_enabled").notNull().default(true),
+  /** Vanity slug for the public catalog URL, e.g. "hungry-lion" → /c/hungry-lion */
+  catalogSlug: text("catalog_slug").unique(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -80,6 +82,13 @@ export const updateBusinessProfileSchema = z.object({
   faq: z.array(faqItemSchema).max(50).optional(),
   qualificationGoals: z.array(z.string().max(500)).max(20).optional(),
   catalogEnabled: z.boolean().optional(),
+  catalogSlug: z
+    .string()
+    .min(3)
+    .max(60)
+    .regex(/^[a-z0-9-]+$/, "Apenas letras minúsculas, números e hífens")
+    .nullable()
+    .optional(),
 });
 
 export type InsertBusinessProfile = z.infer<typeof insertBusinessProfileSchema>;

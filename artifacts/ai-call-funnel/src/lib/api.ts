@@ -42,6 +42,7 @@ export interface BusinessProfile {
   analysisError: string | null;
   lastAnalyzedAt: string | null;
   catalogEnabled: boolean;
+  catalogSlug: string | null;
 }
 
 export interface ProfileDraft {
@@ -399,11 +400,27 @@ export interface CatalogData {
   offerings: Offering[];
   faq: FaqItem[];
   catalogEnabled: boolean;
+  catalogSlug: string | null;
   isReady: boolean;
 }
 
 export function getCatalog(): Promise<CatalogData> {
   return request<CatalogData>("/catalog");
+}
+
+export function getCatalogBySlug(slug: string): Promise<CatalogData> {
+  return request<CatalogData>(`/catalog/by-slug/${encodeURIComponent(slug)}`);
+}
+
+export function checkSlugAvailability(slug: string): Promise<{ available: boolean; reason?: string }> {
+  return request(`/catalog/slug-check/${encodeURIComponent(slug)}`);
+}
+
+export function saveCatalogSlug(slug: string | null): Promise<{ profile: BusinessProfile; filled: boolean }> {
+  return request("/business-profile", {
+    method: "PUT",
+    body: JSON.stringify({ catalogSlug: slug }),
+  });
 }
 
 /** Toggle the public catalog on/off.

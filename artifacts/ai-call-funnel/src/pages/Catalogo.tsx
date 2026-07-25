@@ -4,12 +4,13 @@
  * Qualquer visitante pode ver os produtos, iniciar chat com IA ou ligar.
  */
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useParams } from "wouter";
 import {
   MessageSquare, X, Phone, CheckCircle2, ChevronDown, ChevronUp,
   Send, ShoppingBag, ArrowRight, Sparkles, Loader2, ImageOff, Store,
 } from "lucide-react";
 import {
-  getCatalog, createLeadSession, sendLeadChat,
+  getCatalog, getCatalogBySlug, createLeadSession, sendLeadChat,
   type CatalogData, type Offering, type FaqItem, type ChatMessage,
 } from "../lib/api";
 
@@ -412,17 +413,21 @@ function ComingSoon({ name, reason }: { name: string; reason: "disabled" | "not_
 // ─── Main Catalog Page ────────────────────────────────────────────────────────
 
 export function Catalogo() {
+  const params = useParams<{ slug?: string }>();
+  const slug = params.slug ?? null;
+
   const [catalog, setCatalog] = useState<CatalogData | null>(null);
   const [loading, setLoading] = useState(true);
   const [chatOpen, setChatOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
 
   useEffect(() => {
-    getCatalog()
+    const fetch = slug ? getCatalogBySlug(slug) : getCatalog();
+    fetch
       .then(setCatalog)
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, []);
+  }, [slug]);
 
   const handleLearnMore = useCallback((offering: Offering) => {
     setSelectedProduct(offering.name);
