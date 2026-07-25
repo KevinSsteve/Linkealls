@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from "react";
-import { Plus, Trash2, Save, RefreshCw, Loader2, Camera, X, Phone, Bell, BellOff, BellRing } from "lucide-react";
+import { Plus, Trash2, Save, RefreshCw, Loader2, Camera, X, Phone, Bell, BellOff, BellRing, Store, Copy, Check, ExternalLink } from "lucide-react";
 import { useNotifications } from "../../hooks/useNotifications";
+import { toggleCatalog } from "../../lib/api";
 import type { BusinessProfile, ProfileDraft, Offering, FaqItem } from "../../lib/api";
 
 const inputCls =
@@ -16,6 +17,102 @@ interface Props {
   reanalyzing: boolean;
   onSave: (fields: ProfileDraft & { websiteUrl?: string | null }) => void;
   onReanalyze: (url: string) => void;
+}
+
+function CatalogSection({ profile }: { profile: BusinessProfile }) {
+  const [enabled, setEnabled] = useState(profile.catalogEnabled ?? true);
+  const [toggling, setToggling] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const catalogUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}${import.meta.env.BASE_URL}catalogo`
+      : "";
+
+  const productCount = profile.offerings?.length ?? 0;
+  const isReady = profile.name?.trim().length > 0 && productCount > 0;
+
+  const handleToggle = async () => {
+    const next = !enabled;
+    setToggling(true);
+    try {
+      await toggleCatalog(next);
+      setEnabled(next);
+    } catch {
+      // revert on error — state stays unchanged
+    } finally {
+      setToggling(false);
+    }
+  };
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(catalogUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // fallback: select text
+    }
+  };
+
+  return (
+    <div className={sectionCls}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{ background: "#1D4ED8" }}>
+            <Store size={15} className="text-white" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-slate-200">Catálogo público</h3>
+            <p className="text-[12px] mt-0.5" style={{ color: enabled && isReady ? "#4ADE80" : "#94A3B8" }}>
+              {!isReady
+                ? "Incompleto — adiciona pelo menos 1 produto"
+                : enabled
+                ? `Activo · ${productCount} produto${productCount !== 1 ? "s" : ""}`
+                : "Desactivado"}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={handleToggle}
+          disabled={toggling}
+          className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold border transition-colors disabled:opacity-50 ${
+            enabled
+              ? "bg-[#1D4ED8]/15 text-blue-400 border-blue-500/20 hover:bg-red-500/10 hover:text-red-400 hover:border-red-400/20"
+              : "bg-white/[0.06] text-slate-400 border-white/10 hover:bg-white/10"
+          }`}
+        >
+          {toggling ? <Loader2 size={13} className="animate-spin" /> : null}
+          {enabled ? "Activo" : "Inactivo"}
+        </button>
+      </div>
+
+      {/* Catalog URL */}
+      <div className="flex items-center gap-2">
+        <div className="flex-1 min-w-0 flex items-center gap-2 bg-[#0D1826] border border-white/10 rounded-lg px-3 py-2">
+          <span className="text-[12px] text-slate-400 truncate flex-1 font-mono">
+            {catalogUrl}
+          </span>
+        </div>
+        <button
+          onClick={handleCopy}
+          className="shrink-0 flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-[12px] font-medium transition-colors bg-white/[0.06] text-slate-300 hover:bg-white/10 border border-white/10"
+          title="Copiar link"
+        >
+          {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+        </button>
+        <a
+          href={catalogUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="shrink-0 flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-[12px] font-medium transition-colors bg-white/[0.06] text-slate-300 hover:bg-white/10 border border-white/10"
+          title="Ver catálogo"
+        >
+          <ExternalLink size={14} />
+        </a>
+      </div>
+    </div>
+  );
 }
 
 function NotificationsSection() {
@@ -184,6 +281,9 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
           </div>
         ))}
       </div>
+
+      {/* Public catalog */}
+      <CatalogSection profile={profile} />
 
       {/* Push notifications */}
       <NotificationsSection />

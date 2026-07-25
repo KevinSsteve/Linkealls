@@ -41,6 +41,7 @@ export interface BusinessProfile {
   analysisStatus: AnalysisStatus;
   analysisError: string | null;
   lastAnalyzedAt: string | null;
+  catalogEnabled: boolean;
 }
 
 export interface ProfileDraft {
@@ -386,4 +387,31 @@ export interface LeadsAnalytics {
 
 export function getLeadsAnalytics(): Promise<{ analytics: LeadsAnalytics }> {
   return request("/leads/analytics");
+}
+
+// ─── Catalog API ──────────────────────────────────────────────────────────────
+
+export interface CatalogData {
+  name: string;
+  sector: string;
+  description: string;
+  differentials: string[];
+  offerings: Offering[];
+  faq: FaqItem[];
+  catalogEnabled: boolean;
+  isReady: boolean;
+}
+
+export function getCatalog(): Promise<CatalogData> {
+  return request<CatalogData>("/catalog");
+}
+
+/** Toggle the public catalog on/off.
+ *  Reuses PUT /business-profile so it goes through the same owner-controlled
+ *  write path as all other profile mutations (consistent auth surface). */
+export function toggleCatalog(enabled: boolean): Promise<{ profile: BusinessProfile; filled: boolean }> {
+  return request("/business-profile", {
+    method: "PUT",
+    body: JSON.stringify({ catalogEnabled: enabled }),
+  });
 }

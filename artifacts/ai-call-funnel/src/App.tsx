@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Router, Route, Switch } from "wouter";
 import { Chat } from "@/pages/Chat";
 import { Captacao } from "@/pages/Captacao";
+import { Catalogo } from "@/pages/Catalogo";
 import { Owner } from "@/pages/Owner";
 import { Leads } from "@/pages/owner/Leads";
 import { Assistant } from "@/pages/owner/Assistant";
@@ -39,22 +40,32 @@ export default function App() {
   useVisualViewportHeight();
 
   return (
-    <div
-      className="w-full bg-[#080E18] flex flex-col overflow-hidden"
-      style={{ height: "var(--vh, 100dvh)" }}
-    >
-      <Router base={routerBase}>
-        <Switch>
-          <Route path="/dono/leads">{() => <OwnerGate><Leads /></OwnerGate>}</Route>
-          <Route path="/dono/conversas">{() => <OwnerGate><Conversas /></OwnerGate>}</Route>
-          <Route path="/dono/assistente">{() => <OwnerGate><Assistant /></OwnerGate>}</Route>
-          <Route path="/dono/campanhas/:id">{() => <OwnerGate><CampaignDetail /></OwnerGate>}</Route>
-          <Route path="/dono/campanhas">{() => <OwnerGate><Campaigns /></OwnerGate>}</Route>
-          <Route path="/dono">{() => <OwnerGate><Owner /></OwnerGate>}</Route>
-          <Route path="/captacao" component={Captacao} />
-          <Route component={Chat} />
-        </Switch>
-      </Router>
-    </div>
+    <Router base={routerBase}>
+      <Switch>
+        {/* ── Public catalog: light theme, no dark wrapper ── */}
+        <Route path="/catalogo" component={Catalogo} />
+
+        {/* ── All other routes: dark wrapper ── */}
+        <Route>
+          {() => (
+            <div
+              className="w-full bg-[#080E18] flex flex-col overflow-hidden"
+              style={{ height: "var(--vh, 100dvh)" }}
+            >
+              <Switch>
+                <Route path="/dono/leads">{() => <OwnerGate><Leads /></OwnerGate>}</Route>
+                <Route path="/dono/conversas">{() => <OwnerGate><Conversas /></OwnerGate>}</Route>
+                <Route path="/dono/assistente">{() => <OwnerGate><Assistant /></OwnerGate>}</Route>
+                <Route path="/dono/campanhas/:id">{() => <OwnerGate><CampaignDetail /></OwnerGate>}</Route>
+                <Route path="/dono/campanhas">{() => <OwnerGate><Campaigns /></OwnerGate>}</Route>
+                <Route path="/dono">{() => <OwnerGate><Owner /></OwnerGate>}</Route>
+                <Route path="/captacao" component={Captacao} />
+                <Route component={Chat} />
+              </Switch>
+            </div>
+          )}
+        </Route>
+      </Switch>
+    </Router>
   );
 }

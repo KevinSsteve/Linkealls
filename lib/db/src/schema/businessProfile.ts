@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, jsonb, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -43,6 +43,8 @@ export const businessProfilesTable = pgTable("business_profiles", {
   ownerPin: text("owner_pin"),
   /** Web Push subscription objects (one per browser/device). */
   pushSubscriptions: jsonb("push_subscriptions").$type<PushSubscriptionJSON[]>().notNull().default([]),
+  /** Whether the public product catalog is visible to visitors. */
+  catalogEnabled: boolean("catalog_enabled").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -77,6 +79,7 @@ export const updateBusinessProfileSchema = z.object({
   offerings: z.array(offeringSchema).max(50).optional(),
   faq: z.array(faqItemSchema).max(50).optional(),
   qualificationGoals: z.array(z.string().max(500)).max(20).optional(),
+  catalogEnabled: z.boolean().optional(),
 });
 
 export type InsertBusinessProfile = z.infer<typeof insertBusinessProfileSchema>;

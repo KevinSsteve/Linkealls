@@ -7,6 +7,7 @@ import assistantRouter from "./assistant";
 import campaignsRouter from "./campaigns";
 import storageRouter from "./storage";
 import notificationsRouter from "./notifications";
+import catalogRouter from "./catalog";
 
 const router: IRouter = Router();
 
@@ -18,5 +19,6 @@ router.use(assistantRouter);
 router.use(campaignsRouter);
 router.use(storageRouter);
 router.use(notificationsRouter);
+router.use(catalogRouter);
 
 export default router;
