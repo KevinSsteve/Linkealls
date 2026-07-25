@@ -6,19 +6,29 @@ import { AudioPlayer } from "../lib/audioPlayer";
 export type CallState = "idle" | "connecting" | "active" | "error" | "ended";
 export type { ProductCard };
 
+export interface AgentMessage {
+  id: string;
+  text: string;
+}
+
 export interface GeminiLiveState {
   callState: CallState;
   isAiSpeaking: boolean;
   isUserSpeaking: boolean;
   errorMessage: string | null;
   shownProducts: ProductCard[] | null;
+  agentMessages: AgentMessage[];
   connect: () => void;
   disconnect: () => void;
   sendText: (text: string) => void;
   clearProducts: () => void;
+  clearAgentMessages: () => void;
 }
 
 const VAD_THRESHOLD = 0.012;
+
+let _msgCounter = 0;
+function makeAgentMsgId() { return `am-${++_msgCounter}`; }
 
 export function useGeminiLive(leadId?: string | null): GeminiLiveState {
   const [callState, setCallState] = useState<CallState>("idle");
@@ -26,6 +36,7 @@ export function useGeminiLive(leadId?: string | null): GeminiLiveState {
   const [isUserSpeaking, setIsUserSpeaking] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [shownProducts, setShownProducts] = useState<ProductCard[] | null>(null);
+  const [agentMessages, setAgentMessages] = useState<AgentMessage[]>([]);
 
   const serviceRef = useRef<CallFunnelService | null>(null);
   const playerRef = useRef<AudioPlayer | null>(null);
@@ -51,6 +62,7 @@ export function useGeminiLive(leadId?: string | null): GeminiLiveState {
     setIsAiSpeaking(false);
     setIsUserSpeaking(false);
     setShownProducts(null);
+    setAgentMessages([]);
   }, []);
 
   const connect = useCallback(() => {
@@ -99,6 +111,10 @@ export function useGeminiLive(leadId?: string | null): GeminiLiveState {
 
       onShowProducts: (products) => {
         setShownProducts(products);
+      },
+
+      onAgentMessage: (text) => {
+        setAgentMessages((prev) => [...prev, { id: makeAgentMsgId(), text }]);
       },
 
       onError: (message) => {
@@ -155,6 +171,10 @@ export function useGeminiLive(leadId?: string | null): GeminiLiveState {
     setShownProducts(null);
   }, []);
 
+  const clearAgentMessages = useCallback(() => {
+    setAgentMessages([]);
+  }, []);
+
   useEffect(() => () => cleanup(), [cleanup]);
 
   return {
@@ -163,9 +183,11 @@ export function useGeminiLive(leadId?: string | null): GeminiLiveState {
     isUserSpeaking,
     errorMessage,
     shownProducts,
+    agentMessages,
     connect,
     disconnect,
     sendText,
     clearProducts,
+    clearAgentMessages,
   };
 }

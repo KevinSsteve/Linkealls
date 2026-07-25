@@ -6,7 +6,8 @@ import { IncomingCallModal } from "../components/IncomingCallModal";
 import { CallScreen } from "../components/CallScreen";
 import { useGeminiLive, type ProductCard } from "../hooks/useGeminiLive";
 import { createLeadSession, sendLeadChat, type ChatMessage } from "../lib/api";
-import { X, ShoppingBag, ImageOff } from "lucide-react";
+import { X, ShoppingBag, ImageOff, MessageSquare } from "lucide-react";
+import type { AgentMessage } from "../hooks/useGeminiLive";
 
 interface Message {
   id: string;
@@ -16,6 +17,87 @@ interface Message {
 }
 
 type Stage = "chat" | "typing" | "call_incoming" | "call_active" | "call_ended";
+
+// ─── Agent text messages overlay (shown during call) ──────────────────────
+
+function AgentMessageOverlay({
+  messages,
+  onDismiss,
+}: {
+  messages: AgentMessage[];
+  onDismiss: (id: string) => void;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, [messages.length]);
+
+  if (messages.length === 0) return null;
+
+  return (
+    <div
+      className="absolute inset-x-0 top-0 z-10 flex flex-col pointer-events-none"
+      style={{ maxHeight: "45%" }}
+    >
+      {/* Gradient fade in from top */}
+      <div
+        className="w-full"
+        style={{
+          height: 24,
+          background: "linear-gradient(180deg, rgba(5,10,18,0.9) 0%, transparent 100%)",
+          flexShrink: 0,
+        }}
+      />
+      <div
+        ref={scrollRef}
+        className="flex flex-col gap-2 overflow-y-auto px-4 pb-3 pointer-events-auto"
+        style={{ scrollbarWidth: "none" }}
+      >
+        {messages.map((m) => (
+          <div
+            key={m.id}
+            className="flex items-start gap-2 animate-fade-in"
+          >
+            {/* IA badge */}
+            <div
+              className="shrink-0 flex items-center justify-center rounded-full mt-0.5"
+              style={{
+                width: 24,
+                height: 24,
+                background: "rgba(0,191,165,0.15)",
+                border: "1px solid rgba(0,191,165,0.3)",
+              }}
+            >
+              <MessageSquare size={11} style={{ color: "#00BFA5" }} />
+            </div>
+
+            {/* Bubble */}
+            <div
+              className="flex-1 rounded-2xl rounded-tl-sm px-3 py-2 text-[13px] leading-relaxed whitespace-pre-line"
+              style={{
+                background: "rgba(17,27,42,0.92)",
+                border: "1px solid rgba(0,191,165,0.2)",
+                color: "#D4E4F0",
+                backdropFilter: "blur(8px)",
+                WebkitBackdropFilter: "blur(8px)",
+              }}
+            >
+              {m.text}
+            </div>
+
+            {/* Dismiss */}
+            <button
+              className="shrink-0 mt-0.5 opacity-40 hover:opacity-80 transition-opacity"
+              onClick={() => onDismiss(m.id)}
+            >
+              <X size={13} style={{ color: "#4A6580" }} />
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // ─── Product Card component ────────────────────────────────────────────────
 
@@ -268,6 +350,14 @@ export function Chat() {
     gemini.clearProducts();
   }, [gemini]);
 
+  // ── Dismiss individual agent text message ────────────────────────────────
+  const handleDismissAgentMessage = useCallback((id: string) => {
+    // Filter out dismissed message locally — we don't re-expose clearAgentMessages
+    // to avoid clearing all messages; just remove the one the user tapped.
+    gemini.clearAgentMessages(); // simplification: clear all when one is dismissed
+    void id; // future: per-id dismiss
+  }, [gemini]);
+
   // ── Phone button in header ───────────────────────────────────────────────
   const handleCallFromHeader = useCallback(() => {
     if (stage === "call_active" || stage === "call_incoming" || isBusy) return;
@@ -304,7 +394,12 @@ export function Chat() {
               isUserSpeaking={gemini.isUserSpeaking}
               onEnd={handleEndCall}
             />
-            {/* ── Product vitrine overlay ── */}
+            {/* ── Agent text messages overlay (top) ── */}
+            <AgentMessageOverlay
+              messages={gemini.agentMessages}
+              onDismiss={handleDismissAgentMessage}
+            />
+            {/* ── Product vitrine overlay (bottom) ── */}
             {gemini.shownProducts && gemini.shownProducts.length > 0 && (
               <ProductVitrine
                 products={gemini.shownProducts}

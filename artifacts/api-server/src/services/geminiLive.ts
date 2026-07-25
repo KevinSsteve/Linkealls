@@ -20,7 +20,7 @@ export interface GeminiLiveSession {
   sendAudio: (base64Data: string) => void;
   sendText: (text: string) => void;
   sendGreeting: () => void;
-  sendToolResponse: (id: string, result: unknown) => void;
+  sendToolResponse: (id: string, name: string, result: Record<string, unknown>) => void;
   close: () => void;
 }
 
@@ -36,16 +36,24 @@ export interface GeminiLiveCallbacks {
   onInterrupted: () => void;
   onTranscript: (text: string) => void;
   onInputTranscript: (text: string) => void;
-  onToolCall?: (call: ToolCallData) => void;
+  /**
+   * Called for each function call from the model.
+   * `sendResponse(result)` MUST be called to unblock the model.
+   * The bound function holds the correct call-ID and tool-name already.
+   * `result` must be a plain object (SDK validates `{ id, name, response }`).
+   */
+  onToolCall?: (call: ToolCallData, sendResponse: (result: Record<string, unknown>) => void) => void;
+  /** Called when the model sends a text-only message to display in the UI chat. */
+  onAgentMessage?: (text: string) => void;
   onError: (err: unknown) => void;
   onClose: () => void;
 }
 
-/** show_product_catalog — tool the model calls to display a visual product card in the client UI. */
+/** show_product_catalog — displays visual product cards on the client. */
 const showProductCatalogDecl = {
   name: "show_product_catalog",
   description:
-    "Mostra visualmente no ecrã do cliente os produtos/serviços correspondentes ao pedido, com imagem, nome e preço. Usa sempre que o cliente perguntar sobre um produto, serviço ou categoria específica. Chama com os nomes exactos dos produtos do catálogo.",
+    "Mostra visualmente no ecrã do cliente os produtos/serviços correspondentes ao pedido, com imagem, nome e preço. Usa sempre que o cliente perguntar sobre um produto, serviço ou categoria específica.",
   parameters: {
     type: Type.OBJECT,
     properties: {
@@ -63,6 +71,28 @@ const showProductCatalogDecl = {
   },
 };
 
+/**
+ * send_text_message — sends a formatted text bubble to the client's chat
+ * during the voice call, so the agent can share phone numbers, addresses,
+ * store info, prices, or any data that is better read than spoken.
+ */
+const sendTextMessageDecl = {
+  name: "send_text_message",
+  description:
+    "Envia uma mensagem de texto visível no chat do cliente enquanto a chamada está a decorrer. Usa quando o cliente pede informações específicas por escrito: número de telefone, morada de uma loja, horário de funcionamento, código de desconto, link, ou qualquer dado que seja mais útil ler do que ouvir. Depois de enviar, continua a conversa normalmente por voz.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      text: {
+        type: Type.STRING,
+        description:
+          "Mensagem a mostrar no chat. Pode usar quebras de linha (\\n) para formatar listas. Exemplo: 'Loja Talatona\\n📍 Rua da Samba, 42\\n📞 +244 923 000 000'",
+      },
+    },
+    required: ["text"],
+  },
+};
+
 export async function createGeminiLiveSession(
   config: GeminiSessionConfig,
   callbacks: GeminiLiveCallbacks,
@@ -76,6 +106,32 @@ export async function createGeminiLiveSession(
 
   let setupComplete = false;
   let pendingGreeting = false;
+
+  // We need to call sendToolResponse from within onmessage callbacks.
+  // The 'session' variable is assigned after ai.live.connect() resolves,
+  // but tool calls only arrive after setupComplete + greeting, so 'session'
+  // is always defined by the time we need it. We use a local wrapper to
+  // keep the reference clean.
+  let _session: Awaited<ReturnType<typeof ai.live.connect>> | null = null;
+
+  /**
+   * SDK requires: { id, name, response } — all three fields.
+   * Missing 'name' throws "Could not parse function response, type 'object'".
+   * The 'response' value must be a plain object (not nested under 'result').
+   */
+  function dispatchToolResponse(id: string, name: string, result: Record<string, unknown>) {
+    if (!_session) {
+      logger.error({ id, name }, "sendToolResponse called before session ready — dropped");
+      return;
+    }
+    try {
+      _session.sendToolResponse({
+        functionResponses: [{ id, name, response: result }],
+      });
+    } catch (err) {
+      logger.error({ err, id, name }, "Failed to send tool response to Gemini");
+    }
+  }
 
   const session = await ai.live.connect({
     model: MODEL,
@@ -101,7 +157,7 @@ export async function createGeminiLiveSession(
         triggerTokens: "25600",
         slidingWindow: { targetTokens: "12800" },
       },
-      tools: [{ functionDeclarations: [showProductCatalogDecl] }],
+      tools: [{ functionDeclarations: [showProductCatalogDecl, sendTextMessageDecl] }],
       systemInstruction: config.systemPrompt,
     },
     callbacks: {
@@ -120,14 +176,32 @@ export async function createGeminiLiveSession(
         const toolCall = (message as unknown as Record<string, unknown>).toolCall as
           | { functionCalls?: Array<{ id?: string; name?: string; args?: Record<string, unknown> }> }
           | undefined;
-        if (toolCall?.functionCalls?.length && callbacks.onToolCall) {
+
+        if (toolCall?.functionCalls?.length) {
           for (const fc of toolCall.functionCalls) {
-            if (fc.name) {
-              callbacks.onToolCall({
-                id: fc.id ?? fc.name,
-                name: fc.name,
-                args: fc.args ?? {},
-              });
+            if (!fc.name) continue;
+            const callId = fc.id ?? fc.name;
+
+            if (fc.name === "send_text_message") {
+              // ── Handle inline: send text to client, auto-respond so model continues ──
+              const text = (fc.args?.["text"] as string) ?? "";
+              if (text) {
+                logger.info({ textLen: text.length }, "send_text_message called");
+                callbacks.onAgentMessage?.(text);
+              }
+              // Immediately respond so Gemini is unblocked and keeps speaking
+              dispatchToolResponse(callId, fc.name, { status: "sent" });
+
+            } else if (callbacks.onToolCall) {
+              // ── Delegate to caller with a bound sendResponse so caller never
+              //    needs a reference to the session or call-ID ──────────────────
+              const toolName = fc.name;
+              const sendResponse = (result: Record<string, unknown>) =>
+                dispatchToolResponse(callId, toolName, result);
+              callbacks.onToolCall(
+                { id: callId, name: fc.name, args: fc.args ?? {} },
+                sendResponse,
+              );
             }
           }
         }
@@ -165,6 +239,10 @@ export async function createGeminiLiveSession(
     },
   });
 
+  // Assign after connect() resolves — safe because tool calls only arrive
+  // after setupComplete + greeting (well after this point).
+  _session = session;
+
   function sendGreetingInternal() {
     try {
       session.sendRealtimeInput({ text: config.greetingText });
@@ -194,14 +272,8 @@ export async function createGeminiLiveSession(
       if (setupComplete) sendGreetingInternal();
       else pendingGreeting = true;
     },
-    sendToolResponse: (id: string, result: unknown) => {
-      try {
-        session.sendToolResponse({
-          functionResponses: [{ id, response: { result } }],
-        });
-      } catch (err) {
-        logger.error({ err }, "Failed to send tool response to Gemini");
-      }
+    sendToolResponse: (id: string, name: string, result: Record<string, unknown>) => {
+      dispatchToolResponse(id, name, result);
     },
     close: () => {
       try { session.close(); } catch { /* already closed */ }

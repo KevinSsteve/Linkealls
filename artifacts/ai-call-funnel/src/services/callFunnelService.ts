@@ -13,6 +13,7 @@ export type ServerMessage =
   | { type: "transcript"; text: string }
   | { type: "user_transcript"; text: string }
   | { type: "show_products"; products: ProductCard[] }
+  | { type: "agent_message"; text: string }
   | { type: "closed" }
   | { type: "error"; message: string };
 
@@ -24,6 +25,8 @@ export interface CallFunnelServiceCallbacks {
   onTranscript?: (text: string) => void;
   onUserTranscript?: (text: string) => void;
   onShowProducts?: (products: ProductCard[]) => void;
+  /** Called when the AI sends a text message to display in the chat during a call. */
+  onAgentMessage?: (text: string) => void;
   onError: (message: string) => void;
   onClose: () => void;
 }
@@ -68,6 +71,7 @@ export class CallFunnelService {
           case "transcript":      this.callbacks.onTranscript?.(msg.text); break;
           case "user_transcript": this.callbacks.onUserTranscript?.(msg.text); break;
           case "show_products":   this.callbacks.onShowProducts?.(msg.products); break;
+          case "agent_message":   this.callbacks.onAgentMessage?.(msg.text); break;
           case "error":           this.callbacks.onError(msg.message); break;
           case "closed":          this.callbacks.onClose(); break;
         }

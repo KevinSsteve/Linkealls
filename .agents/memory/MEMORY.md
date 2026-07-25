@@ -1,4 +1,5 @@
 - [Gemini Live model names](gemini-live-models.md) — 3.1-flash-live-preview is current; 2.0-flash-live-001 doesn't exist; key 2.5→3.1 migration diffs inside.
+- [Gemini tool response format](gemini-tool-response-format.md) — SDK requires {id, name, response} all three; missing 'name' throws; never nest under 'result'; onToolCall closure bug re: null geminiSession.
 - [WS upgrade conflicts & dev routing](ws-upgrade-conflicts.md) — never attach two WebSocketServer({server,path}) to one HTTP server (mutual 400s); dev WS URLs must stay under the artifact base path.
 - [Screenshot centering](screenshot-centering.md) — screenshot captures ignore margin-inline (mx-auto → left-aligned); center with flex justify-center + w-full max-w-*.
 - [Owner nav pattern](owner-nav-pattern.md) — bottom OwnerNav (4 tabs: Perfil/Conversas/IA/Camps) used on all owner pages; LeadDetail must use flex-1 min-h-0 not h-full when inside a flex-col parent with OwnerNav below.

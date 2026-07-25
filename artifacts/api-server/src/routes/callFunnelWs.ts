@@ -42,6 +42,7 @@ type ServerMessage =
   | { type: "transcript"; text: string }
   | { type: "user_transcript"; text: string }
   | { type: "show_products"; products: ProductCard[] }
+  | { type: "agent_message"; text: string }
   | { type: "closed" }
   | { type: "error"; message: string };
 
@@ -99,7 +100,7 @@ export function setupCallFunnelWebSocket(server: Server): void {
             transcriptLines.push(`Cliente: ${text}`);
             if (!closed) sendToClient({ type: "user_transcript", text });
           },
-          onToolCall: (call) => {
+          onToolCall: (call, sendResponse: (result: Record<string, unknown>) => void) => {
             if (call.name === "show_product_catalog") {
               const args = call.args as { query?: string; product_names?: string[] };
               const requestedNames: string[] = args.product_names ?? [];
@@ -112,7 +113,7 @@ export function setupCallFunnelWebSocket(server: Server): void {
                       n.toLowerCase().includes(o.name.toLowerCase()),
                     ),
                   )
-                : sessionOfferings; // If no specific names, show all
+                : sessionOfferings;
 
               // Fallback: search by query text if no exact matches
               if (products.length === 0 && args.query) {
@@ -142,12 +143,16 @@ export function setupCallFunnelWebSocket(server: Server): void {
                 sendToClient({ type: "show_products", products: cards });
               }
 
-              // Send function response back to Gemini
-              geminiSession?.sendToolResponse(call.id, {
+              // Respond immediately so Gemini is unblocked and continues speaking.
+              // SDK requires a plain object — do NOT nest under 'result'.
+              sendResponse({
                 status: "success",
                 message: `${cards.length} produto(s) mostrado(s) visualmente no ecrã do cliente.`,
-              });
+              } as Record<string, unknown>);
             }
+          },
+          onAgentMessage: (text) => {
+            if (!closed) sendToClient({ type: "agent_message", text });
           },
           onError: () => { if (!closed) sendToClient({ type: "error", message: "AI service error" }); },
           onClose: () => { if (!closed) sendToClient({ type: "closed" }); },
