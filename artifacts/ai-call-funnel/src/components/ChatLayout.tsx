@@ -8,6 +8,8 @@ interface ChatLayoutProps {
   children: ReactNode;
   onBack?: () => void;
   onCall?: () => void;
+  /** Display name shown in the chat header. Defaults to "Assistente IA". */
+  businessName?: string;
 }
 
 function UserAvatar({ name }: { name: string }) {
@@ -25,7 +27,7 @@ function UserAvatar({ name }: { name: string }) {
   );
 }
 
-export function ChatLayout({ children, onBack, onCall }: ChatLayoutProps) {
+export function ChatLayout({ children, onBack, onCall, businessName }: ChatLayoutProps) {
   const { user, token, logout, isLoggedIn } = useAuth();
   const [, nav] = useLocation();
 
@@ -75,7 +77,7 @@ export function ChatLayout({ children, onBack, onCall }: ChatLayoutProps) {
         {/* Name + status */}
         <div className="flex-1 min-w-0">
           <p className="font-semibold text-[15px] leading-tight truncate" style={{ color: "#EAF0F7" }}>
-            Assistente IA
+            {businessName ?? "Assistente IA"}
           </p>
           <p className="text-[11px] leading-tight" style={{ color: "#34D399" }}>
             online
@@ -119,7 +121,7 @@ export function ChatLayout({ children, onBack, onCall }: ChatLayoutProps) {
 
           {/* Owner area */}
           <Link
-            href="/dono"
+            href={`/dono`}
             className="hover:text-[#EAF0F7] transition-colors active:scale-90"
             aria-label="Área do dono"
           >

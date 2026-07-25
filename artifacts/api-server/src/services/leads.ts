@@ -22,10 +22,11 @@ const SCORE_QUALIFY_THRESHOLD = 60;
 export async function createLead(
   origin: LeadOrigin,
   chatMessages: ChatMessage[],
+  businessId?: number,
 ): Promise<Lead> {
   const inserted = await db
     .insert(leadsTable)
-    .values({ origin, chatMessages })
+    .values({ origin, chatMessages, ...(businessId !== undefined ? { businessId } : {}) })
     .returning();
   return inserted[0]!;
 }
@@ -38,7 +39,12 @@ export async function getLead(id: string): Promise<Lead | null> {
   return rows[0] ?? null;
 }
 
-export async function listLeads(): Promise<Lead[]> {
+export async function listLeads(businessId?: number): Promise<Lead[]> {
+  if (businessId !== undefined) {
+    return db.select().from(leadsTable)
+      .where(eq(leadsTable.businessId, businessId))
+      .orderBy(desc(leadsTable.createdAt));
+  }
   return db.select().from(leadsTable).orderBy(desc(leadsTable.createdAt));
 }
 
@@ -59,8 +65,11 @@ export interface LeadsAnalytics {
   overallRate: number;
 }
 
-export async function getLeadsAnalytics(): Promise<LeadsAnalytics> {
+export async function getLeadsAnalytics(businessId?: number): Promise<LeadsAnalytics> {
   // Aggregate by utm_source + utm_campaign using Postgres JSONB extraction
+  const whereClause = businessId !== undefined
+    ? sql`WHERE business_id = ${businessId}`
+    : sql``;
   const rows = await db.execute(sql`
     SELECT
       COALESCE(origin->>'utm_source', 'direto') AS source,
@@ -68,6 +77,7 @@ export async function getLeadsAnalytics(): Promise<LeadsAnalytics> {
       COUNT(*)::int AS total,
       COUNT(*) FILTER (WHERE state IN ('qualificado','entregue'))::int AS qualified
     FROM leads
+    ${whereClause}
     GROUP BY 1, 2
     ORDER BY total DESC
     LIMIT 50
@@ -180,6 +190,7 @@ export async function processCallCompletion(
   leadId: string,
   callTranscript: string,
   businessName: string,
+  _businessId?: number,
 ): Promise<void> {
   const apiKey = process.env["GEMINI_API_KEY"];
   if (!apiKey) {
@@ -283,11 +294,12 @@ Responde APENAS com JSON válido, sem texto adicional.`;
 export async function chatWithLead(
   leadId: string,
   userMessage: string,
+  businessId?: number,
 ): Promise<{ reply: string }> {
   const apiKey = process.env["GEMINI_API_KEY"];
   if (!apiKey) throw new Error("GEMINI_API_KEY não configurado");
 
-  const [lead, profile] = await Promise.all([getLead(leadId), getOrCreateProfile()]);
+  const [lead, profile] = await Promise.all([getLead(leadId), getOrCreateProfile(businessId)]);
   if (!lead) throw new Error("Lead não encontrado");
 
   // Build context blocks

@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Router, Route, Switch } from "wouter";
+import { Router, Route, Switch, Redirect } from "wouter";
 import { AuthProvider } from "@/context/AuthContext";
 import { Chat } from "@/pages/Chat";
 import { Captacao } from "@/pages/Captacao";
@@ -46,11 +46,14 @@ export default function App() {
     <AuthProvider>
       <Router base={routerBase}>
         <Switch>
-          {/* ── Public catalog: light theme, no dark wrapper ── */}
+          {/* ── Public catalog (light theme, no dark wrapper) ────────────────── */}
+          {/* Multi-tenant: /e/:businessSlug/catalogo */}
+          <Route path="/e/:businessSlug/catalogo" component={Catalogo} />
+          {/* Legacy catalog routes */}
           <Route path="/catalogo" component={Catalogo} />
           <Route path="/c/:slug" component={Catalogo} />
 
-          {/* ── All other routes: dark wrapper ── */}
+          {/* ── All other routes: dark wrapper ──────────────────────────────── */}
           <Route>
             {() => (
               <div
@@ -62,7 +65,29 @@ export default function App() {
                   <Route path="/login"   component={LoginPage} />
                   <Route path="/registar" component={RegisterPage} />
 
-                  {/* Owner (PIN-protected) */}
+                  {/* ── Multi-tenant routes (/e/:businessSlug/...) ─────────── */}
+                  <Route path="/e/:businessSlug/dono/leads">
+                    {() => <OwnerGate><Leads /></OwnerGate>}
+                  </Route>
+                  <Route path="/e/:businessSlug/dono/conversas">
+                    {() => <OwnerGate><Conversas /></OwnerGate>}
+                  </Route>
+                  <Route path="/e/:businessSlug/dono/assistente">
+                    {() => <OwnerGate><Assistant /></OwnerGate>}
+                  </Route>
+                  <Route path="/e/:businessSlug/dono/campanhas/:id">
+                    {() => <OwnerGate><CampaignDetail /></OwnerGate>}
+                  </Route>
+                  <Route path="/e/:businessSlug/dono/campanhas">
+                    {() => <OwnerGate><Campaigns /></OwnerGate>}
+                  </Route>
+                  <Route path="/e/:businessSlug/dono">
+                    {() => <OwnerGate><Owner /></OwnerGate>}
+                  </Route>
+                  <Route path="/e/:businessSlug/captacao" component={Captacao} />
+                  <Route path="/e/:businessSlug" component={Chat} />
+
+                  {/* ── Legacy single-tenant routes (backward compat) ───────── */}
                   <Route path="/dono/leads">{() => <OwnerGate><Leads /></OwnerGate>}</Route>
                   <Route path="/dono/conversas">{() => <OwnerGate><Conversas /></OwnerGate>}</Route>
                   <Route path="/dono/assistente">{() => <OwnerGate><Assistant /></OwnerGate>}</Route>
@@ -73,7 +98,12 @@ export default function App() {
                   {/* Lead capture */}
                   <Route path="/captacao" component={Captacao} />
 
-                  {/* Default chat */}
+                  {/* Default: redirect to electropanga chat */}
+                  <Route path="/">
+                    {() => <Redirect to="/e/electropanga" />}
+                  </Route>
+
+                  {/* Fallback: default chat */}
                   <Route component={Chat} />
                 </Switch>
               </div>

@@ -368,7 +368,7 @@ ${content}`,
  * the analysis slot, then runs the crawl+extraction in the background while
  * the profile row tracks progress (running → done/error) for polling clients.
  */
-export async function startSiteAnalysis(rawUrl: string): Promise<void> {
+export async function startSiteAnalysis(rawUrl: string, businessId?: number): Promise<void> {
   const normalized = normalizeUrl(rawUrl);
   let url: URL;
   try {
@@ -378,7 +378,7 @@ export async function startSiteAnalysis(rawUrl: string): Promise<void> {
   }
   await assertPublicHttpUrl(url);
 
-  const acquired = await tryAcquireAnalysis(url.toString());
+  const acquired = await tryAcquireAnalysis(url.toString(), businessId);
   if (!acquired) {
     throw new StartAnalysisError("Já existe uma análise em curso", 409);
   }
@@ -387,13 +387,13 @@ export async function startSiteAnalysis(rawUrl: string): Promise<void> {
     try {
       const content = await collectSiteContent(url);
       const extracted = await extractProfileWithGemini(content, `o conteúdo do site ${url}`);
-      await updateProfile(extracted);
-      await setAnalysisStatus("done");
+      await updateProfile(extracted, businessId);
+      await setAnalysisStatus("done", undefined, businessId);
       logger.info({ url: url.toString() }, "Site analysis completed");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Erro desconhecido na análise";
       logger.error({ err, url: url.toString() }, "Site analysis failed");
-      await setAnalysisStatus("error", message).catch(() => {});
+      await setAnalysisStatus("error", message, businessId).catch(() => {});
     }
   })();
 }

@@ -46,6 +46,8 @@ export interface CampaignKit {
 
 export const campaignsTable = pgTable("campaigns", {
   id:         uuid("id").primaryKey().defaultRandom(),
+  /** FK to business_profiles.id — which business owns this campaign. */
+  businessId: integer("business_id"),
   name:       text("name").notNull(),
   platform:   text("platform").$type<CampaignPlatform>().notNull(),
   objective:  text("objective").notNull(),

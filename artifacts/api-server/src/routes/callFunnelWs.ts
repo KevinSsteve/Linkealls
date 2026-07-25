@@ -2,16 +2,24 @@ import { WebSocketServer, WebSocket } from "ws";
 import type { IncomingMessage } from "http";
 import type { Server } from "http";
 import { createGeminiLiveSession } from "../services/geminiLive.js";
-import { getOrCreateProfile, buildCallAgentPrompt } from "../services/businessProfile.js";
+import {
+  getOrCreateProfile,
+  getProfileBySlug,
+  buildCallAgentPrompt,
+  FIXED_PROFILE_ID,
+} from "../services/businessProfile.js";
 import { updateLeadOnCallStart, processCallCompletion } from "../services/leads.js";
 import { logger } from "../lib/logger.js";
 import type { Offering } from "@workspace/db";
 
 const CALL_VOICE = "Kore";
 
-async function resolveCallConfig() {
+async function resolveCallConfig(businessSlug?: string | null) {
   try {
-    const profile = await getOrCreateProfile();
+    const profile = businessSlug
+      ? (await getProfileBySlug(businessSlug) ?? await getOrCreateProfile(FIXED_PROFILE_ID))
+      : await getOrCreateProfile(FIXED_PROFILE_ID);
+
     const { systemPrompt, greetingText } = buildCallAgentPrompt(profile);
     return {
       voiceName: CALL_VOICE,
@@ -19,11 +27,19 @@ async function resolveCallConfig() {
       greetingText,
       businessName: profile.name || "o negócio",
       offerings: profile.offerings,
+      businessId: profile.id,
     };
   } catch (err) {
     logger.error({ err }, "Failed to load business profile; using generic prompt");
     const { systemPrompt, greetingText } = buildCallAgentPrompt(null);
-    return { voiceName: CALL_VOICE, systemPrompt, greetingText, businessName: "o negócio", offerings: [] as Offering[] };
+    return {
+      voiceName: CALL_VOICE,
+      systemPrompt,
+      greetingText,
+      businessName: "o negócio",
+      offerings: [] as Offering[],
+      businessId: FIXED_PROFILE_ID,
+    };
   }
 }
 
@@ -64,12 +80,14 @@ export function setupCallFunnelWebSocket(server: Server): void {
   wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
     const url = new URL(req.url ?? "/", "http://localhost");
     const leadId = url.searchParams.get("leadId") ?? null;
+    const businessSlug = url.searchParams.get("businessSlug") ?? null;
 
-    logger.info({ leadId }, "Call Funnel WebSocket client connected");
+    logger.info({ leadId, businessSlug }, "Call Funnel WebSocket client connected");
 
     let geminiSession: Awaited<ReturnType<typeof createGeminiLiveSession>> | null = null;
     let closed = false;
     let sessionOfferings: Offering[] = [];
+    let resolvedBusinessId: number = FIXED_PROFILE_ID;
 
     const transcriptLines: string[] = [];
     let businessName = "o negócio";
@@ -84,10 +102,11 @@ export function setupCallFunnelWebSocket(server: Server): void {
       );
     }
 
-    resolveCallConfig()
+    resolveCallConfig(businessSlug)
       .then((config) => {
         businessName = config.businessName;
         sessionOfferings = config.offerings;
+        resolvedBusinessId = config.businessId;
         return createGeminiLiveSession(config, {
           onAudio: (base64) => { if (!closed) sendToClient({ type: "audio", data: base64 }); },
           onTurnComplete: () => { if (!closed) sendToClient({ type: "turn_complete" }); },
@@ -105,7 +124,6 @@ export function setupCallFunnelWebSocket(server: Server): void {
               const args = call.args as { query?: string; product_names?: string[] };
               const requestedNames: string[] = args.product_names ?? [];
 
-              // Filter offerings by requested product names (case-insensitive fuzzy match)
               let products: ProductCard[] = requestedNames.length > 0
                 ? sessionOfferings.filter((o) =>
                     requestedNames.some((n) =>
@@ -115,7 +133,6 @@ export function setupCallFunnelWebSocket(server: Server): void {
                   )
                 : sessionOfferings;
 
-              // Fallback: search by query text if no exact matches
               if (products.length === 0 && args.query) {
                 const q = args.query.toLowerCase();
                 products = sessionOfferings.filter(
@@ -125,10 +142,7 @@ export function setupCallFunnelWebSocket(server: Server): void {
                 );
               }
 
-              // Final fallback: show all offerings
-              if (products.length === 0) {
-                products = sessionOfferings;
-              }
+              if (products.length === 0) products = sessionOfferings;
 
               const cards: ProductCard[] = products.map((o) => ({
                 name: o.name,
@@ -143,8 +157,6 @@ export function setupCallFunnelWebSocket(server: Server): void {
                 sendToClient({ type: "show_products", products: cards });
               }
 
-              // Respond immediately so Gemini is unblocked and continues speaking.
-              // SDK requires a plain object — do NOT nest under 'result'.
               sendResponse({
                 status: "success",
                 message: `${cards.length} produto(s) mostrado(s) visualmente no ecrã do cliente.`,
@@ -177,7 +189,6 @@ export function setupCallFunnelWebSocket(server: Server): void {
         if (msg.type === "audio" && msg.data && geminiSession) {
           geminiSession.sendAudio(msg.data);
         } else if (msg.type === "user_text" && msg.text && geminiSession) {
-          // Lead selected a product or sent a text message during the call
           transcriptLines.push(`Cliente: ${msg.text}`);
           geminiSession.sendText(msg.text);
         }
@@ -187,14 +198,14 @@ export function setupCallFunnelWebSocket(server: Server): void {
     });
 
     ws.on("close", () => {
-      logger.info({ leadId }, "Call Funnel WebSocket client disconnected");
+      logger.info({ leadId, businessSlug }, "Call Funnel WebSocket client disconnected");
       closed = true;
       geminiSession?.close();
       geminiSession = null;
 
       if (leadId && transcriptLines.length > 0) {
         const fullTranscript = transcriptLines.join("\n");
-        processCallCompletion(leadId, fullTranscript, businessName).catch((err) =>
+        processCallCompletion(leadId, fullTranscript, businessName, resolvedBusinessId).catch((err) =>
           logger.error({ err, leadId }, "processCallCompletion failed"),
         );
       }

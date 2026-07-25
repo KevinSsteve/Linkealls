@@ -5,7 +5,8 @@ import { ChatInput } from "../components/ChatInput";
 import { IncomingCallModal } from "../components/IncomingCallModal";
 import { CallScreen } from "../components/CallScreen";
 import { useGeminiLive, type ProductCard, type AgentMessage } from "../hooks/useGeminiLive";
-import { createLeadSession, sendLeadChat, type ChatMessage } from "../lib/api";
+import { businessApi, type ChatMessage } from "../lib/api";
+import { useBusinessSlug } from "../hooks/useBusinessSlug";
 import {
   X,
   ShoppingBag,
@@ -381,7 +382,8 @@ export function Chat() {
 
   const chatMsgsRef = useRef<ChatMessage[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const gemini = useGeminiLive(leadId);
+  const businessSlug = useBusinessSlug();
+  const gemini = useGeminiLive(leadId, businessSlug);
 
   // Start/stop the shared timer when the call goes active
   useEffect(() => {
@@ -427,7 +429,7 @@ export function Chat() {
 
       let newLeadId: string | null = null;
       try {
-        const { leadId: id } = await createLeadSession(
+        const { leadId: id } = await businessApi(businessSlug).createLeadSession(
           { url: window.location.href },
           chatMsgsRef.current,
         );
@@ -451,7 +453,7 @@ export function Chat() {
       setIsBusy(true);
       setStage("typing");
       try {
-        const { reply } = await sendLeadChat(currentLeadId, text);
+        const { reply } = await businessApi(businessSlug).sendLeadChat(currentLeadId, text);
         addMessage("bot", reply);
       } catch {
         addMessage("bot", "Desculpa, não consegui responder neste momento. Tenta de novo.");

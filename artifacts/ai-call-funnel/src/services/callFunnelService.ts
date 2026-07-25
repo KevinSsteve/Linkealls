@@ -43,8 +43,9 @@ export class CallFunnelService {
   /**
    * @param leadId - Optional lead ID to attach to the WS session so the server
    *   can link transcripts to the correct lead for post-call extraction.
+   * @param businessSlug - Business slug so the server loads the right AI profile.
    */
-  connect(leadId?: string): void {
+  connect(leadId?: string, businessSlug?: string): void {
     const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
     // In dev, requests must stay under the artifact base path (e.g.
     // /ai-call-funnel/api/...) so they reach the Vite dev server, whose proxy
@@ -54,7 +55,10 @@ export class CallFunnelService {
     const apiPath = import.meta.env.DEV
       ? `${base}api/call-funnel-ws`
       : "/api/call-funnel-ws";
-    const qs = leadId ? `?leadId=${encodeURIComponent(leadId)}` : "";
+    const params = new URLSearchParams();
+    if (leadId) params.set("leadId", leadId);
+    if (businessSlug) params.set("businessSlug", businessSlug);
+    const qs = params.toString() ? `?${params.toString()}` : "";
     const url = `${proto}//${window.location.host}${apiPath}${qs}`;
     console.log("[CallFunnel] WebSocket connecting to", url);
 

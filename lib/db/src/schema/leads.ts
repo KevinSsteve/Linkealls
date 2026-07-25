@@ -58,6 +58,9 @@ export const leadsTable = pgTable("leads", {
   /** UUID primary key — doubles as the public session token. */
   id: uuid("id").primaryKey().defaultRandom(),
 
+  /** FK to business_profiles.id — which business this lead belongs to. */
+  businessId: integer("business_id"),
+
   /** Current state in the qualification pipeline. */
   state: text("state").$type<LeadState>().notNull().default("novo"),
 

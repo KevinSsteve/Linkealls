@@ -9,9 +9,15 @@ import campaignsRouter from "./campaigns";
 import storageRouter from "./storage";
 import notificationsRouter from "./notifications";
 import catalogRouter from "./catalog";
+import { createBusinessScopedRouter } from "./businessScoped.js";
 
 const router: IRouter = Router();
 
+// ── Multi-tenant scoped routes (new) ─────────────────────────────────────────
+// All business-specific operations available at /api/b/:businessSlug/...
+router.use("/b/:businessSlug", createBusinessScopedRouter());
+
+// ── Legacy single-tenant routes (backward compat) ─────────────────────────────
 router.use(healthRouter);
 router.use(authRouter);
 router.use(userAuthRouter);

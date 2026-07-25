@@ -29,6 +29,8 @@ export type AnalysisStatus = "idle" | "running" | "done" | "error";
  */
 export const businessProfilesTable = pgTable("business_profiles", {
   id: serial("id").primaryKey(),
+  /** URL slug that identifies this business in multi-tenant routes, e.g. "electropanga". */
+  slug: text("slug").unique(),
   name: text("name").notNull().default(""),
   websiteUrl: text("website_url"),
   sector: text("sector").notNull().default(""),

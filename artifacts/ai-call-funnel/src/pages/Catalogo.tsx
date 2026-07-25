@@ -10,7 +10,7 @@ import {
   Send, ShoppingBag, ArrowRight, Sparkles, Loader2, ImageOff, Store,
 } from "lucide-react";
 import {
-  getCatalog, getCatalogBySlug, createLeadSession, sendLeadChat,
+  getCatalog, getCatalogBySlug, businessApi, createLeadSession, sendLeadChat,
   type CatalogData, type Offering, type FaqItem, type ChatMessage,
 } from "../lib/api";
 
@@ -427,8 +427,12 @@ function ComingSoon({ name, reason }: { name: string; reason: "disabled" | "not_
 // ─── Main Catalog Page ────────────────────────────────────────────────────────
 
 export function Catalogo() {
-  const params = useParams<{ slug?: string }>();
-  const slug = params.slug ?? null;
+  // /c/:slug          → catalog vanity-slug (used by QR links, legacy)
+  // /e/:businessSlug/catalogo → business-scoped route (multi-tenant)
+  // /catalogo         → legacy single-tenant route (falls back to businessSlug "electropanga")
+  const params = useParams<{ slug?: string; businessSlug?: string }>();
+  const catalogSlug = params.slug ?? null;
+  const businessSlug = params.businessSlug ?? null;
 
   const [catalog, setCatalog] = useState<CatalogData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -436,12 +440,22 @@ export function Catalogo() {
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetch = slug ? getCatalogBySlug(slug) : getCatalog();
+    let fetch: Promise<CatalogData>;
+    if (catalogSlug) {
+      // /c/:slug → fetch by catalog vanity slug
+      fetch = getCatalogBySlug(catalogSlug);
+    } else if (businessSlug) {
+      // /e/:businessSlug/catalogo → fetch via scoped business API
+      fetch = businessApi(businessSlug).getCatalog();
+    } else {
+      // /catalogo legacy → single-tenant default
+      fetch = getCatalog();
+    }
     fetch
       .then(setCatalog)
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [slug]);
+  }, [catalogSlug, businessSlug]);
 
   const handleLearnMore = useCallback((offering: Offering) => {
     setSelectedProduct(offering.name);

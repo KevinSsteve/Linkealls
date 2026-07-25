@@ -14,7 +14,8 @@ import { ChatInput } from "../components/ChatInput";
 import { IncomingCallModal } from "../components/IncomingCallModal";
 import { CallScreen } from "../components/CallScreen";
 import { useGeminiLive } from "../hooks/useGeminiLive";
-import { createLeadSession, type LeadOrigin, type ChatMessage } from "../lib/api";
+import { businessApi, type LeadOrigin, type ChatMessage } from "../lib/api";
+import { useBusinessSlug } from "../hooks/useBusinessSlug";
 
 interface Message {
   id: string;
@@ -68,7 +69,8 @@ export function Captacao() {
   const utmRef = useRef<LeadOrigin>(readUtmParams());
   const chatMsgsRef = useRef<ChatMessage[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const gemini = useGeminiLive(leadId);
+  const businessSlug = useBusinessSlug();
+  const gemini = useGeminiLive(leadId, businessSlug);
   const callElapsed = useCallTimer();
 
   useEffect(() => {
@@ -100,7 +102,7 @@ export function Captacao() {
 
       // Create lead session in the background
       try {
-        const { leadId: id } = await createLeadSession(
+        const { leadId: id } = await businessApi(businessSlug).createLeadSession(
           utmRef.current,
           chatMsgsRef.current,
         );

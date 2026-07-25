@@ -20,7 +20,12 @@ const MODEL = "gemini-3-flash-preview";
 
 // ─── CRUD ─────────────────────────────────────────────────────────────────────
 
-export async function listCampaigns(): Promise<Campaign[]> {
+export async function listCampaigns(businessId?: number): Promise<Campaign[]> {
+  if (businessId !== undefined) {
+    return db.select().from(campaignsTable)
+      .where(eq(campaignsTable.businessId, businessId))
+      .orderBy(desc(campaignsTable.createdAt));
+  }
   return db.select().from(campaignsTable).orderBy(desc(campaignsTable.createdAt));
 }
 
@@ -29,21 +34,19 @@ export async function getCampaign(id: string): Promise<Campaign | null> {
   return rows[0] ?? null;
 }
 
-export async function createCampaign(data: {
-  name: string;
-  platform: CampaignPlatform;
-  objective: string;
-  budget: number;
-}): Promise<Campaign> {
+export async function createCampaign(
+  data: { name: string; platform: CampaignPlatform; objective: string; budget: number },
+  businessId?: number,
+): Promise<Campaign> {
   const utmSlug = slugify(data.name);
   const inserted = await db
     .insert(campaignsTable)
-    .values({ ...data, utmSlug })
+    .values({ ...data, utmSlug, ...(businessId !== undefined ? { businessId } : {}) })
     .returning();
   return inserted[0]!;
 }
 
-export async function duplicateCampaign(id: string): Promise<Campaign> {
+export async function duplicateCampaign(id: string, businessId?: number): Promise<Campaign> {
   const source = await getCampaign(id);
   if (!source) throw new Error("Campanha não encontrada");
 
@@ -61,6 +64,7 @@ export async function duplicateCampaign(id: string): Promise<Campaign> {
     utmSlug = `${baseSlug}-${suffix++}`;
   }
 
+  const resolvedBusinessId = businessId ?? source.businessId ?? undefined;
   const inserted = await db
     .insert(campaignsTable)
     .values({
@@ -72,6 +76,7 @@ export async function duplicateCampaign(id: string): Promise<Campaign> {
       utmSlug,
       kitJson: null,
       totalSpend: 0,
+      ...(resolvedBusinessId !== undefined ? { businessId: resolvedBusinessId } : {}),
     })
     .returning();
   return inserted[0]!;
@@ -115,15 +120,16 @@ const PLATFORM_LABELS: Record<CampaignPlatform, string> = {
   tiktok:    "TikTok Ads",
 };
 
-export async function generateCampaignKit(campaignId: string): Promise<Campaign> {
+export async function generateCampaignKit(campaignId: string, businessId?: number): Promise<Campaign> {
   const apiKey = process.env["GEMINI_API_KEY"];
   if (!apiKey) throw new Error("GEMINI_API_KEY not set");
 
   const campaign = await getCampaign(campaignId);
   if (!campaign) throw new Error("Campaign not found");
 
-  const profile = await getOrCreateProfile();
-  const leads   = await listLeads();
+  const resolvedBusinessId = businessId ?? campaign.businessId ?? undefined;
+  const profile = await getOrCreateProfile(resolvedBusinessId);
+  const leads   = await listLeads(resolvedBusinessId);
 
   // Compute lead intelligence for context
   const totalLeads = leads.length;
@@ -315,7 +321,7 @@ export async function getCampaignMetrics(campaignId: string): Promise<CampaignMe
 
 // ─── AI optimization suggestions ─────────────────────────────────────────────
 
-export async function generateOptimizationSuggestions(campaignId: string): Promise<string[]> {
+export async function generateOptimizationSuggestions(campaignId: string, businessId?: number): Promise<string[]> {
   const apiKey = process.env["GEMINI_API_KEY"];
   if (!apiKey) throw new Error("GEMINI_API_KEY not set");
 
@@ -332,9 +338,10 @@ export async function generateOptimizationSuggestions(campaignId: string): Promi
     ];
   }
 
-  const allLeads = await listLeads();
+  const resolvedBizId = businessId ?? campaign.businessId ?? undefined;
+  const allLeads = await listLeads(resolvedBizId);
   const attributed = allLeads.filter((l) => l.origin?.campaign === campaign.utmSlug);
-  const allCampaigns = await listCampaigns();
+  const allCampaigns = await listCampaigns(resolvedBizId);
 
   // Cross-campaign context
   const otherMetrics = await Promise.all(

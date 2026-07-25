@@ -475,3 +475,117 @@ export function toggleCatalog(enabled: boolean): Promise<{ profile: BusinessProf
     body: JSON.stringify({ catalogEnabled: enabled }),
   });
 }
+
+// ─── Business-scoped API factory ──────────────────────────────────────────────
+
+/**
+ * Returns an API client with all calls scoped to a specific business slug
+ * via the /api/b/:slug/ routes.  Use this in multi-tenant pages that read
+ * the slug from the URL (useBusinessSlug).
+ */
+export function businessApi(slug: string) {
+  function bRequest<T>(path: string, init?: RequestInit): Promise<T> {
+    return request<T>(`/b/${encodeURIComponent(slug)}${path}`, init);
+  }
+
+  return {
+    slug,
+
+    // Profile
+    getProfile: () =>
+      bRequest<{ profile: BusinessProfile; filled: boolean }>("/profile"),
+    saveProfile: (patch: ProfileDraft) =>
+      bRequest<{ profile: BusinessProfile; filled: boolean }>("/profile", {
+        method: "PUT", body: JSON.stringify(patch),
+      }),
+    startAnalysis: (url: string) =>
+      bRequest<{ started: boolean }>("/profile/analyze", {
+        method: "POST", body: JSON.stringify({ url }),
+      }),
+    assistFromDescription: (description: string) =>
+      bRequest<{ draft: ProfileDraft }>("/profile/assist", {
+        method: "POST", body: JSON.stringify({ description }),
+      }),
+
+    // Auth / PIN
+    getPinStatus: () =>
+      bRequest<{ hasPin: boolean }>("/auth/pin/status"),
+    verifyPin: (pin: string) =>
+      bRequest<{ ok: boolean; noPin?: boolean }>("/auth/pin/verify", {
+        method: "POST", body: JSON.stringify({ pin }),
+      }),
+    setPin: (pin: string, currentPin?: string) =>
+      bRequest<{ ok: boolean; error?: string }>("/auth/pin/set", {
+        method: "POST", body: JSON.stringify({ pin, ...(currentPin ? { currentPin } : {}) }),
+      }),
+
+    // Leads
+    createLeadSession: (origin: LeadOrigin, chatMessages: ChatMessage[]) =>
+      bRequest<{ leadId: string }>("/leads/session", {
+        method: "POST", body: JSON.stringify({ origin, chatMessages }),
+      }),
+    listLeads: () =>
+      bRequest<{ leads: Lead[] }>("/leads"),
+    getLeadDetail: (id: string) =>
+      bRequest<{ lead: Lead }>(`/leads/${id}`),
+    updateLeadState: (id: string, state: LeadState) =>
+      bRequest<{ lead: Lead }>(`/leads/${id}/state`, {
+        method: "PATCH", body: JSON.stringify({ state }),
+      }),
+    getLeadsEventsUrl: () =>
+      `${API_BASE}/b/${encodeURIComponent(slug)}/leads/events`,
+    sendLeadChat: (leadId: string, message: string) =>
+      bRequest<{ reply: string }>(`/leads/${leadId}/chat`, {
+        method: "POST", body: JSON.stringify({ message }),
+      }),
+    getLeadsAnalytics: () =>
+      bRequest<{ analytics: LeadsAnalytics }>("/leads/analytics"),
+
+    // Catalog
+    getCatalog: () =>
+      bRequest<CatalogData>("/catalog"),
+
+    // Campaigns
+    listCampaigns: () =>
+      bRequest<{ campaigns: Campaign[] }>("/campaigns"),
+    getCampaignById: (id: string) =>
+      bRequest<{ campaign: Campaign }>(`/campaigns/${id}`),
+    createCampaign: (data: {
+      name: string; platform: CampaignPlatform; objective: string; budget: number;
+    }) =>
+      bRequest<{ campaign: Campaign }>("/campaigns", {
+        method: "POST", body: JSON.stringify(data),
+      }),
+    updateCampaignStatus: (
+      id: string,
+      patch: { status?: CampaignStatus; budget?: number; totalSpend?: number },
+    ) =>
+      bRequest<{ campaign: Campaign }>(`/campaigns/${id}`, {
+        method: "PATCH", body: JSON.stringify(patch),
+      }),
+    generateCampaignKit: (id: string) =>
+      bRequest<{ campaign: Campaign }>(`/campaigns/${id}/generate`, { method: "POST" }),
+    getCampaignMetrics: (id: string) =>
+      bRequest<{ metrics: CampaignMetrics }>(`/campaigns/${id}/metrics`),
+    getCampaignOptimizations: (id: string) =>
+      bRequest<{ suggestions: string[] }>(`/campaigns/${id}/optimize`),
+    duplicateCampaign: (id: string) =>
+      bRequest<{ campaign: Campaign }>(`/campaigns/${id}/duplicate`, { method: "POST" }),
+
+    // Assistant
+    listAssistantMessages: () =>
+      bRequest<{ messages: AssistantMessage[] }>("/assistant/messages"),
+    sendAssistantMessage: (message: string) =>
+      bRequest<{ message: AssistantMessage }>("/assistant/chat", {
+        method: "POST", body: JSON.stringify({ message }),
+      }),
+    confirmAssistantAction: (messageId: string, confirmed: boolean) =>
+      bRequest<{ message: AssistantMessage }>("/assistant/confirm", {
+        method: "POST", body: JSON.stringify({ messageId, confirmed }),
+      }),
+    clearAssistantMessages: () =>
+      bRequest<{ cleared: boolean }>("/assistant/messages", { method: "DELETE" }),
+    getAssistantEventsUrl: () =>
+      `${API_BASE}/b/${encodeURIComponent(slug)}/assistant/events`,
+  };
+}

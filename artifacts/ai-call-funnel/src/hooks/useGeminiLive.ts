@@ -30,7 +30,7 @@ const VAD_THRESHOLD = 0.012;
 let _msgCounter = 0;
 function makeAgentMsgId() { return `am-${++_msgCounter}`; }
 
-export function useGeminiLive(leadId?: string | null): GeminiLiveState {
+export function useGeminiLive(leadId?: string | null, businessSlug?: string): GeminiLiveState {
   const [callState, setCallState] = useState<CallState>("idle");
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
   const [isUserSpeaking, setIsUserSpeaking] = useState(false);
@@ -134,8 +134,8 @@ export function useGeminiLive(leadId?: string | null): GeminiLiveState {
     });
 
     serviceRef.current = service;
-    service.connect(leadId ?? undefined);
-    console.log("[CallFunnel] WebSocket connecting", leadId ? `(leadId=${leadId})` : "");
+    service.connect(leadId ?? undefined, businessSlug);
+    console.log("[CallFunnel] WebSocket connecting", leadId ? `(leadId=${leadId})` : "", businessSlug ? `(businessSlug=${businessSlug})` : "");
 
     startAudioCapture((base64) => {
       if (wsReadyRef.current) {
@@ -156,7 +156,7 @@ export function useGeminiLive(leadId?: string | null): GeminiLiveState {
         setCallState("error");
         cleanup();
       });
-  }, [cleanup, leadId]);
+  }, [cleanup, leadId, businessSlug]);
 
   const disconnect = useCallback(() => {
     cleanup();

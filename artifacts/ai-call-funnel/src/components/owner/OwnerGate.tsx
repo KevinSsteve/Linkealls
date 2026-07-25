@@ -1,40 +1,17 @@
 /**
  * Wraps all owner pages with a PIN lock.
  * Stores unlock state in sessionStorage — cleared when tab closes.
+ *
+ * Reads the current business slug from the URL (useBusinessSlug) and calls
+ * the business-scoped PIN endpoints (/api/b/:slug/auth/pin/...) so each
+ * business has its own PIN.
  */
 import { useState, useEffect, useCallback } from "react";
 import { Lock, KeyRound, Eye, EyeOff, ShieldCheck, Loader2 } from "lucide-react";
+import { businessApi } from "@/lib/api";
+import { useBusinessSlug } from "@/hooks/useBusinessSlug";
 
-const SESSION_KEY = "owner_unlocked";
-const API_BASE = import.meta.env.DEV
-  ? `${import.meta.env.BASE_URL}api`
-  : "/api";
-
-type Mode = "checking" | "locked" | "setup" | "open";
-
-async function fetchPinStatus(): Promise<boolean> {
-  const res = await fetch(`${API_BASE}/auth/pin/status`);
-  const { hasPin } = await res.json() as { hasPin: boolean };
-  return hasPin;
-}
-
-async function verifyPin(pin: string): Promise<{ ok: boolean; noPin?: boolean }> {
-  const res = await fetch(`${API_BASE}/auth/pin/verify`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ pin }),
-  });
-  return res.json() as Promise<{ ok: boolean; noPin?: boolean }>;
-}
-
-async function setupPin(pin: string): Promise<{ ok: boolean; error?: string }> {
-  const res = await fetch(`${API_BASE}/auth/pin/set`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ pin }),
-  });
-  return res.json() as Promise<{ ok: boolean; error?: string }>;
-}
+const SESSION_KEY_PREFIX = "owner_unlocked_";
 
 // ─── PIN Input ─────────────────────────────────────────────────────────────
 
@@ -72,7 +49,7 @@ function PinInput({
 
 // ─── Lock Screen ───────────────────────────────────────────────────────────
 
-function LockScreen({ onUnlock }: { onUnlock: () => void }) {
+function LockScreen({ slug, onUnlock }: { slug: string; onUnlock: () => void }) {
   const [pin, setPin] = useState("");
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -83,9 +60,9 @@ function LockScreen({ onUnlock }: { onUnlock: () => void }) {
     setLoading(true);
     setError(null);
     try {
-      const result = await verifyPin(pin);
+      const result = await businessApi(slug).verifyPin(pin);
       if (result.ok) {
-        sessionStorage.setItem(SESSION_KEY, "1");
+        sessionStorage.setItem(`${SESSION_KEY_PREFIX}${slug}`, "1");
         onUnlock();
       } else {
         setError("PIN incorreto. Tenta de novo.");
@@ -96,14 +73,13 @@ function LockScreen({ onUnlock }: { onUnlock: () => void }) {
     } finally {
       setLoading(false);
     }
-  }, [pin, onUnlock]);
+  }, [pin, slug, onUnlock]);
 
   return (
     <div
       className="flex flex-col items-center justify-center h-full px-8 gap-6"
       style={{ background: "linear-gradient(180deg, #060C14 0%, #071A11 60%, #060C14 100%)" }}
     >
-      {/* Icon */}
       <div
         className="w-20 h-20 rounded-3xl flex items-center justify-center"
         style={{ background: "linear-gradient(135deg, #00A88420 0%, #00A88408 100%)", border: "1px solid #00A88430" }}
@@ -147,7 +123,7 @@ function LockScreen({ onUnlock }: { onUnlock: () => void }) {
 
 // ─── Setup Screen ──────────────────────────────────────────────────────────
 
-function SetupScreen({ onSetup }: { onSetup: () => void }) {
+function SetupScreen({ slug, onSetup }: { slug: string; onSetup: () => void }) {
   const [pin, setPin] = useState("");
   const [confirm, setConfirm] = useState("");
   const [show, setShow] = useState(false);
@@ -160,9 +136,9 @@ function SetupScreen({ onSetup }: { onSetup: () => void }) {
     setLoading(true);
     setError(null);
     try {
-      const result = await setupPin(pin);
+      const result = await businessApi(slug).setPin(pin);
       if (result.ok) {
-        sessionStorage.setItem(SESSION_KEY, "1");
+        sessionStorage.setItem(`${SESSION_KEY_PREFIX}${slug}`, "1");
         onSetup();
       } else {
         setError(result.error ?? "Erro ao guardar PIN");
@@ -172,7 +148,7 @@ function SetupScreen({ onSetup }: { onSetup: () => void }) {
     } finally {
       setLoading(false);
     }
-  }, [pin, confirm, onSetup]);
+  }, [pin, confirm, slug, onSetup]);
 
   return (
     <div
@@ -217,7 +193,7 @@ function SetupScreen({ onSetup }: { onSetup: () => void }) {
 
         <button
           onClick={() => {
-            sessionStorage.setItem(SESSION_KEY, "1");
+            sessionStorage.setItem(`${SESSION_KEY_PREFIX}${slug}`, "1");
             onSetup();
           }}
           className="w-full py-2 text-xs text-[#3E576F] hover:text-[#7B96B2] transition-colors"
@@ -231,19 +207,24 @@ function SetupScreen({ onSetup }: { onSetup: () => void }) {
 
 // ─── Gate ──────────────────────────────────────────────────────────────────
 
+type Mode = "checking" | "locked" | "setup" | "open";
+
 export function OwnerGate({ children }: { children: React.ReactNode }) {
+  const slug = useBusinessSlug();
+  const sessionKey = `${SESSION_KEY_PREFIX}${slug}`;
   const [mode, setMode] = useState<Mode>("checking");
 
   useEffect(() => {
-    // Already unlocked this session?
-    if (sessionStorage.getItem(SESSION_KEY) === "1") {
+    setMode("checking");
+    // Already unlocked this session for this business?
+    if (sessionStorage.getItem(sessionKey) === "1") {
       setMode("open");
       return;
     }
-    fetchPinStatus()
-      .then((hasPin) => setMode(hasPin ? "locked" : "setup"))
+    businessApi(slug).getPinStatus()
+      .then(({ hasPin }) => setMode(hasPin ? "locked" : "setup"))
       .catch(() => setMode("open")); // On error, allow access
-  }, []);
+  }, [slug, sessionKey]);
 
   if (mode === "checking") {
     return (
@@ -254,11 +235,11 @@ export function OwnerGate({ children }: { children: React.ReactNode }) {
   }
 
   if (mode === "locked") {
-    return <LockScreen onUnlock={() => setMode("open")} />;
+    return <LockScreen slug={slug} onUnlock={() => setMode("open")} />;
   }
 
   if (mode === "setup") {
-    return <SetupScreen onSetup={() => setMode("open")} />;
+    return <SetupScreen slug={slug} onSetup={() => setMode("open")} />;
   }
 
   return <>{children}</>;

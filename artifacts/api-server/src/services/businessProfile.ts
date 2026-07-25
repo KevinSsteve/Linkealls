@@ -2,33 +2,51 @@ import { db, businessProfilesTable, type BusinessProfile, type UpdateBusinessPro
 import { and, eq, lt, ne, or } from "drizzle-orm";
 
 /**
- * Single-tenant profile store pinned to one fixed row id. Insert-if-absent is
- * atomic (ON CONFLICT DO NOTHING), so concurrent first requests cannot create
- * duplicate rows, and every reader/writer targets the same deterministic row.
+ * Default profile ID used as a backward-compatible fallback while the platform
+ * is being migrated to full multi-tenancy.  Every service function now accepts
+ * an explicit `businessId` and falls back to this constant so that all existing
+ * single-tenant call sites continue to work unchanged.
  */
-const FIXED_PROFILE_ID = 1;
+export const FIXED_PROFILE_ID = 1;
 
 /** A "running" analysis older than this is considered crashed and re-acquirable. */
 const STALE_ANALYSIS_MS = 5 * 60_000;
 
-export async function getOrCreateProfile(): Promise<BusinessProfile> {
+// ─── Slug resolution ──────────────────────────────────────────────────────────
+
+/** Resolve a URL slug to the full profile row; returns null when not found. */
+export async function getProfileBySlug(slug: string): Promise<BusinessProfile | null> {
+  const rows = await db
+    .select()
+    .from(businessProfilesTable)
+    .where(eq(businessProfilesTable.slug, slug))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+// ─── Single-profile helpers ───────────────────────────────────────────────────
+
+export async function getOrCreateProfile(businessId: number = FIXED_PROFILE_ID): Promise<BusinessProfile> {
   await db
     .insert(businessProfilesTable)
-    .values({ id: FIXED_PROFILE_ID })
+    .values({ id: businessId })
     .onConflictDoNothing();
   const rows = await db
     .select()
     .from(businessProfilesTable)
-    .where(eq(businessProfilesTable.id, FIXED_PROFILE_ID));
+    .where(eq(businessProfilesTable.id, businessId));
   return rows[0]!;
 }
 
-export async function updateProfile(patch: UpdateBusinessProfile): Promise<BusinessProfile> {
-  await getOrCreateProfile();
+export async function updateProfile(
+  patch: UpdateBusinessProfile,
+  businessId: number = FIXED_PROFILE_ID,
+): Promise<BusinessProfile> {
+  await getOrCreateProfile(businessId);
   const updated = await db
     .update(businessProfilesTable)
     .set({ ...patch, updatedAt: new Date() })
-    .where(eq(businessProfilesTable.id, FIXED_PROFILE_ID))
+    .where(eq(businessProfilesTable.id, businessId))
     .returning();
   return updated[0]!;
 }
@@ -36,8 +54,9 @@ export async function updateProfile(patch: UpdateBusinessProfile): Promise<Busin
 export async function setAnalysisStatus(
   status: AnalysisStatus,
   error?: string | null,
+  businessId: number = FIXED_PROFILE_ID,
 ): Promise<void> {
-  await getOrCreateProfile();
+  await getOrCreateProfile(businessId);
   await db
     .update(businessProfilesTable)
     .set({
@@ -46,7 +65,7 @@ export async function setAnalysisStatus(
       ...(status === "done" ? { lastAnalyzedAt: new Date() } : {}),
       updatedAt: new Date(),
     })
-    .where(eq(businessProfilesTable.id, FIXED_PROFILE_ID));
+    .where(eq(businessProfilesTable.id, businessId));
 }
 
 /**
@@ -54,8 +73,11 @@ export async function setAnalysisStatus(
  * Returns false when another analysis already holds the slot — unless that
  * run looks crashed (stale "running"), in which case it is taken over.
  */
-export async function tryAcquireAnalysis(url: string): Promise<boolean> {
-  await getOrCreateProfile();
+export async function tryAcquireAnalysis(
+  url: string,
+  businessId: number = FIXED_PROFILE_ID,
+): Promise<boolean> {
+  await getOrCreateProfile(businessId);
   const acquired = await db
     .update(businessProfilesTable)
     .set({
@@ -66,7 +88,7 @@ export async function tryAcquireAnalysis(url: string): Promise<boolean> {
     })
     .where(
       and(
-        eq(businessProfilesTable.id, FIXED_PROFILE_ID),
+        eq(businessProfilesTable.id, businessId),
         or(
           ne(businessProfilesTable.analysisStatus, "running"),
           lt(businessProfilesTable.updatedAt, new Date(Date.now() - STALE_ANALYSIS_MS)),
