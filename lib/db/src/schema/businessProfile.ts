@@ -10,6 +10,10 @@ export interface Offering {
   price: string;
   /** Optional product image — stored as an object-storage path served via /api/storage/objects/... */
   imageUrl?: string;
+  /** Whether this product is highlighted in the public catalog (max 3). */
+  featured?: boolean;
+  /** Display order in the catalog (lower = first). */
+  sortOrder?: number;
 }
 
 export interface FaqItem {
@@ -62,6 +66,8 @@ export const offeringSchema = z.object({
   description: z.string().max(1000),
   price: z.string().max(100),
   imageUrl: z.string().max(2000).optional(),
+  featured: z.boolean().optional(),
+  sortOrder: z.number().int().optional(),
 });
 
 export const faqItemSchema = z.object({

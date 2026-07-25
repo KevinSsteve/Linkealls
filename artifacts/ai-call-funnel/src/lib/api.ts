@@ -17,6 +17,10 @@ export interface Offering {
   description: string;
   price: string;
   imageUrl?: string;
+  /** Whether this product is highlighted in the public catalog (max 3). */
+  featured?: boolean;
+  /** Display order in the catalog (lower = first). */
+  sortOrder?: number;
 }
 
 export interface FaqItem {

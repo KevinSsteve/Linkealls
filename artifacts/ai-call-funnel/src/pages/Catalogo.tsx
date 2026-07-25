@@ -49,7 +49,12 @@ function ProductCard({
 
   return (
     <div className="bg-white rounded-2xl overflow-hidden flex flex-col transition-shadow hover:shadow-md"
-      style={{ boxShadow: "0 1px 4px rgba(0,0,0,0.08)", border: "1px solid #F1F5F9" }}>
+      style={{
+        boxShadow: offering.featured
+          ? "0 2px 12px rgba(250,204,21,0.18)"
+          : "0 1px 4px rgba(0,0,0,0.08)",
+        border: offering.featured ? "1px solid #FDE68A" : "1px solid #F1F5F9",
+      }}>
       {/* Image */}
       <div className="relative w-full overflow-hidden" style={{ height: 168, background: "#F8FAFC" }}>
         {offering.imageUrl && !imgError ? (
@@ -69,6 +74,15 @@ function ProductCard({
             ) : (
               <ShoppingBag size={32} className="text-slate-300" />
             )}
+          </div>
+        )}
+        {/* Featured badge */}
+        {offering.featured && (
+          <div
+            className="absolute top-2 left-2 flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-bold"
+            style={{ background: "#FEF9C3", color: "#92400E", border: "1px solid #FDE68A" }}
+          >
+            ⭐ Destaque
           </div>
         )}
       </div>
@@ -566,13 +580,21 @@ export function Catalogo() {
             </p>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {catalog.offerings.map((offering, i) => (
-              <ProductCard
-                key={i}
-                offering={offering}
-                onLearnMore={() => handleLearnMore(offering)}
-              />
-            ))}
+            {[...catalog.offerings]
+              .sort((a, b) => {
+                // Featured products always first
+                if (a.featured && !b.featured) return -1;
+                if (!a.featured && b.featured) return 1;
+                // Then respect sortOrder set by the owner
+                return (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
+              })
+              .map((offering, i) => (
+                <ProductCard
+                  key={i}
+                  offering={offering}
+                  onLearnMore={() => handleLearnMore(offering)}
+                />
+              ))}
           </div>
         </section>
       )}

@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
-import { Plus, Trash2, Save, RefreshCw, Loader2, Camera, X, Phone, Bell, BellOff, BellRing, Store, Copy, Check, ExternalLink, Link } from "lucide-react";
+import { Plus, Trash2, Save, RefreshCw, Loader2, Camera, X, Phone, Bell, BellOff, BellRing, Store, Copy, Check, ExternalLink, Link, GripVertical, Star } from "lucide-react";
 import { useNotifications } from "../../hooks/useNotifications";
 import { toggleCatalog, saveCatalogSlug, checkSlugAvailability } from "../../lib/api";
 import type { BusinessProfile, ProfileDraft, Offering, FaqItem } from "../../lib/api";
@@ -341,21 +341,7 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
       </div>
 
       {/* Offerings */}
-      <div className={sectionCls}>
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-slate-200">Produtos & serviços</h3>
-          <AddBtn onClick={() => setOfferings([...offerings, { name: "", description: "", price: "" }])} />
-        </div>
-        {offerings.length === 0 && <EmptyHint text="Adiciona os produtos/serviços que a IA pode oferecer nas chamadas." />}
-        {offerings.map((o, i) => (
-          <OfferingCard
-            key={i}
-            offering={o}
-            onChange={(updated) => setOfferings(offerings.map((x, j) => (j === i ? updated : x)))}
-            onRemove={() => setOfferings(offerings.filter((_, j) => j !== i))}
-          />
-        ))}
-      </div>
+      <OfferingsSection offerings={offerings} setOfferings={setOfferings} />
 
       {/* Differentials */}
       <div className={sectionCls}>
@@ -486,15 +472,18 @@ async function uploadToGcs(file: File, uploadURL: string): Promise<void> {
 // ─── Offering card with image upload ─────────────────────────────────────────
 
 function OfferingCard({
-  offering, onChange, onRemove,
+  offering, onChange, onRemove, featuredCount,
 }: {
   offering: Offering;
   onChange: (o: Offering) => void;
   onRemove: () => void;
+  featuredCount: number;
 }) {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const canFeature = offering.featured || featuredCount < 3;
 
   const handleImagePick = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -519,11 +508,45 @@ function OfferingCard({
   const inputCls = "w-full bg-[#0D1826] border border-white/10 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-[#00A884]/60 transition-colors";
 
   return (
-    <div className="border border-white/[0.06] rounded-lg p-3 space-y-2 relative">
-      <RemoveBtn onClick={onRemove} />
+    <div className="border border-white/[0.06] rounded-lg p-3 space-y-2 relative"
+      style={offering.featured ? { borderColor: "rgba(250,204,21,0.35)", background: "rgba(250,204,21,0.03)" } : {}}>
+      {/* Top bar: drag handle + featured toggle + remove */}
+      <div className="flex items-center gap-2 mb-1">
+        {/* Drag handle */}
+        <div
+          className="cursor-grab active:cursor-grabbing text-slate-600 hover:text-slate-400 transition-colors shrink-0"
+          title="Arrastar para reordenar"
+        >
+          <GripVertical size={16} />
+        </div>
+
+        {/* Featured toggle */}
+        <button
+          onClick={() => onChange({ ...offering, featured: !offering.featured })}
+          disabled={!canFeature}
+          title={
+            offering.featured
+              ? "Remover destaque"
+              : featuredCount >= 3
+              ? "Máximo de 3 destaques atingido"
+              : "Marcar como destaque"
+          }
+          className={`flex items-center gap-1 text-[12px] font-medium rounded-md px-2 py-1 transition-colors disabled:opacity-40 ${
+            offering.featured
+              ? "text-yellow-400 bg-yellow-400/10 border border-yellow-400/20"
+              : "text-slate-500 hover:text-yellow-400 hover:bg-yellow-400/10 border border-transparent"
+          }`}
+        >
+          <Star size={12} className={offering.featured ? "fill-yellow-400" : ""} />
+          {offering.featured ? "Destaque" : "Destacar"}
+        </button>
+
+        <div className="flex-1" />
+        <RemoveBtn inline onClick={onRemove} />
+      </div>
 
       {/* Image area */}
-      <div className="flex items-start gap-3 pt-1">
+      <div className="flex items-start gap-3">
         {/* Thumbnail or placeholder */}
         <div className="relative flex-shrink-0">
           <div
@@ -600,6 +623,108 @@ function OfferingCard({
         placeholder="Descrição curta"
         onChange={(e) => onChange({ ...offering, description: e.target.value })}
       />
+    </div>
+  );
+}
+
+// ─── Offerings section with drag-and-drop reordering ─────────────────────────
+
+function OfferingsSection({
+  offerings,
+  setOfferings,
+}: {
+  offerings: Offering[];
+  setOfferings: React.Dispatch<React.SetStateAction<Offering[]>>;
+}) {
+  const dragSrcIdx = useRef<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+
+  const featuredCount = offerings.filter((o) => o.featured).length;
+
+  const handleAdd = () => {
+    setOfferings((prev) => [
+      ...prev,
+      { name: "", description: "", price: "", sortOrder: prev.length },
+    ]);
+  };
+
+  const handleChange = (i: number, updated: Offering) => {
+    setOfferings((prev) => prev.map((x, j) => (j === i ? updated : x)));
+  };
+
+  const handleRemove = (i: number) => {
+    setOfferings((prev) => prev.filter((_, j) => j !== i));
+  };
+
+  const handleDragStart = (i: number) => {
+    dragSrcIdx.current = i;
+  };
+
+  const handleDragOver = (e: React.DragEvent, i: number) => {
+    e.preventDefault();
+    if (dragSrcIdx.current === null || dragSrcIdx.current === i) return;
+    setDragOverIdx(i);
+  };
+
+  const handleDrop = (i: number) => {
+    const src = dragSrcIdx.current;
+    if (src === null || src === i) {
+      dragSrcIdx.current = null;
+      setDragOverIdx(null);
+      return;
+    }
+    setOfferings((prev) => {
+      const next = [...prev];
+      const [moved] = next.splice(src, 1);
+      next.splice(i, 0, moved);
+      return next.map((o, idx) => ({ ...o, sortOrder: idx }));
+    });
+    dragSrcIdx.current = null;
+    setDragOverIdx(null);
+  };
+
+  const handleDragEnd = () => {
+    dragSrcIdx.current = null;
+    setDragOverIdx(null);
+  };
+
+  return (
+    <div className={sectionCls}>
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-slate-200">Produtos & serviços</h3>
+        <AddBtn onClick={handleAdd} />
+      </div>
+      {offerings.length === 0 && (
+        <EmptyHint text="Adiciona os produtos/serviços que a IA pode oferecer nas chamadas." />
+      )}
+      {offerings.map((o, i) => (
+        <div
+          key={i}
+          draggable
+          onDragStart={() => handleDragStart(i)}
+          onDragOver={(e) => handleDragOver(e, i)}
+          onDrop={() => handleDrop(i)}
+          onDragEnd={handleDragEnd}
+          style={{
+            opacity: dragSrcIdx.current === i ? 0.4 : 1,
+            outline: dragOverIdx === i ? "2px solid #00A884" : "none",
+            borderRadius: 8,
+            transition: "opacity 0.15s",
+          }}
+        >
+          <OfferingCard
+            offering={o}
+            onChange={(updated) => handleChange(i, updated)}
+            onRemove={() => handleRemove(i)}
+            featuredCount={featuredCount}
+          />
+        </div>
+      ))}
+      {offerings.length > 0 && (
+        <p className="text-[11px] text-slate-600 mt-1">
+          Arrasta os produtos para reordenar · Até 3 destaques (⭐)
+        </p>
+      )}
     </div>
   );
 }
