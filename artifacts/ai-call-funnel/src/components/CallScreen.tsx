@@ -1,27 +1,31 @@
 import { useEffect, useRef, useState } from "react";
-import { PhoneOff } from "lucide-react";
+import { PhoneOff, Minimize2 } from "lucide-react";
 
 interface CallScreenProps {
   isAiSpeaking: boolean;
   isUserSpeaking: boolean;
   onEnd: () => void;
+  /** Minimise: keep audio running, go back to chat */
+  onMinimize: () => void;
+  /** Elapsed seconds (driven by parent so banner can share the same counter) */
+  elapsedSeconds: number;
 }
 
-function useCallTimer() {
-  const [s, setS] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => setS((n) => n + 1), 1000);
-    return () => clearInterval(id);
-  }, []);
+const NUM_BARS = 20;
+
+function formatTime(s: number) {
   const m = String(Math.floor(s / 60)).padStart(2, "0");
   const ss = String(s % 60).padStart(2, "0");
   return `${m}:${ss}`;
 }
 
-const NUM_BARS = 20;
-
-export function CallScreen({ isAiSpeaking, isUserSpeaking, onEnd }: CallScreenProps) {
-  const timer = useCallTimer();
+export function CallScreen({
+  isAiSpeaking,
+  isUserSpeaking,
+  onEnd,
+  onMinimize,
+  elapsedSeconds,
+}: CallScreenProps) {
   const [frame, setFrame] = useState(0);
 
   /* Animate audio bars */
@@ -32,7 +36,7 @@ export function CallScreen({ isAiSpeaking, isUserSpeaking, onEnd }: CallScreenPr
 
   return (
     <div
-      className="flex flex-col h-full"
+      className="flex flex-col w-full h-full"
       style={{ background: "linear-gradient(180deg, #060C14 0%, #071A11 100%)" }}
     >
       {/* ── Timer bar ── */}
@@ -43,19 +47,34 @@ export function CallScreen({ isAiSpeaking, isUserSpeaking, onEnd }: CallScreenPr
         <span className="text-sm font-medium" style={{ color: "#00C896" }}>
           Em chamada
         </span>
+
         <span
           className="font-mono text-sm font-semibold tabular-nums"
           style={{ color: "#EAF0F7" }}
         >
-          {timer}
+          {formatTime(elapsedSeconds)}
         </span>
+
+        {/* Minimise — keep call alive, return to chat */}
+        <button
+          onClick={onMinimize}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] font-medium transition-colors active:scale-95"
+          style={{
+            background: "rgba(255,255,255,0.06)",
+            border: "1px solid rgba(255,255,255,0.1)",
+            color: "#7B96B2",
+          }}
+          aria-label="Minimizar chamada"
+        >
+          <Minimize2 size={13} />
+          <span>Chat</span>
+        </button>
       </div>
 
       {/* ── Central visualizer ── */}
       <div className="flex-1 flex flex-col items-center justify-center gap-10">
         {/* Avatar ring */}
         <div className="relative flex items-center justify-center">
-          {/* Pulsing outer ring when speaking */}
           {isAiSpeaking && (
             <>
               <div
@@ -79,7 +98,6 @@ export function CallScreen({ isAiSpeaking, isUserSpeaking, onEnd }: CallScreenPr
               />
             </>
           )}
-          {/* Avatar circle */}
           <div
             className="relative w-24 h-24 rounded-full flex items-center justify-center text-3xl font-bold"
             style={{
@@ -130,7 +148,9 @@ export function CallScreen({ isAiSpeaking, isUserSpeaking, onEnd }: CallScreenPr
         {/* Status label */}
         <p
           className="text-sm"
-          style={{ color: isAiSpeaking ? "#00C896" : isUserSpeaking ? "#34D399" : "#3E576F" }}
+          style={{
+            color: isAiSpeaking ? "#00C896" : isUserSpeaking ? "#34D399" : "#3E576F",
+          }}
         >
           {isAiSpeaking ? "A falar…" : isUserSpeaking ? "A ouvir…" : "Em espera"}
         </p>

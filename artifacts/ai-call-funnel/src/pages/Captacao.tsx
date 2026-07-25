@@ -25,6 +25,15 @@ interface Message {
 
 type Stage = "chat" | "typing" | "call_incoming" | "call_active";
 
+function useCallTimer() {
+  const [s, setS] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setS((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+  return s;
+}
+
 function readUtmParams(): LeadOrigin {
   try {
     const p = new URLSearchParams(window.location.search);
@@ -60,6 +69,7 @@ export function Captacao() {
   const chatMsgsRef = useRef<ChatMessage[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const gemini = useGeminiLive(leadId);
+  const callElapsed = useCallTimer();
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -136,6 +146,8 @@ export function Captacao() {
             isAiSpeaking={gemini.isAiSpeaking}
             isUserSpeaking={gemini.isUserSpeaking}
             onEnd={handleEndCall}
+            onMinimize={handleEndCall}
+            elapsedSeconds={callElapsed}
           />
         ) : (
           <>

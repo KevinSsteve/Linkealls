@@ -4,10 +4,18 @@ import { ChatBubble, type BubbleRole } from "../components/ChatBubble";
 import { ChatInput } from "../components/ChatInput";
 import { IncomingCallModal } from "../components/IncomingCallModal";
 import { CallScreen } from "../components/CallScreen";
-import { useGeminiLive, type ProductCard } from "../hooks/useGeminiLive";
+import { useGeminiLive, type ProductCard, type AgentMessage } from "../hooks/useGeminiLive";
 import { createLeadSession, sendLeadChat, type ChatMessage } from "../lib/api";
-import { X, ShoppingBag, ImageOff, MessageSquare } from "lucide-react";
-import type { AgentMessage } from "../hooks/useGeminiLive";
+import {
+  X,
+  ShoppingBag,
+  ImageOff,
+  MessageSquare,
+  Phone,
+  ChevronUp,
+} from "lucide-react";
+
+// ─── Types ─────────────────────────────────────────────────────────────────
 
 interface Message {
   id: string;
@@ -18,14 +26,129 @@ interface Message {
 
 type Stage = "chat" | "typing" | "call_incoming" | "call_active" | "call_ended";
 
-// ─── Agent text messages overlay (shown during call) ──────────────────────
+function formatTime(s: number) {
+  const m = String(Math.floor(s / 60)).padStart(2, "0");
+  const ss = String(s % 60).padStart(2, "0");
+  return `${m}:${ss}`;
+}
+
+// ─── Minimised call banner ─────────────────────────────────────────────────
+
+function MinimizedCallBanner({
+  elapsed,
+  isAiSpeaking,
+  hasProducts,
+  onExpand,
+  onEnd,
+}: {
+  elapsed: number;
+  isAiSpeaking: boolean;
+  hasProducts: boolean;
+  onExpand: () => void;
+  onEnd: () => void;
+}) {
+  return (
+    <div
+      className="flex items-center gap-3 px-4 py-2.5 flex-shrink-0"
+      style={{
+        background: "linear-gradient(90deg, #071A14 0%, #060E18 100%)",
+        borderBottom: "1px solid rgba(0,200,150,0.18)",
+      }}
+    >
+      {/* Pulsing dot */}
+      <span className="relative flex items-center justify-center shrink-0">
+        <span
+          className="absolute inline-flex rounded-full opacity-75 animate-ping"
+          style={{ width: 10, height: 10, background: "#00C896", animationDuration: "1.3s" }}
+        />
+        <span
+          className="relative inline-flex rounded-full"
+          style={{ width: 8, height: 8, background: "#00C896" }}
+        />
+      </span>
+
+      {/* Label */}
+      <button
+        onClick={onExpand}
+        className="flex-1 flex items-center gap-2 text-left"
+      >
+        <span className="text-[13px] font-semibold" style={{ color: "#D4E4F0" }}>
+          Em chamada
+        </span>
+        <span className="text-[12px] font-mono tabular-nums" style={{ color: "#4A6B80" }}>
+          {formatTime(elapsed)}
+        </span>
+        {isAiSpeaking && (
+          <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: "rgba(0,200,150,0.12)", color: "#00C896" }}>
+            A falar…
+          </span>
+        )}
+        {hasProducts && !isAiSpeaking && (
+          <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: "rgba(0,191,165,0.1)", color: "#00BFA5" }}>
+            Ver produtos ↓
+          </span>
+        )}
+      </button>
+
+      {/* End call (small) */}
+      <button
+        onClick={onEnd}
+        className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+        style={{ background: "#7F1D1D" }}
+        aria-label="Terminar chamada"
+      >
+        <Phone size={14} className="text-red-300" style={{ transform: "rotate(135deg)" }} />
+      </button>
+
+      {/* Expand */}
+      <button
+        onClick={onExpand}
+        className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-colors"
+        style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}
+        aria-label="Expandir chamada"
+      >
+        <ChevronUp size={15} style={{ color: "#7B96B2" }} />
+      </button>
+    </div>
+  );
+}
+
+// ─── Agent text message bubble ─────────────────────────────────────────────
+
+function AgentMsgBubble({ msg, onDismiss }: { msg: AgentMessage; onDismiss: () => void }) {
+  return (
+    <div className="flex items-start gap-2 mb-2">
+      <div
+        className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center mt-0.5"
+        style={{ background: "rgba(0,191,165,0.15)", border: "1px solid rgba(0,191,165,0.3)" }}
+      >
+        <MessageSquare size={11} style={{ color: "#00BFA5" }} />
+      </div>
+      <div
+        className="flex-1 rounded-2xl rounded-tl-sm px-3 py-2 text-[13px] leading-relaxed whitespace-pre-line"
+        style={{
+          background: "rgba(17,27,42,0.9)",
+          border: "1px solid rgba(0,191,165,0.2)",
+          color: "#D4E4F0",
+        }}
+      >
+        {msg.text}
+      </div>
+      <button onClick={onDismiss} className="shrink-0 mt-1 opacity-40 hover:opacity-70">
+        <X size={13} style={{ color: "#4A6580" }} />
+      </button>
+    </div>
+  );
+}
+
+// ─── Overlay: agent messages during full-screen call ──────────────────────
 
 function AgentMessageOverlay({
   messages,
-  onDismiss,
+  onDismissAll,
 }: {
   messages: AgentMessage[];
-  onDismiss: (id: string) => void;
+  onDismissAll: () => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -39,39 +162,26 @@ function AgentMessageOverlay({
       className="absolute inset-x-0 top-0 z-10 flex flex-col pointer-events-none"
       style={{ maxHeight: "45%" }}
     >
-      {/* Gradient fade in from top */}
       <div
-        className="w-full"
+        className="w-full shrink-0"
         style={{
-          height: 24,
-          background: "linear-gradient(180deg, rgba(5,10,18,0.9) 0%, transparent 100%)",
-          flexShrink: 0,
+          height: 20,
+          background: "linear-gradient(180deg, rgba(5,10,18,0.85) 0%, transparent 100%)",
         }}
       />
       <div
         ref={scrollRef}
-        className="flex flex-col gap-2 overflow-y-auto px-4 pb-3 pointer-events-auto"
+        className="flex flex-col gap-2 overflow-y-auto px-4 pb-2 pointer-events-auto"
         style={{ scrollbarWidth: "none" }}
       >
         {messages.map((m) => (
-          <div
-            key={m.id}
-            className="flex items-start gap-2 animate-fade-in"
-          >
-            {/* IA badge */}
+          <div key={m.id} className="flex items-start gap-2">
             <div
-              className="shrink-0 flex items-center justify-center rounded-full mt-0.5"
-              style={{
-                width: 24,
-                height: 24,
-                background: "rgba(0,191,165,0.15)",
-                border: "1px solid rgba(0,191,165,0.3)",
-              }}
+              className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center mt-0.5"
+              style={{ background: "rgba(0,191,165,0.15)", border: "1px solid rgba(0,191,165,0.3)" }}
             >
               <MessageSquare size={11} style={{ color: "#00BFA5" }} />
             </div>
-
-            {/* Bubble */}
             <div
               className="flex-1 rounded-2xl rounded-tl-sm px-3 py-2 text-[13px] leading-relaxed whitespace-pre-line"
               style={{
@@ -84,11 +194,9 @@ function AgentMessageOverlay({
             >
               {m.text}
             </div>
-
-            {/* Dismiss */}
             <button
               className="shrink-0 mt-0.5 opacity-40 hover:opacity-80 transition-opacity"
-              onClick={() => onDismiss(m.id)}
+              onClick={onDismissAll}
             >
               <X size={13} style={{ color: "#4A6580" }} />
             </button>
@@ -99,15 +207,9 @@ function AgentMessageOverlay({
   );
 }
 
-// ─── Product Card component ────────────────────────────────────────────────
+// ─── Product card ──────────────────────────────────────────────────────────
 
-function ProductCardItem({
-  product,
-  onSelect,
-}: {
-  product: ProductCard;
-  onSelect: () => void;
-}) {
+function ProductCardItem({ product, onSelect }: { product: ProductCard; onSelect: () => void }) {
   const [imgError, setImgError] = useState(false);
 
   return (
@@ -119,7 +221,6 @@ function ProductCardItem({
         border: "1px solid rgba(255,255,255,0.08)",
       }}
     >
-      {/* Image */}
       <div
         className="w-full flex items-center justify-center"
         style={{ height: 110, background: "#080E18", flexShrink: 0 }}
@@ -139,7 +240,6 @@ function ProductCardItem({
         )}
       </div>
 
-      {/* Info */}
       <div className="flex flex-col flex-1 p-2.5 gap-1">
         <p className="text-[13px] font-semibold text-[#EAF0F7] leading-tight line-clamp-2">
           {product.name}
@@ -168,7 +268,7 @@ function ProductCardItem({
   );
 }
 
-// ─── Product Vitrine (bottom sheet overlay during call) ────────────────────
+// ─── Product vitrine overlay (inside full call screen) ─────────────────────
 
 function ProductVitrine({
   products,
@@ -176,36 +276,36 @@ function ProductVitrine({
   onClose,
 }: {
   products: ProductCard[];
-  onSelect: (product: ProductCard) => void;
+  onSelect: (p: ProductCard) => void;
   onClose: () => void;
 }) {
   return (
     <div
-      className="absolute inset-x-0 bottom-0 z-20 flex flex-col"
+      className="absolute inset-x-0 bottom-0 z-30 flex flex-col"
       style={{
-        background: "linear-gradient(180deg, rgba(5,10,18,0) 0%, rgba(5,10,18,0.97) 8%, #050A12 100%)",
+        background:
+          "linear-gradient(180deg, rgba(5,10,18,0) 0%, rgba(5,10,18,0.97) 8%, #050A12 100%)",
         paddingTop: 32,
-        maxHeight: "70%",
+        maxHeight: "72%",
       }}
     >
-      {/* Header */}
       <div className="flex items-center justify-between px-4 pb-3 flex-shrink-0">
         <div>
           <p className="text-[14px] font-bold text-[#EAF0F7]">Escolhe o que queres 👇</p>
           <p className="text-[11px] text-[#3E576F] mt-0.5">
-            {products.length} produto{products.length !== 1 ? "s" : ""} disponíve{products.length !== 1 ? "is" : "l"}
+            {products.length} produto{products.length !== 1 ? "s" : ""} disponíve
+            {products.length !== 1 ? "is" : "l"}
           </p>
         </div>
         <button
           onClick={onClose}
-          className="w-8 h-8 rounded-full flex items-center justify-center text-[#3E576F] hover:text-[#EAF0F7] transition-colors"
+          className="w-8 h-8 rounded-full flex items-center justify-center"
           style={{ background: "rgba(255,255,255,0.06)" }}
         >
-          <X size={15} />
+          <X size={15} className="text-[#3E576F]" />
         </button>
       </div>
 
-      {/* Horizontal scroll cards */}
       <div className="flex gap-3 overflow-x-auto px-4 pb-5 scrollbar-none flex-shrink-0">
         {products.map((p, i) => (
           <ProductCardItem key={i} product={p} onSelect={() => onSelect(p)} />
@@ -215,13 +315,48 @@ function ProductVitrine({
   );
 }
 
-// ─── Main Chat component ────────────────────────────────────────────────────
+// ─── Inline product shelf (shown in chat when call is minimised) ───────────
+
+function InlineProductShelf({
+  products,
+  onSelect,
+  onClose,
+}: {
+  products: ProductCard[];
+  onSelect: (p: ProductCard) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div
+      className="mx-3 mb-2 rounded-2xl overflow-hidden"
+      style={{
+        background: "rgba(17,27,42,0.9)",
+        border: "1px solid rgba(0,191,165,0.18)",
+      }}
+    >
+      <div className="flex items-center justify-between px-3 py-2.5">
+        <p className="text-[13px] font-semibold" style={{ color: "#EAF0F7" }}>
+          Produtos sugeridos pelo assistente 🤖
+        </p>
+        <button onClick={onClose}>
+          <X size={14} style={{ color: "#4A6580" }} />
+        </button>
+      </div>
+      <div className="flex gap-3 overflow-x-auto px-3 pb-3 scrollbar-none">
+        {products.map((p, i) => (
+          <ProductCardItem key={i} product={p} onSelect={() => onSelect(p)} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Main Chat component ───────────────────────────────────────────────────
 
 export function Chat() {
   const initialMessage = (() => {
     try {
-      const p = new URLSearchParams(window.location.search);
-      return p.get("message") ?? "Quero saber mais sobre isso";
+      return new URLSearchParams(window.location.search).get("message") ?? "Quero saber mais sobre isso";
     } catch {
       return "Quero saber mais sobre isso";
     }
@@ -230,18 +365,45 @@ export function Chat() {
   const [inputValue, setInputValue] = useState(initialMessage);
   const [messages, setMessages] = useState<Message[]>([]);
   const [stage, setStage] = useState<Stage>("chat");
-
   const [isBusy, setIsBusy] = useState(false);
   const [callTriggered, setCallTriggered] = useState(false);
   const [leadId, setLeadId] = useState<string | null>(null);
+
+  // ── Call minimize state ──────────────────────────────────────────────────
+  const [isCallMinimized, setIsCallMinimized] = useState(false);
+
+  // ── Shared call timer (used by both CallScreen and MinimizedCallBanner) ──
+  const [callElapsed, setCallElapsed] = useState(0);
+  const callTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // ── Dismissed agent messages (per-id set) ───────────────────────────────
+  const [dismissedAgentMsgIds, setDismissedAgentMsgIds] = useState<Set<string>>(new Set());
 
   const chatMsgsRef = useRef<ChatMessage[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const gemini = useGeminiLive(leadId);
 
+  // Start/stop the shared timer when the call goes active
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, stage]);
+    if (stage === "call_active") {
+      setCallElapsed(0);
+      callTimerRef.current = setInterval(() => setCallElapsed((n) => n + 1), 1000);
+    } else {
+      // Call is no longer active — stop timer and collapse minimize state
+      if (callTimerRef.current) {
+        clearInterval(callTimerRef.current);
+        callTimerRef.current = null;
+      }
+      setIsCallMinimized(false);
+    }
+    return () => {
+      if (callTimerRef.current) clearInterval(callTimerRef.current);
+    };
+  }, [stage]);
+
+  useEffect(() => {
+    if (!isCallMinimized) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, stage, isCallMinimized]);
 
   const addMessage = useCallback((role: BubbleRole, text: string): ChatMessage => {
     const ts = new Date().toISOString();
@@ -250,56 +412,61 @@ export function Chat() {
     return { role: role === "user" ? "user" : "bot", text, ts };
   }, []);
 
-  // ── First message: create lead + trigger call flow ───────────────────────
-  const handleFirstSend = useCallback(async (text: string) => {
-    setIsBusy(true);
-    setStage("typing");
-    await new Promise((r) => setTimeout(r, 1200));
+  // ── First message ────────────────────────────────────────────────────────
+  const handleFirstSend = useCallback(
+    async (text: string) => {
+      setIsBusy(true);
+      setStage("typing");
+      await new Promise((r) => setTimeout(r, 1200));
 
-    const botText =
-      "Olá 👋 Obrigado pelo teu interesse. Vou ligar agora para te ajudar e perceber exactamente o que precisas.";
-    const botMsg = addMessage("bot", botText);
-    chatMsgsRef.current.push(botMsg);
-    setStage("chat");
-
-    let newLeadId: string | null = null;
-    try {
-      const { leadId: id } = await createLeadSession(
-        { url: window.location.href },
-        chatMsgsRef.current,
-      );
-      newLeadId = id;
-      setLeadId(id);
-    } catch {
-      console.warn("[Chat] Failed to create lead session");
-    }
-
-    setCallTriggered(true);
-    setIsBusy(false);
-    setTimeout(() => setStage("call_incoming"), 1000);
-    return newLeadId;
-  }, [addMessage]);
-
-  // ── Subsequent messages: Gemini text chat ───────────────────────────────
-  const handleChatSend = useCallback(async (text: string, currentLeadId: string) => {
-    setIsBusy(true);
-    setStage("typing");
-    try {
-      const { reply } = await sendLeadChat(currentLeadId, text);
-      addMessage("bot", reply);
-    } catch {
-      addMessage("bot", "Desculpa, não consegui responder neste momento. Tenta de novo.");
-    } finally {
+      const botText =
+        "Olá 👋 Obrigado pelo teu interesse. Vou ligar agora para te ajudar e perceber exactamente o que precisas.";
+      const botMsg = addMessage("bot", botText);
+      chatMsgsRef.current.push(botMsg);
       setStage("chat");
+
+      let newLeadId: string | null = null;
+      try {
+        const { leadId: id } = await createLeadSession(
+          { url: window.location.href },
+          chatMsgsRef.current,
+        );
+        newLeadId = id;
+        setLeadId(id);
+      } catch {
+        console.warn("[Chat] Failed to create lead session");
+      }
+
+      setCallTriggered(true);
       setIsBusy(false);
-    }
-  }, [addMessage]);
+      setTimeout(() => setStage("call_incoming"), 1000);
+      return newLeadId;
+    },
+    [addMessage],
+  );
+
+  // ── Subsequent chat messages ─────────────────────────────────────────────
+  const handleChatSend = useCallback(
+    async (text: string, currentLeadId: string) => {
+      setIsBusy(true);
+      setStage("typing");
+      try {
+        const { reply } = await sendLeadChat(currentLeadId, text);
+        addMessage("bot", reply);
+      } catch {
+        addMessage("bot", "Desculpa, não consegui responder neste momento. Tenta de novo.");
+      } finally {
+        setStage("chat");
+        setIsBusy(false);
+      }
+    },
+    [addMessage],
+  );
 
   // ── Main send handler ────────────────────────────────────────────────────
   const handleSend = useCallback(() => {
     const text = inputValue.trim();
     if (!text || isBusy) return;
-
     const userMsg = addMessage("user", text);
     chatMsgsRef.current.push(userMsg);
     setInputValue("");
@@ -319,9 +486,10 @@ export function Chat() {
     }
   }, [inputValue, isBusy, callTriggered, leadId, addMessage, handleFirstSend, handleChatSend]);
 
-  // ── Call flow handlers ───────────────────────────────────────────────────
+  // ── Call flow ────────────────────────────────────────────────────────────
   const handleAccept = useCallback(() => {
     setStage("call_active");
+    setIsCallMinimized(false);
     gemini.connect();
   }, [gemini]);
 
@@ -337,30 +505,38 @@ export function Chat() {
   const handleEndCall = useCallback(() => {
     gemini.disconnect();
     setStage("chat");
+    setIsCallMinimized(false);
     setIsBusy(false);
-    addMessage(
-      "bot",
-      "Chamada terminada 📞 Se tiveres mais alguma questão, escreve aqui. Estou à disposição!",
-    );
+    addMessage("bot", "Chamada terminada 📞 Se tiveres mais alguma questão, escreve aqui. Estou à disposição!");
   }, [gemini, addMessage]);
 
-  // ── Product selection from vitrine ──────────────────────────────────────
-  const handleProductSelect = useCallback((product: ProductCard) => {
-    gemini.sendText(`Quero o ${product.name}`);
-    gemini.clearProducts();
-  }, [gemini]);
+  const handleMinimize = useCallback(() => {
+    setIsCallMinimized(true);
+  }, []);
 
-  // ── Dismiss individual agent text message ────────────────────────────────
-  const handleDismissAgentMessage = useCallback((id: string) => {
-    // Filter out dismissed message locally — we don't re-expose clearAgentMessages
-    // to avoid clearing all messages; just remove the one the user tapped.
-    gemini.clearAgentMessages(); // simplification: clear all when one is dismissed
-    void id; // future: per-id dismiss
-  }, [gemini]);
+  const handleExpand = useCallback(() => {
+    setIsCallMinimized(false);
+  }, []);
 
-  // ── Phone button in header ───────────────────────────────────────────────
+  // ── Product selection ────────────────────────────────────────────────────
+  const handleProductSelect = useCallback(
+    (product: ProductCard) => {
+      gemini.sendText(`Quero o ${product.name}`);
+      gemini.clearProducts();
+      // If minimised, expand call so the user can hear the response
+      if (isCallMinimized) setIsCallMinimized(false);
+    },
+    [gemini, isCallMinimized],
+  );
+
+  // ── Header phone button ──────────────────────────────────────────────────
   const handleCallFromHeader = useCallback(() => {
-    if (stage === "call_active" || stage === "call_incoming" || isBusy) return;
+    if (stage === "call_active") {
+      // If minimised → expand; otherwise nothing
+      setIsCallMinimized(false);
+      return;
+    }
+    if (stage === "call_incoming" || isBusy) return;
     setStage("call_incoming");
   }, [stage, isBusy]);
 
@@ -368,38 +544,81 @@ export function Chat() {
   useEffect(() => {
     if (gemini.callState === "error" && stage === "call_active") {
       setStage("chat");
+      setIsCallMinimized(false);
       setIsBusy(false);
       addMessage("system", "A ligação foi interrompida. Tenta de novo.");
     }
   }, [gemini.callState, stage, addMessage]);
 
-  const canCall = callTriggered && stage === "chat" && !isBusy;
+  // ── Visible agent messages (not dismissed) ───────────────────────────────
+  const visibleAgentMessages = gemini.agentMessages.filter(
+    (m) => !dismissedAgentMsgIds.has(m.id),
+  );
 
+  const dismissAgentMessage = useCallback((id: string) => {
+    setDismissedAgentMsgIds((prev) => new Set([...prev, id]));
+  }, []);
+
+  const dismissAllAgentMessages = useCallback(() => {
+    setDismissedAgentMsgIds(new Set(gemini.agentMessages.map((m) => m.id)));
+  }, [gemini.agentMessages]);
+
+  // Clear dismissed set when call ends
+  useEffect(() => {
+    if (stage !== "call_active") setDismissedAgentMsgIds(new Set());
+  }, [stage]);
+
+  const isCallActive = stage === "call_active";
+  const canCall = callTriggered && !isBusy;
+
+  // ── RENDER ───────────────────────────────────────────────────────────────
   return (
     <ChatLayout
       onBack={() => window.history.back()}
       onCall={canCall ? handleCallFromHeader : undefined}
     >
-      <div className="flex flex-col h-full relative overflow-hidden">
+      <div className="flex flex-col h-full overflow-hidden">
         {/* ── Incoming call overlay ── */}
         {stage === "call_incoming" && (
           <IncomingCallModal onAccept={handleAccept} onReject={handleReject} />
         )}
 
-        {/* ── Active call ── */}
-        {stage === "call_active" ? (
-          <div className="relative flex-1 min-h-0">
-            <CallScreen
-              isAiSpeaking={gemini.isAiSpeaking}
-              isUserSpeaking={gemini.isUserSpeaking}
-              onEnd={handleEndCall}
-            />
-            {/* ── Agent text messages overlay (top) ── */}
+        {/* ── Minimised call banner ── */}
+        {isCallActive && isCallMinimized && (
+          <MinimizedCallBanner
+            elapsed={callElapsed}
+            isAiSpeaking={gemini.isAiSpeaking}
+            hasProducts={!!gemini.shownProducts?.length}
+            onExpand={handleExpand}
+            onEnd={handleEndCall}
+          />
+        )}
+
+        {/* ── Full call screen (shown when active & NOT minimised) ── */}
+        {isCallActive && !isCallMinimized && (
+          <div className="relative flex-1 min-h-0 overflow-hidden">
+            {/*
+              CallScreen fills the container.
+              Overlays (vitrine, agent messages) are stacked above it via z-index
+              within the same 'position: relative' ancestor.
+            */}
+            <div className="absolute inset-0">
+              <CallScreen
+                isAiSpeaking={gemini.isAiSpeaking}
+                isUserSpeaking={gemini.isUserSpeaking}
+                onEnd={handleEndCall}
+                onMinimize={handleMinimize}
+                elapsedSeconds={callElapsed}
+              />
+            </div>
+
+            {/* Agent text messages — top overlay */}
             <AgentMessageOverlay
-              messages={gemini.agentMessages}
-              onDismiss={handleDismissAgentMessage}
+              messages={visibleAgentMessages}
+              onDismissAll={dismissAllAgentMessages}
             />
-            {/* ── Product vitrine overlay (bottom) ── */}
+
+            {/* Product vitrine — bottom overlay */}
             {gemini.shownProducts && gemini.shownProducts.length > 0 && (
               <ProductVitrine
                 products={gemini.shownProducts}
@@ -408,10 +627,13 @@ export function Chat() {
               />
             )}
           </div>
-        ) : (
+        )}
+
+        {/* ── Chat view (always rendered when not in full call screen) ── */}
+        {(!isCallActive || isCallMinimized) && (
           <>
-            {/* ── Chat messages ── */}
             <div className="flex-1 overflow-y-auto chat-bg px-3 py-3 min-h-0">
+              {/* Date label */}
               <div className="flex justify-center mb-3">
                 <span
                   className="text-[11px] px-3 py-1 rounded-full"
@@ -429,12 +651,33 @@ export function Chat() {
                 <ChatBubble key={m.id} role={m.role} text={m.text} />
               ))}
 
+              {/* Agent messages as chat bubbles when call is minimised */}
+              {isCallActive && isCallMinimized && visibleAgentMessages.length > 0 && (
+                <div className="mt-1">
+                  {visibleAgentMessages.map((m) => (
+                    <AgentMsgBubble
+                      key={m.id}
+                      msg={m}
+                      onDismiss={() => dismissAgentMessage(m.id)}
+                    />
+                  ))}
+                </div>
+              )}
+
               {stage === "typing" && <ChatBubble role="bot" text="" isTyping />}
 
               <div ref={bottomRef} />
             </div>
 
-            {/* ── Input ── */}
+            {/* Inline product shelf (when minimised and products available) */}
+            {isCallActive && isCallMinimized && gemini.shownProducts && gemini.shownProducts.length > 0 && (
+              <InlineProductShelf
+                products={gemini.shownProducts}
+                onSelect={handleProductSelect}
+                onClose={gemini.clearProducts}
+              />
+            )}
+
             <ChatInput
               value={inputValue}
               onChange={setInputValue}
