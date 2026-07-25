@@ -103,9 +103,9 @@ export function UserConversas() {
   const [query, setQuery] = useState("");
 
   // Redirect if not authenticated
-  if (!isLoggedIn) {
-    return <Redirect to="/login?next=/conversas" />;
-  }
+  if (!isLoggedIn) return <Redirect to="/login?next=/conversas" />;
+  // If user has a handle, their canonical page is /u/:handle
+  if (user?.handle) return <Redirect to={`/u/${user.handle}`} />;
 
   // Load visited businesses + cross-ref with the API
   useEffect(() => {

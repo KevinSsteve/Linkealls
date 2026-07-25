@@ -94,8 +94,10 @@ export function HomePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
-  // Logged-in users land on their conversations page
-  if (isLoggedIn) return <Redirect to="/conversas" />;
+  // Logged-in users land on their personal profile (or /conversas if no handle yet)
+  if (isLoggedIn) {
+    return user?.handle ? <Redirect to={`/u/${user.handle}`} /> : <Redirect to="/conversas" />;
+  }
 
   const handleLogout = async () => {
     if (token) await userLogout(token).catch(() => {});

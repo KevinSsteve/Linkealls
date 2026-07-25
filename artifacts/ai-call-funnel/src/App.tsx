@@ -1,19 +1,21 @@
 import { useEffect } from "react";
-import { Router, Route, Switch, Redirect } from "wouter";
-import { AuthProvider } from "@/context/AuthContext";
+import { Router, Route, Switch, Redirect, useLocation } from "wouter";
+import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { HomePage } from "@/pages/HomePage";
 import { Chat } from "@/pages/Chat";
 import { Captacao } from "@/pages/Captacao";
 import { Catalogo } from "@/pages/Catalogo";
 import { LoginPage } from "@/pages/LoginPage";
 import { RegisterPage } from "@/pages/RegisterPage";
+import { ChooseHandle } from "@/pages/ChooseHandle";
+import { UserProfile } from "@/pages/UserProfile";
+import { UserConversas } from "@/pages/UserConversas";
 import { Owner } from "@/pages/Owner";
 import { Leads } from "@/pages/owner/Leads";
 import { Assistant } from "@/pages/owner/Assistant";
 import { Campaigns } from "@/pages/owner/Campaigns";
 import { CampaignDetail } from "@/pages/owner/CampaignDetail";
 import { Conversas } from "@/pages/owner/Conversas";
-import { UserConversas } from "@/pages/UserConversas";
 
 // Serve under the artifact base path. With BASE_PATH="/" this is "".
 const routerBase = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -38,6 +40,19 @@ function useVisualViewportHeight() {
       window.removeEventListener("resize", apply);
     };
   }, []);
+}
+
+/**
+ * Smart redirect for legacy /dono/* routes.
+ * If logged in → /u/:handle (or /conversas if no handle).
+ * If not logged in → /login?next=<original-path>.
+ */
+function LegacyOwnerRedirect() {
+  const { isLoggedIn, user } = useAuth();
+  const [location] = useLocation();
+  if (!isLoggedIn) return <Redirect to={`/login?next=${encodeURIComponent(location)}`} />;
+  if (user?.handle) return <Redirect to={`/u/${user.handle}`} />;
+  return <Redirect to="/conversas" />;
 }
 
 export default function App() {
@@ -67,7 +82,11 @@ export default function App() {
                   <Route path="/login"   component={LoginPage} />
                   <Route path="/registar" component={RegisterPage} />
 
-                  {/* User conversations */}
+                  {/* User profile & onboarding */}
+                  <Route path="/escolher-handle" component={ChooseHandle} />
+                  <Route path="/u/:handle" component={UserProfile} />
+
+                  {/* Legacy generic conversations (redirect to /u/:handle if possible) */}
                   <Route path="/conversas" component={UserConversas} />
 
                   {/* ── Multi-tenant routes (/e/:businessSlug/...) ─────────── */}
@@ -80,13 +99,13 @@ export default function App() {
                   <Route path="/e/:businessSlug/captacao" component={Captacao} />
                   <Route path="/e/:businessSlug" component={Chat} />
 
-                  {/* ── Legacy single-tenant routes → redirect to home ──────── */}
-                  <Route path="/dono/leads"><Redirect to="/" /></Route>
-                  <Route path="/dono/conversas"><Redirect to="/" /></Route>
-                  <Route path="/dono/assistente"><Redirect to="/" /></Route>
-                  <Route path="/dono/campanhas/:id"><Redirect to="/" /></Route>
-                  <Route path="/dono/campanhas"><Redirect to="/" /></Route>
-                  <Route path="/dono"><Redirect to="/" /></Route>
+                  {/* ── Legacy single-tenant /dono/* → smart redirect ──────── */}
+                  <Route path="/dono/leads"><LegacyOwnerRedirect /></Route>
+                  <Route path="/dono/conversas"><LegacyOwnerRedirect /></Route>
+                  <Route path="/dono/assistente"><LegacyOwnerRedirect /></Route>
+                  <Route path="/dono/campanhas/:id"><LegacyOwnerRedirect /></Route>
+                  <Route path="/dono/campanhas"><LegacyOwnerRedirect /></Route>
+                  <Route path="/dono"><LegacyOwnerRedirect /></Route>
 
                   {/* Lead capture legacy */}
                   <Route path="/captacao"><Redirect to="/" /></Route>

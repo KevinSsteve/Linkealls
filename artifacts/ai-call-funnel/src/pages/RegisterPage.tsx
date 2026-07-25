@@ -71,10 +71,10 @@ function Steps({ current }: { current: number }) {
 
 type Step = "name" | "phone" | "pin" | "confirm";
 
-function getSafeNext(): string {
-  const next = new URLSearchParams(window.location.search).get("next") ?? "/";
-  if (!next.startsWith("/") || next.startsWith("//")) return "/";
-  return next;
+function getSafeNext(handle: string | null): string {
+  const next = new URLSearchParams(window.location.search).get("next");
+  if (next && next.startsWith("/") && !next.startsWith("//")) return next;
+  return handle ? `/u/${handle}` : "/escolher-handle";
 }
 
 export function RegisterPage() {
@@ -129,7 +129,7 @@ export function RegisterPage() {
       try {
         const { user, token } = await userRegister({ phone, name: name.trim(), pin });
         login(user, token);
-        nav(getSafeNext());
+        nav(getSafeNext(user.handle ?? null));
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : "Erro ao criar conta");
         setConfirm(""); setPin(""); setStep("pin");

@@ -1,10 +1,12 @@
 /**
  * User authentication routes — phone + PIN, no SMS verification.
  *
- * POST /user-auth/register  { phone, name, pin }  → { user, token }
- * POST /user-auth/login     { phone, pin }         → { user, token }
- * GET  /user-auth/me                               → { user }          (bearer token)
- * POST /user-auth/logout                           → 200               (bearer token)
+ * POST /user-auth/register          { phone, name, pin }  → { user, token }
+ * POST /user-auth/login             { phone, pin }         → { user, token }
+ * GET  /user-auth/me                                       → { user }          (bearer)
+ * POST /user-auth/logout                                   → 200               (bearer)
+ * GET  /user-auth/handle/check?handle=xxx                  → { available }     (public)
+ * PUT  /user-auth/handle            { handle }             → { user }          (bearer)
  */
 import { Router } from "express";
 import { createHash, randomUUID } from "crypto";
@@ -22,7 +24,6 @@ function hashPin(pin: string) {
 }
 
 function normalisePhone(raw: string) {
-  // strip spaces / dashes, ensure +244 prefix
   const digits = raw.replace(/\D/g, "");
   if (digits.startsWith("244")) return `+${digits}`;
   if (digits.startsWith("9") && digits.length === 9) return `+244${digits}`;
@@ -32,6 +33,12 @@ function normalisePhone(raw: string) {
 function bearerToken(req: { headers: { authorization?: string } }) {
   const h = req.headers.authorization ?? "";
   return h.startsWith("Bearer ") ? h.slice(7) : null;
+}
+
+const HANDLE_RE = /^[a-z0-9-]{3,30}$/;
+
+function normaliseHandle(raw: string) {
+  return raw.trim().toLowerCase();
 }
 
 // ─── register ───────────────────────────────────────────────────────────────
@@ -52,7 +59,6 @@ router.post("/user-auth/register", async (req, res) => {
   const phone = normalisePhone(parse.data.phone);
 
   try {
-    // check duplicate
     const existing = await db.select({ id: usersTable.id })
       .from(usersTable).where(eq(usersTable.phone, phone)).limit(1);
     if (existing.length > 0) {
@@ -66,7 +72,10 @@ router.post("/user-auth/register", async (req, res) => {
       name,
       pinHash:      hashPin(pin),
       sessionToken: token,
-    }).returning({ id: usersTable.id, phone: usersTable.phone, name: usersTable.name });
+    }).returning({
+      id: usersTable.id, phone: usersTable.phone,
+      name: usersTable.name, handle: usersTable.handle,
+    });
 
     res.status(201).json({ user, token });
   } catch (err) {
@@ -106,7 +115,12 @@ router.post("/user-auth/login", async (req, res) => {
       .where(eq(usersTable.id, rows[0]!.id));
 
     res.json({
-      user:  { id: rows[0]!.id, phone: rows[0]!.phone, name: rows[0]!.name },
+      user: {
+        id:     rows[0]!.id,
+        phone:  rows[0]!.phone,
+        name:   rows[0]!.name,
+        handle: rows[0]!.handle ?? null,
+      },
       token,
     });
   } catch (err) {
@@ -122,11 +136,13 @@ router.get("/user-auth/me", async (req, res) => {
   if (!token) { res.status(401).json({ error: "Sem autorização" }); return; }
 
   try {
-    const rows = await db.select({ id: usersTable.id, phone: usersTable.phone, name: usersTable.name })
-      .from(usersTable).where(eq(usersTable.sessionToken, token)).limit(1);
+    const rows = await db.select({
+      id: usersTable.id, phone: usersTable.phone,
+      name: usersTable.name, handle: usersTable.handle,
+    }).from(usersTable).where(eq(usersTable.sessionToken, token)).limit(1);
 
     if (rows.length === 0) { res.status(401).json({ error: "Sessão inválida" }); return; }
-    res.json({ user: rows[0] });
+    res.json({ user: { ...rows[0]!, handle: rows[0]!.handle ?? null } });
   } catch (err) {
     logger.error({ err }, "me failed");
     res.status(500).json({ error: "Erro interno" });
@@ -144,6 +160,75 @@ router.post("/user-auth/logout", async (req, res) => {
     } catch { /* ignore */ }
   }
   res.json({ ok: true });
+});
+
+// ─── handle check (public) ──────────────────────────────────────────────────
+
+router.get("/user-auth/handle/check", async (req, res) => {
+  const raw = (req.query.handle as string | undefined) ?? "";
+  const handle = normaliseHandle(raw);
+
+  if (!HANDLE_RE.test(handle)) {
+    res.json({ available: false, reason: "Formato inválido (3-30 letras, números ou hífens)" });
+    return;
+  }
+
+  try {
+    const rows = await db.select({ id: usersTable.id })
+      .from(usersTable).where(eq(usersTable.handle, handle)).limit(1);
+    res.json({ available: rows.length === 0 });
+  } catch (err) {
+    logger.error({ err }, "handle check failed");
+    res.status(500).json({ error: "Erro interno" });
+  }
+});
+
+// ─── set / update handle (authenticated) ────────────────────────────────────
+
+const handleSchema = z.object({
+  handle: z.string().min(3).max(30).regex(/^[a-z0-9-]+$/, "Apenas letras minúsculas, números e hífens"),
+});
+
+router.put("/user-auth/handle", async (req, res) => {
+  const token = bearerToken(req);
+  if (!token) { res.status(401).json({ error: "Sem autorização" }); return; }
+
+  const parse = handleSchema.safeParse({
+    handle: normaliseHandle((req.body as { handle?: string }).handle ?? ""),
+  });
+  if (!parse.success) {
+    res.status(400).json({ error: parse.error.errors[0]?.message ?? "Handle inválido" });
+    return;
+  }
+  const handle = parse.data.handle;
+
+  try {
+    // Verify session
+    const rows = await db.select({ id: usersTable.id })
+      .from(usersTable).where(eq(usersTable.sessionToken, token)).limit(1);
+    if (rows.length === 0) { res.status(401).json({ error: "Sessão inválida" }); return; }
+
+    // Check uniqueness
+    const taken = await db.select({ id: usersTable.id })
+      .from(usersTable).where(eq(usersTable.handle, handle)).limit(1);
+    if (taken.length > 0 && taken[0]!.id !== rows[0]!.id) {
+      res.status(409).json({ error: "Este handle já está a ser usado" });
+      return;
+    }
+
+    const [updated] = await db.update(usersTable)
+      .set({ handle })
+      .where(eq(usersTable.id, rows[0]!.id))
+      .returning({
+        id: usersTable.id, phone: usersTable.phone,
+        name: usersTable.name, handle: usersTable.handle,
+      });
+
+    res.json({ user: { ...updated!, handle: updated!.handle ?? null } });
+  } catch (err) {
+    logger.error({ err }, "set handle failed");
+    res.status(500).json({ error: "Erro ao guardar handle" });
+  }
 });
 
 export default router;

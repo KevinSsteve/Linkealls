@@ -16,6 +16,7 @@ export interface AuthUser {
   id: string;
   phone: string;
   name: string;
+  handle: string | null;
 }
 
 export interface AuthResponse {
@@ -47,6 +48,33 @@ export async function userLogout(token: string) {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
   });
+}
+
+export async function checkHandleAvailability(
+  handle: string,
+): Promise<{ available: boolean; reason?: string }> {
+  const res = await fetch(
+    `${API_BASE}/user-auth/handle/check?handle=${encodeURIComponent(handle)}`,
+  );
+  if (!res.ok) throw new Error(`Erro do servidor (${res.status})`);
+  return res.json() as Promise<{ available: boolean; reason?: string }>;
+}
+
+export async function setUserHandle(
+  handle: string,
+  token: string,
+): Promise<{ user: AuthUser }> {
+  const res = await fetch(`${API_BASE}/user-auth/handle`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ handle }),
+  });
+  const body = (await res.json()) as { user?: AuthUser; error?: string };
+  if (!res.ok) throw new Error(body.error ?? "Erro ao guardar handle");
+  return body as { user: AuthUser };
 }
 
 // ─── Business Profile ────────────────────────────────────────────────────────

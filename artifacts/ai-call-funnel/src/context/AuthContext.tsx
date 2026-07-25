@@ -1,6 +1,6 @@
 /**
  * Lightweight user auth context.
- * Token is stored in localStorage so it survives page reloads.
+ * Token + user info are stored in localStorage so they survive page reloads.
  */
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
 
@@ -8,6 +8,7 @@ export interface AuthUser {
   id: string;
   phone: string;
   name: string;
+  handle: string | null;
 }
 
 interface AuthState {
@@ -16,8 +17,9 @@ interface AuthState {
 }
 
 interface AuthContextValue extends AuthState {
-  login:  (user: AuthUser, token: string) => void;
-  logout: () => void;
+  login:     (user: AuthUser, token: string) => void;
+  logout:    () => void;
+  setHandle: (handle: string) => void;
   isLoggedIn: boolean;
 }
 
@@ -50,8 +52,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setState({ user: null, token: null });
   }, []);
 
+  /** Update handle in-place without re-login. */
+  const setHandle = useCallback((handle: string) => {
+    setState((prev) => {
+      if (!prev.user) return prev;
+      const updated = { ...prev.user, handle };
+      localStorage.setItem(KEY_USER, JSON.stringify(updated));
+      return { ...prev, user: updated };
+    });
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ ...state, login, logout, isLoggedIn: !!state.user }}>
+    <AuthContext.Provider value={{ ...state, login, logout, setHandle, isLoggedIn: !!state.user }}>
       {children}
     </AuthContext.Provider>
   );

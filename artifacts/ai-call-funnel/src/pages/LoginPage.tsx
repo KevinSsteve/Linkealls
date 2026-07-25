@@ -42,10 +42,11 @@ function Keypad({ onKey }: { onKey: (k: string) => void }) {
   );
 }
 
-function getSafeNext(): string {
-  const next = new URLSearchParams(window.location.search).get("next") ?? "/";
-  if (!next.startsWith("/") || next.startsWith("//")) return "/";
-  return next;
+function getSafeNext(handle: string | null): string {
+  const next = new URLSearchParams(window.location.search).get("next");
+  if (next && next.startsWith("/") && !next.startsWith("//")) return next;
+  // Default: go to user profile if handle set, else choose-handle onboarding
+  return handle ? `/u/${handle}` : "/escolher-handle";
 }
 
 export function LoginPage() {
@@ -75,7 +76,7 @@ export function LoginPage() {
     try {
       const { user, token } = await userLogin({ phone, pin: next });
       login(user, token);
-      nav(getSafeNext());
+      nav(getSafeNext(user.handle ?? null));
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Número ou PIN incorretos");
       setPin("");
