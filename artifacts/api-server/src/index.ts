@@ -1,6 +1,7 @@
 import http from "http";
 import app from "./app.js";
 import { setupCallFunnelWebSocket } from "./routes/callFunnelWs.js";
+import { startDailySummaryCron } from "./services/notifications.js";
 import { logger } from "./lib/logger.js";
 
 const rawPort = process.env["PORT"];
@@ -28,4 +29,5 @@ server.on("error", (err) => {
 
 server.listen(port, () => {
   logger.info({ port }, "Server listening");
+  startDailySummaryCron();
 });

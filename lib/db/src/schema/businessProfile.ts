@@ -41,6 +41,8 @@ export const businessProfilesTable = pgTable("business_profiles", {
   lastAnalyzedAt: timestamp("last_analyzed_at"),
   /** SHA-256 hex of the owner PIN (null = no PIN set yet). */
   ownerPin: text("owner_pin"),
+  /** Web Push subscription objects (one per browser/device). */
+  pushSubscriptions: jsonb("push_subscriptions").$type<PushSubscriptionJSON[]>().notNull().default([]),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });
@@ -80,3 +82,10 @@ export const updateBusinessProfileSchema = z.object({
 export type InsertBusinessProfile = z.infer<typeof insertBusinessProfileSchema>;
 export type UpdateBusinessProfile = z.infer<typeof updateBusinessProfileSchema>;
 export type BusinessProfile = typeof businessProfilesTable.$inferSelect;
+
+/** Minimal Web Push subscription shape stored in the DB. */
+export interface PushSubscriptionJSON {
+  endpoint: string;
+  expirationTime?: number | null;
+  keys: { p256dh: string; auth: string };
+}

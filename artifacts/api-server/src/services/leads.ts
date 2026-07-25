@@ -12,6 +12,7 @@ import {
 import { eq, desc, sql } from "drizzle-orm";
 import { logger } from "../lib/logger.js";
 import { getOrCreateProfile } from "./businessProfile.js";
+import { sendPushToOwner } from "./notifications.js";
 
 const EXTRACTION_MODEL = "gemini-3-flash-preview";
 const SCORE_QUALIFY_THRESHOLD = 60;
@@ -248,9 +249,19 @@ Responde APENAS com JSON válido, sem texto adicional.`;
 
     logger.info({ leadId, score: extracted.score, state: newState }, "Lead extraction complete");
 
-    // Notify SSE subscribers when newly qualified
+    // Notify SSE subscribers and push when newly qualified
     if (newState === "qualificado") {
       notifyLeadQualified(leadId);
+      const name = extracted.qualificationData.name;
+      const interest = extracted.qualificationData.interest;
+      void sendPushToOwner({
+        title: "🔔 Lead qualificado!",
+        body: name
+          ? `${name}${interest ? ` — ${interest.slice(0, 80)}` : ""}`
+          : `Score ${extracted.score}/100 — Novo lead qualificado.`,
+        tag: `lead-${leadId}`,
+        url: `/dono/conversas`,
+      });
     }
   } catch (err) {
     logger.error({ err, leadId }, "Post-call lead extraction failed");

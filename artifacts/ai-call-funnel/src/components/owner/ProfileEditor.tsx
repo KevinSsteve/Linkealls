@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from "react";
-import { Plus, Trash2, Save, RefreshCw, Loader2, Camera, X, Phone } from "lucide-react";
+import { Plus, Trash2, Save, RefreshCw, Loader2, Camera, X, Phone, Bell, BellOff, BellRing } from "lucide-react";
+import { useNotifications } from "../../hooks/useNotifications";
 import type { BusinessProfile, ProfileDraft, Offering, FaqItem } from "../../lib/api";
 
 const inputCls =
@@ -15,6 +16,53 @@ interface Props {
   reanalyzing: boolean;
   onSave: (fields: ProfileDraft & { websiteUrl?: string | null }) => void;
   onReanalyze: (url: string) => void;
+}
+
+function NotificationsSection() {
+  const { status, subscribe, unsubscribe } = useNotifications();
+
+  if (status === "unsupported") return null;
+
+  const isLoading = status === "loading";
+  const isSubscribed = status === "subscribed";
+  const isDenied = status === "denied";
+
+  return (
+    <div className={sectionCls}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-slate-200">Notificações no telemóvel</h3>
+          <p className="text-[13px] text-slate-500 mt-0.5">
+            {isDenied
+              ? "Bloqueaste as notificações neste browser. Activa nas definições do browser."
+              : isSubscribed
+              ? "Vais receber alertas quando chegar um lead qualificado e o resumo diário às 08h00."
+              : "Recebe um alerta quando chegar um lead qualificado e um resumo diário às 08h00."}
+          </p>
+        </div>
+        {!isDenied && (
+          <button
+            onClick={isSubscribed ? unsubscribe : subscribe}
+            disabled={isLoading}
+            className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium border transition-colors disabled:opacity-50 ${
+              isSubscribed
+                ? "bg-[#00A884]/10 text-[#00A884] border-[#00A884]/20 hover:bg-red-500/10 hover:text-red-400 hover:border-red-400/20"
+                : "bg-white/[0.06] text-slate-300 border-white/10 hover:bg-white/10"
+            }`}
+          >
+            {isLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : isSubscribed ? (
+              <><BellRing className="w-4 h-4" /> Activado</>
+            ) : (
+              <><Bell className="w-4 h-4" /> Activar</>
+            )}
+          </button>
+        )}
+        {isDenied && <BellOff className="w-5 h-5 text-slate-600 shrink-0 mt-0.5" />}
+      </div>
+    </div>
+  );
 }
 
 export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onReanalyze }: Props) {
@@ -136,6 +184,9 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
           </div>
         ))}
       </div>
+
+      {/* Push notifications */}
+      <NotificationsSection />
 
       {/* Test call */}
       <div className={sectionCls}>
