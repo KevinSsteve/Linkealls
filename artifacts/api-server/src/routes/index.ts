@@ -10,12 +10,16 @@ import storageRouter from "./storage";
 import notificationsRouter from "./notifications";
 import catalogRouter from "./catalog";
 import { createBusinessScopedRouter } from "./businessScoped.js";
+import businessesRouter from "./businesses.js";
 
 const router: IRouter = Router();
 
 // ── Multi-tenant scoped routes (new) ─────────────────────────────────────────
 // All business-specific operations available at /api/b/:businessSlug/...
 router.use("/b/:businessSlug", createBusinessScopedRouter());
+
+// ── Platform-level public routes ─────────────────────────────────────────────
+router.use(businessesRouter);
 
 // ── Legacy single-tenant routes (backward compat) ─────────────────────────────
 router.use(healthRouter);

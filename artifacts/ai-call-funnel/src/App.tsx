@@ -1,6 +1,7 @@
 import { useEffect } from "react";
-import { Router, Route, Switch, Redirect } from "wouter";
+import { Router, Route, Switch } from "wouter";
 import { AuthProvider } from "@/context/AuthContext";
+import { HomePage } from "@/pages/HomePage";
 import { Chat } from "@/pages/Chat";
 import { Captacao } from "@/pages/Captacao";
 import { Catalogo } from "@/pages/Catalogo";
@@ -14,7 +15,7 @@ import { CampaignDetail } from "@/pages/owner/CampaignDetail";
 import { Conversas } from "@/pages/owner/Conversas";
 import { OwnerGate } from "@/components/owner/OwnerGate";
 
-// Serve under the artifact base path (e.g. /ai-call-funnel) in dev and prod.
+// Serve under the artifact base path. With BASE_PATH="/" this is "".
 const routerBase = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 /**
@@ -46,14 +47,15 @@ export default function App() {
     <AuthProvider>
       <Router base={routerBase}>
         <Switch>
-          {/* ── Public catalog (light theme, no dark wrapper) ────────────────── */}
-          {/* Multi-tenant: /e/:businessSlug/catalogo */}
+          {/* ── Linkealls home — standalone light-on-dark layout ────────────── */}
+          <Route path="/" component={HomePage} />
+
+          {/* ── Public catalog (no dark full-screen wrapper) ─────────────────── */}
           <Route path="/e/:businessSlug/catalogo" component={Catalogo} />
-          {/* Legacy catalog routes */}
           <Route path="/catalogo" component={Catalogo} />
           <Route path="/c/:slug" component={Catalogo} />
 
-          {/* ── All other routes: dark wrapper ──────────────────────────────── */}
+          {/* ── All other routes: full-screen dark wrapper ───────────────────── */}
           <Route>
             {() => (
               <div
@@ -97,11 +99,6 @@ export default function App() {
 
                   {/* Lead capture */}
                   <Route path="/captacao" component={Captacao} />
-
-                  {/* Default: redirect to electropanga chat */}
-                  <Route path="/">
-                    {() => <Redirect to="/e/electropanga" />}
-                  </Route>
 
                   {/* Fallback: default chat */}
                   <Route component={Chat} />

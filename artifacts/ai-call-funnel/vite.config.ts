@@ -89,6 +89,15 @@ export default defineConfig({
         ws: true,
         changeOrigin: true,
       },
+      // SEO / GEO endpoints served directly by the API server
+      '/sitemap.xml': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
+      '/robots.txt': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
     },
   },
   preview: {

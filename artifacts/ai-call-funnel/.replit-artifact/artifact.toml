@@ -1,13 +1,13 @@
 kind = "web"
-previewPath = "/ai-call-funnel/"
-title = "AI Call Funnel"
+previewPath = "/"
+title = "Linkealls"
 version = "1.0.0"
 id = "artifacts/ai-call-funnel"
 router = "path"
 
 [[services]]
 name = "web"
-paths = [ "/ai-call-funnel/" ]
+paths = [ "/" ]
 localPort = 18518
 
 [services.development]
@@ -24,4 +24,4 @@ to = "/index.html"
 
 [services.env]
 PORT = "18518"
-BASE_PATH = "/ai-call-funnel/"
+BASE_PATH = "/"
