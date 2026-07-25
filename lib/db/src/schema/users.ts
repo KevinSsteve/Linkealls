@@ -5,6 +5,7 @@ export const usersTable = pgTable("users", {
   phone:        text("phone").notNull().unique(),   // stored as +244XXXXXXXXX
   name:         text("name").notNull(),
   handle:       text("handle").unique(),             // personalised URL slug, e.g. "joao"
+  ownedSlug:    text("owned_slug"),                  // slug of the business this user owns, e.g. "electropanga"
   pinHash:      text("pin_hash").notNull(),          // SHA-256 hex of the 4-digit PIN
   sessionToken: text("session_token"),               // opaque token handed to client
   createdAt:    timestamp("created_at").defaultNow().notNull(),

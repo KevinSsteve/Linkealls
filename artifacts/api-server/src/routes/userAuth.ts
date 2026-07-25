@@ -1,18 +1,19 @@
 /**
  * User authentication routes — phone + PIN, no SMS verification.
  *
- * POST /user-auth/register          { phone, name, pin }  → { user, token }
- * POST /user-auth/login             { phone, pin }         → { user, token }
- * GET  /user-auth/me                                       → { user }          (bearer)
- * POST /user-auth/logout                                   → 200               (bearer)
- * GET  /user-auth/handle/check?handle=xxx                  → { available }     (public)
- * PUT  /user-auth/handle            { handle }             → { user }          (bearer)
+ * POST /user-auth/register               { phone, name, pin }      → { user, token }
+ * POST /user-auth/login                  { phone, pin }             → { user, token }
+ * GET  /user-auth/me                                                 → { user }   (bearer)
+ * POST /user-auth/logout                                             → 200        (bearer)
+ * GET  /user-auth/handle/check?handle=                              → { available }
+ * PUT  /user-auth/handle                 { handle }                 → { user }   (bearer)
+ * PUT  /user-auth/owned-slug             { slug, pin }              → { user }   (bearer)
  */
 import { Router } from "express";
 import { createHash, randomUUID } from "crypto";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { db, usersTable } from "@workspace/db";
+import { db, usersTable, businessProfilesTable } from "@workspace/db";
 import { logger } from "../lib/logger.js";
 
 const router = Router();
@@ -41,6 +42,25 @@ function normaliseHandle(raw: string) {
   return raw.trim().toLowerCase();
 }
 
+/** Columns returned in every user response (no sensitive fields). */
+const USER_COLS = {
+  id:        usersTable.id,
+  phone:     usersTable.phone,
+  name:      usersTable.name,
+  handle:    usersTable.handle,
+  ownedSlug: usersTable.ownedSlug,
+} as const;
+
+function toUserDTO(row: { id: string; phone: string; name: string; handle: string | null; ownedSlug: string | null }) {
+  return {
+    id:        row.id,
+    phone:     row.phone,
+    name:      row.name,
+    handle:    row.handle   ?? null,
+    ownedSlug: row.ownedSlug ?? null,
+  };
+}
+
 // ─── register ───────────────────────────────────────────────────────────────
 
 const registerSchema = z.object({
@@ -67,17 +87,14 @@ router.post("/user-auth/register", async (req, res) => {
     }
 
     const token = randomUUID();
-    const [user] = await db.insert(usersTable).values({
+    const [row] = await db.insert(usersTable).values({
       phone,
       name,
       pinHash:      hashPin(pin),
       sessionToken: token,
-    }).returning({
-      id: usersTable.id, phone: usersTable.phone,
-      name: usersTable.name, handle: usersTable.handle,
-    });
+    }).returning(USER_COLS);
 
-    res.status(201).json({ user, token });
+    res.status(201).json({ user: toUserDTO(row!), token });
   } catch (err) {
     logger.error({ err }, "register failed");
     res.status(500).json({ error: "Erro ao criar conta" });
@@ -114,15 +131,7 @@ router.post("/user-auth/login", async (req, res) => {
       .set({ sessionToken: token })
       .where(eq(usersTable.id, rows[0]!.id));
 
-    res.json({
-      user: {
-        id:     rows[0]!.id,
-        phone:  rows[0]!.phone,
-        name:   rows[0]!.name,
-        handle: rows[0]!.handle ?? null,
-      },
-      token,
-    });
+    res.json({ user: toUserDTO(rows[0]!), token });
   } catch (err) {
     logger.error({ err }, "login failed");
     res.status(500).json({ error: "Erro ao fazer login" });
@@ -136,13 +145,11 @@ router.get("/user-auth/me", async (req, res) => {
   if (!token) { res.status(401).json({ error: "Sem autorização" }); return; }
 
   try {
-    const rows = await db.select({
-      id: usersTable.id, phone: usersTable.phone,
-      name: usersTable.name, handle: usersTable.handle,
-    }).from(usersTable).where(eq(usersTable.sessionToken, token)).limit(1);
+    const rows = await db.select(USER_COLS)
+      .from(usersTable).where(eq(usersTable.sessionToken, token)).limit(1);
 
     if (rows.length === 0) { res.status(401).json({ error: "Sessão inválida" }); return; }
-    res.json({ user: { ...rows[0]!, handle: rows[0]!.handle ?? null } });
+    res.json({ user: toUserDTO(rows[0]!) });
   } catch (err) {
     logger.error({ err }, "me failed");
     res.status(500).json({ error: "Erro interno" });
@@ -203,12 +210,10 @@ router.put("/user-auth/handle", async (req, res) => {
   const handle = parse.data.handle;
 
   try {
-    // Verify session
     const rows = await db.select({ id: usersTable.id })
       .from(usersTable).where(eq(usersTable.sessionToken, token)).limit(1);
     if (rows.length === 0) { res.status(401).json({ error: "Sessão inválida" }); return; }
 
-    // Check uniqueness
     const taken = await db.select({ id: usersTable.id })
       .from(usersTable).where(eq(usersTable.handle, handle)).limit(1);
     if (taken.length > 0 && taken[0]!.id !== rows[0]!.id) {
@@ -219,15 +224,68 @@ router.put("/user-auth/handle", async (req, res) => {
     const [updated] = await db.update(usersTable)
       .set({ handle })
       .where(eq(usersTable.id, rows[0]!.id))
-      .returning({
-        id: usersTable.id, phone: usersTable.phone,
-        name: usersTable.name, handle: usersTable.handle,
-      });
+      .returning(USER_COLS);
 
-    res.json({ user: { ...updated!, handle: updated!.handle ?? null } });
+    res.json({ user: toUserDTO(updated!) });
   } catch (err) {
     logger.error({ err }, "set handle failed");
     res.status(500).json({ error: "Erro ao guardar handle" });
+  }
+});
+
+// ─── link business (authenticated) ─────────────────────────────────────────
+//
+// Verifies that the user knows the business owner PIN, then saves owned_slug.
+
+const linkBusinessSchema = z.object({
+  slug: z.string().min(1).max(80),
+  pin:  z.string().length(4).regex(/^\d{4}$/),
+});
+
+router.put("/user-auth/owned-slug", async (req, res) => {
+  const token = bearerToken(req);
+  if (!token) { res.status(401).json({ error: "Sem autorização" }); return; }
+
+  const parse = linkBusinessSchema.safeParse(req.body);
+  if (!parse.success) {
+    res.status(400).json({ error: "Slug e PIN são obrigatórios" });
+    return;
+  }
+  const { slug, pin } = parse.data;
+
+  try {
+    // Verify user session
+    const userRows = await db.select({ id: usersTable.id })
+      .from(usersTable).where(eq(usersTable.sessionToken, token)).limit(1);
+    if (userRows.length === 0) { res.status(401).json({ error: "Sessão inválida" }); return; }
+
+    // Find business by slug
+    const bizRows = await db.select({ id: businessProfilesTable.id, ownerPin: businessProfilesTable.ownerPin })
+      .from(businessProfilesTable)
+      .where(eq(businessProfilesTable.slug, slug))
+      .limit(1);
+
+    if (bizRows.length === 0) {
+      res.status(404).json({ error: "Negócio não encontrado. Verifica o slug." });
+      return;
+    }
+
+    const biz = bizRows[0]!;
+    if (!biz.ownerPin || biz.ownerPin !== hashPin(pin)) {
+      res.status(401).json({ error: "PIN do negócio incorreto." });
+      return;
+    }
+
+    // Save owned_slug
+    const [updated] = await db.update(usersTable)
+      .set({ ownedSlug: slug })
+      .where(eq(usersTable.id, userRows[0]!.id))
+      .returning(USER_COLS);
+
+    res.json({ user: toUserDTO(updated!) });
+  } catch (err) {
+    logger.error({ err }, "link business failed");
+    res.status(500).json({ error: "Erro ao vincular negócio" });
   }
 });
 

@@ -2,17 +2,18 @@
  * UserProfile — página pessoal do utilizador em /u/:handle.
  *
  * - Se o :handle bate com o utilizador autenticado → mostra perfil privado
- *   (conversas recentes + botão de edição de handle).
+ *   (conversas recentes + barra de navegação para o negócio, ou card de vinculação).
  * - Qualquer outro visitante vê um perfil público simples.
  */
 import { useState, useEffect, useRef } from "react";
-import { Link, useParams, Redirect } from "wouter";
+import { Link, useParams, Redirect, useLocation } from "wouter";
 import {
   MessageCircle, Building2, LogOut, ChevronRight,
   Search, Zap, Pencil, CheckCircle2, XCircle, Loader2, AtSign,
+  Store, MessageSquare, Megaphone, Link2, Eye, EyeOff,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { userLogout, checkHandleAvailability, setUserHandle } from "@/lib/api";
+import { userLogout, checkHandleAvailability, setUserHandle, linkBusiness } from "@/lib/api";
 import { getVisited, type VisitedBusiness } from "@/lib/visitedBusinesses";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -54,6 +55,149 @@ function formatTime(iso: string) {
 
 const HANDLE_RE = /^[a-z0-9-]{3,30}$/;
 type CheckState = "idle" | "checking" | "available" | "taken" | "invalid";
+
+// ─── Owner footer nav ──────────────────────────────────────────────────────
+
+const OWNER_TABS = [
+  { subPath: "",           icon: Store,         label: "Perfil",     exact: true  },
+  { subPath: "/conversas", icon: MessageSquare, label: "Conversas",  exact: false },
+  { subPath: "/assistente",icon: Zap,           label: "IA",         exact: false },
+  { subPath: "/campanhas", icon: Megaphone,     label: "Campanhas",  exact: false },
+] as const;
+
+function OwnerFooterNav({ slug }: { slug: string }) {
+  const [location] = useLocation();
+  const base = `/e/${slug}/dono`;
+
+  return (
+    <nav
+      className="shrink-0 flex items-stretch"
+      style={{
+        background: "#0A1420",
+        borderTop: "1px solid rgba(255,255,255,0.07)",
+        paddingBottom: "env(safe-area-inset-bottom, 0)",
+      }}
+    >
+      {OWNER_TABS.map(({ subPath, icon: Icon, label, exact }) => {
+        const href   = `${base}${subPath}`;
+        const active = exact
+          ? location === href
+          : location === href || location.startsWith(href + "/");
+        return (
+          <Link key={href} href={href}
+            className={`flex-1 flex flex-col items-center justify-center gap-[3px] py-2.5 transition-colors select-none ${
+              active ? "text-[#00BFA5]" : "text-[#3E576F] hover:text-[#7A9BB5]"
+            }`}
+          >
+            <Icon size={20} strokeWidth={active ? 2.5 : 1.8} />
+            <span className="text-[10px] font-medium tracking-wide leading-none">{label}</span>
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
+// ─── Link business card ────────────────────────────────────────────────────
+
+function LinkBusinessCard({ token, onLinked }: {
+  token: string;
+  onLinked: (slug: string) => void;
+}) {
+  const [open, setOpen]        = useState(false);
+  const [slug, setSlug]        = useState("");
+  const [pin, setPin]          = useState("");
+  const [showPin, setShowPin]  = useState(false);
+  const [loading, setLoading]  = useState(false);
+  const [error, setError]      = useState("");
+
+  async function submit() {
+    if (!slug.trim() || pin.length !== 4) return;
+    setLoading(true); setError("");
+    try {
+      const { user } = await linkBusiness(slug.trim().toLowerCase(), pin, token);
+      onLinked(user.ownedSlug ?? slug.trim().toLowerCase());
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Erro ao vincular");
+    } finally { setLoading(false); }
+  }
+
+  if (!open) {
+    return (
+      <div className="shrink-0 px-4 py-3"
+        style={{ borderTop: "1px solid rgba(255,255,255,0.05)", background: "#0D1826" }}>
+        <button
+          onClick={() => setOpen(true)}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[14px] font-medium"
+          style={{ background: "#141E2E", color: "#7B96B2", border: "1px solid rgba(255,255,255,0.06)" }}
+        >
+          <Link2 size={14} /> Vincular o meu negócio
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="shrink-0 px-4 py-4"
+      style={{ borderTop: "1px solid rgba(255,255,255,0.07)", background: "#0D1826" }}>
+      <p className="text-[13px] font-semibold text-[#EAF0F7] mb-3 flex items-center gap-2">
+        <Link2 size={14} style={{ color: "#00A884" }} /> Vincular negócio
+      </p>
+
+      {/* Slug input */}
+      <div className="flex items-center gap-2 rounded-xl px-3 mb-2"
+        style={{ background: "#141E2E", border: "1px solid rgba(255,255,255,0.08)", height: 44 }}>
+        <Building2 size={14} style={{ color: "#4A6B80" }} />
+        <input
+          type="text" value={slug} onChange={(e) => setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g,""))}
+          placeholder="slug-do-negocio" autoFocus
+          className="flex-1 bg-transparent text-[14px] outline-none placeholder-[#3E576F]"
+          style={{ color: "#EAF0F7", caretColor: "#00A884" }}
+          onKeyDown={(e) => e.key === "Enter" && submit()}
+        />
+      </div>
+
+      {/* PIN input */}
+      <div className="flex items-center gap-2 rounded-xl px-3 mb-3"
+        style={{ background: "#141E2E", border: "1px solid rgba(255,255,255,0.08)", height: 44 }}>
+        <span className="text-[13px] font-mono" style={{ color: "#4A6B80" }}>PIN</span>
+        <input
+          type={showPin ? "text" : "password"} value={pin}
+          onChange={(e) => setPin(e.target.value.replace(/\D/g,"").slice(0,4))}
+          placeholder="····" maxLength={4} inputMode="numeric"
+          className="flex-1 bg-transparent text-[14px] outline-none placeholder-[#3E576F] tracking-widest"
+          style={{ color: "#EAF0F7", caretColor: "#00A884" }}
+          onKeyDown={(e) => e.key === "Enter" && submit()}
+        />
+        <button onClick={() => setShowPin(!showPin)} className="shrink-0 p-1">
+          {showPin
+            ? <EyeOff size={14} style={{ color: "#4A6B80" }} />
+            : <Eye    size={14} style={{ color: "#4A6B80" }} />}
+        </button>
+      </div>
+
+      {error && <p className="text-[12px] mb-2 px-1" style={{ color: "#F87171" }}>{error}</p>}
+
+      <div className="flex gap-2">
+        <button onClick={submit}
+          disabled={!slug.trim() || pin.length !== 4 || loading}
+          className="flex-1 py-2.5 rounded-xl font-semibold text-[14px] transition-opacity"
+          style={{
+            background: "#00A884", color: "#050D14",
+            opacity: !slug.trim() || pin.length !== 4 || loading ? 0.4 : 1,
+          }}
+        >
+          {loading ? "A verificar…" : "Vincular"}
+        </button>
+        <button onClick={() => { setOpen(false); setError(""); }}
+          className="px-4 py-2.5 rounded-xl text-[13px]"
+          style={{ background: "#141E2E", color: "#7B96B2" }}>
+          Cancelar
+        </button>
+      </div>
+    </div>
+  );
+}
 
 // ─── Sub-components ────────────────────────────────────────────────────────
 
@@ -168,20 +312,24 @@ function HandleEditor({ currentHandle, token, onSaved }: {
 // ─── Private profile (owner view) ─────────────────────────────────────────
 
 function PrivateProfile({ handle }: { handle: string }) {
-  const { user, token, logout, setHandle: ctxSetHandle } = useAuth();
-  const [editing, setEditing]  = useState(false);
+  const { user, token, logout, setHandle: ctxSetHandle, setOwnedSlug: ctxSetOwnedSlug } = useAuth();
+  const [editing, setEditing]       = useState(false);
   const [liveHandle, setLiveHandle] = useState(handle);
-  const [enriched, setEnriched] = useState<{ business: Business; lastAt: string }[]>([]);
-  const [loading, setLoading]  = useState(true);
-  const [query, setQuery]      = useState("");
+  const [ownedSlug, setOwnedSlug]   = useState(user?.ownedSlug ?? null);
+  const [enriched, setEnriched]     = useState<{ business: Business; lastAt: string }[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [query, setQuery]           = useState("");
 
-  // If handle was changed, navigate to new URL without full reload
   function handleSaved(newHandle: string) {
     ctxSetHandle(newHandle);
     setLiveHandle(newHandle);
     setEditing(false);
-    // Update URL without remount
     window.history.replaceState(null, "", `/u/${newHandle}`);
+  }
+
+  function handleLinked(slug: string) {
+    ctxSetOwnedSlug(slug);
+    setOwnedSlug(slug);
   }
 
   useEffect(() => {
@@ -221,7 +369,6 @@ function PrivateProfile({ handle }: { handle: string }) {
       <header className="shrink-0 px-4 py-4"
         style={{ background: "#0D1826", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
         <div className="flex items-start justify-between gap-3">
-          {/* Avatar + name/handle */}
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-full shrink-0 flex items-center justify-center font-bold text-[18px]"
               style={{ background: p.bg, color: p.text }}>
@@ -230,11 +377,7 @@ function PrivateProfile({ handle }: { handle: string }) {
             <div>
               <p className="font-semibold text-[15px] text-[#EAF0F7] leading-tight">{user?.name}</p>
               {!editing ? (
-                <button
-                  onClick={() => setEditing(true)}
-                  className="flex items-center gap-1 mt-0.5"
-                  title="Alterar handle"
-                >
+                <button onClick={() => setEditing(true)} className="flex items-center gap-1 mt-0.5" title="Alterar link">
                   <span className="text-[12px] font-medium" style={{ color: "#00A884" }}>@{liveHandle}</span>
                   <Pencil size={11} style={{ color: "#4A6B80" }} />
                 </button>
@@ -264,8 +407,8 @@ function PrivateProfile({ handle }: { handle: string }) {
         </div>
       )}
 
-      {/* List */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Conversation list */}
+      <div className="flex-1 overflow-y-auto min-h-0">
         {loading ? (
           <div className="py-2">
             {[1,2,3].map((i) => (
@@ -310,17 +453,11 @@ function PrivateProfile({ handle }: { handle: string }) {
         )}
       </div>
 
-      {enriched.length > 0 && (
-        <div className="shrink-0 px-4 py-3"
-          style={{ borderTop: "1px solid rgba(255,255,255,0.05)", background: "#0D1826" }}>
-          <Link href="/">
-            <button className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[14px] font-medium"
-              style={{ background: "#141E2E", color: "#7B96B2", border: "1px solid rgba(255,255,255,0.06)" }}>
-              <Building2 size={14} /> Explorar mais negócios
-            </button>
-          </Link>
-        </div>
-      )}
+      {/* Footer — owner nav OR link-business card */}
+      {ownedSlug
+        ? <OwnerFooterNav slug={ownedSlug} />
+        : <LinkBusinessCard token={token!} onLinked={handleLinked} />
+      }
     </div>
   );
 }
@@ -356,20 +493,15 @@ function PublicProfile({ handle, name }: { handle: string; name: string }) {
 // ─── Main ──────────────────────────────────────────────────────────────────
 
 export function UserProfile() {
-  const params                    = useParams<{ handle?: string }>();
-  const urlHandle                 = (params.handle ?? "").toLowerCase();
-  const { user, isLoggedIn }      = useAuth();
-  const [pubName, setPubName]     = useState<string | null>(null);
-  const [notFound, setNotFound]   = useState(false);
+  const params                      = useParams<{ handle?: string }>();
+  const urlHandle                   = (params.handle ?? "").toLowerCase();
+  const { user, isLoggedIn }        = useAuth();
+  const [pubName, setPubName]       = useState<string | null>(null);
+  const [notFound, setNotFound]     = useState(false);
   const [loadingPub, setLoadingPub] = useState(false);
 
   const isOwn = isLoggedIn && user?.handle?.toLowerCase() === urlHandle;
 
-  // If not the owner, verify the handle actually exists in the DB.
-  // The check endpoint returns:
-  //   { available: true }                   → no such handle → 404
-  //   { available: false, reason: string }  → invalid format  → 404
-  //   { available: false }                  → handle is taken → show public profile
   useEffect(() => {
     if (isOwn || !urlHandle) return;
     setLoadingPub(true);
@@ -379,24 +511,15 @@ export function UserProfile() {
         return r.json() as Promise<{ available: boolean; reason?: string }>;
       })
       .then((data) => {
-        if (data.available || data.reason) {
-          // Either the handle is free (no such user) OR the format is invalid —
-          // in both cases there is no real public profile to show.
-          setNotFound(true);
-        } else {
-          // available === false AND no reason → handle genuinely exists
-          setPubName(urlHandle);
-        }
+        if (data.available || data.reason) setNotFound(true);
+        else setPubName(urlHandle);
       })
       .catch(() => setNotFound(true))
       .finally(() => setLoadingPub(false));
   }, [urlHandle, isOwn]);
 
   if (!urlHandle) return <Redirect to="/" />;
-
-  if (isOwn) {
-    return <PrivateProfile handle={urlHandle} />;
-  }
+  if (isOwn) return <PrivateProfile handle={urlHandle} />;
 
   if (loadingPub) {
     return (
@@ -407,10 +530,6 @@ export function UserProfile() {
   }
 
   if (notFound) return <Redirect to="/" />;
-
-  if (pubName !== null) {
-    return <PublicProfile handle={urlHandle} name={pubName} />;
-  }
-
+  if (pubName !== null) return <PublicProfile handle={urlHandle} name={pubName} />;
   return null;
 }
