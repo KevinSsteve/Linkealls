@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { Redirect } from "wouter";
 import { ChatLayout } from "../components/ChatLayout";
 import { ChatBubble, type BubbleRole } from "../components/ChatBubble";
 import { ChatInput } from "../components/ChatInput";
@@ -383,7 +384,7 @@ export function Chat() {
   const chatMsgsRef = useRef<ChatMessage[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const businessSlug = useBusinessSlug();
-  const gemini = useGeminiLive(leadId, businessSlug);
+  const gemini = useGeminiLive(leadId, businessSlug ?? "");
 
   // Start/stop the shared timer when the call goes active
   useEffect(() => {
@@ -429,7 +430,7 @@ export function Chat() {
 
       let newLeadId: string | null = null;
       try {
-        const { leadId: id } = await businessApi(businessSlug).createLeadSession(
+        const { leadId: id } = await businessApi(businessSlug ?? "").createLeadSession(
           { url: window.location.href },
           chatMsgsRef.current,
         );
@@ -453,7 +454,7 @@ export function Chat() {
       setIsBusy(true);
       setStage("typing");
       try {
-        const { reply } = await businessApi(businessSlug).sendLeadChat(currentLeadId, text);
+        const { reply } = await businessApi(businessSlug ?? "").sendLeadChat(currentLeadId, text);
         addMessage("bot", reply);
       } catch {
         addMessage("bot", "Desculpa, não consegui responder neste momento. Tenta de novo.");
@@ -574,10 +575,13 @@ export function Chat() {
   const canCall = callTriggered && !isBusy;
 
   // ── RENDER ───────────────────────────────────────────────────────────────
+  if (!businessSlug) return <Redirect to="/" />;
+
   return (
     <ChatLayout
       onBack={() => window.history.back()}
       onCall={canCall ? handleCallFromHeader : undefined}
+      businessSlug={businessSlug}
     >
       <div className="flex flex-col h-full overflow-hidden">
         {/* ── Incoming call overlay ── */}

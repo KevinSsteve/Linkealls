@@ -1,7 +1,6 @@
 /**
  * Lightweight user auth context.
  * Token is stored in localStorage so it survives page reloads.
- * The API validates the token on every protected call.
  */
 import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
 

@@ -1,8 +1,7 @@
 import { ReactNode } from "react";
-import { Link, useLocation } from "wouter";
-import { ArrowLeft, Phone, MoreVertical, LogIn, LogOut } from "lucide-react";
+import { useLocation } from "wouter";
+import { ArrowLeft, Phone, MoreVertical } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { userLogout } from "@/lib/api";
 
 interface ChatLayoutProps {
   children: ReactNode;
@@ -10,30 +9,21 @@ interface ChatLayoutProps {
   onCall?: () => void;
   /** Display name shown in the chat header. Defaults to "Assistente IA". */
   businessName?: string;
+  /** Slug for the current business — used to build the owner link. */
+  businessSlug?: string;
 }
 
-function UserAvatar({ name }: { name: string }) {
-  const initials = name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
-  return (
-    <div
-      className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0"
-      style={{
-        background: "linear-gradient(135deg, #3B82F6 0%, #1D4ED8 100%)",
-        color: "#fff",
-      }}
-    >
-      {initials}
-    </div>
-  );
-}
+export function ChatLayout({ children, onBack, onCall, businessName, businessSlug }: ChatLayoutProps) {
+  const [, nav] = useLocation();
+  const { isLoggedIn } = useAuth();
 
-export function ChatLayout({ children, onBack, onCall, businessName }: ChatLayoutProps) {
-  const { user, token, logout, isLoggedIn } = useAuth();
-  const [location, nav] = useLocation();
-
-  async function handleLogout() {
-    if (token) userLogout(token).catch(() => {});
-    logout();
+  function handleMoreVertical() {
+    if (isLoggedIn && businessSlug) {
+      nav(`/e/${businessSlug}/dono/assistente`);
+    } else {
+      const next = businessSlug ? `/e/${businessSlug}/dono/assistente` : "/";
+      nav(`/login?next=${encodeURIComponent(next)}`);
+    }
   }
 
   return (
@@ -96,37 +86,14 @@ export function ChatLayout({ children, onBack, onCall, businessName }: ChatLayou
             <Phone size={20} />
           </button>
 
-          {/* User auth button */}
-          {isLoggedIn ? (
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full transition-colors active:scale-90"
-              style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.09)" }}
-              title={`Sair (${user!.name})`}
-            >
-              <UserAvatar name={user!.name} />
-              <LogOut size={13} style={{ color: "#7B96B2" }} />
-            </button>
-          ) : (
-            <button
-              onClick={() => nav(`/login?next=${encodeURIComponent(location)}`)}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full transition-colors active:scale-90"
-              style={{ background: "rgba(0,191,165,0.08)", border: "1px solid rgba(0,191,165,0.18)" }}
-              aria-label="Entrar"
-            >
-              <LogIn size={14} style={{ color: "#00BFA5" }} />
-              <span className="text-[12px] font-semibold" style={{ color: "#00BFA5" }}>Entrar</span>
-            </button>
-          )}
-
-          {/* Owner area */}
-          <Link
-            href={`/dono`}
+          {/* Owner area — auth-aware */}
+          <button
+            onClick={handleMoreVertical}
             className="hover:text-[#EAF0F7] transition-colors active:scale-90"
             aria-label="Área do dono"
           >
             <MoreVertical size={21} />
-          </Link>
+          </button>
         </div>
       </header>
 

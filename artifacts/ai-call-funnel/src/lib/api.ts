@@ -28,7 +28,7 @@ async function authFetch(path: string, opts: RequestInit): Promise<AuthResponse>
     ...opts,
     headers: { "Content-Type": "application/json", ...(opts.headers ?? {}) },
   });
-  const body = await res.json() as unknown;
+  const body = (await res.json()) as unknown;
   const data = body as Record<string, unknown>;
   if (!res.ok) throw new Error((data.error as string) ?? "Erro desconhecido");
   return body as AuthResponse;

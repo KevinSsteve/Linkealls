@@ -8,6 +8,7 @@
  * É esta página que os anúncios devem usar como destino.
  */
 import { useState, useEffect, useRef, useCallback } from "react";
+import { Redirect } from "wouter";
 import { ChatLayout } from "../components/ChatLayout";
 import { ChatBubble, type BubbleRole } from "../components/ChatBubble";
 import { ChatInput } from "../components/ChatInput";
@@ -70,7 +71,7 @@ export function Captacao() {
   const chatMsgsRef = useRef<ChatMessage[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const businessSlug = useBusinessSlug();
-  const gemini = useGeminiLive(leadId, businessSlug);
+  const gemini = useGeminiLive(leadId, businessSlug ?? "");
   const callElapsed = useCallTimer();
 
   useEffect(() => {
@@ -102,7 +103,7 @@ export function Captacao() {
 
       // Create lead session in the background
       try {
-        const { leadId: id } = await businessApi(businessSlug).createLeadSession(
+        const { leadId: id } = await businessApi(businessSlug ?? "").createLeadSession(
           utmRef.current,
           chatMsgsRef.current,
         );
@@ -136,8 +137,10 @@ export function Captacao() {
     }
   }, [gemini.callState, stage, addMessage]);
 
+  if (!businessSlug) return <Redirect to="/" />;
+
   return (
-    <ChatLayout>
+    <ChatLayout businessSlug={businessSlug}>
       <div className="flex flex-col h-full relative overflow-hidden">
         {stage === "call_incoming" && (
           <IncomingCallModal onAccept={handleAccept} onReject={handleReject} />

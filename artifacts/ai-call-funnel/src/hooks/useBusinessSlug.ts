@@ -2,9 +2,10 @@ import { useParams } from "wouter";
 
 /**
  * Reads the current business slug from the URL (/e/:businessSlug/...).
- * Falls back to "electropanga" for legacy routes that predate multi-tenancy.
+ * Returns null when no slug is present in the URL (legacy routes redirect
+ * to the homepage before any component that calls this hook is rendered).
  */
-export function useBusinessSlug(): string {
+export function useBusinessSlug(): string | null {
   const params = useParams<{ businessSlug?: string }>();
-  return params.businessSlug ?? "electropanga";
+  return params.businessSlug ?? null;
 }

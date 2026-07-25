@@ -4,15 +4,13 @@
  * Qualquer visitante pode ver os produtos, iniciar chat com IA ou ligar.
  */
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useParams, useLocation } from "wouter";
-import { useAuth } from "@/context/AuthContext";
+import { useParams } from "wouter";
 import {
   MessageSquare, X, Phone, CheckCircle2, ChevronDown, ChevronUp,
-  Send, ShoppingBag, ArrowRight, Sparkles, Loader2, ImageOff, Store, LogIn, LogOut,
+  Send, ShoppingBag, ArrowRight, Sparkles, Loader2, ImageOff, Store,
 } from "lucide-react";
 import {
   getCatalog, getCatalogBySlug, businessApi, createLeadSession, sendLeadChat,
-  userLogout,
   type CatalogData, type Offering, type FaqItem, type ChatMessage,
 } from "../lib/api";
 
@@ -435,8 +433,6 @@ export function Catalogo() {
   const params = useParams<{ slug?: string; businessSlug?: string }>();
   const catalogSlug = params.slug ?? null;
   const businessSlug = params.businessSlug ?? null;
-  const { user, isLoggedIn, logout, token } = useAuth();
-  const [location, navigate] = useLocation();
 
   const [catalog, setCatalog] = useState<CatalogData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -519,27 +515,6 @@ export function Catalogo() {
             >
               {catalog.sector}
             </span>
-          )}
-          {/* Auth button */}
-          {isLoggedIn ? (
-            <button
-              onClick={() => { if (token) userLogout(token).catch(() => {}); logout(); }}
-              className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[13px] font-semibold"
-              style={{ background: "#F1F5F9", color: "#64748B", border: "1px solid #E2E8F0" }}
-              title={`Sair (${user!.name})`}
-            >
-              <LogOut size={13} />
-              <span className="hidden sm:inline">{user!.name.split(" ")[0]}</span>
-            </button>
-          ) : (
-            <button
-              onClick={() => navigate(`/login?next=${encodeURIComponent(location)}`)}
-              className="shrink-0 flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[13px] font-semibold"
-              style={{ background: "#EFF6FF", color: "#2563EB", border: "1px solid #BFDBFE" }}
-            >
-              <LogIn size={13} />
-              <span className="hidden sm:inline">Entrar</span>
-            </button>
           )}
 
           <a

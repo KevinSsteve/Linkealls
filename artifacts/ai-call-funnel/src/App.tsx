@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Router, Route, Switch } from "wouter";
+import { Router, Route, Switch, Redirect } from "wouter";
 import { AuthProvider } from "@/context/AuthContext";
 import { HomePage } from "@/pages/HomePage";
 import { Chat } from "@/pages/Chat";
@@ -13,7 +13,6 @@ import { Assistant } from "@/pages/owner/Assistant";
 import { Campaigns } from "@/pages/owner/Campaigns";
 import { CampaignDetail } from "@/pages/owner/CampaignDetail";
 import { Conversas } from "@/pages/owner/Conversas";
-import { OwnerGate } from "@/components/owner/OwnerGate";
 
 // Serve under the artifact base path. With BASE_PATH="/" this is "".
 const routerBase = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -68,40 +67,28 @@ export default function App() {
                   <Route path="/registar" component={RegisterPage} />
 
                   {/* ── Multi-tenant routes (/e/:businessSlug/...) ─────────── */}
-                  <Route path="/e/:businessSlug/dono/leads">
-                    {() => <OwnerGate><Leads /></OwnerGate>}
-                  </Route>
-                  <Route path="/e/:businessSlug/dono/conversas">
-                    {() => <OwnerGate><Conversas /></OwnerGate>}
-                  </Route>
-                  <Route path="/e/:businessSlug/dono/assistente">
-                    {() => <OwnerGate><Assistant /></OwnerGate>}
-                  </Route>
-                  <Route path="/e/:businessSlug/dono/campanhas/:id">
-                    {() => <OwnerGate><CampaignDetail /></OwnerGate>}
-                  </Route>
-                  <Route path="/e/:businessSlug/dono/campanhas">
-                    {() => <OwnerGate><Campaigns /></OwnerGate>}
-                  </Route>
-                  <Route path="/e/:businessSlug/dono">
-                    {() => <OwnerGate><Owner /></OwnerGate>}
-                  </Route>
+                  <Route path="/e/:businessSlug/dono/leads" component={Leads} />
+                  <Route path="/e/:businessSlug/dono/conversas" component={Conversas} />
+                  <Route path="/e/:businessSlug/dono/assistente" component={Assistant} />
+                  <Route path="/e/:businessSlug/dono/campanhas/:id" component={CampaignDetail} />
+                  <Route path="/e/:businessSlug/dono/campanhas" component={Campaigns} />
+                  <Route path="/e/:businessSlug/dono" component={Owner} />
                   <Route path="/e/:businessSlug/captacao" component={Captacao} />
                   <Route path="/e/:businessSlug" component={Chat} />
 
-                  {/* ── Legacy single-tenant routes (backward compat) ───────── */}
-                  <Route path="/dono/leads">{() => <OwnerGate><Leads /></OwnerGate>}</Route>
-                  <Route path="/dono/conversas">{() => <OwnerGate><Conversas /></OwnerGate>}</Route>
-                  <Route path="/dono/assistente">{() => <OwnerGate><Assistant /></OwnerGate>}</Route>
-                  <Route path="/dono/campanhas/:id">{() => <OwnerGate><CampaignDetail /></OwnerGate>}</Route>
-                  <Route path="/dono/campanhas">{() => <OwnerGate><Campaigns /></OwnerGate>}</Route>
-                  <Route path="/dono">{() => <OwnerGate><Owner /></OwnerGate>}</Route>
+                  {/* ── Legacy single-tenant routes → redirect to home ──────── */}
+                  <Route path="/dono/leads"><Redirect to="/" /></Route>
+                  <Route path="/dono/conversas"><Redirect to="/" /></Route>
+                  <Route path="/dono/assistente"><Redirect to="/" /></Route>
+                  <Route path="/dono/campanhas/:id"><Redirect to="/" /></Route>
+                  <Route path="/dono/campanhas"><Redirect to="/" /></Route>
+                  <Route path="/dono"><Redirect to="/" /></Route>
 
-                  {/* Lead capture */}
-                  <Route path="/captacao" component={Captacao} />
+                  {/* Lead capture legacy */}
+                  <Route path="/captacao"><Redirect to="/" /></Route>
 
-                  {/* Fallback: default chat */}
-                  <Route component={Chat} />
+                  {/* Fallback */}
+                  <Route><Redirect to="/" /></Route>
                 </Switch>
               </div>
             )}
