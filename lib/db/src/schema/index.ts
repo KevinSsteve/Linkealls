@@ -21,3 +21,4 @@ export * from "./businessProfile";
 export * from "./leads";
 export * from "./assistantMessages";
 export * from "./campaigns";
+export * from "./users";

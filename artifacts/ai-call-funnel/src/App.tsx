@@ -1,8 +1,11 @@
 import { useEffect } from "react";
-import { Router, Route, Switch, Redirect } from "wouter";
+import { Router, Route, Switch } from "wouter";
+import { AuthProvider } from "@/context/AuthContext";
 import { Chat } from "@/pages/Chat";
 import { Captacao } from "@/pages/Captacao";
 import { Catalogo } from "@/pages/Catalogo";
+import { LoginPage } from "@/pages/LoginPage";
+import { RegisterPage } from "@/pages/RegisterPage";
 import { Owner } from "@/pages/Owner";
 import { Leads } from "@/pages/owner/Leads";
 import { Assistant } from "@/pages/owner/Assistant";
@@ -40,34 +43,44 @@ export default function App() {
   useVisualViewportHeight();
 
   return (
-    <Router base={routerBase}>
-      <Switch>
-        {/* ── Public catalog: light theme, no dark wrapper ── */}
-        <Route path="/catalogo" component={Catalogo} />
-        {/* ── Vanity slug: /c/:slug → renders the same Catalogo page ── */}
-        <Route path="/c/:slug" component={Catalogo} />
+    <AuthProvider>
+      <Router base={routerBase}>
+        <Switch>
+          {/* ── Public catalog: light theme, no dark wrapper ── */}
+          <Route path="/catalogo" component={Catalogo} />
+          <Route path="/c/:slug" component={Catalogo} />
 
-        {/* ── All other routes: dark wrapper ── */}
-        <Route>
-          {() => (
-            <div
-              className="w-full bg-[#080E18] flex flex-col overflow-hidden"
-              style={{ height: "var(--vh, 100dvh)" }}
-            >
-              <Switch>
-                <Route path="/dono/leads">{() => <OwnerGate><Leads /></OwnerGate>}</Route>
-                <Route path="/dono/conversas">{() => <OwnerGate><Conversas /></OwnerGate>}</Route>
-                <Route path="/dono/assistente">{() => <OwnerGate><Assistant /></OwnerGate>}</Route>
-                <Route path="/dono/campanhas/:id">{() => <OwnerGate><CampaignDetail /></OwnerGate>}</Route>
-                <Route path="/dono/campanhas">{() => <OwnerGate><Campaigns /></OwnerGate>}</Route>
-                <Route path="/dono">{() => <OwnerGate><Owner /></OwnerGate>}</Route>
-                <Route path="/captacao" component={Captacao} />
-                <Route component={Chat} />
-              </Switch>
-            </div>
-          )}
-        </Route>
-      </Switch>
-    </Router>
+          {/* ── All other routes: dark wrapper ── */}
+          <Route>
+            {() => (
+              <div
+                className="w-full bg-[#080E18] flex flex-col overflow-hidden"
+                style={{ height: "var(--vh, 100dvh)" }}
+              >
+                <Switch>
+                  {/* Auth */}
+                  <Route path="/login"   component={LoginPage} />
+                  <Route path="/registar" component={RegisterPage} />
+
+                  {/* Owner (PIN-protected) */}
+                  <Route path="/dono/leads">{() => <OwnerGate><Leads /></OwnerGate>}</Route>
+                  <Route path="/dono/conversas">{() => <OwnerGate><Conversas /></OwnerGate>}</Route>
+                  <Route path="/dono/assistente">{() => <OwnerGate><Assistant /></OwnerGate>}</Route>
+                  <Route path="/dono/campanhas/:id">{() => <OwnerGate><CampaignDetail /></OwnerGate>}</Route>
+                  <Route path="/dono/campanhas">{() => <OwnerGate><Campaigns /></OwnerGate>}</Route>
+                  <Route path="/dono">{() => <OwnerGate><Owner /></OwnerGate>}</Route>
+
+                  {/* Lead capture */}
+                  <Route path="/captacao" component={Captacao} />
+
+                  {/* Default chat */}
+                  <Route component={Chat} />
+                </Switch>
+              </div>
+            )}
+          </Route>
+        </Switch>
+      </Router>
+    </AuthProvider>
   );
 }

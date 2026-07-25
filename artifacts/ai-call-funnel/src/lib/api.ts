@@ -10,6 +10,45 @@ const API_BASE = import.meta.env.DEV
   ? `${import.meta.env.BASE_URL}api`
   : "/api";
 
+// ─── User Auth ───────────────────────────────────────────────────────────────
+
+export interface AuthUser {
+  id: string;
+  phone: string;
+  name: string;
+}
+
+export interface AuthResponse {
+  user: AuthUser;
+  token: string;
+}
+
+async function authFetch(path: string, opts: RequestInit): Promise<AuthResponse> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    ...opts,
+    headers: { "Content-Type": "application/json", ...(opts.headers ?? {}) },
+  });
+  const body = await res.json() as unknown;
+  const data = body as Record<string, unknown>;
+  if (!res.ok) throw new Error((data.error as string) ?? "Erro desconhecido");
+  return body as AuthResponse;
+}
+
+export function userRegister(data: { phone: string; name: string; pin: string }) {
+  return authFetch("/user-auth/register", { method: "POST", body: JSON.stringify(data) });
+}
+
+export function userLogin(data: { phone: string; pin: string }) {
+  return authFetch("/user-auth/login", { method: "POST", body: JSON.stringify(data) });
+}
+
+export async function userLogout(token: string) {
+  await fetch(`${API_BASE}/user-auth/logout`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
 // ─── Business Profile ────────────────────────────────────────────────────────
 
 export interface Offering {
