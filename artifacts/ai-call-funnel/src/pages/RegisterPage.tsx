@@ -100,6 +100,13 @@ function Steps({ current }: { current: number }) {
 
 type Step = "name" | "phone" | "pin" | "confirm";
 
+/** Returns the ?next= param if it's a safe relative path, otherwise "/". */
+function getSafeNext(): string {
+  const next = new URLSearchParams(window.location.search).get("next") ?? "/";
+  if (!next.startsWith("/") || next.startsWith("//")) return "/";
+  return next;
+}
+
 export function RegisterPage() {
   const [, nav]    = useLocation();
   const { login }  = useAuth();
@@ -158,7 +165,7 @@ export function RegisterPage() {
       try {
         const { user, token } = await userRegister({ phone, name: name.trim(), pin });
         login(user, token);
-        nav("/");
+        nav(getSafeNext());
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : "Erro ao criar conta");
         setConfirm(""); setPin(""); setStep("pin");
@@ -295,7 +302,11 @@ export function RegisterPage() {
       {/* Login link */}
       <p className="mt-auto pt-8 text-center text-[14px]" style={{ color: "#4A6B80" }}>
         Já tens conta?{" "}
-        <Link href="/login" className="font-semibold" style={{ color: "#00BFA5" }}>
+        <Link
+          href={`/login${window.location.search}`}
+          className="font-semibold"
+          style={{ color: "#00BFA5" }}
+        >
           Entrar
         </Link>
       </p>

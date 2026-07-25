@@ -56,6 +56,14 @@ function Keypad({ onKey }: { onKey: (k: string) => void }) {
 
 // ─── Main ────────────────────────────────────────────────────────────────────
 
+/** Returns the ?next= param if it's a safe relative path, otherwise "/". */
+function getSafeNext(): string {
+  const next = new URLSearchParams(window.location.search).get("next") ?? "/";
+  // Reject absolute URLs and protocol-relative URLs to prevent open redirect
+  if (!next.startsWith("/") || next.startsWith("//")) return "/";
+  return next;
+}
+
 export function LoginPage() {
   const [, nav]   = useLocation();
   const { login } = useAuth();
@@ -87,7 +95,7 @@ export function LoginPage() {
     try {
       const { user, token } = await userLogin({ phone, pin: next });
       login(user, token);
-      nav("/");
+      nav(getSafeNext());
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Número ou PIN incorretos");
       setPin("");
@@ -194,7 +202,11 @@ export function LoginPage() {
       {/* Register link */}
       <p className="mt-auto pt-8 text-center text-[14px]" style={{ color: "#4A6B80" }}>
         Ainda não tens conta?{" "}
-        <Link href="/registar" className="font-semibold" style={{ color: "#00BFA5" }}>
+        <Link
+          href={`/registar${window.location.search}`}
+          className="font-semibold"
+          style={{ color: "#00BFA5" }}
+        >
           Criar conta
         </Link>
       </p>

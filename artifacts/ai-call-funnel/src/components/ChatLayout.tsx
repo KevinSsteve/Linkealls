@@ -29,7 +29,7 @@ function UserAvatar({ name }: { name: string }) {
 
 export function ChatLayout({ children, onBack, onCall, businessName }: ChatLayoutProps) {
   const { user, token, logout, isLoggedIn } = useAuth();
-  const [, nav] = useLocation();
+  const [location, nav] = useLocation();
 
   async function handleLogout() {
     if (token) userLogout(token).catch(() => {});
@@ -109,7 +109,7 @@ export function ChatLayout({ children, onBack, onCall, businessName }: ChatLayou
             </button>
           ) : (
             <button
-              onClick={() => nav("/login")}
+              onClick={() => nav(`/login?next=${encodeURIComponent(location)}`)}
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-full transition-colors active:scale-90"
               style={{ background: "rgba(0,191,165,0.08)", border: "1px solid rgba(0,191,165,0.18)" }}
               aria-label="Entrar"
