@@ -11,7 +11,7 @@ import {
   type CampaignPlatform,
   type CampaignStatus,
 } from "@workspace/db";
-import { eq, desc } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { logger } from "../lib/logger.js";
 import { getOrCreateProfile } from "./businessProfile.js";
 import { listLeads } from "./leads.js";
@@ -29,8 +29,15 @@ export async function listCampaigns(businessId?: number): Promise<Campaign[]> {
   return db.select().from(campaignsTable).orderBy(desc(campaignsTable.createdAt));
 }
 
-export async function getCampaign(id: string): Promise<Campaign | null> {
-  const rows = await db.select().from(campaignsTable).where(eq(campaignsTable.id, id));
+export async function getCampaign(id: string, businessId?: number): Promise<Campaign | null> {
+  const rows = await db
+    .select()
+    .from(campaignsTable)
+    .where(
+      businessId !== undefined
+        ? and(eq(campaignsTable.id, id), eq(campaignsTable.businessId, businessId))
+        : eq(campaignsTable.id, id),
+    );
   return rows[0] ?? null;
 }
 
@@ -47,7 +54,7 @@ export async function createCampaign(
 }
 
 export async function duplicateCampaign(id: string, businessId?: number): Promise<Campaign> {
-  const source = await getCampaign(id);
+  const source = await getCampaign(id, businessId);
   if (!source) throw new Error("Campanha não encontrada");
 
   // Build a unique slug: append "-copia" then a counter until no collision
@@ -90,11 +97,16 @@ export async function updateCampaign(
     budget: number;
     totalSpend: number;
   }>,
+  businessId?: number,
 ): Promise<Campaign | null> {
   const rows = await db
     .update(campaignsTable)
     .set({ ...patch, updatedAt: new Date() })
-    .where(eq(campaignsTable.id, id))
+    .where(
+      businessId !== undefined
+        ? and(eq(campaignsTable.id, id), eq(campaignsTable.businessId, businessId))
+        : eq(campaignsTable.id, id),
+    )
     .returning();
   return rows[0] ?? null;
 }
@@ -124,7 +136,7 @@ export async function generateCampaignKit(campaignId: string, businessId?: numbe
   const apiKey = process.env["GEMINI_API_KEY"];
   if (!apiKey) throw new Error("GEMINI_API_KEY not set");
 
-  const campaign = await getCampaign(campaignId);
+  const campaign = await getCampaign(campaignId, businessId);
   if (!campaign) throw new Error("Campaign not found");
 
   const resolvedBusinessId = businessId ?? campaign.businessId ?? undefined;
@@ -267,11 +279,11 @@ export interface CampaignMetrics {
   captationUrl: string;
 }
 
-export async function getCampaignMetrics(campaignId: string): Promise<CampaignMetrics | null> {
-  const campaign = await getCampaign(campaignId);
+export async function getCampaignMetrics(campaignId: string, businessId?: number): Promise<CampaignMetrics | null> {
+  const campaign = await getCampaign(campaignId, businessId);
   if (!campaign) return null;
 
-  const allLeads = await listLeads();
+  const allLeads = await listLeads(businessId ?? campaign.businessId ?? undefined);
   // Match leads by utm_campaign slug
   const attributed = allLeads.filter(
     (l) => l.origin?.campaign === campaign.utmSlug,
@@ -325,10 +337,10 @@ export async function generateOptimizationSuggestions(campaignId: string, busine
   const apiKey = process.env["GEMINI_API_KEY"];
   if (!apiKey) throw new Error("GEMINI_API_KEY not set");
 
-  const campaign = await getCampaign(campaignId);
+  const campaign = await getCampaign(campaignId, businessId);
   if (!campaign) throw new Error("Campaign not found");
 
-  const metrics = await getCampaignMetrics(campaignId);
+  const metrics = await getCampaignMetrics(campaignId, businessId);
   if (!metrics) throw new Error("Metrics not found");
 
   if (metrics.totalLeads === 0) {
@@ -347,7 +359,7 @@ export async function generateOptimizationSuggestions(campaignId: string, busine
   const otherMetrics = await Promise.all(
     allCampaigns
       .filter((c) => c.id !== campaignId)
-      .map((c) => getCampaignMetrics(c.id)),
+      .map((c) => getCampaignMetrics(c.id, resolvedBizId)),
   );
   const bestOther = otherMetrics
     .filter(Boolean)

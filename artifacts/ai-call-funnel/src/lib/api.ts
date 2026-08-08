@@ -190,84 +190,6 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return body;
 }
 
-// ─── Business profile API ────────────────────────────────────────────────────
-
-export function getBusinessProfile() {
-  return request<{ profile: BusinessProfile; filled: boolean }>(
-    "/business-profile",
-  );
-}
-
-export function saveBusinessProfile(patch: ProfileDraft) {
-  return request<{ profile: BusinessProfile; filled: boolean }>(
-    "/business-profile",
-    { method: "PUT", body: JSON.stringify(patch) },
-  );
-}
-
-export function startAnalysis(url: string) {
-  return request<{ started: boolean }>("/business-profile/analyze", {
-    method: "POST",
-    body: JSON.stringify({ url }),
-  });
-}
-
-export function assistFromDescription(description: string) {
-  return request<{ draft: ProfileDraft }>("/business-profile/assist", {
-    method: "POST",
-    body: JSON.stringify({ description }),
-  });
-}
-
-// ─── Leads API ───────────────────────────────────────────────────────────────
-
-export function createLeadSession(
-  origin: LeadOrigin,
-  chatMessages: ChatMessage[],
-): Promise<{ leadId: string }> {
-  return request("/leads/session", {
-    method: "POST",
-    body: JSON.stringify({ origin, chatMessages }),
-  });
-}
-
-export function listLeads(): Promise<{ leads: Lead[] }> {
-  return request("/leads");
-}
-
-export function getLeadDetail(id: string): Promise<{ lead: Lead }> {
-  return request(`/leads/${id}`);
-}
-
-export function updateLeadState(
-  id: string,
-  state: LeadState,
-): Promise<{ lead: Lead }> {
-  return request(`/leads/${id}/state`, {
-    method: "PATCH",
-    body: JSON.stringify({ state }),
-  });
-}
-
-/** Returns the full SSE URL (used directly with EventSource). */
-export function getLeadsEventsUrl(): string {
-  return `${API_BASE}/leads/events`;
-}
-
-/**
- * Visitor sends a text message after the call flow started.
- * Returns Gemini's reply (already persisted in the lead record).
- */
-export function sendLeadChat(
-  leadId: string,
-  message: string,
-): Promise<{ reply: string }> {
-  return request(`/leads/${leadId}/chat`, {
-    method: "POST",
-    body: JSON.stringify({ message }),
-  });
-}
-
 // ─── Assistant API ────────────────────────────────────────────────────────────
 
 export type AssistantRole = "user" | "assistant" | "proactive";
@@ -290,45 +212,6 @@ export interface AssistantMessage {
   content: string;
   meta: AssistantMessageMeta;
   createdAt: string;
-}
-
-export function listAssistantMessages(): Promise<{ messages: AssistantMessage[] }> {
-  return request("/assistant/messages");
-}
-
-export function sendAssistantMessage(
-  message: string,
-): Promise<{ message: AssistantMessage }> {
-  return request("/assistant/chat", {
-    method: "POST",
-    body: JSON.stringify({ message }),
-  });
-}
-
-export function confirmAssistantAction(
-  messageId: string,
-  confirmed: boolean,
-): Promise<{ message: AssistantMessage }> {
-  return request("/assistant/confirm", {
-    method: "POST",
-    body: JSON.stringify({ messageId, confirmed }),
-  });
-}
-
-export function clearAssistantMessages(): Promise<{ cleared: boolean }> {
-  return request("/assistant/messages", { method: "DELETE" });
-}
-
-export function triggerDailySummary(): Promise<{ message: AssistantMessage }> {
-  return request("/assistant/proactive/daily", { method: "POST" });
-}
-
-export function triggerStaleLeadsCheck(): Promise<{ message: AssistantMessage | null; found: boolean }> {
-  return request("/assistant/proactive/stale", { method: "POST" });
-}
-
-export function getAssistantEventsUrl(): string {
-  return `${API_BASE}/assistant/events`;
 }
 
 // ─── Campaigns API ────────────────────────────────────────────────────────────
@@ -394,52 +277,6 @@ export interface CampaignMetrics {
   captationUrl: string;
 }
 
-export function listCampaigns(): Promise<{ campaigns: Campaign[] }> {
-  return request("/campaigns");
-}
-
-export function getCampaignById(id: string): Promise<{ campaign: Campaign }> {
-  return request(`/campaigns/${id}`);
-}
-
-export function createCampaign(data: {
-  name: string;
-  platform: CampaignPlatform;
-  objective: string;
-  budget: number;
-}): Promise<{ campaign: Campaign }> {
-  return request("/campaigns", {
-    method: "POST",
-    body: JSON.stringify(data),
-  });
-}
-
-export function updateCampaignStatus(
-  id: string,
-  patch: { status?: CampaignStatus; budget?: number; totalSpend?: number },
-): Promise<{ campaign: Campaign }> {
-  return request(`/campaigns/${id}`, {
-    method: "PATCH",
-    body: JSON.stringify(patch),
-  });
-}
-
-export function generateCampaignKit(id: string): Promise<{ campaign: Campaign }> {
-  return request(`/campaigns/${id}/generate`, { method: "POST" });
-}
-
-export function getCampaignMetrics(id: string): Promise<{ metrics: CampaignMetrics }> {
-  return request(`/campaigns/${id}/metrics`);
-}
-
-export function getCampaignOptimizations(id: string): Promise<{ suggestions: string[] }> {
-  return request(`/campaigns/${id}/optimize`);
-}
-
-export function duplicateCampaign(id: string): Promise<{ campaign: Campaign }> {
-  return request(`/campaigns/${id}/duplicate`, { method: "POST" });
-}
-
 // ─── Analytics ────────────────────────────────────────────────────────────────
 
 export interface LeadSourceRow {
@@ -457,13 +294,10 @@ export interface LeadsAnalytics {
   overallRate: number;
 }
 
-export function getLeadsAnalytics(): Promise<{ analytics: LeadsAnalytics }> {
-  return request("/leads/analytics");
-}
-
 // ─── Catalog API ──────────────────────────────────────────────────────────────
 
 export interface CatalogData {
+  businessSlug: string | null;
   name: string;
   sector: string;
   description: string;
@@ -475,33 +309,12 @@ export interface CatalogData {
   isReady: boolean;
 }
 
-export function getCatalog(): Promise<CatalogData> {
-  return request<CatalogData>("/catalog");
-}
-
 export function getCatalogBySlug(slug: string): Promise<CatalogData> {
   return request<CatalogData>(`/catalog/by-slug/${encodeURIComponent(slug)}`);
 }
 
 export function checkSlugAvailability(slug: string): Promise<{ available: boolean; reason?: string }> {
   return request(`/catalog/slug-check/${encodeURIComponent(slug)}`);
-}
-
-export function saveCatalogSlug(slug: string | null): Promise<{ profile: BusinessProfile; filled: boolean }> {
-  return request("/business-profile", {
-    method: "PUT",
-    body: JSON.stringify({ catalogSlug: slug }),
-  });
-}
-
-/** Toggle the public catalog on/off.
- *  Reuses PUT /business-profile so it goes through the same owner-controlled
- *  write path as all other profile mutations (consistent auth surface). */
-export function toggleCatalog(enabled: boolean): Promise<{ profile: BusinessProfile; filled: boolean }> {
-  return request("/business-profile", {
-    method: "PUT",
-    body: JSON.stringify({ catalogEnabled: enabled }),
-  });
 }
 
 // ─── Business-scoped API factory ──────────────────────────────────────────────
@@ -572,6 +385,32 @@ export function businessApi(slug: string) {
     // Catalog
     getCatalog: () =>
       bRequest<CatalogData>("/catalog"),
+    saveCatalogSlug: (catalogSlug: string | null) =>
+      bRequest<{ profile: BusinessProfile; filled: boolean }>("/profile", {
+        method: "PUT", body: JSON.stringify({ catalogSlug }),
+      }),
+    toggleCatalog: (catalogEnabled: boolean) =>
+      bRequest<{ profile: BusinessProfile; filled: boolean }>("/profile", {
+        method: "PUT", body: JSON.stringify({ catalogEnabled }),
+      }),
+
+    // Assistant proactive triggers
+    triggerDailySummary: () =>
+      bRequest<{ message: AssistantMessage }>("/assistant/proactive/daily", { method: "POST" }),
+    triggerStaleLeadsCheck: () =>
+      bRequest<{ message: AssistantMessage | null; found: boolean }>("/assistant/proactive/stale", { method: "POST" }),
+
+    // Notifications (web push)
+    getVapidPublicKey: () =>
+      bRequest<{ vapidPublicKey: string }>("/notifications/vapid-key"),
+    subscribePush: (subscription: unknown) =>
+      bRequest<{ subscribed: boolean }>("/notifications/subscribe", {
+        method: "POST", body: JSON.stringify(subscription),
+      }),
+    unsubscribePush: (endpoint: string) =>
+      bRequest<{ unsubscribed: boolean }>("/notifications/subscribe", {
+        method: "DELETE", body: JSON.stringify({ endpoint }),
+      }),
 
     // Campaigns
     listCampaigns: () =>

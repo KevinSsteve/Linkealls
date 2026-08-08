@@ -1,7 +1,8 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { Plus, Trash2, Save, RefreshCw, Loader2, Camera, X, Phone, Bell, BellOff, BellRing, Store, Copy, Check, ExternalLink, Link, GripVertical, Star } from "lucide-react";
 import { useNotifications } from "../../hooks/useNotifications";
-import { toggleCatalog, saveCatalogSlug, checkSlugAvailability } from "../../lib/api";
+import { useBusinessSlug } from "../../hooks/useBusinessSlug";
+import { businessApi, checkSlugAvailability } from "../../lib/api";
 import type { BusinessProfile, ProfileDraft, Offering, FaqItem } from "../../lib/api";
 
 const inputCls =
@@ -24,7 +25,8 @@ function isValidSlugFormat(s: string) {
   return /^[a-z0-9-]{3,60}$/.test(s);
 }
 
-function CatalogSection({ profile }: { profile: BusinessProfile }) {
+function CatalogSection({ profile, businessSlug }: { profile: BusinessProfile; businessSlug: string }) {
+  const api = useMemo(() => businessApi(businessSlug), [businessSlug]);
   const [enabled, setEnabled] = useState(profile.catalogEnabled ?? true);
   const [toggling, setToggling] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -39,7 +41,7 @@ function CatalogSection({ profile }: { profile: BusinessProfile }) {
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const base = import.meta.env.BASE_URL;
 
-  const genericUrl = `${origin}${base}catalogo`;
+  const genericUrl = `${origin}${base}e/${businessSlug}/catalogo`;
   const slugUrl = slug && isValidSlugFormat(slug) ? `${origin}${base}c/${slug}` : null;
 
   const productCount = profile.offerings?.length ?? 0;
@@ -70,7 +72,7 @@ function CatalogSection({ profile }: { profile: BusinessProfile }) {
     const next = !enabled;
     setToggling(true);
     try {
-      await toggleCatalog(next);
+      await api.toggleCatalog(next);
       setEnabled(next);
     } catch {
       // revert on error — state stays unchanged
@@ -98,7 +100,7 @@ function CatalogSection({ profile }: { profile: BusinessProfile }) {
     const trimmed = slug.trim().toLowerCase();
     setSlugSaving(true);
     try {
-      await saveCatalogSlug(trimmed || null);
+      await api.saveCatalogSlug(trimmed || null);
       setSlugStatus("saved");
       setTimeout(() => setSlugStatus("idle"), 2500);
     } catch {
@@ -236,8 +238,8 @@ function CatalogSection({ profile }: { profile: BusinessProfile }) {
   );
 }
 
-function NotificationsSection() {
-  const { status, subscribe, unsubscribe } = useNotifications();
+function NotificationsSection({ slug }: { slug: string }) {
+  const { status, subscribe, unsubscribe } = useNotifications(slug);
 
   if (status === "unsupported") return null;
 
@@ -284,6 +286,7 @@ function NotificationsSection() {
 }
 
 export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onReanalyze }: Props) {
+  const slug = useBusinessSlug();
   const init = <K extends keyof ProfileDraft>(key: K, fallback: NonNullable<ProfileDraft[K]>) =>
     (draft?.[key] ?? (profile[key as keyof BusinessProfile] as ProfileDraft[K]) ?? fallback) as NonNullable<ProfileDraft[K]>;
 
@@ -390,10 +393,10 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
       </div>
 
       {/* Public catalog */}
-      <CatalogSection profile={profile} />
+      {slug && <CatalogSection profile={profile} businessSlug={slug} />}
 
       {/* Push notifications */}
-      <NotificationsSection />
+      {slug && <NotificationsSection slug={slug} />}
 
       {/* Test call */}
       <div className={sectionCls}>
@@ -403,7 +406,7 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
             <p className="text-[13px] text-slate-500 mt-0.5">Simula o que um lead vai ouvir com o perfil actual.</p>
           </div>
           <a
-            href={`${import.meta.env.BASE_URL}?test=1`}
+            href={`${import.meta.env.BASE_URL}e/${slug}?test=1`}
             target="_blank"
             rel="noopener noreferrer"
             className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-[#00A884]/10 text-[#00A884] hover:bg-[#00A884]/20 border border-[#00A884]/20 transition-colors"

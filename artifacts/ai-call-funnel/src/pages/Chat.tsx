@@ -423,31 +423,41 @@ export function Chat() {
       setStage("typing");
       await new Promise((r) => setTimeout(r, 1200));
 
+      // A scoped lead is a hard prerequisite for the call flow — without it
+      // the call would run unattributed to any business (cross-tenant risk).
+      let newLeadId: string | null = null;
+      try {
+        if (!businessSlug) throw new Error("missing business slug");
+        const { leadId: id } = await businessApi(businessSlug).createLeadSession(
+          { url: window.location.href },
+          chatMsgsRef.current,
+        );
+        newLeadId = id;
+        setLeadId(id);
+        recordVisit(businessSlug);
+      } catch {
+        console.warn("[Chat] Failed to create lead session");
+        addMessage(
+          "bot",
+          "Ocorreu um problema ao iniciar a conversa. Verifica a ligação e tenta enviar a mensagem de novo.",
+        );
+        setStage("chat");
+        setIsBusy(false);
+        return null;
+      }
+
       const botText =
         "Olá 👋 Obrigado pelo teu interesse. Vou ligar agora para te ajudar e perceber exactamente o que precisas.";
       const botMsg = addMessage("bot", botText);
       chatMsgsRef.current.push(botMsg);
       setStage("chat");
 
-      let newLeadId: string | null = null;
-      try {
-        const { leadId: id } = await businessApi(businessSlug ?? "").createLeadSession(
-          { url: window.location.href },
-          chatMsgsRef.current,
-        );
-        newLeadId = id;
-        setLeadId(id);
-        recordVisit(businessSlug ?? "");
-      } catch {
-        console.warn("[Chat] Failed to create lead session");
-      }
-
       setCallTriggered(true);
       setIsBusy(false);
       setTimeout(() => setStage("call_incoming"), 1000);
       return newLeadId;
     },
-    [addMessage],
+    [addMessage, businessSlug],
   );
 
   // ── Subsequent chat messages ─────────────────────────────────────────────

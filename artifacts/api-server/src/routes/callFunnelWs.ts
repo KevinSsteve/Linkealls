@@ -3,10 +3,8 @@ import type { IncomingMessage } from "http";
 import type { Server } from "http";
 import { createGeminiLiveSession } from "../services/geminiLive.js";
 import {
-  getOrCreateProfile,
   getProfileBySlug,
   buildCallAgentPrompt,
-  FIXED_PROFILE_ID,
 } from "../services/businessProfile.js";
 import { updateLeadOnCallStart, processCallCompletion } from "../services/leads.js";
 import { logger } from "../lib/logger.js";
@@ -14,33 +12,25 @@ import type { Offering } from "@workspace/db";
 
 const CALL_VOICE = "Kore";
 
+/**
+ * Resolves the call configuration for a business slug.
+ * Returns null when the slug is missing or unknown — the call cannot
+ * proceed without knowing which business the visitor is talking to.
+ */
 async function resolveCallConfig(businessSlug?: string | null) {
-  try {
-    const profile = businessSlug
-      ? (await getProfileBySlug(businessSlug) ?? await getOrCreateProfile(FIXED_PROFILE_ID))
-      : await getOrCreateProfile(FIXED_PROFILE_ID);
+  if (!businessSlug) return null;
+  const profile = await getProfileBySlug(businessSlug);
+  if (!profile) return null;
 
-    const { systemPrompt, greetingText } = buildCallAgentPrompt(profile);
-    return {
-      voiceName: CALL_VOICE,
-      systemPrompt,
-      greetingText,
-      businessName: profile.name || "o negócio",
-      offerings: profile.offerings,
-      businessId: profile.id,
-    };
-  } catch (err) {
-    logger.error({ err }, "Failed to load business profile; using generic prompt");
-    const { systemPrompt, greetingText } = buildCallAgentPrompt(null);
-    return {
-      voiceName: CALL_VOICE,
-      systemPrompt,
-      greetingText,
-      businessName: "o negócio",
-      offerings: [] as Offering[],
-      businessId: FIXED_PROFILE_ID,
-    };
-  }
+  const { systemPrompt, greetingText } = buildCallAgentPrompt(profile);
+  return {
+    voiceName: CALL_VOICE,
+    systemPrompt,
+    greetingText,
+    businessName: profile.name || "o negócio",
+    offerings: profile.offerings,
+    businessId: profile.id,
+  };
 }
 
 export interface ProductCard {
@@ -87,7 +77,7 @@ export function setupCallFunnelWebSocket(server: Server): void {
     let geminiSession: Awaited<ReturnType<typeof createGeminiLiveSession>> | null = null;
     let closed = false;
     let sessionOfferings: Offering[] = [];
-    let resolvedBusinessId: number = FIXED_PROFILE_ID;
+    let resolvedBusinessId: number | null = null;
 
     const transcriptLines: string[] = [];
     let businessName = "o negócio";
@@ -96,17 +86,24 @@ export function setupCallFunnelWebSocket(server: Server): void {
       if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
     }
 
-    if (leadId) {
-      updateLeadOnCallStart(leadId).catch((err) =>
-        logger.error({ err, leadId }, "Failed to mark lead em_atendimento"),
-      );
-    }
-
     resolveCallConfig(businessSlug)
       .then((config) => {
+        if (!config) {
+          sendToClient({ type: "error", message: "Negócio não encontrado" });
+          ws.close();
+          throw new Error(`Unknown business slug: ${businessSlug ?? "(none)"}`);
+        }
         businessName = config.businessName;
         sessionOfferings = config.offerings;
         resolvedBusinessId = config.businessId;
+
+        // Mark the lead as in-service — scoped so a leadId from another
+        // business is a silent no-op (never mutates other tenants' data).
+        if (leadId) {
+          updateLeadOnCallStart(leadId, config.businessId).catch((err) =>
+            logger.error({ err, leadId }, "Failed to mark lead em_atendimento"),
+          );
+        }
         return createGeminiLiveSession(config, {
           onAudio: (base64) => { if (!closed) sendToClient({ type: "audio", data: base64 }); },
           onTurnComplete: () => { if (!closed) sendToClient({ type: "turn_complete" }); },
@@ -203,7 +200,7 @@ export function setupCallFunnelWebSocket(server: Server): void {
       geminiSession?.close();
       geminiSession = null;
 
-      if (leadId && transcriptLines.length > 0) {
+      if (leadId && transcriptLines.length > 0 && resolvedBusinessId !== null) {
         const fullTranscript = transcriptLines.join("\n");
         processCallCompletion(leadId, fullTranscript, businessName, resolvedBusinessId).catch((err) =>
           logger.error({ err, leadId }, "processCallCompletion failed"),

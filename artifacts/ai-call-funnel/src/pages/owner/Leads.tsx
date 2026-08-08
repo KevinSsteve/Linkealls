@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Link } from "wouter";
 import {
   ArrowLeft,
@@ -17,13 +17,11 @@ import {
   Bell,
 } from "lucide-react";
 import {
-  listLeads,
-  getLeadDetail,
-  updateLeadState,
-  getLeadsEventsUrl,
+  businessApi,
   type Lead,
   type LeadState,
 } from "../../lib/api";
+import { useBusinessSlug } from "../../hooks/useBusinessSlug";
 import { OwnerNav } from "../../components/owner/OwnerNav";
 
 // ─── State badge config ───────────────────────────────────────────────────────
@@ -153,10 +151,12 @@ function LeadDetail({
   lead: initialLead,
   onBack,
   onStateChange,
+  api,
 }: {
   lead: Lead;
   onBack: () => void;
   onStateChange: (updated: Lead) => void;
+  api: ReturnType<typeof businessApi>;
 }) {
   const [lead, setLead] = useState(initialLead);
   const [updatingState, setUpdatingState] = useState(false);
@@ -165,7 +165,7 @@ function LeadDetail({
   async function handleStateChange(state: LeadState) {
     setUpdatingState(true);
     try {
-      const { lead: updated } = await updateLeadState(lead.id, state);
+      const { lead: updated } = await api.updateLeadState(lead.id, state);
       setLead(updated);
       onStateChange(updated);
     } finally {
@@ -419,6 +419,8 @@ function LeadDetail({
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function Leads() {
+  const slug = useBusinessSlug();
+  const api = useMemo(() => (slug ? businessApi(slug) : null), [slug]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
@@ -429,13 +431,14 @@ export function Leads() {
   const eventSourceRef = useRef<EventSource | null>(null);
 
   const loadLeads = useCallback(async () => {
+    if (!api) return;
     try {
-      const { leads: data } = await listLeads();
+      const { leads: data } = await api.listLeads();
       setLeads(data);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [api]);
 
   useEffect(() => {
     void loadLeads();
@@ -443,7 +446,8 @@ export function Leads() {
 
   // SSE for real-time qualified notifications
   useEffect(() => {
-    const es = new EventSource(getLeadsEventsUrl());
+    if (!api) return;
+    const es = new EventSource(api.getLeadsEventsUrl());
     eventSourceRef.current = es;
 
     es.addEventListener("lead_qualified", (e) => {
@@ -456,7 +460,7 @@ export function Leads() {
     });
 
     return () => es.close();
-  }, [loadLeads]);
+  }, [api, loadLeads]);
 
   const filtered = leads.filter((l) => {
     if (filterState !== "todos" && l.state !== filterState) return false;
@@ -470,11 +474,20 @@ export function Leads() {
     return true;
   });
 
+  if (!slug || !api) {
+    return (
+      <div className="flex items-center justify-center h-full bg-[#080E18] text-[#3E576F] text-sm">
+        Negócio não encontrado
+      </div>
+    );
+  }
+
   if (selectedLead) {
     return (
       <div className="flex flex-col h-full bg-[#080E18]">
         <LeadDetail
           lead={selectedLead}
+          api={api}
           onBack={() => setSelectedLead(null)}
           onStateChange={(updated) => {
             setLeads((prev) => prev.map((l) => (l.id === updated.id ? updated : l)));
@@ -493,7 +506,7 @@ export function Leads() {
         className="flex items-center gap-3 px-4 py-3 border-b border-white/10"
         style={{ background: "#111B27" }}
       >
-        <Link href="/dono" className="text-[#3E576F] hover:text-[#EAF0F7]">
+        <Link href={`/e/${slug}/dono`} className="text-[#3E576F] hover:text-[#EAF0F7]">
           <ArrowLeft size={20} />
         </Link>
         <div className="flex-1">
@@ -569,7 +582,7 @@ export function Leads() {
               onClick={async () => {
                 // Load fresh detail on click
                 try {
-                  const { lead: fresh } = await getLeadDetail(lead.id);
+                  const { lead: fresh } = await api.getLeadDetail(lead.id);
                   setSelectedLead(fresh);
                 } catch {
                   setSelectedLead(lead);

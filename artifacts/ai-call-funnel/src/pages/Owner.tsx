@@ -1,15 +1,13 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import { Store, Globe, Sparkles, ArrowLeft, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { OwnerNav } from "../components/owner/OwnerNav";
 import {
-  getBusinessProfile,
-  saveBusinessProfile,
-  startAnalysis,
-  assistFromDescription,
+  businessApi,
   type BusinessProfile,
   type ProfileDraft,
 } from "../lib/api";
+import { useBusinessSlug } from "../hooks/useBusinessSlug";
 import { ProfileEditor } from "../components/owner/ProfileEditor";
 
 type View = "loading" | "start" | "analyzing" | "editor";
@@ -17,6 +15,9 @@ type View = "loading" | "start" | "analyzing" | "editor";
 const POLL_MS = 2500;
 
 export function Owner() {
+  const slug = useBusinessSlug();
+  const api = useMemo(() => (slug ? businessApi(slug) : null), [slug]);
+
   const [view, setView] = useState<View>("loading");
   const [profile, setProfile] = useState<BusinessProfile | null>(null);
   const [draft, setDraft] = useState<ProfileDraft | null>(null);
@@ -44,8 +45,9 @@ export function Owner() {
   }, []);
 
   const load = useCallback(async () => {
+    if (!api) return;
     try {
-      const { profile: p, filled } = await getBusinessProfile();
+      const { profile: p, filled } = await api.getProfile();
       setProfile(p);
       setUrl(p.websiteUrl ?? "");
       if (p.analysisStatus === "running") setView("analyzing");
@@ -58,7 +60,7 @@ export function Owner() {
       setError(err instanceof Error ? err.message : "Erro ao carregar");
       setView("start");
     }
-  }, []);
+  }, [api]);
 
   useEffect(() => {
     void load();
@@ -67,13 +69,13 @@ export function Owner() {
 
   // Poll while analyzing
   useEffect(() => {
-    if (view !== "analyzing") {
+    if (view !== "analyzing" || !api) {
       stopPolling();
       return;
     }
     pollRef.current = setInterval(async () => {
       try {
-        const { profile: p, filled } = await getBusinessProfile();
+        const { profile: p, filled } = await api.getProfile();
         setProfile(p);
         if (p.analysisStatus === "done" && filled) {
           stopPolling();
@@ -98,16 +100,16 @@ export function Owner() {
       }
     }, POLL_MS);
     return stopPolling;
-  }, [view, stopPolling]);
+  }, [view, stopPolling, api]);
 
   const filledOr = (p: BusinessProfile) => p.name.trim().length > 0;
 
   const handleAnalyze = async () => {
-    if (!url.trim()) return;
+    if (!url.trim() || !api) return;
     setBusy(true);
     setError(null);
     try {
-      await startAnalysis(url.trim());
+      await api.startAnalysis(url.trim());
       setView("analyzing");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não foi possível iniciar a análise");
@@ -121,10 +123,11 @@ export function Owner() {
       setError("Descreve o negócio com um pouco mais de detalhe (mínimo 20 caracteres).");
       return;
     }
+    if (!api) return;
     setBusy(true);
     setError(null);
     try {
-      const { draft: d } = await assistFromDescription(descriptionText.trim());
+      const { draft: d } = await api.assistFromDescription(descriptionText.trim());
       setDraft(d);
       setEditorKey((k) => k + 1);
       setNotice("A IA estruturou o teu negócio. Revê os campos e guarda.");
@@ -137,10 +140,11 @@ export function Owner() {
   };
 
   const handleSave = async (fields: ProfileDraft & { websiteUrl?: string | null }) => {
+    if (!api) return;
     setSaving(true);
     setError(null);
     try {
-      const { profile: p } = await saveBusinessProfile(fields);
+      const { profile: p } = await api.saveProfile(fields);
       setProfile(p);
       setDraft(null);
       setNotice("Perfil guardado. O agente de chamadas já fala pelo teu negócio ✅");
@@ -152,11 +156,12 @@ export function Owner() {
   };
 
   const handleReanalyze = async (u: string) => {
+    if (!api) return;
     setReanalyzing(true);
     setError(null);
     setNotice(null);
     try {
-      await startAnalysis(u);
+      await api.startAnalysis(u);
       setView("analyzing");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não foi possível iniciar a análise");
@@ -165,11 +170,19 @@ export function Owner() {
     }
   };
 
+  if (!slug) {
+    return (
+      <div className="h-full flex items-center justify-center bg-[#080E18] text-slate-400 text-sm">
+        Negócio não encontrado.
+      </div>
+    );
+  }
+
   return (
     <div className="h-full flex flex-col bg-[#080E18]">
       {/* Header */}
       <header className="shrink-0 flex items-center gap-3 px-4 py-3 bg-[#101B29] border-b border-white/[0.06]">
-        <Link href="/" className="p-1.5 -ml-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/[0.04] transition-colors" aria-label="Voltar ao funil">
+        <Link href={`/e/${slug}`} className="p-1.5 -ml-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/[0.04] transition-colors" aria-label="Voltar ao funil">
           <ArrowLeft className="w-5 h-5" />
         </Link>
         <div className="w-9 h-9 rounded-full bg-[#00A884]/15 flex items-center justify-center">

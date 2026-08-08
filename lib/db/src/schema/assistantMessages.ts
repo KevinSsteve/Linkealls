@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, jsonb, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, jsonb, uuid, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -26,6 +26,7 @@ export const assistantMessagesTable = pgTable("assistant_messages", {
   role:      text("role").$type<AssistantRole>().notNull(),
   content:   text("content").notNull(),
   meta:      jsonb("meta").$type<AssistantMessageMeta>().notNull().default({}),
+  businessId: integer("business_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

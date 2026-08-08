@@ -1,23 +1,26 @@
-import { useLocation } from "wouter";
-import { Link } from "wouter";
+import { useLocation, Link } from "wouter";
 import { Store, MessageSquare, Zap, Megaphone } from "lucide-react";
+import { useBusinessSlug } from "../../hooks/useBusinessSlug";
 
 const TABS = [
-  { path: "/dono",            icon: Store,          label: "Perfil",    exact: true  },
-  { path: "/dono/conversas",  icon: MessageSquare,  label: "Conversas", exact: false },
-  { path: "/dono/assistente", icon: Zap,            label: "Assistente",exact: false },
-  { path: "/dono/campanhas",  icon: Megaphone,      label: "Campanhas", exact: false },
+  { sub: "",            icon: Store,          label: "Perfil",    exact: true  },
+  { sub: "/conversas",  icon: MessageSquare,  label: "Conversas", exact: false },
+  { sub: "/assistente", icon: Zap,            label: "Assistente",exact: false },
+  { sub: "/campanhas",  icon: Megaphone,      label: "Campanhas", exact: false },
 ] as const;
 
 export function OwnerNav() {
   const [location] = useLocation();
+  const slug = useBusinessSlug();
+  const base = slug ? `/e/${slug}/dono` : "/";
 
   return (
     <nav
       className="flex-shrink-0 flex items-stretch border-t border-white/[0.07]"
       style={{ background: "#0A1420", paddingBottom: "env(safe-area-inset-bottom, 0)" }}
     >
-      {TABS.map(({ path, icon: Icon, label, exact }) => {
+      {TABS.map(({ sub, icon: Icon, label, exact }) => {
+        const path = `${base}${sub}`;
         const active = exact
           ? location === path
           : location === path || location.startsWith(path + "/");

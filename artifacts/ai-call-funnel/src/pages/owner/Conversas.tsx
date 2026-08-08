@@ -1,16 +1,16 @@
 /**
  * Conversas — lista estilo WhatsApp de todas as conversas da IA com clientes.
  */
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   ArrowLeft, User, Phone, Bell,
   Search, ExternalLink, DollarSign, Clock, MapPin,
   MessageCircle,
 } from "lucide-react";
 import {
-  listLeads, getLeadDetail, updateLeadState,
-  getLeadsEventsUrl, type Lead, type LeadState,
+  businessApi, type Lead, type LeadState,
 } from "../../lib/api";
+import { useBusinessSlug } from "../../hooks/useBusinessSlug";
 import { OwnerNav } from "../../components/owner/OwnerNav";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -191,8 +191,9 @@ function Bubble({ isUser, text, ts }: { isUser: boolean; text: string; ts?: stri
   );
 }
 
-function ConversationDetail({ lead: initialLead, onBack, onStateChange }: {
+function ConversationDetail({ lead: initialLead, onBack, onStateChange, api }: {
   lead: Lead; onBack: () => void; onStateChange: (l: Lead) => void;
+  api: ReturnType<typeof businessApi>;
 }) {
   const [lead, setLead] = useState(initialLead);
   const [updating, setUpdating] = useState(false);
@@ -205,7 +206,7 @@ function ConversationDetail({ lead: initialLead, onBack, onStateChange }: {
   async function handleState(state: LeadState) {
     setUpdating(true);
     try {
-      const { lead: updated } = await updateLeadState(lead.id, state);
+      const { lead: updated } = await api.updateLeadState(lead.id, state);
       setLead(updated);
       onStateChange(updated);
     } finally {
@@ -395,6 +396,8 @@ function ConversationDetail({ lead: initialLead, onBack, onStateChange }: {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export function Conversas() {
+  const slug = useBusinessSlug();
+  const api = useMemo(() => (slug ? businessApi(slug) : null), [slug]);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Lead | null>(null);
@@ -404,18 +407,20 @@ export function Conversas() {
   const [notification, setNotification] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    if (!api) return;
     try {
-      const { leads: data } = await listLeads();
+      const { leads: data } = await api.listLeads();
       setLeads([...data].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [api]);
 
   useEffect(() => { void load(); }, [load]);
 
   useEffect(() => {
-    const es = new EventSource(getLeadsEventsUrl());
+    if (!api) return;
+    const es = new EventSource(api.getLeadsEventsUrl());
     es.addEventListener("lead_qualified", (e) => {
       const { leadId } = JSON.parse((e as MessageEvent).data) as { leadId: string };
       setNewIds((prev) => new Set([...prev, leadId]));
@@ -424,7 +429,7 @@ export function Conversas() {
       setTimeout(() => setNotification(null), 5000);
     });
     return () => es.close();
-  }, [load]);
+  }, [api, load]);
 
   const filtered = leads.filter((l) => {
     if (filter !== "todos" && l.state !== filter) return false;
@@ -442,11 +447,20 @@ export function Conversas() {
   const today = new Date().toDateString();
   const todayCount = leads.filter((l) => new Date(l.createdAt).toDateString() === today).length;
 
+  if (!slug || !api) {
+    return (
+      <div className="flex items-center justify-center h-full bg-[#080E18] text-[#3E576F] text-sm">
+        Negócio não encontrado
+      </div>
+    );
+  }
+
   if (selected) {
     return (
       <div className="flex flex-col h-full bg-[#080E18]">
         <ConversationDetail
           lead={selected}
+          api={api}
           onBack={() => setSelected(null)}
           onStateChange={(updated) => {
             setLeads((prev) => prev.map((l) => (l.id === updated.id ? updated : l)));
@@ -552,7 +566,7 @@ export function Conversas() {
                 isNew={newIds.has(lead.id)}
                 onClick={async () => {
                   try {
-                    const { lead: fresh } = await getLeadDetail(lead.id);
+                    const { lead: fresh } = await api.getLeadDetail(lead.id);
                     setSelected(fresh);
                   } catch {
                     setSelected(lead);

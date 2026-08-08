@@ -10,7 +10,7 @@ import {
   Send, ShoppingBag, ArrowRight, Sparkles, Loader2, ImageOff, Store,
 } from "lucide-react";
 import {
-  getCatalog, getCatalogBySlug, businessApi, createLeadSession, sendLeadChat,
+  getCatalogBySlug, businessApi,
   type CatalogData, type Offering, type FaqItem, type ChatMessage,
 } from "../lib/api";
 
@@ -22,7 +22,14 @@ const CATALOG_ORIGIN = {
 } as const;
 
 const BASE = import.meta.env.BASE_URL;
-const CAPTACAO_URL = `${BASE}captacao?utm_source=catalogo&utm_campaign=catalogo-publico`;
+
+/** Business-scoped call-funnel URL. Falls back to the app root when the
+ *  business slug is unknown (shouldn't happen for a published catalog). */
+function captacaoUrl(businessSlug: string | null): string {
+  return businessSlug
+    ? `${BASE}e/${businessSlug}/captacao?utm_source=catalogo&utm_campaign=catalogo-publico`
+    : BASE;
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -210,16 +217,19 @@ function CatalogChat({
 
       // Create lead on first message — only flip firstMsg AFTER successful creation
       // so that a network failure allows the user to retry without losing the session.
+      if (!catalog.businessSlug) throw new Error("sem slug de negócio");
+      const api = businessApi(catalog.businessSlug);
+
       if (firstMsg) {
         const origin = { ...CATALOG_ORIGIN, url: window.location.href };
-        const { leadId: newId } = await createLeadSession(origin, []);
+        const { leadId: newId } = await api.createLeadSession(origin, []);
         currentLeadId = newId;
         setLeadId(newId);
         setFirstMsg(false); // commit only after success
       }
 
       if (!currentLeadId) throw new Error("sem lead id");
-      const { reply } = await sendLeadChat(currentLeadId, text);
+      const { reply } = await api.sendLeadChat(currentLeadId, text);
       setMessages((prev) => [...prev, { id: makeId(), role: "bot", text: reply }]);
     } catch {
       // firstMsg stays true on lead-creation failure → next send will retry
@@ -230,7 +240,7 @@ function CatalogChat({
     } finally {
       setIsBusy(false);
     }
-  }, [input, isBusy, leadId, firstMsg]);
+  }, [input, isBusy, leadId, firstMsg, catalog.businessSlug]);
 
   const handleKey = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -356,7 +366,7 @@ function CatalogChat({
           {/* Call CTA strip */}
           <div className="px-4 py-2 shrink-0" style={{ borderTop: "1px solid #F1F5F9" }}>
             <a
-              href={CAPTACAO_URL}
+              href={captacaoUrl(catalog.businessSlug)}
               className="flex items-center justify-center gap-2 w-full py-2 rounded-xl text-[13px] font-semibold transition-colors"
               style={{ color: "#2563EB", background: "#EFF6FF" }}
             >
@@ -448,8 +458,8 @@ export function Catalogo() {
       // /e/:businessSlug/catalogo → fetch via scoped business API
       fetch = businessApi(businessSlug).getCatalog();
     } else {
-      // /catalogo legacy → single-tenant default
-      fetch = getCatalog();
+      // No slug — cannot resolve a business
+      fetch = Promise.reject(new Error("Catálogo não encontrado"));
     }
     fetch
       .then(setCatalog)
@@ -518,7 +528,7 @@ export function Catalogo() {
           )}
 
           <a
-            href={CAPTACAO_URL}
+            href={captacaoUrl(catalog.businessSlug)}
             className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-white text-[13px] font-semibold transition-colors"
             style={{ background: "#2563EB" }}
           >
@@ -570,7 +580,7 @@ export function Catalogo() {
               Falar com IA
             </button>
             <a
-              href={CAPTACAO_URL}
+              href={captacaoUrl(catalog.businessSlug)}
               className="flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm transition-colors shadow-sm"
               style={{
                 background: "#FFFFFF",
@@ -672,7 +682,7 @@ export function Catalogo() {
               Falar com IA agora
             </button>
             <a
-              href={CAPTACAO_URL}
+              href={captacaoUrl(catalog.businessSlug)}
               className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-bold transition-colors"
               style={{ background: "rgba(255,255,255,0.12)", color: "#FFFFFF", border: "1px solid rgba(255,255,255,0.2)" }}
             >

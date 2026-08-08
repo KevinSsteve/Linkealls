@@ -3,7 +3,7 @@
  * Suporta: perguntas em linguagem natural, mensagens proativas, ações com
  * confirmação e rascunhos prontos a copiar.
  */
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Link } from "wouter";
 import {
   ArrowLeft,
@@ -18,16 +18,8 @@ import {
   Loader2,
   Bell,
 } from "lucide-react";
-import {
-  listAssistantMessages,
-  sendAssistantMessage,
-  confirmAssistantAction,
-  clearAssistantMessages,
-  triggerDailySummary,
-  triggerStaleLeadsCheck,
-  getAssistantEventsUrl,
-  type AssistantMessage,
-} from "../../lib/api";
+import { businessApi, type AssistantMessage } from "../../lib/api";
+import { useBusinessSlug } from "../../hooks/useBusinessSlug";
 import { ChatInput } from "../../components/ChatInput";
 import { OwnerNav } from "../../components/owner/OwnerNav";
 
@@ -216,6 +208,9 @@ const QUICK_ACTIONS = [
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function Assistant() {
+  const slug = useBusinessSlug();
+  const api = useMemo(() => (slug ? businessApi(slug) : null), [slug]);
+
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
@@ -232,11 +227,13 @@ export function Assistant() {
 
   // Load history
   useEffect(() => {
-    listAssistantMessages()
+    if (!api) return;
+    api
+      .listAssistantMessages()
       .then(({ messages: data }) => setMessages(data))
       .catch(() => setError("Não foi possível carregar o histórico"))
       .finally(() => setLoading(false));
-  }, []);
+  }, [api]);
 
   useEffect(() => {
     if (messages.length > 0) scrollToZaptom();
@@ -244,7 +241,8 @@ export function Assistant() {
 
   // SSE for proactive messages from other tabs / server events
   useEffect(() => {
-    const es = new EventSource(getAssistantEventsUrl());
+    if (!api) return;
+    const es = new EventSource(api.getAssistantEventsUrl());
     eventSourceRef.current = es;
 
     es.addEventListener("message", (e) => {
@@ -257,11 +255,11 @@ export function Assistant() {
     });
 
     return () => es.close();
-  }, []);
+  }, [api]);
 
   const handleSend = useCallback(async () => {
     const text = input.trim();
-    if (!text || sending) return;
+    if (!text || sending || !api) return;
 
     setInput("");
     setSending(true);
@@ -280,9 +278,9 @@ export function Assistant() {
     scrollToZaptom();
 
     try {
-      const { message: reply } = await sendAssistantMessage(text);
+      const { message: reply } = await api.sendAssistantMessage(text);
       // Replace optimistic with real message from server (history reload)
-      const { messages: fresh } = await listAssistantMessages();
+      const { messages: fresh } = await api.listAssistantMessages();
       setMessages(fresh);
     } catch (err) {
       setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
@@ -290,14 +288,15 @@ export function Assistant() {
     } finally {
       setSending(false);
     }
-  }, [input, sending, scrollToZaptom]);
+  }, [input, sending, scrollToZaptom, api]);
 
   const handleConfirm = useCallback(
     async (messageId: string, confirmed: boolean) => {
+      if (!api) return;
       setConfirming(messageId);
       try {
-        await confirmAssistantAction(messageId, confirmed);
-        const { messages: fresh } = await listAssistantMessages();
+        await api.confirmAssistantAction(messageId, confirmed);
+        const { messages: fresh } = await api.listAssistantMessages();
         setMessages(fresh);
       } catch {
         setError("Não foi possível executar a ação");
@@ -305,28 +304,31 @@ export function Assistant() {
         setConfirming(null);
       }
     },
-    [],
+    [api],
   );
 
   const handleClear = useCallback(async () => {
+    if (!api) return;
     if (!window.confirm("Limpar todo o histórico da conversa?")) return;
-    await clearAssistantMessages();
+    await api.clearAssistantMessages();
     setMessages([]);
-  }, []);
+  }, [api]);
 
   const handleDailySummary = useCallback(async () => {
+    if (!api) return;
     try {
-      const { message } = await triggerDailySummary();
+      const { message } = await api.triggerDailySummary();
       setMessages((prev) => [...prev, message]);
       scrollToZaptom();
     } catch {
       setError("Não foi possível gerar o resumo");
     }
-  }, [scrollToZaptom]);
+  }, [scrollToZaptom, api]);
 
   const handleStaleCheck = useCallback(async () => {
+    if (!api) return;
     try {
-      const { message, found } = await triggerStaleLeadsCheck();
+      const { message, found } = await api.triggerStaleLeadsCheck();
       if (message) {
         setMessages((prev) => [...prev, message]);
         scrollToZaptom();
@@ -337,9 +339,11 @@ export function Assistant() {
     } catch {
       setError("Não foi possível verificar leads parados");
     }
-  }, [scrollToZaptom]);
+  }, [scrollToZaptom, api]);
 
   const isEmpty = messages.length === 0 && !loading;
+
+  if (!slug) return null;
 
   return (
     <div className="flex flex-col h-full bg-[#080E18]">
@@ -348,7 +352,7 @@ export function Assistant() {
         className="flex items-center gap-3 px-4 py-3 border-b border-white/10 flex-shrink-0"
         style={{ background: "#111B27" }}
       >
-        <Link href="/dono" className="text-[#3E576F] hover:text-[#EAF0F7]">
+        <Link href={`/e/${slug}/dono`} className="text-[#3E576F] hover:text-[#EAF0F7]">
           <ArrowLeft size={20} />
         </Link>
         <div className="w-9 h-9 rounded-full bg-[#00BFA5]/15 flex items-center justify-center flex-shrink-0">

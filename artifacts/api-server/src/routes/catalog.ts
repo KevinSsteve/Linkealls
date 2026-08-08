@@ -14,6 +14,7 @@ const router = Router();
 function buildCatalogPayload(profile: Awaited<ReturnType<typeof getOrCreateProfile>>) {
   const isReady = profile.name.trim().length > 0 && profile.offerings.length > 0;
   return {
+    businessSlug: profile.slug ?? null,
     name: profile.name,
     sector: profile.sector,
     description: profile.description,
@@ -25,17 +26,6 @@ function buildCatalogPayload(profile: Awaited<ReturnType<typeof getOrCreateProfi
     isReady,
   };
 }
-
-/** GET /catalog — public endpoint: returns business data for the catalog page. */
-router.get("/catalog", async (_req, res) => {
-  try {
-    const profile = await getOrCreateProfile();
-    res.json(buildCatalogPayload(profile));
-  } catch (err) {
-    logger.error({ err }, "Failed to load catalog");
-    res.status(500).json({ error: "Erro ao carregar catálogo" });
-  }
-});
 
 /** GET /catalog/by-slug/:slug — resolve a vanity slug to catalog data. */
 router.get("/catalog/by-slug/:slug", async (req, res) => {

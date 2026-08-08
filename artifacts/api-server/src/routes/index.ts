@@ -1,36 +1,41 @@
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
-import authRouter from "./auth";
 import userAuthRouter from "./userAuth";
-import businessProfileRouter from "./businessProfile";
-import leadsRouter from "./leads";
-import assistantRouter from "./assistant";
-import campaignsRouter from "./campaigns";
 import storageRouter from "./storage";
-import notificationsRouter from "./notifications";
 import catalogRouter from "./catalog";
 import { createBusinessScopedRouter } from "./businessScoped.js";
 import businessesRouter from "./businesses.js";
 
 const router: IRouter = Router();
 
-// ── Multi-tenant scoped routes (new) ─────────────────────────────────────────
+// ── Multi-tenant scoped routes ───────────────────────────────────────────────
 // All business-specific operations available at /api/b/:businessSlug/...
 router.use("/b/:businessSlug", createBusinessScopedRouter());
 
 // ── Platform-level public routes ─────────────────────────────────────────────
 router.use(businessesRouter);
-
-// ── Legacy single-tenant routes (backward compat) ─────────────────────────────
 router.use(healthRouter);
-router.use(authRouter);
 router.use(userAuthRouter);
-router.use(businessProfileRouter);
-router.use(leadsRouter);
-router.use(assistantRouter);
-router.use(campaignsRouter);
 router.use(storageRouter);
-router.use(notificationsRouter);
-router.use(catalogRouter);
+router.use(catalogRouter); // public catalog by slug + slug availability check
+
+// ── Legacy single-tenant routes — removed (410) ──────────────────────────────
+// The old global endpoints all pointed to one shared business profile.
+// Any lingering client gets an explicit 410 instead of shared data.
+const GONE_PREFIXES = [
+  "/business-profile",
+  "/leads",
+  "/assistant",
+  "/campaigns",
+  "/auth/pin",
+  "/notifications",
+];
+for (const prefix of GONE_PREFIXES) {
+  router.use(prefix, (_req, res) => {
+    res.status(410).json({
+      error: "Esta rota foi descontinuada. Usa /api/b/:businessSlug/… .",
+    });
+  });
+}
 
 export default router;

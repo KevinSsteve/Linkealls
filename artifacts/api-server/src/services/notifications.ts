@@ -23,12 +23,13 @@ export function getVapidPublicKey(): string {
 
 // ─── Subscription storage ─────────────────────────────────────────────────────
 
-/** Store or update a push subscription for the owner (profile id=1). */
-export async function saveSubscription(sub: PushSubscriptionJSON): Promise<void> {
+/** Store or update a push subscription for a business owner. */
+export async function saveSubscription(sub: PushSubscriptionJSON, businessId: number): Promise<void> {
   // Load current subscriptions
   const rows = await db
     .select({ pushSubscriptions: businessProfilesTable.pushSubscriptions })
     .from(businessProfilesTable)
+    .where(eq(businessProfilesTable.id, businessId))
     .limit(1);
 
   const existing: PushSubscriptionJSON[] = (rows[0]?.pushSubscriptions as PushSubscriptionJSON[]) ?? [];
@@ -43,14 +44,15 @@ export async function saveSubscription(sub: PushSubscriptionJSON): Promise<void>
       pushSubscriptions: updated as unknown as PushSubscriptionJSON[],
       updatedAt: new Date(),
     })
-    .where(eq(businessProfilesTable.id, 1));
+    .where(eq(businessProfilesTable.id, businessId));
 }
 
 /** Remove a push subscription by endpoint (called on unsubscribe). */
-export async function removeSubscription(endpoint: string): Promise<void> {
+export async function removeSubscription(endpoint: string, businessId: number): Promise<void> {
   const rows = await db
     .select({ pushSubscriptions: businessProfilesTable.pushSubscriptions })
     .from(businessProfilesTable)
+    .where(eq(businessProfilesTable.id, businessId))
     .limit(1);
 
   const existing: PushSubscriptionJSON[] = (rows[0]?.pushSubscriptions as PushSubscriptionJSON[]) ?? [];
@@ -62,15 +64,16 @@ export async function removeSubscription(endpoint: string): Promise<void> {
       pushSubscriptions: updated as unknown as PushSubscriptionJSON[],
       updatedAt: new Date(),
     })
-    .where(eq(businessProfilesTable.id, 1));
+    .where(eq(businessProfilesTable.id, businessId));
 }
 
 // ─── Send push ────────────────────────────────────────────────────────────────
 
-async function loadSubscriptions(): Promise<PushSubscriptionJSON[]> {
+async function loadSubscriptions(businessId: number): Promise<PushSubscriptionJSON[]> {
   const rows = await db
     .select({ pushSubscriptions: businessProfilesTable.pushSubscriptions })
     .from(businessProfilesTable)
+    .where(eq(businessProfilesTable.id, businessId))
     .limit(1);
   return (rows[0]?.pushSubscriptions as PushSubscriptionJSON[]) ?? [];
 }
@@ -82,13 +85,13 @@ interface PushPayload {
   url?: string;
 }
 
-export async function sendPushToOwner(payload: PushPayload): Promise<void> {
+export async function sendPushToOwner(payload: PushPayload, businessId: number): Promise<void> {
   if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
     logger.warn("VAPID keys not configured — skipping push notification");
     return;
   }
 
-  const subscriptions = await loadSubscriptions();
+  const subscriptions = await loadSubscriptions(businessId);
   if (subscriptions.length === 0) {
     logger.debug("No push subscriptions — skipping notification");
     return;
@@ -117,7 +120,7 @@ export async function sendPushToOwner(payload: PushPayload): Promise<void> {
 
   // Clean up expired subscriptions
   for (const endpoint of stale) {
-    await removeSubscription(endpoint);
+    await removeSubscription(endpoint, businessId);
   }
 }
 
@@ -148,31 +151,39 @@ export function startDailySummaryCron(): void {
 
 async function sendDailySummary(dateStr: string): Promise<void> {
   try {
-    // Count leads created today (Angola time ≈ UTC+1 → compare >= midnight UTC-1 to cover full day)
+    // Per-business counts of leads created in the last 24 hours.
+    // Only businesses with push subscriptions receive a summary.
     const rows = await db.execute(sql`
       SELECT
-        COUNT(*)::int AS total,
-        COUNT(*) FILTER (WHERE state IN ('qualificado','entregue'))::int AS qualified
-      FROM leads
-      WHERE created_at >= NOW() - INTERVAL '24 hours'
+        bp.id AS business_id,
+        bp.slug AS slug,
+        COUNT(l.id)::int AS total,
+        COUNT(l.id) FILTER (WHERE l.state IN ('qualificado','entregue'))::int AS qualified
+      FROM business_profiles bp
+      LEFT JOIN leads l
+        ON l.business_id = bp.id AND l.created_at >= NOW() - INTERVAL '24 hours'
+      WHERE jsonb_array_length(COALESCE(bp.push_subscriptions, '[]'::jsonb)) > 0
+      GROUP BY bp.id, bp.slug
     `);
-    const row = (rows.rows as Array<{ total: string; qualified: string }>)[0];
-    const total     = Number(row?.total     ?? 0);
-    const qualified = Number(row?.qualified ?? 0);
 
-    const body =
-      total === 0
-        ? "Nenhum lead ontem. Promove as tuas campanhas!"
-        : `${total} lead${total !== 1 ? "s" : ""} recebido${total !== 1 ? "s" : ""}, ${qualified} qualificado${qualified !== 1 ? "s" : ""}.`;
+    for (const r of rows.rows as Array<{ business_id: number; slug: string | null; total: string; qualified: string }>) {
+      const total     = Number(r.total ?? 0);
+      const qualified = Number(r.qualified ?? 0);
 
-    await sendPushToOwner({
-      title: "☀️ Resumo diário — AI Funnel",
-      body,
-      tag: `daily-${dateStr}`,
-      url: "/dono/conversas",
-    });
+      const body =
+        total === 0
+          ? "Nenhum lead ontem. Promove as tuas campanhas!"
+          : `${total} lead${total !== 1 ? "s" : ""} recebido${total !== 1 ? "s" : ""}, ${qualified} qualificado${qualified !== 1 ? "s" : ""}.`;
 
-    logger.info({ dateStr, total, qualified }, "Daily summary push sent");
+      await sendPushToOwner({
+        title: "☀️ Resumo diário — Linkealls",
+        body,
+        tag: `daily-${dateStr}`,
+        url: r.slug ? `/e/${r.slug}/dono/conversas` : "/",
+      }, Number(r.business_id));
+    }
+
+    logger.info({ dateStr, businesses: rows.rows.length }, "Daily summary pushes sent")
   } catch (err) {
     logger.error({ err }, "Daily summary cron failed");
   }

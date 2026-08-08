@@ -1,7 +1,7 @@
 /**
  * Estrategista de Campanhas — lista + criação.
  */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import {
   ArrowLeft,
@@ -19,13 +19,12 @@ import {
   ExternalLink,
 } from "lucide-react";
 import {
-  listCampaigns,
-  createCampaign,
-  getLeadsAnalytics,
+  businessApi,
   type Campaign,
   type CampaignPlatform,
   type LeadsAnalytics,
 } from "../../lib/api";
+import { useBusinessSlug } from "../../hooks/useBusinessSlug";
 import { OwnerNav } from "../../components/owner/OwnerNav";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -51,7 +50,8 @@ const STATUS_META: Record<Campaign["status"], { label: string; color: string }> 
 
 const PLATFORMS: CampaignPlatform[] = ["google", "instagram", "facebook", "tiktok"];
 
-function CreateModal({ onClose, onCreate }: {
+function CreateModal({ api, onClose, onCreate }: {
+  api: ReturnType<typeof businessApi>;
   onClose: () => void;
   onCreate: (c: Campaign) => void;
 }) {
@@ -67,7 +67,7 @@ function CreateModal({ onClose, onCreate }: {
     setSaving(true);
     setErr(null);
     try {
-      const { campaign } = await createCampaign({
+      const { campaign } = await api.createCampaign({
         name: name.trim(),
         platform,
         objective: objective.trim(),
@@ -183,17 +183,18 @@ function CreateModal({ onClose, onCreate }: {
 
 // ─── Analytics view ───────────────────────────────────────────────────────────
 
-function AnalyticsView() {
+function AnalyticsView({ api }: { api: ReturnType<typeof businessApi> }) {
   const [data,    setData]    = useState<LeadsAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState<string | null>(null);
 
   useEffect(() => {
-    getLeadsAnalytics()
+    api
+      .getLeadsAnalytics()
       .then(({ analytics }) => setData(analytics))
       .catch(() => setError("Não foi possível carregar os dados"))
       .finally(() => setLoading(false));
-  }, []);
+  }, [api]);
 
   if (loading) return (
     <div className="flex items-center justify-center py-16">
@@ -281,12 +282,12 @@ function AnalyticsView() {
 
 // ─── Campaign card ────────────────────────────────────────────────────────────
 
-function CampaignCard({ campaign }: { campaign: Campaign }) {
+function CampaignCard({ campaign, slug }: { campaign: Campaign; slug: string }) {
   const pm = PLATFORM_META[campaign.platform];
   const sm = STATUS_META[campaign.status];
 
   return (
-    <Link href={`/dono/campanhas/${campaign.id}`}>
+    <Link href={`/e/${slug}/dono/campanhas/${campaign.id}`}>
       <div
         className="flex items-center gap-3 px-4 py-3.5 cursor-pointer hover:bg-white/[0.02] transition-colors border-b"
         style={{ borderColor: "rgba(255,255,255,0.04)" }}
@@ -325,6 +326,9 @@ function CampaignCard({ campaign }: { campaign: Campaign }) {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export function Campaigns() {
+  const slug = useBusinessSlug();
+  const api = useMemo(() => (slug ? businessApi(slug) : null), [slug]);
+
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState<string | null>(null);
@@ -333,16 +337,20 @@ export function Campaigns() {
   const [, navigate]              = useLocation();
 
   useEffect(() => {
-    listCampaigns()
+    if (!api) return;
+    api
+      .listCampaigns()
       .then(({ campaigns: data }) => setCampaigns(data))
       .catch(() => setError("Não foi possível carregar as campanhas"))
       .finally(() => setLoading(false));
-  }, []);
+  }, [api]);
 
   const handleCreate = useCallback((campaign: Campaign) => {
     setShowModal(false);
-    navigate(`/dono/campanhas/${campaign.id}`);
-  }, [navigate]);
+    navigate(`/e/${slug}/dono/campanhas/${campaign.id}`);
+  }, [navigate, slug]);
+
+  if (!slug || !api) return null;
 
   return (
     <div className="flex flex-col h-full bg-[#080E18]">
@@ -351,7 +359,7 @@ export function Campaigns() {
         className="flex items-center gap-3 px-4 py-3 border-b border-white/10 flex-shrink-0"
         style={{ background: "#111B27" }}
       >
-        <Link href="/dono" className="text-[#3E576F] hover:text-[#EAF0F7]">
+        <Link href={`/e/${slug}/dono`} className="text-[#3E576F] hover:text-[#EAF0F7]">
           <ArrowLeft size={20} />
         </Link>
         <div className="w-9 h-9 rounded-full bg-orange-500/15 flex items-center justify-center flex-shrink-0">
@@ -393,7 +401,7 @@ export function Campaigns() {
       {/* Tab: Analytics */}
       {tab === "analise" && (
         <div className="flex-1 overflow-y-auto">
-          <AnalyticsView />
+          <AnalyticsView api={api} />
         </div>
       )}
 
@@ -454,7 +462,7 @@ export function Campaigns() {
                 ))}
               </div>
               <div className="flex-1 overflow-y-auto">
-                {campaigns.map((c) => <CampaignCard key={c.id} campaign={c} />)}
+                {campaigns.map((c) => <CampaignCard key={c.id} campaign={c} slug={slug} />)}
               </div>
             </>
           )}
@@ -462,7 +470,7 @@ export function Campaigns() {
       )}
 
       {showModal && (
-        <CreateModal onClose={() => setShowModal(false)} onCreate={handleCreate} />
+        <CreateModal api={api} onClose={() => setShowModal(false)} onCreate={handleCreate} />
       )}
       <OwnerNav />
     </div>

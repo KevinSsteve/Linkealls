@@ -271,8 +271,7 @@ export function createBusinessScopedRouter(): Router {
     const unsubscribe = subscribeToLeadQualified((leadId) => {
       getLead(leadId).then((lead) => {
         if (!lead) return;
-        // Emit only if lead belongs to this business (or has no businessId yet — legacy)
-        if (lead.businessId === businessId || lead.businessId === null) {
+        if (lead.businessId === businessId) {
           res.write(`event: lead_qualified\ndata: ${JSON.stringify({ leadId })}\n\n`);
         }
       }).catch(() => {});
@@ -293,7 +292,7 @@ export function createBusinessScopedRouter(): Router {
   router.get("/leads/:id", async (req, res) => {
     const id = String(req.params["id"] ?? "");
     try {
-      const lead = await getLead(id);
+      const lead = await getLead(id, bid(res));
       if (!lead) { res.status(404).json({ error: "Lead não encontrado" }); return; }
       res.json({ lead });
     } catch (err) {
@@ -321,7 +320,7 @@ export function createBusinessScopedRouter(): Router {
     const parsed = updateLeadStateSchema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "Estado inválido" }); return; }
     try {
-      const lead = await updateLeadState(id, parsed.data.state);
+      const lead = await updateLeadState(id, parsed.data.state, bid(res));
       if (!lead) { res.status(404).json({ error: "Lead não encontrado" }); return; }
       res.json({ lead });
     } catch (err) {
@@ -337,6 +336,7 @@ export function createBusinessScopedRouter(): Router {
       const profile = await getOrCreateProfile(bid(res));
       const isReady = profile.name.trim().length > 0 && profile.offerings.length > 0;
       res.json({
+        businessSlug: profile.slug ?? null,
         name: profile.name,
         sector: profile.sector,
         description: profile.description,
@@ -388,7 +388,7 @@ export function createBusinessScopedRouter(): Router {
   router.get("/campaigns/:id", async (req, res) => {
     const id = String(req.params["id"] ?? "");
     try {
-      const campaign = await getCampaign(id);
+      const campaign = await getCampaign(id, bid(res));
       if (!campaign) { res.status(404).json({ error: "Campanha não encontrada" }); return; }
       res.json({ campaign });
     } catch (err) {
@@ -402,7 +402,7 @@ export function createBusinessScopedRouter(): Router {
     const parsed = updateCampaignSchema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "Dados inválidos" }); return; }
     try {
-      const campaign = await updateCampaign(id, parsed.data);
+      const campaign = await updateCampaign(id, parsed.data, bid(res));
       if (!campaign) { res.status(404).json({ error: "Campanha não encontrada" }); return; }
       res.json({ campaign });
     } catch (err) {
@@ -436,7 +436,7 @@ export function createBusinessScopedRouter(): Router {
   router.get("/campaigns/:id/metrics", async (req, res) => {
     const id = String(req.params["id"] ?? "");
     try {
-      const metrics = await getCampaignMetrics(id);
+      const metrics = await getCampaignMetrics(id, bid(res));
       if (!metrics) { res.status(404).json({ error: "Campanha não encontrada" }); return; }
       res.json({ metrics });
     } catch (err) {
@@ -460,7 +460,7 @@ export function createBusinessScopedRouter(): Router {
 
   router.get("/assistant/messages", async (_req, res) => {
     try {
-      const messages = await listMessages(80);
+      const messages = await listMessages(bid(res), 80);
       res.json({ messages });
     } catch (err) {
       logger.error({ err }, "GET /assistant/messages failed");
@@ -472,7 +472,7 @@ export function createBusinessScopedRouter(): Router {
     const parsed = sendAssistantMessageSchema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "Mensagem inválida" }); return; }
     try {
-      const reply = await chat(parsed.data.message);
+      const reply = await chat(parsed.data.message, bid(res));
       broadcastAssistantMessage(reply);
       res.json({ message: reply });
     } catch (err) {
@@ -485,7 +485,7 @@ export function createBusinessScopedRouter(): Router {
     const parsed = confirmActionSchema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "Dados inválidos" }); return; }
     try {
-      const reply = await confirmAction(parsed.data.messageId, parsed.data.confirmed);
+      const reply = await confirmAction(parsed.data.messageId, parsed.data.confirmed, bid(res));
       broadcastAssistantMessage(reply);
       res.json({ message: reply });
     } catch (err) {
@@ -496,7 +496,7 @@ export function createBusinessScopedRouter(): Router {
 
   router.delete("/assistant/messages", async (_req, res) => {
     try {
-      await clearMessages();
+      await clearMessages(bid(res));
       res.json({ cleared: true });
     } catch (err) {
       logger.error({ err }, "DELETE /assistant/messages failed");
@@ -506,7 +506,7 @@ export function createBusinessScopedRouter(): Router {
 
   router.post("/assistant/proactive/daily", async (_req, res) => {
     try {
-      const msg = await proactiveDailySummary();
+      const msg = await proactiveDailySummary(bid(res));
       broadcastAssistantMessage(msg);
       res.json({ message: msg });
     } catch (err) {
@@ -517,7 +517,7 @@ export function createBusinessScopedRouter(): Router {
 
   router.post("/assistant/proactive/stale", async (_req, res) => {
     try {
-      const msg = await proactiveStaleLeads();
+      const msg = await proactiveStaleLeads(bid(res));
       if (msg) broadcastAssistantMessage(msg);
       res.json({ message: msg ?? null, found: !!msg });
     } catch (err) {
@@ -531,8 +531,10 @@ export function createBusinessScopedRouter(): Router {
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
     res.flushHeaders();
+    const businessId = bid(res);
     const keepAlive = setInterval(() => res.write(": ping\n\n"), 20_000);
     const unsub = subscribeToAssistantMessages((msg) => {
+      if (msg.businessId !== businessId) return;
       res.write(`event: message\ndata: ${JSON.stringify(msg)}\n\n`);
     });
     req.on("close", () => { clearInterval(keepAlive); unsub(); });
@@ -548,7 +550,7 @@ export function createBusinessScopedRouter(): Router {
 
   router.post("/notifications/subscribe", async (req, res) => {
     try {
-      await saveSubscription(req.body as PushSubscriptionJSON);
+      await saveSubscription(req.body as PushSubscriptionJSON, bid(res));
       res.json({ subscribed: true });
     } catch (err) {
       logger.error({ err }, "POST /notifications/subscribe failed");
@@ -560,7 +562,7 @@ export function createBusinessScopedRouter(): Router {
     const { endpoint } = req.body as { endpoint?: string };
     if (!endpoint) { res.status(400).json({ error: "endpoint obrigatório" }); return; }
     try {
-      await removeSubscription(endpoint);
+      await removeSubscription(endpoint, bid(res));
       res.json({ unsubscribed: true });
     } catch (err) {
       logger.error({ err }, "DELETE /notifications/subscribe failed");

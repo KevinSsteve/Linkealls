@@ -9,7 +9,7 @@ import {
   type QualificationData,
   type LeadState,
 } from "@workspace/db";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { logger } from "../lib/logger.js";
 import { getOrCreateProfile } from "./businessProfile.js";
 import { sendPushToOwner } from "./notifications.js";
@@ -31,11 +31,15 @@ export async function createLead(
   return inserted[0]!;
 }
 
-export async function getLead(id: string): Promise<Lead | null> {
+export async function getLead(id: string, businessId?: number): Promise<Lead | null> {
   const rows = await db
     .select()
     .from(leadsTable)
-    .where(eq(leadsTable.id, id));
+    .where(
+      businessId !== undefined
+        ? and(eq(leadsTable.id, id), eq(leadsTable.businessId, businessId))
+        : eq(leadsTable.id, id),
+    );
   return rows[0] ?? null;
 }
 
@@ -106,20 +110,24 @@ export async function getLeadsAnalytics(businessId?: number): Promise<LeadsAnaly
   };
 }
 
-export async function updateLeadState(id: string, state: LeadState): Promise<Lead | null> {
+export async function updateLeadState(id: string, state: LeadState, businessId?: number): Promise<Lead | null> {
   const updated = await db
     .update(leadsTable)
     .set({ state, updatedAt: new Date() })
-    .where(eq(leadsTable.id, id))
+    .where(
+      businessId !== undefined
+        ? and(eq(leadsTable.id, id), eq(leadsTable.businessId, businessId))
+        : eq(leadsTable.id, id),
+    )
     .returning();
   return updated[0] ?? null;
 }
 
-export async function updateLeadOnCallStart(id: string): Promise<void> {
+export async function updateLeadOnCallStart(id: string, businessId: number): Promise<void> {
   await db
     .update(leadsTable)
     .set({ state: "em_atendimento", updatedAt: new Date() })
-    .where(eq(leadsTable.id, id));
+    .where(and(eq(leadsTable.id, id), eq(leadsTable.businessId, businessId)));
 }
 
 // ─── Post-call AI extraction ──────────────────────────────────────────────────
@@ -190,7 +198,7 @@ export async function processCallCompletion(
   leadId: string,
   callTranscript: string,
   businessName: string,
-  _businessId?: number,
+  businessId: number,
 ): Promise<void> {
   const apiKey = process.env["GEMINI_API_KEY"];
   if (!apiKey) {
@@ -198,9 +206,10 @@ export async function processCallCompletion(
     return;
   }
 
-  const lead = await getLead(leadId);
+  // Scoped fetch — a lead belonging to another business is treated as not found.
+  const lead = await getLead(leadId, businessId);
   if (!lead) {
-    logger.warn({ leadId }, "Lead not found for post-call extraction");
+    logger.warn({ leadId, businessId }, "Lead not found for post-call extraction (or belongs to another business)");
     return;
   }
 
@@ -263,16 +272,22 @@ Responde APENAS com JSON válido, sem texto adicional.`;
     // Notify SSE subscribers and push when newly qualified
     if (newState === "qualificado") {
       notifyLeadQualified(leadId);
-      const name = extracted.qualificationData.name;
-      const interest = extracted.qualificationData.interest;
-      void sendPushToOwner({
-        title: "🔔 Lead qualificado!",
-        body: name
-          ? `${name}${interest ? ` — ${interest.slice(0, 80)}` : ""}`
-          : `Score ${extracted.score}/100 — Novo lead qualificado.`,
-        tag: `lead-${leadId}`,
-        url: `/dono/conversas`,
-      });
+      if (lead.businessId !== null) {
+        const businessId = lead.businessId;
+        const name = extracted.qualificationData.name;
+        const interest = extracted.qualificationData.interest;
+        void (async () => {
+          const profile = await getOrCreateProfile(businessId);
+          await sendPushToOwner({
+            title: "🔔 Lead qualificado!",
+            body: name
+              ? `${name}${interest ? ` — ${interest.slice(0, 80)}` : ""}`
+              : `Score ${extracted.score}/100 — Novo lead qualificado.`,
+            tag: `lead-${leadId}`,
+            url: profile.slug ? `/e/${profile.slug}/dono/conversas` : "/",
+          }, businessId);
+        })().catch((err) => logger.error({ err, leadId }, "Push on lead qualified failed"));
+      }
     }
   } catch (err) {
     logger.error({ err, leadId }, "Post-call lead extraction failed");
@@ -299,7 +314,7 @@ export async function chatWithLead(
   const apiKey = process.env["GEMINI_API_KEY"];
   if (!apiKey) throw new Error("GEMINI_API_KEY não configurado");
 
-  const [lead, profile] = await Promise.all([getLead(leadId), getOrCreateProfile(businessId)]);
+  const [lead, profile] = await Promise.all([getLead(leadId, businessId), getOrCreateProfile(businessId)]);
   if (!lead) throw new Error("Lead não encontrado");
 
   // Build context blocks

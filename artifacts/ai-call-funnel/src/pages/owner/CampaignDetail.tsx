@@ -1,7 +1,7 @@
 /**
  * Detalhe de campanha — kit gerado por IA + dashboard de atribuição + optimização.
  */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Link, useParams, useLocation } from "wouter";
 import {
   ArrowLeft,
@@ -28,17 +28,13 @@ import {
 } from "lucide-react";
 import { OwnerNav } from "../../components/owner/OwnerNav";
 import {
-  getCampaignById,
-  generateCampaignKit,
-  getCampaignMetrics,
-  getCampaignOptimizations,
-  updateCampaignStatus,
-  duplicateCampaign,
+  businessApi,
   type Campaign,
   type CampaignKit,
   type CampaignMetrics,
   type CampaignPlatform,
 } from "../../lib/api";
+import { useBusinessSlug } from "../../hooks/useBusinessSlug";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -225,10 +221,14 @@ function KitView({ kit }: { kit: CampaignKit }) {
 // ─── Metrics dashboard ────────────────────────────────────────────────────────
 
 function MetricsDashboard({
+  api,
+  slug,
   metrics,
   campaign,
   onSpendUpdate,
 }: {
+  api: ReturnType<typeof businessApi>;
+  slug: string;
   metrics: CampaignMetrics;
   campaign: Campaign;
   onSpendUpdate: (spend: number) => void;
@@ -239,7 +239,8 @@ function MetricsDashboard({
 
   // BASE_URL is set by Vite and includes the artifact prefix in both dev and prod
   // (e.g. "/ai-call-funnel/"). Always use it so copied links resolve correctly.
-  const captationBaseUrl = `${import.meta.env.BASE_URL}captacao`;
+  // The captação page is scoped to the business: /e/:businessSlug/captacao
+  const captationBaseUrl = `${import.meta.env.BASE_URL}e/${slug}/captacao`;
   const fullCaptationUrl = `${window.location.origin}${captationBaseUrl}?utm_source=${campaign.platform}&utm_medium=paid&utm_campaign=${campaign.utmSlug}`;
 
   const saveSpend = async () => {
@@ -247,7 +248,7 @@ function MetricsDashboard({
     if (isNaN(spend) || spend < 0) return;
     setSavingSpend(true);
     try {
-      await updateCampaignStatus(campaign.id, { totalSpend: spend });
+      await api.updateCampaignStatus(campaign.id, { totalSpend: spend });
       onSpendUpdate(spend);
     } finally {
       setSavingSpend(false);
@@ -346,6 +347,8 @@ function MetricsDashboard({
 export function CampaignDetail() {
   const params = useParams<{ id: string }>();
   const id     = params.id ?? "";
+  const slug   = useBusinessSlug();
+  const api    = useMemo(() => (slug ? businessApi(slug) : null), [slug]);
 
   const [campaign,     setCampaign]     = useState<Campaign | null>(null);
   const [metrics,      setMetrics]      = useState<CampaignMetrics | null>(null);
@@ -359,9 +362,10 @@ export function CampaignDetail() {
   const [duplicating,    setDuplicating]    = useState(false);
 
   useEffect(() => {
+    if (!api) return;
     Promise.all([
-      getCampaignById(id),
-      getCampaignMetrics(id),
+      api.getCampaignById(id),
+      api.getCampaignMetrics(id),
     ])
       .then(([{ campaign: c }, { metrics: m }]) => {
         setCampaign(c);
@@ -369,13 +373,14 @@ export function CampaignDetail() {
       })
       .catch(() => setError("Não foi possível carregar a campanha"))
       .finally(() => setLoading(false));
-  }, [id]);
+  }, [id, api]);
 
   const handleGenerate = useCallback(async () => {
+    if (!api) return;
     setGenerating(true);
     setError(null);
     try {
-      const { campaign: updated } = await generateCampaignKit(id);
+      const { campaign: updated } = await api.generateCampaignKit(id);
       setCampaign(updated);
       setTab("kit");
     } catch (e) {
@@ -383,43 +388,47 @@ export function CampaignDetail() {
     } finally {
       setGenerating(false);
     }
-  }, [id]);
+  }, [id, api]);
 
   const handleLoadOptimizations = useCallback(async () => {
+    if (!api) return;
     setSuggestions(false); // loading state
     try {
-      const { suggestions: s } = await getCampaignOptimizations(id);
+      const { suggestions: s } = await api.getCampaignOptimizations(id);
       setSuggestions(s.length > 0 ? s : ["Sem sugestões adicionais por agora — os dados estão bons! 👍"]);
     } catch {
       setSuggestions(["Não foi possível gerar sugestões agora — tenta mais tarde."]);
     }
-  }, [id]);
+  }, [id, api]);
 
   const [, navigate] = useLocation();
 
   const handleDuplicate = useCallback(async () => {
+    if (!api) return;
     setDuplicating(true);
     try {
-      const { campaign: copy } = await duplicateCampaign(id);
-      navigate(`/dono/campanhas/${copy.id}`);
+      const { campaign: copy } = await api.duplicateCampaign(id);
+      navigate(`/e/${slug}/dono/campanhas/${copy.id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erro ao duplicar");
       setDuplicating(false);
     }
-  }, [id, navigate]);
+  }, [id, navigate, api, slug]);
 
   const handleStatusToggle = useCallback(async () => {
-    if (!campaign) return;
+    if (!campaign || !api) return;
     const next = STATUS_NEXT[campaign.status];
     if (!next) return;
     setChangingStatus(true);
     try {
-      const { campaign: updated } = await updateCampaignStatus(campaign.id, { status: next });
+      const { campaign: updated } = await api.updateCampaignStatus(campaign.id, { status: next });
       setCampaign(updated);
     } finally {
       setChangingStatus(false);
     }
-  }, [campaign]);
+  }, [campaign, api]);
+
+  if (!slug) return null;
 
   if (loading) {
     return (
@@ -434,7 +443,7 @@ export function CampaignDetail() {
       <div className="flex flex-col items-center justify-center h-full bg-[#080E18] gap-3">
         <AlertCircle size={24} className="text-red-400" />
         <p className="text-sm text-[#EAF0F7]">Campanha não encontrada</p>
-        <Link href="/dono/campanhas" className="text-xs text-[#00C896]">← Voltar</Link>
+        <Link href={`/e/${slug}/dono/campanhas`} className="text-xs text-[#00C896]">← Voltar</Link>
       </div>
     );
   }
@@ -447,7 +456,7 @@ export function CampaignDetail() {
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-white/10 flex-shrink-0"
         style={{ background: "#111B27" }}>
-        <Link href="/dono/campanhas" className="text-[#3E576F] hover:text-[#EAF0F7]">
+        <Link href={`/e/${slug}/dono/campanhas`} className="text-[#3E576F] hover:text-[#EAF0F7]">
           <ArrowLeft size={20} />
         </Link>
         <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -575,6 +584,8 @@ export function CampaignDetail() {
             {metrics && (
               <>
                 <MetricsDashboard
+                  api={api!}
+                  slug={slug}
                   metrics={metrics}
                   campaign={campaign}
                   onSpendUpdate={(spend) => setCampaign((prev) => prev ? { ...prev, totalSpend: spend } : prev)}

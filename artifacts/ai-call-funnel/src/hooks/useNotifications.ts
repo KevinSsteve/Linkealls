@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { businessApi } from "../lib/api";
 
 const BASE = import.meta.env.BASE_URL;
 
@@ -11,7 +12,8 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 
 export type NotifStatus = "unsupported" | "denied" | "subscribed" | "unsubscribed" | "loading";
 
-export function useNotifications() {
+/** Web-push subscription hook, scoped to a business (owner panel). */
+export function useNotifications(businessSlug: string) {
   const [status, setStatus] = useState<NotifStatus>("loading");
 
   // Detect support + current permission on mount
@@ -41,10 +43,8 @@ export function useNotifications() {
       const reg = await navigator.serviceWorker.register(`${BASE}sw.js`, { scope: BASE });
       await navigator.serviceWorker.ready;
 
-      // Fetch VAPID public key
-      const keyRes = await fetch(`${BASE}api/notifications/vapid-public-key`);
-      if (!keyRes.ok) throw new Error("VAPID key unavailable");
-      const { key } = (await keyRes.json()) as { key: string };
+      // Fetch VAPID public key (business-scoped route)
+      const { vapidPublicKey } = await businessApi(businessSlug).getVapidPublicKey();
 
       // Request permission
       const permission = await Notification.requestPermission();
@@ -56,22 +56,18 @@ export function useNotifications() {
       // Subscribe with PushManager
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(key) as unknown as ArrayBuffer,
+        applicationServerKey: urlBase64ToUint8Array(vapidPublicKey) as unknown as ArrayBuffer,
       });
 
       // Send subscription to server
-      await fetch(`${BASE}api/notifications/subscribe`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(sub.toJSON()),
-      });
+      await businessApi(businessSlug).subscribePush(sub.toJSON());
 
       setStatus("subscribed");
     } catch (err) {
       console.error("Push subscription failed:", err);
       setStatus("unsubscribed");
     }
-  }, []);
+  }, [businessSlug]);
 
   const unsubscribe = useCallback(async () => {
     setStatus("loading");
@@ -79,18 +75,14 @@ export function useNotifications() {
       const reg = await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.getSubscription();
       if (sub) {
-        await fetch(`${BASE}api/notifications/unsubscribe`, {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ endpoint: sub.endpoint }),
-        });
+        await businessApi(businessSlug).unsubscribePush(sub.endpoint);
         await sub.unsubscribe();
       }
       setStatus("unsubscribed");
     } catch {
       setStatus("unsubscribed");
     }
-  }, []);
+  }, [businessSlug]);
 
   return { status, subscribe, unsubscribe };
 }

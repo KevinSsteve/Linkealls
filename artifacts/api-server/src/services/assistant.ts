@@ -14,9 +14,9 @@ import {
   type AssistantMessage,
   type AssistantMessageMeta,
 } from "@workspace/db";
-import { desc, asc } from "drizzle-orm";
+import { asc, and, eq } from "drizzle-orm";
 import { logger } from "../lib/logger.js";
-import { listLeads, getLead, updateLeadState } from "./leads.js";
+import { listLeads, getLead, updateLeadState, subscribeToLeadQualified } from "./leads.js";
 import { getOrCreateProfile } from "./businessProfile.js";
 
 const MODEL = "gemini-3-flash-preview";
@@ -24,10 +24,11 @@ const MAX_HISTORY = 20; // messages kept in context window
 
 // ─── DB helpers ──────────────────────────────────────────────────────────────
 
-export async function listMessages(limit = 60): Promise<AssistantMessage[]> {
+export async function listMessages(businessId: number, limit = 60): Promise<AssistantMessage[]> {
   const rows = await db
     .select()
     .from(assistantMessagesTable)
+    .where(eq(assistantMessagesTable.businessId, businessId))
     .orderBy(asc(assistantMessagesTable.createdAt))
     .limit(limit);
   return rows;
@@ -37,16 +38,17 @@ export async function saveMessage(
   role: AssistantMessage["role"],
   content: string,
   meta: AssistantMessageMeta = {},
+  businessId?: number,
 ): Promise<AssistantMessage> {
   const inserted = await db
     .insert(assistantMessagesTable)
-    .values({ role, content, meta })
+    .values({ role, content, meta, ...(businessId !== undefined ? { businessId } : {}) })
     .returning();
   return inserted[0]!;
 }
 
-export async function clearMessages(): Promise<void> {
-  await db.delete(assistantMessagesTable);
+export async function clearMessages(businessId: number): Promise<void> {
+  await db.delete(assistantMessagesTable).where(eq(assistantMessagesTable.businessId, businessId));
 }
 
 // ─── Tool definitions ─────────────────────────────────────────────────────────
@@ -135,11 +137,12 @@ interface ToolResult {
 async function executeTool(
   name: string,
   args: Record<string, string>,
+  businessId: number,
 ): Promise<ToolResult> {
   try {
     switch (name) {
       case "get_platform_summary": {
-        const leads = await listLeads();
+        const leads = await listLeads(businessId);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const todayLeads = leads.filter((l) => new Date(l.createdAt) >= today);
@@ -173,7 +176,7 @@ async function executeTool(
       }
 
       case "list_leads": {
-        const leads = await listLeads();
+        const leads = await listLeads(businessId);
         const filtered = args["state"]
           ? leads.filter((l) => l.state === args["state"])
           : leads;
@@ -197,7 +200,7 @@ async function executeTool(
       }
 
       case "get_lead_detail": {
-        const lead = await getLead(args["lead_id"] ?? "");
+        const lead = await getLead(args["lead_id"] ?? "", businessId);
         if (!lead) return { text: JSON.stringify({ error: "Lead não encontrado" }) };
         return {
           text: JSON.stringify({
@@ -216,7 +219,7 @@ async function executeTool(
       }
 
       case "get_business_profile": {
-        const profile = await getOrCreateProfile();
+        const profile = await getOrCreateProfile(businessId);
         return {
           text: JSON.stringify({
             name: profile.name,
@@ -231,7 +234,7 @@ async function executeTool(
       }
 
       case "update_lead_state": {
-        const lead = await getLead(args["lead_id"] ?? "");
+        const lead = await getLead(args["lead_id"] ?? "", businessId);
         if (!lead) return { text: JSON.stringify({ error: "Lead não encontrado" }) };
         const newState = args["new_state"] ?? "";
         const validStates = ["novo", "em_atendimento", "qualificado", "entregue", "perdido"];
@@ -260,7 +263,7 @@ async function executeTool(
       }
 
       case "draft_followup_message": {
-        const lead = await getLead(args["lead_id"] ?? "");
+        const lead = await getLead(args["lead_id"] ?? "", businessId);
         if (!lead) return { text: JSON.stringify({ error: "Lead não encontrado" }) };
         const draft =
           lead.whatsappMessage ||
@@ -306,15 +309,15 @@ Data e hora atual: ${new Date().toLocaleString("pt-AO", { timeZone: "Africa/Luan
 
 // ─── Chat function ────────────────────────────────────────────────────────────
 
-export async function chat(userMessage: string): Promise<AssistantMessage> {
+export async function chat(userMessage: string, businessId: number): Promise<AssistantMessage> {
   const apiKey = process.env["GEMINI_API_KEY"];
   if (!apiKey) throw new Error("GEMINI_API_KEY not set");
 
   // Save user message
-  await saveMessage("user", userMessage);
+  await saveMessage("user", userMessage, {}, businessId);
 
   // Build history for context (last N messages)
-  const history = await listMessages(MAX_HISTORY);
+  const history = await listMessages(businessId, MAX_HISTORY);
   const geminiHistory = history
     .slice(0, -1) // exclude the just-saved user message
     .map((m) => ({
@@ -361,6 +364,7 @@ export async function chat(userMessage: string): Promise<AssistantMessage> {
           const result = await executeTool(
             fn.name ?? "",
             (fn.args ?? {}) as Record<string, string>,
+            businessId,
           );
           if (result.meta) {
             Object.assign(assistantMeta, result.meta);
@@ -398,15 +402,16 @@ export async function chat(userMessage: string): Promise<AssistantMessage> {
     assistantText = "Desculpa, não consegui processar a tua pergunta. Tenta de novo.";
   }
 
-  return saveMessage("assistant", assistantText, assistantMeta);
+  return saveMessage("assistant", assistantText, assistantMeta, businessId);
 }
 
 // ─── Proactive messages ───────────────────────────────────────────────────────
 
 /** Generates and saves a proactive lead-qualified message. */
-export async function proactiveLeadQualified(leadId: string): Promise<AssistantMessage> {
+export async function proactiveLeadQualified(leadId: string): Promise<AssistantMessage | null> {
   const lead = await getLead(leadId);
-  if (!lead) return saveMessage("proactive", "Lead qualificado!", { proactiveType: "lead_qualified", leadId });
+  if (!lead || lead.businessId === null) return null;
+  const businessId = lead.businessId;
 
   const name = lead.qualificationData.name ?? "Lead sem nome";
   const phone = lead.qualificationData.phone;
@@ -427,12 +432,12 @@ export async function proactiveLeadQualified(leadId: string): Promise<AssistantM
   return saveMessage("proactive", lines, {
     proactiveType: "lead_qualified",
     leadId,
-  });
+  }, businessId);
 }
 
 /** Checks for stale qualified leads (> 24h without being delivered). */
-export async function proactiveStaleLeads(): Promise<AssistantMessage | null> {
-  const leads = await listLeads();
+export async function proactiveStaleLeads(businessId: number): Promise<AssistantMessage | null> {
+  const leads = await listLeads(businessId);
   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const stale = leads.filter(
     (l) =>
@@ -451,12 +456,12 @@ export async function proactiveStaleLeads(): Promise<AssistantMessage | null> {
       ? `⏰ **Lead parado há mais de 24h:** ${names}. Está qualificado mas ainda não foi entregue. Considera fazer o follow-up agora.`
       : `⏰ **${stale.length} leads parados há mais de 24h:** ${names}${stale.length > 5 ? " e outros" : ""}. Considera fazer o follow-up.`;
 
-  return saveMessage("proactive", content, { proactiveType: "stale_leads" });
+  return saveMessage("proactive", content, { proactiveType: "stale_leads" }, businessId);
 }
 
 /** Generates a daily summary of activity. */
-export async function proactiveDailySummary(): Promise<AssistantMessage> {
-  const leads = await listLeads();
+export async function proactiveDailySummary(businessId: number): Promise<AssistantMessage> {
+  const leads = await listLeads(businessId);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const todayLeads = leads.filter((l) => new Date(l.createdAt) >= today);
@@ -476,7 +481,7 @@ export async function proactiveDailySummary(): Promise<AssistantMessage> {
     .filter(Boolean)
     .join("\n");
 
-  return saveMessage("proactive", content, { proactiveType: "daily_summary" });
+  return saveMessage("proactive", content, { proactiveType: "daily_summary" }, businessId);
 }
 
 // ─── Confirm action ───────────────────────────────────────────────────────────
@@ -485,39 +490,46 @@ export async function proactiveDailySummary(): Promise<AssistantMessage> {
 export async function confirmAction(
   messageId: string,
   confirmed: boolean,
+  businessId: number,
 ): Promise<AssistantMessage> {
-  const { eq } = await import("drizzle-orm");
   const rows = await db
     .select()
     .from(assistantMessagesTable)
-    .where(eq(assistantMessagesTable.id, messageId))
+    .where(
+      and(
+        eq(assistantMessagesTable.id, messageId),
+        eq(assistantMessagesTable.businessId, businessId),
+      ),
+    )
     .limit(1);
 
   const msg = rows[0];
 
   if (!msg?.meta?.pendingAction) {
-    return saveMessage("assistant", "Não encontrei a ação pendente. Tenta de novo.");
+    return saveMessage("assistant", "Não encontrei a ação pendente. Tenta de novo.", {}, businessId);
   }
 
   const action = msg.meta.pendingAction;
 
   if (!confirmed) {
-    return saveMessage("assistant", "Ação cancelada. Fica à vontade para pedir algo mais.");
+    return saveMessage("assistant", "Ação cancelada. Fica à vontade para pedir algo mais.", {}, businessId);
   }
 
   if (action.type === "update_lead_state") {
     const validStates = ["novo", "em_atendimento", "qualificado", "entregue", "perdido"];
     if (!validStates.includes(action.newState)) {
-      return saveMessage("assistant", "Estado inválido — ação cancelada.");
+      return saveMessage("assistant", "Estado inválido — ação cancelada.", {}, businessId);
     }
-    await updateLeadState(action.leadId, action.newState as Parameters<typeof updateLeadState>[1]);
+    await updateLeadState(action.leadId, action.newState as Parameters<typeof updateLeadState>[1], businessId);
     return saveMessage(
       "assistant",
       `✅ Feito! Estado do lead atualizado para "${action.newState}".`,
+      {},
+      businessId,
     );
   }
 
-  return saveMessage("assistant", "Ação desconhecida — não foi possível executar.");
+  return saveMessage("assistant", "Ação desconhecida — não foi possível executar.", {}, businessId);
 }
 
 // ─── SSE notification bus ─────────────────────────────────────────────────────
@@ -534,4 +546,22 @@ export function broadcastAssistantMessage(msg: AssistantMessage): void {
   for (const fn of assistantListeners) {
     try { fn(msg); } catch { /* ignore */ }
   }
+}
+
+// ─── Proactive event wiring ───────────────────────────────────────────────────
+
+let proactiveWired = false;
+
+/** Wire platform events → proactive assistant messages. Call once at startup. */
+export function wireProactiveEvents(): void {
+  if (proactiveWired) return;
+  proactiveWired = true;
+  subscribeToLeadQualified((leadId) => {
+    void (async () => {
+      const msg = await proactiveLeadQualified(leadId);
+      if (msg) broadcastAssistantMessage(msg);
+    })().catch((err) => {
+      logger.error({ err, leadId }, "Failed to generate proactive lead-qualified message");
+    });
+  });
 }
