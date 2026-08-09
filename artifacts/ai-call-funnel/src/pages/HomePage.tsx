@@ -94,15 +94,10 @@ export function HomePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
-  // Logged-in users land on their personal profile (or /conversas if no handle yet)
+  // Logged-in users land on their personal profile (handle-less → onboarding)
   if (isLoggedIn) {
-    return user?.handle ? <Redirect to={`/u/${user.handle}`} /> : <Redirect to="/conversas" />;
+    return user?.handle ? <Redirect to={`/u/${user.handle}`} /> : <Redirect to="/escolher-handle" />;
   }
-
-  const handleLogout = async () => {
-    if (token) await userLogout(token).catch(() => {});
-    logout();
-  };
 
   useEffect(() => {
     fetch(`${API_BASE}/businesses`)
@@ -192,27 +187,15 @@ export function HomePage() {
               Angola
             </span>
 
-            {isLoggedIn ? (
+            <Link href="/login">
               <button
-                onClick={handleLogout}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-medium"
-                style={{ background: "#0D1826", color: "#7B96B2", border: "1px solid rgba(255,255,255,0.08)" }}
-                title={`Sair (${user?.name})`}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold"
+                style={{ background: "#00A88415", color: "#00A884", border: "1px solid #00A88430" }}
               >
-                <LogOut size={13} />
-                <span className="hidden sm:inline">{user?.name?.split(" ")[0]}</span>
+                <LogIn size={13} />
+                Entrar
               </button>
-            ) : (
-              <Link href="/login">
-                <button
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold"
-                  style={{ background: "#00A88415", color: "#00A884", border: "1px solid #00A88430" }}
-                >
-                  <LogIn size={13} />
-                  Entrar
-                </button>
-              </Link>
-            )}
+            </Link>
           </div>
         </div>
       </header>

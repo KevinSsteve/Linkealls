@@ -63,6 +63,26 @@ function toUserDTO(row: { id: string; phone: string; name: string; handle: strin
   };
 }
 
+/** Resolves the authenticated user from an opaque session token (or null). */
+export async function getUserByToken(token: string | null) {
+  if (!token) return null;
+  const rows = await db
+    .select(USER_COLS)
+    .from(usersTable)
+    .where(eq(usersTable.sessionToken, token))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+/** Extracts the bearer token from a request (exported for route middleware). */
+export function requestToken(req: { headers: { authorization?: string }; query?: Record<string, unknown> }): string | null {
+  const bearer = bearerToken(req);
+  if (bearer) return bearer;
+  // EventSource cannot set headers — allow ?token= for SSE endpoints.
+  const q = req.query?.["token"];
+  return typeof q === "string" && q.length > 0 ? q : null;
+}
+
 /** True when the error is a PostgreSQL unique-constraint violation (code 23505). */
 function isPgUniqueViolation(err: unknown): boolean {
   return (err as { code?: string })?.code === "23505";
@@ -201,6 +221,35 @@ router.get("/user-auth/handle/check", async (req, res) => {
     res.json({ available });
   } catch (err) {
     logger.error({ err }, "handle check failed");
+    res.status(500).json({ error: "Erro interno" });
+  }
+});
+
+// ─── public profile by handle ───────────────────────────────────────────────
+//
+// Minimal public info for the /u/:handle page: real display name + handle.
+// No phone or other sensitive fields.
+
+router.get("/user-auth/public/:handle", async (req, res) => {
+  const handle = normaliseHandle(req.params.handle ?? "");
+  if (!HANDLE_RE.test(handle)) {
+    res.status(404).json({ error: "Utilizador não encontrado" });
+    return;
+  }
+  try {
+    const rows = await db
+      .select({ name: usersTable.name, handle: usersTable.handle })
+      .from(usersTable)
+      .where(eq(usersTable.handle, handle))
+      .limit(1);
+    const user = rows[0];
+    if (!user) {
+      res.status(404).json({ error: "Utilizador não encontrado" });
+      return;
+    }
+    res.json({ name: user.name, handle: user.handle });
+  } catch (err) {
+    logger.error({ err }, "public profile lookup failed");
     res.status(500).json({ error: "Erro interno" });
   }
 });

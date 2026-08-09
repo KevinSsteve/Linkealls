@@ -50,6 +50,15 @@ export async function userLogout(token: string) {
   });
 }
 
+/** Public: real display name for a user handle (used by /u/:handle). */
+export async function getPublicUserProfile(
+  handle: string,
+): Promise<{ name: string; handle: string }> {
+  const res = await fetch(`${API_BASE}/user-auth/public/${encodeURIComponent(handle)}`);
+  if (!res.ok) throw new Error("Utilizador não encontrado");
+  return res.json() as Promise<{ name: string; handle: string }>;
+}
+
 export async function checkHandleAvailability(
   handle: string,
 ): Promise<{ available: boolean; reason?: string }> {
@@ -175,10 +184,25 @@ export interface Lead {
 
 // ─── HTTP helpers ────────────────────────────────────────────────────────────
 
+/** Session token stored by AuthContext — attached to every API request so
+ *  owner-only routes can authenticate the caller. */
+function sessionToken(): string | null {
+  try {
+    return localStorage.getItem("user_token");
+  } catch {
+    return null;
+  }
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = sessionToken();
   const res = await fetch(`${API_BASE}${path}`, {
-    headers: { "Content-Type": "application/json" },
     ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(init?.headers ?? {}),
+    },
   });
   const body = (await res.json().catch(() => null)) as
     | (T & { error?: string })
@@ -373,8 +397,10 @@ export function businessApi(slug: string) {
       bRequest<{ lead: Lead }>(`/leads/${id}/state`, {
         method: "PATCH", body: JSON.stringify({ state }),
       }),
-    getLeadsEventsUrl: () =>
-      `${API_BASE}/b/${encodeURIComponent(slug)}/leads/events`,
+    getLeadsEventsUrl: () => {
+      const t = sessionToken();
+      return `${API_BASE}/b/${encodeURIComponent(slug)}/leads/events${t ? `?token=${encodeURIComponent(t)}` : ""}`;
+    },
     sendLeadChat: (leadId: string, message: string) =>
       bRequest<{ reply: string }>(`/leads/${leadId}/chat`, {
         method: "POST", body: JSON.stringify({ message }),
@@ -452,7 +478,9 @@ export function businessApi(slug: string) {
       }),
     clearAssistantMessages: () =>
       bRequest<{ cleared: boolean }>("/assistant/messages", { method: "DELETE" }),
-    getAssistantEventsUrl: () =>
-      `${API_BASE}/b/${encodeURIComponent(slug)}/assistant/events`,
+    getAssistantEventsUrl: () => {
+      const t = sessionToken();
+      return `${API_BASE}/b/${encodeURIComponent(slug)}/assistant/events${t ? `?token=${encodeURIComponent(t)}` : ""}`;
+    },
   };
 }

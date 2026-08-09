@@ -315,7 +315,11 @@ export async function getCampaignMetrics(campaignId: string, businessId?: number
       ? Math.round(campaign.totalSpend / qualified.length)
       : null;
 
-  const captationUrl = `/captacao?utm_source=${campaign.platform}&utm_medium=paid&utm_campaign=${campaign.utmSlug}`;
+  // Canonical business-scoped capture URL (legacy /captacao is a dead notice page).
+  const profile = await getOrCreateProfile(businessId ?? campaign.businessId ?? undefined);
+  const captationUrl = profile.slug
+    ? `/e/${profile.slug}/captacao?utm_source=${campaign.platform}&utm_medium=paid&utm_campaign=${campaign.utmSlug}`
+    : `/captacao?utm_source=${campaign.platform}&utm_medium=paid&utm_campaign=${campaign.utmSlug}`;
 
   return {
     campaignId,

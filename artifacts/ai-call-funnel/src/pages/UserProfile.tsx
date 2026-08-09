@@ -15,7 +15,7 @@ import {
   Store, MessageSquare, Megaphone,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { userLogout, checkHandleAvailability, setUserHandle } from "@/lib/api";
+import { userLogout, checkHandleAvailability, setUserHandle, getPublicUserProfile } from "@/lib/api";
 import { getVisited, type VisitedBusiness } from "@/lib/visitedBusinesses";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -373,10 +373,16 @@ function PublicProfile({ handle, name }: { handle: string; name: string }) {
       <p className="text-[14px] leading-relaxed" style={{ color: "#4A6B80" }}>
         Membro do Linkealls — a plataforma de negócios angolanos com assistente IA.
       </p>
-      <Link href="/">
+      <Link href={`/e/${handle}`}>
         <button className="flex items-center gap-2 px-6 py-3 rounded-xl font-semibold text-[14px] text-white"
           style={{ background: "linear-gradient(135deg, #00A884 0%, #007A62 100%)" }}>
-          <Building2 size={15} /> Explorar negócios
+          <MessageSquare size={15} /> Falar com o negócio
+        </button>
+      </Link>
+      <Link href="/">
+        <button className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-[13px]"
+          style={{ background: "rgba(255,255,255,0.06)", color: "#7B96B2", border: "1px solid rgba(255,255,255,0.08)" }}>
+          <Building2 size={14} /> Explorar negócios
         </button>
       </Link>
     </div>
@@ -398,15 +404,8 @@ export function UserProfile() {
   useEffect(() => {
     if (isOwn || !urlHandle) return;
     setLoadingPub(true);
-    fetch(`${API_BASE}/user-auth/handle/check?handle=${encodeURIComponent(urlHandle)}`)
-      .then((r) => {
-        if (!r.ok) throw new Error("server error");
-        return r.json() as Promise<{ available: boolean; reason?: string }>;
-      })
-      .then((data) => {
-        if (data.available || data.reason) setNotFound(true);
-        else setPubName(urlHandle);
-      })
+    getPublicUserProfile(urlHandle)
+      .then(({ name }) => setPubName(name))
       .catch(() => setNotFound(true))
       .finally(() => setLoadingPub(false));
   }, [urlHandle, isOwn]);

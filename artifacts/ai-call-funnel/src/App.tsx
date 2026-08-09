@@ -9,7 +9,7 @@ import { LoginPage } from "@/pages/LoginPage";
 import { RegisterPage } from "@/pages/RegisterPage";
 import { ChooseHandle } from "@/pages/ChooseHandle";
 import { UserProfile } from "@/pages/UserProfile";
-import { UserConversas } from "@/pages/UserConversas";
+import { OwnerGate } from "@/components/owner/OwnerGate";
 import { Owner } from "@/pages/Owner";
 import { Leads } from "@/pages/owner/Leads";
 import { Assistant } from "@/pages/owner/Assistant";
@@ -44,15 +44,40 @@ function useVisualViewportHeight() {
 
 /**
  * Smart redirect for legacy /dono/* routes.
- * If logged in → /u/:handle (or /conversas if no handle).
- * If not logged in → /login?next=<original-path>.
+ * Preserves the sub-path: /dono/conversas → /e/:handle/dono/conversas.
+ * If logged in without handle → onboarding; not logged in → login (with next).
  */
 function LegacyOwnerRedirect() {
   const { isLoggedIn, user } = useAuth();
   const [location] = useLocation();
   if (!isLoggedIn) return <Redirect to={`/login?next=${encodeURIComponent(location)}`} />;
-  if (user?.handle) return <Redirect to={`/u/${user.handle}`} />;
-  return <Redirect to="/conversas" />;
+  if (!user?.handle) return <Redirect to="/escolher-handle" />;
+  const sub = location.replace(/^\/dono/, "");
+  return <Redirect to={`/e/${user.handle}/dono${sub}`} />;
+}
+
+/**
+ * Legacy /captacao and /conversas links — explain instead of failing silently.
+ */
+function LegacyLinkNotice() {
+  const { isLoggedIn, user } = useAuth();
+  if (isLoggedIn && user?.handle) return <Redirect to={`/u/${user.handle}`} />;
+  return (
+    <div className="flex flex-col items-center justify-center h-full px-8 text-center gap-4">
+      <p className="text-[15px] font-semibold text-[#EAF0F7]">Este link mudou</p>
+      <p className="text-[13px] leading-relaxed" style={{ color: "#4A6B80" }}>
+        Agora cada negócio tem o seu próprio endereço. Procura o negócio na
+        página inicial para continuar a conversa.
+      </p>
+      <a
+        href={import.meta.env.BASE_URL}
+        className="px-5 py-2.5 rounded-xl font-bold text-[14px]"
+        style={{ background: "#00A884", color: "#050D14" }}
+      >
+        Ir para a página inicial
+      </a>
+    </div>
+  );
 }
 
 export default function App() {
@@ -86,16 +111,16 @@ export default function App() {
                   <Route path="/escolher-handle" component={ChooseHandle} />
                   <Route path="/u/:handle" component={UserProfile} />
 
-                  {/* Legacy generic conversations (redirect to /u/:handle if possible) */}
-                  <Route path="/conversas" component={UserConversas} />
+                  {/* Legacy generic conversations — /u/:handle covers this now */}
+                  <Route path="/conversas"><LegacyLinkNotice /></Route>
 
-                  {/* ── Multi-tenant routes (/e/:businessSlug/...) ─────────── */}
-                  <Route path="/e/:businessSlug/dono/leads" component={Leads} />
-                  <Route path="/e/:businessSlug/dono/conversas" component={Conversas} />
-                  <Route path="/e/:businessSlug/dono/assistente" component={Assistant} />
-                  <Route path="/e/:businessSlug/dono/campanhas/:id" component={CampaignDetail} />
-                  <Route path="/e/:businessSlug/dono/campanhas" component={Campaigns} />
-                  <Route path="/e/:businessSlug/dono" component={Owner} />
+                  {/* ── Owner panel (protected by OwnerGate) ─────────────────── */}
+                  <Route path="/e/:businessSlug/dono/leads">{() => <OwnerGate><Leads /></OwnerGate>}</Route>
+                  <Route path="/e/:businessSlug/dono/conversas">{() => <OwnerGate><Conversas /></OwnerGate>}</Route>
+                  <Route path="/e/:businessSlug/dono/assistente">{() => <OwnerGate><Assistant /></OwnerGate>}</Route>
+                  <Route path="/e/:businessSlug/dono/campanhas/:id">{() => <OwnerGate><CampaignDetail /></OwnerGate>}</Route>
+                  <Route path="/e/:businessSlug/dono/campanhas">{() => <OwnerGate><Campaigns /></OwnerGate>}</Route>
+                  <Route path="/e/:businessSlug/dono">{() => <OwnerGate><Owner /></OwnerGate>}</Route>
                   <Route path="/e/:businessSlug/captacao" component={Captacao} />
                   <Route path="/e/:businessSlug" component={Chat} />
 
@@ -107,8 +132,8 @@ export default function App() {
                   <Route path="/dono/campanhas"><LegacyOwnerRedirect /></Route>
                   <Route path="/dono"><LegacyOwnerRedirect /></Route>
 
-                  {/* Lead capture legacy */}
-                  <Route path="/captacao"><Redirect to="/" /></Route>
+                  {/* Lead capture legacy — explain instead of failing silently */}
+                  <Route path="/captacao"><LegacyLinkNotice /></Route>
 
                   {/* Fallback */}
                   <Route><Redirect to="/" /></Route>

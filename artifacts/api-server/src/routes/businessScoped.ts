@@ -66,9 +66,37 @@ import {
 } from "../services/notifications.js";
 import type { PushSubscriptionJSON } from "@workspace/db";
 import { logger } from "../lib/logger.js";
+import { getUserByToken, requestToken } from "./userAuth.js";
 
 function bid(res: Response): number {
   return res.locals["businessId"] as number;
+}
+
+/**
+ * Owner-only guard: the caller must present a valid session token AND the
+ * authenticated user's handle must match the business slug of this router
+ * (user = business model: handle === slug).
+ *
+ * Accepts the token via `Authorization: Bearer …` or, for SSE endpoints
+ * (EventSource cannot set headers), via `?token=`.
+ */
+async function requireOwner(req: Request, res: Response, next: () => void): Promise<void> {
+  try {
+    const user = await getUserByToken(requestToken(req));
+    if (!user) {
+      res.status(401).json({ error: "Sessão inválida — inicia sessão novamente" });
+      return;
+    }
+    const slug = (req.params as { businessSlug?: string }).businessSlug ?? "";
+    if (!user.handle || user.handle !== slug) {
+      res.status(403).json({ error: "Sem permissão para gerir este negócio" });
+      return;
+    }
+    next();
+  } catch (err) {
+    logger.error({ err }, "requireOwner failed");
+    res.status(500).json({ error: "Erro interno" });
+  }
 }
 
 function hashPin(pin: string): string {
@@ -102,7 +130,7 @@ export function createBusinessScopedRouter(): Router {
 
   // ── PROFILE ──────────────────────────────────────────────────────────────────
 
-  router.get("/profile", async (_req, res) => {
+  router.get("/profile", requireOwner, async (_req, res) => {
     try {
       const profile = await getOrCreateProfile(bid(res));
       res.json({ profile, filled: isProfileFilled(profile) });
@@ -112,7 +140,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.put("/profile", async (req, res) => {
+  router.put("/profile", requireOwner, async (req, res) => {
     const parsed = updateBusinessProfileSchema.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: "Dados inválidos", details: parsed.error.issues });
@@ -127,7 +155,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.post("/profile/analyze", async (req, res) => {
+  router.post("/profile/analyze", requireOwner, async (req, res) => {
     const schema = z.object({ url: z.string().min(4).max(500) });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) {
@@ -147,7 +175,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.post("/profile/assist", async (req, res) => {
+  router.post("/profile/assist", requireOwner, async (req, res) => {
     const schema = z.object({ description: z.string().min(20).max(8000) });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) {
@@ -165,7 +193,7 @@ export function createBusinessScopedRouter(): Router {
 
   // ── AUTH / PIN ────────────────────────────────────────────────────────────────
 
-  router.get("/auth/pin/status", async (_req, res) => {
+  router.get("/auth/pin/status", requireOwner, async (_req, res) => {
     try {
       const rows = await db
         .select({ ownerPin: businessProfilesTable.ownerPin })
@@ -178,7 +206,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.post("/auth/pin/verify", async (req, res) => {
+  router.post("/auth/pin/verify", requireOwner, async (req, res) => {
     const pin = String(req.body?.pin ?? "").trim();
     if (!pin) { res.status(400).json({ ok: false, error: "PIN obrigatório" }); return; }
     try {
@@ -195,7 +223,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.post("/auth/pin/set", async (req, res) => {
+  router.post("/auth/pin/set", requireOwner, async (req, res) => {
     const pin = String(req.body?.pin ?? "").trim();
     if (!pin || pin.length < 4) {
       res.status(400).json({ ok: false, error: "O PIN deve ter pelo menos 4 dígitos" });
@@ -228,13 +256,46 @@ export function createBusinessScopedRouter(): Router {
   });
 
   // ── LEADS ─────────────────────────────────────────────────────────────────────
+  //
+  // PUBLIC visitor endpoints (deliberately NOT behind requireOwner):
+  //   POST /leads/session     — a visitor starts a conversation with the business
+  //   POST /leads/:id/chat    — the visitor continues THEIR OWN conversation
+  // Visitors have no account; the unguessable lead UUID (returned only to the
+  // browser that created the session) acts as the capability to continue that
+  // conversation. Both endpoints are rate-limited per IP to bound AI usage.
+  // Everything else under /leads is owner-only.
+
+  // Minimal in-memory per-IP rate limiter for the public AI endpoints.
+  const RATE_WINDOW_MS = 60_000;
+  const RATE_MAX = 20;
+  const rateBuckets = new Map<string, { count: number; resetAt: number }>();
+  function publicRateLimit(req: Request, res: Response, next: () => void): void {
+    const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim()
+      ?? req.socket.remoteAddress ?? "unknown";
+    const now = Date.now();
+    const bucket = rateBuckets.get(ip);
+    if (!bucket || bucket.resetAt < now) {
+      rateBuckets.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS });
+      if (rateBuckets.size > 10_000) {
+        for (const [k, v] of rateBuckets) if (v.resetAt < now) rateBuckets.delete(k);
+      }
+      next();
+      return;
+    }
+    bucket.count += 1;
+    if (bucket.count > RATE_MAX) {
+      res.status(429).json({ error: "Demasiados pedidos — tenta daqui a pouco" });
+      return;
+    }
+    next();
+  }
 
   const createSessionSchema = z.object({
     origin: leadOriginSchema.optional(),
     chatMessages: z.array(chatMessageSchema).max(50).optional(),
   });
 
-  router.post("/leads/session", async (req, res) => {
+  router.post("/leads/session", publicRateLimit, async (req, res) => {
     const parsed = createSessionSchema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "Dados inválidos" }); return; }
     try {
@@ -250,7 +311,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.get("/leads", async (_req, res) => {
+  router.get("/leads", requireOwner, async (_req, res) => {
     try {
       const leads = await listLeads(bid(res));
       res.json({ leads });
@@ -261,7 +322,7 @@ export function createBusinessScopedRouter(): Router {
   });
 
   // SSE — must be before /leads/:id
-  router.get("/leads/events", (req, res) => {
+  router.get("/leads/events", requireOwner, (req, res) => {
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
@@ -279,7 +340,7 @@ export function createBusinessScopedRouter(): Router {
     req.on("close", () => { clearInterval(keepAlive); unsubscribe(); });
   });
 
-  router.get("/leads/analytics", async (_req, res) => {
+  router.get("/leads/analytics", requireOwner, async (_req, res) => {
     try {
       const analytics = await getLeadsAnalytics(bid(res));
       res.json({ analytics });
@@ -289,7 +350,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.get("/leads/:id", async (req, res) => {
+  router.get("/leads/:id", requireOwner, async (req, res) => {
     const id = String(req.params["id"] ?? "");
     try {
       const lead = await getLead(id, bid(res));
@@ -301,7 +362,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.post("/leads/:id/chat", async (req, res) => {
+  router.post("/leads/:id/chat", publicRateLimit, async (req, res) => {
     const id = String(req.params["id"] ?? "");
     const schema = z.object({ message: z.string().min(1).max(2000) });
     const parsed = schema.safeParse(req.body);
@@ -315,7 +376,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.patch("/leads/:id/state", async (req, res) => {
+  router.patch("/leads/:id/state", requireOwner, async (req, res) => {
     const id = String(req.params["id"] ?? "");
     const parsed = updateLeadStateSchema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "Estado inválido" }); return; }
@@ -355,7 +416,7 @@ export function createBusinessScopedRouter(): Router {
 
   // ── CAMPAIGNS ─────────────────────────────────────────────────────────────────
 
-  router.get("/campaigns", async (_req, res) => {
+  router.get("/campaigns", requireOwner, async (_req, res) => {
     try {
       const campaigns = await listCampaigns(bid(res));
       res.json({ campaigns });
@@ -365,7 +426,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.post("/campaigns", async (req, res) => {
+  router.post("/campaigns", requireOwner, async (req, res) => {
     const parsed = createCampaignSchema.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: "Dados inválidos", details: parsed.error });
@@ -385,7 +446,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.get("/campaigns/:id", async (req, res) => {
+  router.get("/campaigns/:id", requireOwner, async (req, res) => {
     const id = String(req.params["id"] ?? "");
     try {
       const campaign = await getCampaign(id, bid(res));
@@ -397,7 +458,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.patch("/campaigns/:id", async (req, res) => {
+  router.patch("/campaigns/:id", requireOwner, async (req, res) => {
     const id = String(req.params["id"] ?? "");
     const parsed = updateCampaignSchema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "Dados inválidos" }); return; }
@@ -411,7 +472,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.post("/campaigns/:id/duplicate", async (req, res) => {
+  router.post("/campaigns/:id/duplicate", requireOwner, async (req, res) => {
     const id = String(req.params["id"] ?? "");
     try {
       const campaign = await duplicateCampaign(id, bid(res));
@@ -422,7 +483,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.post("/campaigns/:id/generate", async (req, res) => {
+  router.post("/campaigns/:id/generate", requireOwner, async (req, res) => {
     const id = String(req.params["id"] ?? "");
     try {
       const campaign = await generateCampaignKit(id, bid(res));
@@ -433,7 +494,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.get("/campaigns/:id/metrics", async (req, res) => {
+  router.get("/campaigns/:id/metrics", requireOwner, async (req, res) => {
     const id = String(req.params["id"] ?? "");
     try {
       const metrics = await getCampaignMetrics(id, bid(res));
@@ -445,7 +506,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.get("/campaigns/:id/optimize", async (req, res) => {
+  router.get("/campaigns/:id/optimize", requireOwner, async (req, res) => {
     const id = String(req.params["id"] ?? "");
     try {
       const suggestions = await generateOptimizationSuggestions(id, bid(res));
@@ -458,7 +519,7 @@ export function createBusinessScopedRouter(): Router {
 
   // ── ASSISTANT ─────────────────────────────────────────────────────────────────
 
-  router.get("/assistant/messages", async (_req, res) => {
+  router.get("/assistant/messages", requireOwner, async (_req, res) => {
     try {
       const messages = await listMessages(bid(res), 80);
       res.json({ messages });
@@ -468,7 +529,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.post("/assistant/chat", async (req, res) => {
+  router.post("/assistant/chat", requireOwner, async (req, res) => {
     const parsed = sendAssistantMessageSchema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "Mensagem inválida" }); return; }
     try {
@@ -481,7 +542,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.post("/assistant/confirm", async (req, res) => {
+  router.post("/assistant/confirm", requireOwner, async (req, res) => {
     const parsed = confirmActionSchema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "Dados inválidos" }); return; }
     try {
@@ -494,7 +555,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.delete("/assistant/messages", async (_req, res) => {
+  router.delete("/assistant/messages", requireOwner, async (_req, res) => {
     try {
       await clearMessages(bid(res));
       res.json({ cleared: true });
@@ -504,7 +565,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.post("/assistant/proactive/daily", async (_req, res) => {
+  router.post("/assistant/proactive/daily", requireOwner, async (_req, res) => {
     try {
       const msg = await proactiveDailySummary(bid(res));
       broadcastAssistantMessage(msg);
@@ -515,7 +576,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.post("/assistant/proactive/stale", async (_req, res) => {
+  router.post("/assistant/proactive/stale", requireOwner, async (_req, res) => {
     try {
       const msg = await proactiveStaleLeads(bid(res));
       if (msg) broadcastAssistantMessage(msg);
@@ -526,7 +587,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.get("/assistant/events", (req, res) => {
+  router.get("/assistant/events", requireOwner, (req, res) => {
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
@@ -542,13 +603,13 @@ export function createBusinessScopedRouter(): Router {
 
   // ── NOTIFICATIONS ─────────────────────────────────────────────────────────────
 
-  router.get("/notifications/vapid-key", (_req, res) => {
+  router.get("/notifications/vapid-key", requireOwner, (_req, res) => {
     const key = getVapidPublicKey();
     if (!key) { res.status(503).json({ error: "Push notifications não configuradas" }); return; }
     res.json({ vapidPublicKey: key });
   });
 
-  router.post("/notifications/subscribe", async (req, res) => {
+  router.post("/notifications/subscribe", requireOwner, async (req, res) => {
     try {
       await saveSubscription(req.body as PushSubscriptionJSON, bid(res));
       res.json({ subscribed: true });
@@ -558,7 +619,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.delete("/notifications/subscribe", async (req, res) => {
+  router.delete("/notifications/subscribe", requireOwner, async (req, res) => {
     const { endpoint } = req.body as { endpoint?: string };
     if (!endpoint) { res.status(400).json({ error: "endpoint obrigatório" }); return; }
     try {

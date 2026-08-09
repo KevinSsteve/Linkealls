@@ -152,15 +152,6 @@ export function ChooseHandle() {
       >
         {saving ? "A guardar…" : "Continuar"}
       </button>
-
-      {/* Skip */}
-      <button
-        onClick={() => nav("/conversas")}
-        className="mt-4 text-center text-[13px] py-2"
-        style={{ color: "#3E576F" }}
-      >
-        Fazer mais tarde
-      </button>
     </div>
   );
 }
