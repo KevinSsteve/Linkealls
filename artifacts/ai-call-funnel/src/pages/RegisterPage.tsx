@@ -1,22 +1,28 @@
 /**
- * Página de registo — nome → telemóvel → criar PIN (sem SMS).
+ * Página de registo — WhatsApp Business light theme.
  */
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { UserPlus, ArrowLeft, CheckCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { userRegister } from "@/lib/api";
 
 function PinDots({ value, confirmed }: { value: string; confirmed?: boolean }) {
+  const activeColor = confirmed ? "#25D366" : "#075E54";
   return (
-    <div className="flex justify-center gap-4 my-5">
+    <div className="flex justify-center gap-5 my-6">
       {[0, 1, 2, 3].map((i) => (
-        <div key={i} className="w-4 h-4 rounded-full transition-all duration-150"
+        <div
+          key={i}
+          className="transition-all duration-150"
           style={{
-            background: i < value.length ? (confirmed ? "#00BFA5" : "#60A5FA") : "rgba(255,255,255,0.12)",
-            boxShadow: i < value.length ? `0 0 8px ${confirmed ? "rgba(0,191,165,0.5)" : "rgba(96,165,250,0.5)"}` : "none",
-            transform: i < value.length ? "scale(1.15)" : "scale(1)",
-          }} />
+            width: i < value.length ? 14 : 12,
+            height: i < value.length ? 14 : 12,
+            borderRadius: "50%",
+            background: i < value.length ? activeColor : "transparent",
+            border: `2px solid ${i < value.length ? activeColor : "#8696A0"}`,
+          }}
+        />
       ))}
     </div>
   );
@@ -29,13 +35,18 @@ function Keypad({ onKey }: { onKey: (k: string) => void }) {
     <div className="grid grid-cols-3 gap-3 w-full max-w-xs mx-auto">
       {KEYS.map((k, i) =>
         k === "" ? <div key={i} /> : (
-          <button key={i} onPointerDown={(e) => { e.preventDefault(); onKey(k); }}
-            className="h-14 rounded-2xl text-xl font-semibold flex items-center justify-center active:scale-90 transition-transform select-none"
+          <button
+            key={i}
+            onPointerDown={(e) => { e.preventDefault(); onKey(k); }}
+            className="h-[60px] rounded-full text-xl font-semibold flex items-center justify-center active:scale-90 transition-transform select-none"
             style={{
-              background: k === "⌫" ? "rgba(255,80,80,0.1)" : "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.08)",
-              color: k === "⌫" ? "#F87171" : "#EAF0F7",
-            }}>{k}</button>
+              background: k === "⌫" ? "transparent" : "#F0F2F5",
+              color: k === "⌫" ? "#667781" : "#111B21",
+              fontSize: k === "⌫" ? 22 : undefined,
+            }}
+          >
+            {k}
+          </button>
         )
       )}
     </div>
@@ -50,18 +61,26 @@ function Steps({ current }: { current: number }) {
       {STEPS.map((label, i) => (
         <div key={i} className="flex items-center gap-2">
           <div className="flex flex-col items-center gap-1">
-            <div className="w-7 h-7 rounded-full flex items-center justify-center text-[12px] font-bold"
+            <div
+              className="w-7 h-7 rounded-full flex items-center justify-center text-[12px] font-bold"
               style={{
-                background: i < current ? "#00BFA5" : i === current ? "rgba(0,191,165,0.2)" : "rgba(255,255,255,0.06)",
-                border: `1.5px solid ${i <= current ? "#00BFA5" : "rgba(255,255,255,0.1)"}`,
-                color: i < current ? "#050D14" : i === current ? "#00BFA5" : "#4A6B80",
-              }}>{i < current ? "✓" : i + 1}</div>
-            <span className="text-[10px] font-medium whitespace-nowrap"
-              style={{ color: i <= current ? "#00BFA5" : "#4A6B80" }}>{label}</span>
+                background: i < current ? "#25D366" : i === current ? "#D9FDD3" : "#F0F2F5",
+                border: `2px solid ${i <= current ? "#25D366" : "#E9EDEF"}`,
+                color: i < current ? "#FFFFFF" : i === current ? "#128C7E" : "#8696A0",
+              }}
+            >
+              {i < current ? "✓" : i + 1}
+            </div>
+            <span className="text-[10px] font-semibold whitespace-nowrap"
+              style={{ color: i <= current ? "#128C7E" : "#8696A0" }}>
+              {label}
+            </span>
           </div>
           {i < STEPS.length - 1 && (
-            <div className="flex-1 h-px mb-4"
-              style={{ background: i < current ? "#00BFA5" : "rgba(255,255,255,0.08)", width: 32 }} />
+            <div
+              className="flex-1 mb-4"
+              style={{ height: 2, background: i < current ? "#25D366" : "#E9EDEF", width: 32, borderRadius: 1 }}
+            />
           )}
         </div>
       ))}
@@ -140,64 +159,98 @@ export function RegisterPage() {
   const isPinStep = step === "pin" || step === "confirm";
 
   return (
-    <div className="flex flex-col h-full bg-[#080E18] px-6 pt-12 pb-8 overflow-y-auto"
-      style={{ minHeight: "var(--vh, 100dvh)" }}>
-      <button onClick={back} className="mb-6 w-9 h-9 flex items-center justify-center rounded-full"
-        style={{ background: "rgba(255,255,255,0.06)" }}>
-        <ArrowLeft size={18} style={{ color: "#7B96B2" }} />
+    <div
+      className="flex flex-col h-full px-6 pt-10 pb-8 overflow-y-auto"
+      style={{ background: "#FFFFFF", minHeight: "var(--vh, 100dvh)" }}
+    >
+      {/* Back */}
+      <button
+        onClick={back}
+        className="mb-6 w-9 h-9 flex items-center justify-center rounded-full transition-colors active:bg-[#F0F2F5]"
+        style={{ color: "#667781" }}
+      >
+        <ArrowLeft size={22} />
       </button>
 
+      {/* Heading */}
       <div className="mb-6">
-        <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
-          style={{ background: "rgba(96,165,250,0.1)", border: "1px solid rgba(96,165,250,0.2)" }}>
-          <UserPlus size={24} style={{ color: "#60A5FA" }} />
+        <div
+          className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5"
+          style={{ background: "#075E54" }}
+        >
+          <span className="text-white font-bold text-[28px]">L</span>
         </div>
-        <h1 className="text-[22px] font-bold text-[#EAF0F7]">Criar conta</h1>
-        <p className="text-[14px] mt-1" style={{ color: "#4A6B80" }}>
-          {step === "name" && "Como te chamas?"}
-          {step === "phone" && "Qual é o teu número?"}
-          {step === "pin" && "Escolhe um PIN de 4 dígitos"}
+        <h1 className="text-[24px] font-bold text-center" style={{ color: "#111B21" }}>Criar conta</h1>
+        <p className="text-[15px] mt-1.5 text-center" style={{ color: "#667781" }}>
+          {step === "name"    && "Como te chamas?"}
+          {step === "phone"   && "Qual é o teu número?"}
+          {step === "pin"     && "Escolhe um PIN de 4 dígitos"}
           {step === "confirm" && "Confirma o teu PIN"}
         </p>
       </div>
 
       <Steps current={stepIndex} />
 
+      {/* Error */}
       {error && (
-        <div className="mb-4 px-4 py-3 rounded-xl text-[13px]"
-          style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#FCA5A5" }}>
+        <div
+          className="mb-4 px-4 py-3 rounded-xl text-[14px]"
+          style={{ background: "#FEE2E2", color: "#DC2626" }}
+        >
           {error}
         </div>
       )}
 
       {step === "name" && (
         <>
-          <input type="text" value={name} onChange={(e) => setName(e.target.value)}
-            placeholder="Ex: João Ferreira" autoFocus
-            className="w-full h-14 px-4 rounded-2xl text-[16px] bg-transparent outline-none mb-4"
-            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.10)", color: "#EAF0F7", caretColor: "#60A5FA" }}
-            onKeyDown={(e) => e.key === "Enter" && handleNameNext()} />
-          <button onClick={handleNameNext} className="w-full h-14 rounded-2xl font-bold text-[15px]"
-            style={{ background: "#60A5FA", color: "#050D14" }}>Continuar</button>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Ex: João Ferreira"
+            autoFocus
+            className="w-full h-14 px-4 rounded-xl text-[16px] outline-none mb-5"
+            style={{ background: "#F0F2F5", color: "#111B21", caretColor: "#25D366" }}
+            onKeyDown={(e) => e.key === "Enter" && handleNameNext()}
+          />
+          <button
+            onClick={handleNameNext}
+            className="w-full h-[54px] rounded-full font-bold text-[16px]"
+            style={{ background: "#25D366", color: "#FFFFFF" }}
+          >
+            Continuar
+          </button>
         </>
       )}
 
       {step === "phone" && (
         <>
-          <div className="flex items-center gap-3 px-4 rounded-2xl mb-4"
-            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.10)", height: 56 }}>
-            <span className="text-[15px]">🇦🇴</span>
-            <span className="text-[15px] font-semibold" style={{ color: "#7B96B2" }}>+244</span>
-            <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.1)" }} />
-            <input type="tel" inputMode="numeric" value={phone}
+          <div
+            className="flex items-center gap-3 px-4 rounded-xl mb-5"
+            style={{ background: "#F0F2F5", height: 56 }}
+          >
+            <span className="text-[18px]">🇦🇴</span>
+            <span className="text-[15px] font-semibold" style={{ color: "#667781" }}>+244</span>
+            <div style={{ width: 1, height: 22, background: "#E9EDEF" }} />
+            <input
+              type="tel"
+              inputMode="numeric"
+              value={phone}
               onChange={(e) => setPhone(e.target.value.replace(/[^\d\s]/g, ""))}
-              placeholder="9XX XXX XXX" autoFocus
+              placeholder="9XX XXX XXX"
+              autoFocus
               className="flex-1 bg-transparent outline-none text-[16px]"
-              style={{ color: "#EAF0F7", caretColor: "#60A5FA" }}
-              onKeyDown={(e) => e.key === "Enter" && handlePhoneNext()} />
+              style={{ color: "#111B21", caretColor: "#25D366" }}
+              onKeyDown={(e) => e.key === "Enter" && handlePhoneNext()}
+            />
           </div>
-          <button onClick={handlePhoneNext} className="w-full h-14 rounded-2xl font-bold text-[15px]"
-            style={{ background: "#60A5FA", color: "#050D14" }}>Continuar</button>
+          <button
+            onClick={handlePhoneNext}
+            className="w-full h-[54px] rounded-full font-bold text-[16px]"
+            style={{ background: "#25D366", color: "#FFFFFF" }}
+          >
+            Continuar
+          </button>
         </>
       )}
 
@@ -205,15 +258,17 @@ export function RegisterPage() {
         <div className="flex flex-col items-center">
           <PinDots value={step === "pin" ? pin : confirmPin} confirmed={step === "confirm"} />
           {loading
-            ? <p className="text-[13px] mb-6 flex items-center gap-2" style={{ color: "#00BFA5" }}><CheckCircle size={14} /> A criar conta…</p>
-            : <p className="text-[13px] mb-6 opacity-0">·</p>}
+            ? <p className="text-[13px] mb-5 flex items-center gap-2" style={{ color: "#25D366" }}>
+                <CheckCircle size={14} /> A criar conta…
+              </p>
+            : <p className="text-[13px] mb-5 opacity-0">·</p>}
           <Keypad onKey={handlePinKey} />
         </div>
       )}
 
-      <p className="mt-auto pt-8 text-center text-[14px]" style={{ color: "#4A6B80" }}>
+      <p className="mt-auto pt-8 text-center text-[15px]" style={{ color: "#667781" }}>
         Já tens conta?{" "}
-        <Link href={`/login${window.location.search}`} className="font-semibold" style={{ color: "#00BFA5" }}>
+        <Link href={`/login${window.location.search}`} className="font-semibold" style={{ color: "#25D366" }}>
           Entrar
         </Link>
       </p>

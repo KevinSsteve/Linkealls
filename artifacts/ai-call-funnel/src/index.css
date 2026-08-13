@@ -4,31 +4,30 @@
 @theme inline {
   --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 
-  /* Dark premium palette */
-  --color-app-bg:          #080E18;
-  --color-chat-bg:         #0B1422;
-  --color-header-bg:       #060C14;
-  --color-input-bg:        #060C14;
-  --color-input-field:     #10192A;
-  --color-input-border:    #1C2E45;
-  --color-bubble-user-bg:  #1A4A36;
-  --color-bubble-user-text:#D4F5E5;
-  --color-bubble-bot-bg:   #152033;
-  --color-bubble-bot-text: #D8E8F5;
-  --color-accent:          #00C896;
-  --color-accent-hover:    #00B082;
-  --color-online:          #34D399;
-  --color-text-primary:    #EAF0F7;
-  --color-text-secondary:  #7B96B2;
-  --color-text-muted:      #3E576F;
-  --color-divider:         #111E30;
+  /* WhatsApp Business light palette */
+  --color-app-bg:          #FFFFFF;
+  --color-chat-bg:         #E5DDD5;
+  --color-header-bg:       #FFFFFF;
+  --color-input-bg:        #F0F2F5;
+  --color-input-field:     #FFFFFF;
+  --color-input-border:    #E9EDEF;
+  --color-bubble-user-bg:  #D9FDD3;
+  --color-bubble-user-text:#111B21;
+  --color-bubble-bot-bg:   #FFFFFF;
+  --color-bubble-bot-text: #111B21;
+  --color-accent:          #25D366;
+  --color-accent-hover:    #1DA851;
+  --color-online:          #25D366;
+  --color-text-primary:    #111B21;
+  --color-text-secondary:  #667781;
+  --color-text-muted:      #8696A0;
+  --color-divider:         #E9EDEF;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 html {
   height: 100%;
-  /* iOS momentum scroll fix */
   -webkit-text-size-adjust: 100%;
   touch-action: manipulation;
 }
@@ -38,7 +37,7 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: #080E18;
+  background: #FFFFFF;
   overscroll-behavior: none;
 }
 
@@ -47,11 +46,10 @@ body {
   min-height: 100dvh;
 }
 
-/* ─── Chat background — dark with faint dots ─── */
+/* ─── Chat background — WA wallpaper ─── */
 .chat-bg {
-  background-color: var(--color-chat-bg);
-  background-image: radial-gradient(rgba(255,255,255,0.025) 1px, transparent 1px);
-  background-size: 22px 22px;
+  background-color: #E5DDD5;
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23C9BDB5' fill-opacity='0.2'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
 }
 
 /* ─── Message entrance ─── */
@@ -94,15 +92,15 @@ body {
 
 /* ─── Glow button ─── */
 @keyframes glowPulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(0, 200, 150, 0.4); }
-  50%      { box-shadow: 0 0 0 12px rgba(0, 200, 150, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(37,211,102,0.4); }
+  50%      { box-shadow: 0 0 0 12px rgba(37,211,102,0); }
 }
 .glow-pulse { animation: glowPulse 2s ease-in-out infinite; }
 
-/* ─── Custom scrollbar (very subtle) ─── */
+/* ─── Custom scrollbar ─── */
 ::-webkit-scrollbar { width: 3px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #1C2E45; border-radius: 2px; }
+::-webkit-scrollbar-thumb { background: #E9EDEF; border-radius: 2px; }
 
 /* ─── Prevent text selection on buttons ─── */
 button { -webkit-tap-highlight-color: transparent; user-select: none; }

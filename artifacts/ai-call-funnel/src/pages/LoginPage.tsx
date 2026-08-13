@@ -1,22 +1,28 @@
 /**
- * Página de login — telemóvel + PIN de 4 dígitos, sem SMS.
+ * Página de login — WhatsApp Business light theme.
  */
 import { useState, useRef } from "react";
 import { Link, useLocation } from "wouter";
-import { Phone, ArrowLeft, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { userLogin } from "@/lib/api";
 
 function PinDots({ value }: { value: string }) {
   return (
-    <div className="flex justify-center gap-4 my-5">
+    <div className="flex justify-center gap-5 my-6">
       {[0, 1, 2, 3].map((i) => (
-        <div key={i} className="w-4 h-4 rounded-full transition-all duration-150"
+        <div
+          key={i}
+          className="transition-all duration-150"
           style={{
-            background: i < value.length ? "#00BFA5" : "rgba(255,255,255,0.12)",
-            boxShadow: i < value.length ? "0 0 8px rgba(0,191,165,0.5)" : "none",
-            transform: i < value.length ? "scale(1.15)" : "scale(1)",
-          }} />
+            width: i < value.length ? 14 : 12,
+            height: i < value.length ? 14 : 12,
+            borderRadius: "50%",
+            background: i < value.length ? "#25D366" : "transparent",
+            border: `2px solid ${i < value.length ? "#25D366" : "#8696A0"}`,
+            transform: i < value.length ? "scale(1.1)" : "scale(1)",
+          }}
+        />
       ))}
     </div>
   );
@@ -29,13 +35,18 @@ function Keypad({ onKey }: { onKey: (k: string) => void }) {
     <div className="grid grid-cols-3 gap-3 w-full max-w-xs mx-auto">
       {KEYS.map((k, i) =>
         k === "" ? <div key={i} /> : (
-          <button key={i} onPointerDown={(e) => { e.preventDefault(); onKey(k); }}
-            className="h-14 rounded-2xl text-xl font-semibold flex items-center justify-center active:scale-90 transition-transform select-none"
+          <button
+            key={i}
+            onPointerDown={(e) => { e.preventDefault(); onKey(k); }}
+            className="h-[60px] rounded-full text-xl font-semibold flex items-center justify-center active:scale-90 transition-transform select-none"
             style={{
-              background: k === "⌫" ? "rgba(255,80,80,0.1)" : "rgba(255,255,255,0.06)",
-              border: "1px solid rgba(255,255,255,0.08)",
-              color: k === "⌫" ? "#F87171" : "#EAF0F7",
-            }}>{k}</button>
+              background: k === "⌫" ? "transparent" : "#F0F2F5",
+              color: k === "⌫" ? "#667781" : "#111B21",
+              fontSize: k === "⌫" ? 22 : undefined,
+            }}
+          >
+            {k}
+          </button>
         )
       )}
     </div>
@@ -45,7 +56,6 @@ function Keypad({ onKey }: { onKey: (k: string) => void }) {
 function getSafeNext(handle: string | null): string {
   const next = new URLSearchParams(window.location.search).get("next");
   if (next && next.startsWith("/") && !next.startsWith("//")) return next;
-  // Default: go to user profile if handle set, else choose-handle onboarding
   return handle ? `/u/${handle}` : "/escolher-handle";
 }
 
@@ -56,7 +66,6 @@ export function LoginPage() {
   const [step, setStep]       = useState<"phone" | "pin">("phone");
   const [phone, setPhone]     = useState("");
   const [pin, setPin]         = useState("");
-  const [showPhone, setShow]  = useState(false);
   const [error, setError]     = useState("");
   const [loading, setLoading] = useState(false);
   const phoneRef              = useRef<HTMLInputElement>(null);
@@ -84,53 +93,78 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-[#080E18] px-6 pt-12 pb-8 overflow-y-auto"
-      style={{ minHeight: "var(--vh, 100dvh)" }}>
-      <button onClick={() => step === "pin" ? (setStep("phone"), setPin("")) : nav("/")}
-        className="mb-8 w-9 h-9 flex items-center justify-center rounded-full"
-        style={{ background: "rgba(255,255,255,0.06)" }}>
-        <ArrowLeft size={18} style={{ color: "#7B96B2" }} />
+    <div
+      className="flex flex-col h-full px-6 pt-10 pb-8 overflow-y-auto"
+      style={{ background: "#FFFFFF", minHeight: "var(--vh, 100dvh)" }}
+    >
+      {/* Back */}
+      <button
+        onClick={() => step === "pin" ? (setStep("phone"), setPin("")) : nav("/")}
+        className="mb-8 w-9 h-9 flex items-center justify-center rounded-full transition-colors active:bg-[#F0F2F5]"
+        style={{ color: "#667781" }}
+      >
+        <ArrowLeft size={22} />
       </button>
 
-      <div className="mb-8">
-        <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
-          style={{ background: "rgba(0,191,165,0.12)", border: "1px solid rgba(0,191,165,0.25)" }}>
-          <Phone size={24} style={{ color: "#00BFA5" }} />
+      {/* Logo / heading */}
+      <div className="mb-8 text-center">
+        <div
+          className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5"
+          style={{ background: "#25D366" }}
+        >
+          <span className="text-white font-bold text-[28px]">L</span>
         </div>
-        <h1 className="text-[22px] font-bold text-[#EAF0F7]">
-          {step === "phone" ? "Entrar" : "O teu PIN"}
+        <h1 className="text-[24px] font-bold" style={{ color: "#111B21" }}>
+          {step === "phone" ? "Entrar" : "PIN de acesso"}
         </h1>
-        <p className="text-[14px] mt-1" style={{ color: "#4A6B80" }}>
-          {step === "phone" ? "Insere o teu número de telemóvel" : `Código de acesso para ${phone}`}
+        <p className="text-[15px] mt-1.5" style={{ color: "#667781" }}>
+          {step === "phone"
+            ? "Insere o teu número de telemóvel"
+            : `Código de acesso para ${phone}`}
         </p>
       </div>
 
+      {/* Error */}
       {error && (
-        <div className="mb-4 px-4 py-3 rounded-xl text-[13px]"
-          style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", color: "#FCA5A5" }}>
+        <div
+          className="mb-4 px-4 py-3 rounded-xl text-[14px]"
+          style={{ background: "#FEE2E2", color: "#DC2626" }}
+        >
           {error}
         </div>
       )}
 
       {step === "phone" && (
         <>
-          <div className="flex items-center gap-3 px-4 rounded-2xl mb-4"
-            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.10)", height: 56 }}>
-            <span className="text-[15px]">🇦🇴</span>
-            <span className="text-[15px] font-semibold" style={{ color: "#7B96B2" }}>+244</span>
-            <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.1)" }} />
-            <input ref={phoneRef} type="tel" inputMode="numeric" value={phone}
+          {/* Phone input */}
+          <div
+            className="flex items-center gap-3 px-4 rounded-xl mb-5"
+            style={{ background: "#F0F2F5", height: 56 }}
+          >
+            <span className="text-[18px]">🇦🇴</span>
+            <span className="text-[15px] font-semibold" style={{ color: "#667781" }}>+244</span>
+            <div style={{ width: 1, height: 22, background: "#E9EDEF" }} />
+            <input
+              ref={phoneRef}
+              type="tel"
+              inputMode="numeric"
+              value={phone}
               onChange={(e) => setPhone(e.target.value.replace(/[^\d\s]/g, ""))}
-              placeholder="9XX XXX XXX" autoFocus
+              placeholder="9XX XXX XXX"
+              autoFocus
               className="flex-1 bg-transparent outline-none text-[16px]"
-              style={{ color: "#EAF0F7", caretColor: "#00BFA5" }}
-              onKeyDown={(e) => e.key === "Enter" && handlePhoneNext()} />
-            <button onClick={() => setShow((s) => !s)} className="opacity-50">
-              {showPhone ? <EyeOff size={16} style={{ color: "#7B96B2" }} /> : <Eye size={16} style={{ color: "#7B96B2" }} />}
-            </button>
+              style={{ color: "#111B21", caretColor: "#25D366" }}
+              onKeyDown={(e) => e.key === "Enter" && handlePhoneNext()}
+            />
           </div>
-          <button onClick={handlePhoneNext} className="w-full h-14 rounded-2xl font-bold text-[15px]"
-            style={{ background: "#00BFA5", color: "#050D14" }}>Continuar</button>
+
+          <button
+            onClick={handlePhoneNext}
+            className="w-full h-[54px] rounded-full font-bold text-[16px]"
+            style={{ background: "#25D366", color: "#FFFFFF" }}
+          >
+            Continuar
+          </button>
         </>
       )}
 
@@ -138,15 +172,15 @@ export function LoginPage() {
         <div className="flex flex-col items-center">
           <PinDots value={pin} />
           {loading
-            ? <p className="text-[13px] mb-6" style={{ color: "#00BFA5" }}>A entrar…</p>
-            : <p className="text-[13px] mb-6 opacity-0">·</p>}
+            ? <p className="text-[13px] mb-5" style={{ color: "#25D366" }}>A entrar…</p>
+            : <p className="text-[13px] mb-5 opacity-0">·</p>}
           <Keypad onKey={handlePinKey} />
         </div>
       )}
 
-      <p className="mt-auto pt-8 text-center text-[14px]" style={{ color: "#4A6B80" }}>
+      <p className="mt-auto pt-8 text-center text-[15px]" style={{ color: "#667781" }}>
         Ainda não tens conta?{" "}
-        <Link href={`/registar${window.location.search}`} className="font-semibold" style={{ color: "#00BFA5" }}>
+        <Link href={`/registar${window.location.search}`} className="font-semibold" style={{ color: "#25D366" }}>
           Criar conta
         </Link>
       </p>

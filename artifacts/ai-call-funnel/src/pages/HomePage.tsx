@@ -1,13 +1,11 @@
 /**
  * Linkealls — Landing page & business directory.
- * Fetches all public businesses and renders a card grid.
- * Also injects JSON-LD (WebSite + ItemList) for GEO/SEO.
+ * WhatsApp Business light theme — conversation-list style.
  */
 import { useState, useEffect } from "react";
 import { Link, Redirect } from "wouter";
-import { Building2, ChevronRight, Loader2, Zap, LogIn, LogOut } from "lucide-react";
+import { Building2, Loader2, Zap, LogIn, Search, Camera, MoreVertical } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
-import { userLogout } from "@/lib/api";
 
 interface Business {
   id: number;
@@ -21,67 +19,65 @@ const API_BASE = import.meta.env.DEV
   ? `${import.meta.env.BASE_URL}api`
   : "/api";
 
-// ─── Business card ───────────────────────────────────────────────────────────
+const PALETTES = [
+  { bg: "#DFE5E7", text: "#54656F" },
+  { bg: "#D9FDD3", text: "#25D366" },
+  { bg: "#FFE8CC", text: "#F97316" },
+  { bg: "#E8D9FD", text: "#7C3AED" },
+  { bg: "#D9F0FD", text: "#0EA5E9" },
+  { bg: "#FDD9E8", text: "#EC4899" },
+];
+function palette(name: string) {
+  let h = 0;
+  for (const c of name) h = h * 31 + c.charCodeAt(0);
+  return PALETTES[Math.abs(h) % PALETTES.length]!;
+}
 
-function BusinessCard({ b }: { b: Business }) {
+// ─── Business row (WA conversation-list style) ────────────────────────────
+
+function BusinessRow({ b }: { b: Business }) {
+  const p = palette(b.name);
   return (
     <Link href={`/e/${b.slug}`}>
-      <div
-        className="group block rounded-2xl p-5 transition-all cursor-pointer hover:-translate-y-0.5"
-        style={{
-          background: "#0D1826",
-          border: "1px solid rgba(255,255,255,0.06)",
-          boxShadow: "0 2px 12px rgba(0,0,0,0.3)",
-        }}
-      >
-        <div className="flex items-start justify-between mb-4">
-          <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{ background: "#00A88415", border: "1px solid #00A88430" }}
-          >
-            <Building2 size={18} className="text-[#00A884]" />
-          </div>
-          <ChevronRight
-            size={16}
-            className="text-[#3E576F] group-hover:text-[#00A884] transition-colors mt-1"
-          />
+      <div className="flex items-center gap-3 px-4 py-3.5 active:bg-[#F5F5F5] cursor-pointer transition-colors">
+        {/* Avatar */}
+        <div
+          className="w-[52px] h-[52px] rounded-full flex items-center justify-center text-[20px] font-bold shrink-0"
+          style={{ background: p.bg, color: p.text }}
+        >
+          {b.name.charAt(0).toUpperCase()}
         </div>
 
-        <h3 className="font-semibold text-[#EAF0F7] mb-0.5 truncate leading-snug">
-          {b.name}
-        </h3>
-        <p className="text-xs font-medium mb-2" style={{ color: "#00A884" }}>
-          {b.sector}
-        </p>
-        <p className="text-sm text-[#7B96B2] line-clamp-2 leading-relaxed">
-          {b.description}
-        </p>
-
-        <div
-          className="mt-4 inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full"
-          style={{ background: "#00A88415", color: "#00A884" }}
-        >
-          <Zap size={10} fill="currentColor" />
-          Assistente IA
+        {/* Content */}
+        <div className="flex-1 min-w-0 border-b py-0.5" style={{ borderColor: "#E9EDEF" }}>
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="font-semibold text-[16px] truncate" style={{ color: "#111B21" }}>{b.name}</span>
+            <span
+              className="shrink-0 text-[11px] font-medium px-2 py-0.5 rounded-full flex items-center gap-1"
+              style={{ background: "#D9FDD3", color: "#128C7E" }}
+            >
+              <Zap size={9} fill="currentColor" /> IA
+            </span>
+          </div>
+          <p className="text-[14px] truncate mt-0.5" style={{ color: "#667781" }}>
+            {b.sector}{b.description ? ` · ${b.description}` : ""}
+          </p>
         </div>
       </div>
     </Link>
   );
 }
 
-// ─── Skeleton placeholder ─────────────────────────────────────────────────────
+// ─── Skeleton ────────────────────────────────────────────────────────────────
 
-function SkeletonCard() {
+function SkeletonRow() {
   return (
-    <div
-      className="rounded-2xl p-5 animate-pulse"
-      style={{ background: "#0D1826", border: "1px solid rgba(255,255,255,0.04)" }}
-    >
-      <div className="w-10 h-10 rounded-xl mb-4" style={{ background: "#141E2E" }} />
-      <div className="h-4 rounded mb-2" style={{ background: "#141E2E", width: "60%" }} />
-      <div className="h-3 rounded mb-3" style={{ background: "#141E2E", width: "40%" }} />
-      <div className="h-3 rounded mb-1.5" style={{ background: "#141E2E" }} />
-      <div className="h-3 rounded" style={{ background: "#141E2E", width: "80%" }} />
+    <div className="flex items-center gap-3 px-4 py-3.5 animate-pulse">
+      <div className="w-[52px] h-[52px] rounded-full shrink-0" style={{ background: "#F0F2F5" }} />
+      <div className="flex-1 border-b pb-3.5" style={{ borderColor: "#E9EDEF" }}>
+        <div className="h-4 rounded mb-2" style={{ background: "#F0F2F5", width: "55%" }} />
+        <div className="h-3 rounded" style={{ background: "#F0F2F5", width: "75%" }} />
+      </div>
     </div>
   );
 }
@@ -89,12 +85,13 @@ function SkeletonCard() {
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export function HomePage() {
-  const { user, isLoggedIn, token, logout } = useAuth();
+  const { user, isLoggedIn } = useAuth();
   const [businesses, setBusinesses] = useState<Business[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [search, setSearch] = useState("");
+  const [showSearch, setShowSearch] = useState(false);
 
-  // Logged-in users land on their personal profile (handle-less → onboarding)
   if (isLoggedIn) {
     return user?.handle ? <Redirect to={`/u/${user.handle}`} /> : <Redirect to="/escolher-handle" />;
   }
@@ -107,163 +104,131 @@ export function HomePage() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Inject JSON-LD for GEO/SEO (WebSite + ItemList)
   useEffect(() => {
     if (businesses.length === 0) return;
-
     const origin = window.location.origin;
-
     const ld = {
       "@context": "https://schema.org",
       "@graph": [
+        { "@type": "WebSite", "@id": `${origin}/#website`, url: `${origin}/`, name: "Linkealls", inLanguage: "pt-AO" },
         {
-          "@type": "WebSite",
-          "@id": `${origin}/#website`,
-          url: `${origin}/`,
-          name: "Linkealls",
-          description:
-            "Diretório de negócios angolanos com assistente IA integrado.",
-          inLanguage: "pt-AO",
-        },
-        {
-          "@type": "ItemList",
-          "@id": `${origin}/#businesses`,
-          name: "Negócios no Linkealls",
-          numberOfItems: businesses.length,
+          "@type": "ItemList", "@id": `${origin}/#businesses`,
+          name: "Negócios no Linkealls", numberOfItems: businesses.length,
           itemListElement: businesses.map((b, i) => ({
-            "@type": "ListItem",
-            position: i + 1,
-            url: `${origin}/e/${b.slug}/`,
-            name: b.name,
-            description: b.description,
+            "@type": "ListItem", position: i + 1, url: `${origin}/e/${b.slug}/`, name: b.name,
           })),
         },
       ],
     };
-
     const script = document.createElement("script");
     script.id = "linkealls-jsonld";
     script.type = "application/ld+json";
     script.textContent = JSON.stringify(ld);
     document.head.appendChild(script);
-    return () => {
-      document.getElementById("linkealls-jsonld")?.remove();
-    };
+    return () => { document.getElementById("linkealls-jsonld")?.remove(); };
   }, [businesses]);
 
+  const filtered = search.trim()
+    ? businesses.filter((b) =>
+        b.name.toLowerCase().includes(search.toLowerCase()) ||
+        b.sector.toLowerCase().includes(search.toLowerCase()),
+      )
+    : businesses;
+
   return (
-    <div
-      className="min-h-screen"
-      style={{ background: "linear-gradient(180deg, #060C14 0%, #080E18 100%)" }}
-    >
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <header
-        className="sticky top-0 z-10 backdrop-blur-md"
-        style={{
-          background: "rgba(6,12,20,0.85)",
-          borderBottom: "1px solid rgba(255,255,255,0.05)",
-        }}
-      >
-        <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-sm"
-              style={{
-                background: "linear-gradient(135deg, #00A884 0%, #007A62 100%)",
-              }}
-            >
-              L
-            </div>
-            <span className="font-bold text-[17px] text-[#EAF0F7] tracking-tight">
-              Linkealls
-            </span>
-          </div>
+    <div className="flex flex-col h-full" style={{ background: "#FFFFFF", minHeight: "100dvh" }}>
 
-          <div className="flex items-center gap-2">
-            <span
-              className="text-xs px-2.5 py-1 rounded-full font-medium"
-              style={{ background: "#00A88415", color: "#00A884", border: "1px solid #00A88430" }}
-            >
-              Angola
-            </span>
-
-            <Link href="/login">
-              <button
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-semibold"
-                style={{ background: "#00A88415", color: "#00A884", border: "1px solid #00A88430" }}
-              >
-                <LogIn size={13} />
-                Entrar
+      {/* ── Top App Bar ── */}
+      <header style={{ background: "#075E54" }}>
+        <div style={{ paddingTop: "env(safe-area-inset-top)" }}>
+          <div className="flex items-center justify-between px-4 h-14">
+            <span className="font-bold text-[20px] text-white tracking-tight">Linkealls</span>
+            <div className="flex items-center gap-4" style={{ color: "rgba(255,255,255,0.85)" }}>
+              <button onClick={() => setShowSearch((s) => !s)} aria-label="Pesquisar">
+                <Search size={21} />
               </button>
-            </Link>
+              <button aria-label="Câmara"><Camera size={21} /></button>
+              <button aria-label="Menu"><MoreVertical size={21} /></button>
+            </div>
           </div>
+
+          {/* Search bar */}
+          {showSearch && (
+            <div className="px-3 pb-2">
+              <div className="flex items-center gap-3 px-4 rounded-full bg-white" style={{ height: 40 }}>
+                <Search size={16} style={{ color: "#8696A0" }} className="shrink-0" />
+                <input
+                  autoFocus
+                  type="text"
+                  placeholder="Pesquisar negócios…"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="flex-1 bg-transparent outline-none text-[15px]"
+                  style={{ color: "#111B21" }}
+                />
+              </div>
+            </div>
+          )}
         </div>
       </header>
 
-      {/* ── Hero ───────────────────────────────────────────────────────────── */}
-      <section className="max-w-5xl mx-auto px-6 pt-20 pb-16 text-center">
-        <div
-          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium mb-8"
-          style={{
-            background: "#00A88415",
-            border: "1px solid #00A88430",
-            color: "#00A884",
-          }}
+      {/* ── Filter tabs (Todas / Com IA) ── */}
+      <div className="shrink-0 flex gap-2 px-4 py-2" style={{ background: "#FFFFFF", borderBottom: "1px solid #E9EDEF" }}>
+        <span
+          className="text-[13px] font-semibold px-3 py-1 rounded-full"
+          style={{ background: "#D9FDD3", color: "#128C7E" }}
         >
-          <span className="w-1.5 h-1.5 rounded-full bg-[#00A884] animate-pulse" />
-          Assistentes IA em tempo real
-        </div>
+          Todas
+        </span>
+        <span
+          className="text-[13px] font-medium px-3 py-1 rounded-full"
+          style={{ background: "#F0F2F5", color: "#667781" }}
+        >
+          Com IA
+        </span>
+      </div>
 
-        <h1 className="text-4xl md:text-5xl font-bold mb-5 leading-tight text-[#EAF0F7]">
-          Encontra negócios locais.
-          <br />
-          <span style={{ color: "#00A884" }}>Fala com a IA deles.</span>
-        </h1>
-
-        <p className="text-lg text-[#7B96B2] max-w-lg mx-auto leading-relaxed">
-          Cada negócio tem o seu assistente inteligente. Faz perguntas, recebe
-          respostas e liga direto — tudo num clique.
-        </p>
-      </section>
-
-      {/* ── Business grid ──────────────────────────────────────────────────── */}
-      <section className="max-w-5xl mx-auto px-6 pb-24">
-        <h2 className="text-xs font-semibold text-[#3E576F] uppercase tracking-widest mb-6">
-          Negócios disponíveis{!loading && businesses.length > 0 && ` · ${businesses.length}`}
-        </h2>
-
+      {/* ── Business list ── */}
+      <div className="flex-1 overflow-y-auto min-h-0" style={{ background: "#FFFFFF" }}>
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <SkeletonCard />
-            <SkeletonCard />
-            <SkeletonCard />
-          </div>
+          <>
+            <SkeletonRow />
+            <SkeletonRow />
+            <SkeletonRow />
+            <SkeletonRow />
+          </>
         ) : error ? (
-          <div className="text-center py-20 text-[#3E576F]">
-            <Building2 size={40} className="mx-auto mb-3 opacity-30" />
-            <p>Erro ao carregar negócios. Tenta de novo.</p>
+          <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-8">
+            <Building2 size={40} style={{ color: "#8696A0" }} />
+            <p style={{ color: "#667781" }}>Erro ao carregar. Tenta de novo.</p>
           </div>
-        ) : businesses.length === 0 ? (
-          <div className="text-center py-20 text-[#3E576F]">
-            <Building2 size={40} className="mx-auto mb-3 opacity-30" />
-            <p>Nenhum negócio disponível ainda.</p>
+        ) : filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-full gap-3 text-center px-8">
+            <Building2 size={40} style={{ color: "#8696A0" }} />
+            <p style={{ color: "#667781" }}>
+              {search ? `Sem resultados para "${search}"` : "Nenhum negócio disponível ainda."}
+            </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {businesses.map((b) => (
-              <BusinessCard key={b.id} b={b} />
-            ))}
-          </div>
+          filtered.map((b) => <BusinessRow key={b.id} b={b} />)
         )}
-      </section>
+      </div>
 
-      {/* ── Footer ─────────────────────────────────────────────────────────── */}
-      <footer style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
-        <div className="max-w-5xl mx-auto px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-[#3E576F]">
-          <span>© {new Date().getFullYear()} Linkealls</span>
-          <span>O diretório de negócios angolanos com IA</span>
-        </div>
-      </footer>
+      {/* ── Footer / Login CTA ── */}
+      <div
+        className="shrink-0 flex items-center justify-between px-6 py-4"
+        style={{ background: "#F0F2F5", borderTop: "1px solid #E9EDEF", paddingBottom: "calc(16px + env(safe-area-inset-bottom))" }}
+      >
+        <span className="text-[13px]" style={{ color: "#8696A0" }}>© {new Date().getFullYear()} Linkealls</span>
+        <Link href="/login">
+          <button
+            className="flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-semibold"
+            style={{ background: "#25D366", color: "#FFFFFF" }}
+          >
+            <LogIn size={14} /> Entrar
+          </button>
+        </Link>
+      </div>
     </div>
   );
 }

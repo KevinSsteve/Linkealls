@@ -54,40 +54,35 @@ function MinimizedCallBanner({
     <div
       className="flex items-center gap-3 px-4 py-2.5 flex-shrink-0"
       style={{
-        background: "linear-gradient(90deg, #071A14 0%, #060E18 100%)",
-        borderBottom: "1px solid rgba(0,200,150,0.18)",
+        background: "#075E54",
+        borderBottom: "1px solid rgba(0,0,0,0.08)",
       }}
     >
       {/* Pulsing dot */}
       <span className="relative flex items-center justify-center shrink-0">
         <span
           className="absolute inline-flex rounded-full opacity-75 animate-ping"
-          style={{ width: 10, height: 10, background: "#00C896", animationDuration: "1.3s" }}
+          style={{ width: 10, height: 10, background: "#25D366", animationDuration: "1.3s" }}
         />
         <span
           className="relative inline-flex rounded-full"
-          style={{ width: 8, height: 8, background: "#00C896" }}
+          style={{ width: 8, height: 8, background: "#25D366" }}
         />
       </span>
 
       {/* Label */}
-      <button
-        onClick={onExpand}
-        className="flex-1 flex items-center gap-2 text-left"
-      >
-        <span className="text-[13px] font-semibold" style={{ color: "#D4E4F0" }}>
-          Em chamada
-        </span>
-        <span className="text-[12px] font-mono tabular-nums" style={{ color: "#4A6B80" }}>
+      <button onClick={onExpand} className="flex-1 flex items-center gap-2 text-left">
+        <span className="text-[13px] font-semibold text-white">Em chamada</span>
+        <span className="text-[12px] font-mono tabular-nums" style={{ color: "rgba(255,255,255,0.65)" }}>
           {formatTime(elapsed)}
         </span>
         {isAiSpeaking && (
-          <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: "rgba(0,200,150,0.12)", color: "#00C896" }}>
+          <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: "rgba(255,255,255,0.15)", color: "#fff" }}>
             A falar…
           </span>
         )}
         {hasProducts && !isAiSpeaking && (
-          <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: "rgba(0,191,165,0.1)", color: "#00BFA5" }}>
+          <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: "rgba(255,255,255,0.15)", color: "#fff" }}>
             Ver produtos ↓
           </span>
         )}
@@ -97,20 +92,20 @@ function MinimizedCallBanner({
       <button
         onClick={onEnd}
         className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-transform"
-        style={{ background: "#7F1D1D" }}
+        style={{ background: "#EF4444" }}
         aria-label="Terminar chamada"
       >
-        <Phone size={14} className="text-red-300" style={{ transform: "rotate(135deg)" }} />
+        <Phone size={14} className="text-white" style={{ transform: "rotate(135deg)" }} />
       </button>
 
       {/* Expand */}
       <button
         onClick={onExpand}
-        className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-colors"
-        style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)" }}
+        className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center active:scale-90"
+        style={{ background: "rgba(255,255,255,0.15)" }}
         aria-label="Expandir chamada"
       >
-        <ChevronUp size={15} style={{ color: "#7B96B2" }} />
+        <ChevronUp size={15} style={{ color: "#fff" }} />
       </button>
     </div>
   );
@@ -123,22 +118,22 @@ function AgentMsgBubble({ msg, onDismiss }: { msg: AgentMessage; onDismiss: () =
     <div className="flex items-start gap-2 mb-2">
       <div
         className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center mt-0.5"
-        style={{ background: "rgba(0,191,165,0.15)", border: "1px solid rgba(0,191,165,0.3)" }}
+        style={{ background: "#D9FDD3" }}
       >
-        <MessageSquare size={11} style={{ color: "#00BFA5" }} />
+        <MessageSquare size={11} style={{ color: "#25D366" }} />
       </div>
       <div
         className="flex-1 rounded-2xl rounded-tl-sm px-3 py-2 text-[13px] leading-relaxed whitespace-pre-line"
         style={{
-          background: "rgba(17,27,42,0.9)",
-          border: "1px solid rgba(0,191,165,0.2)",
-          color: "#D4E4F0",
+          background: "#FFFFFF",
+          boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
+          color: "#111B21",
         }}
       >
         {msg.text}
       </div>
       <button onClick={onDismiss} className="shrink-0 mt-1 opacity-40 hover:opacity-70">
-        <X size={13} style={{ color: "#4A6580" }} />
+        <X size={13} style={{ color: "#8696A0" }} />
       </button>
     </div>
   );
@@ -169,7 +164,7 @@ function AgentMessageOverlay({
         className="w-full shrink-0"
         style={{
           height: 20,
-          background: "linear-gradient(180deg, rgba(5,10,18,0.85) 0%, transparent 100%)",
+          background: "linear-gradient(180deg, rgba(7,94,84,0.4) 0%, transparent 100%)",
         }}
       />
       <div
@@ -181,16 +176,16 @@ function AgentMessageOverlay({
           <div key={m.id} className="flex items-start gap-2">
             <div
               className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center mt-0.5"
-              style={{ background: "rgba(0,191,165,0.15)", border: "1px solid rgba(0,191,165,0.3)" }}
+              style={{ background: "#D9FDD3" }}
             >
-              <MessageSquare size={11} style={{ color: "#00BFA5" }} />
+              <MessageSquare size={11} style={{ color: "#25D366" }} />
             </div>
             <div
               className="flex-1 rounded-2xl rounded-tl-sm px-3 py-2 text-[13px] leading-relaxed whitespace-pre-line"
               style={{
-                background: "rgba(17,27,42,0.92)",
-                border: "1px solid rgba(0,191,165,0.2)",
-                color: "#D4E4F0",
+                background: "rgba(255,255,255,0.92)",
+                boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                color: "#111B21",
                 backdropFilter: "blur(8px)",
                 WebkitBackdropFilter: "blur(8px)",
               }}
@@ -201,7 +196,7 @@ function AgentMessageOverlay({
               className="shrink-0 mt-0.5 opacity-40 hover:opacity-80 transition-opacity"
               onClick={onDismissAll}
             >
-              <X size={13} style={{ color: "#4A6580" }} />
+              <X size={13} style={{ color: "#8696A0" }} />
             </button>
           </div>
         ))}
@@ -220,13 +215,13 @@ function ProductCardItem({ product, onSelect }: { product: ProductCard; onSelect
       className="flex-shrink-0 flex flex-col rounded-2xl overflow-hidden"
       style={{
         width: 150,
-        background: "linear-gradient(160deg, #111B2A 0%, #0D1520 100%)",
-        border: "1px solid rgba(255,255,255,0.08)",
+        background: "#FFFFFF",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
       }}
     >
       <div
         className="w-full flex items-center justify-center"
-        style={{ height: 110, background: "#080E18", flexShrink: 0 }}
+        style={{ height: 110, background: "#F0F2F5", flexShrink: 0 }}
       >
         {product.imageUrl && !imgError ? (
           <img
@@ -237,23 +232,23 @@ function ProductCardItem({ product, onSelect }: { product: ProductCard; onSelect
           />
         ) : (
           <div className="flex flex-col items-center gap-1.5">
-            <ShoppingBag size={28} className="text-[#3E576F]" />
-            {imgError && <ImageOff size={12} className="text-[#3E576F]" />}
+            <ShoppingBag size={28} style={{ color: "#8696A0" }} />
+            {imgError && <ImageOff size={12} style={{ color: "#8696A0" }} />}
           </div>
         )}
       </div>
 
       <div className="flex flex-col flex-1 p-2.5 gap-1">
-        <p className="text-[13px] font-semibold text-[#EAF0F7] leading-tight line-clamp-2">
+        <p className="text-[13px] font-semibold leading-tight line-clamp-2" style={{ color: "#111B21" }}>
           {product.name}
         </p>
         {product.price && (
-          <p className="text-[12px] font-bold" style={{ color: "#00BFA5" }}>
+          <p className="text-[12px] font-bold" style={{ color: "#25D366" }}>
             {product.price}
           </p>
         )}
         {product.description && (
-          <p className="text-[11px] text-[#4A6580] leading-relaxed line-clamp-2">
+          <p className="text-[11px] leading-relaxed line-clamp-2" style={{ color: "#667781" }}>
             {product.description}
           </p>
         )}
@@ -261,7 +256,7 @@ function ProductCardItem({ product, onSelect }: { product: ProductCard; onSelect
           <button
             onClick={onSelect}
             className="w-full py-2 rounded-xl text-[12px] font-semibold transition-colors"
-            style={{ background: "#00BFA5", color: "#050D14" }}
+            style={{ background: "#25D366", color: "#FFFFFF" }}
           >
             Selecionar
           </button>
@@ -284,18 +279,23 @@ function ProductVitrine({
 }) {
   return (
     <div
-      className="absolute inset-x-0 bottom-0 z-30 flex flex-col"
+      className="absolute inset-x-0 bottom-0 z-30 flex flex-col rounded-t-2xl"
       style={{
-        background:
-          "linear-gradient(180deg, rgba(5,10,18,0) 0%, rgba(5,10,18,0.97) 8%, #050A12 100%)",
-        paddingTop: 32,
+        background: "#FFFFFF",
+        boxShadow: "0 -4px 24px rgba(0,0,0,0.15)",
+        paddingTop: 8,
         maxHeight: "72%",
       }}
     >
+      {/* Handle */}
+      <div className="flex justify-center pt-2 pb-1 shrink-0">
+        <div className="w-10 h-1 rounded-full" style={{ background: "#E9EDEF" }} />
+      </div>
+
       <div className="flex items-center justify-between px-4 pb-3 flex-shrink-0">
         <div>
-          <p className="text-[14px] font-bold text-[#EAF0F7]">Escolhe o que queres 👇</p>
-          <p className="text-[11px] text-[#3E576F] mt-0.5">
+          <p className="text-[15px] font-bold" style={{ color: "#111B21" }}>Escolhe o que queres 👇</p>
+          <p className="text-[12px] mt-0.5" style={{ color: "#8696A0" }}>
             {products.length} produto{products.length !== 1 ? "s" : ""} disponíve
             {products.length !== 1 ? "is" : "l"}
           </p>
@@ -303,9 +303,9 @@ function ProductVitrine({
         <button
           onClick={onClose}
           className="w-8 h-8 rounded-full flex items-center justify-center"
-          style={{ background: "rgba(255,255,255,0.06)" }}
+          style={{ background: "#F0F2F5" }}
         >
-          <X size={15} className="text-[#3E576F]" />
+          <X size={15} style={{ color: "#667781" }} />
         </button>
       </div>
 
@@ -333,16 +333,17 @@ function InlineProductShelf({
     <div
       className="mx-3 mb-2 rounded-2xl overflow-hidden"
       style={{
-        background: "rgba(17,27,42,0.9)",
-        border: "1px solid rgba(0,191,165,0.18)",
+        background: "#FFFFFF",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+        border: "1px solid #E9EDEF",
       }}
     >
       <div className="flex items-center justify-between px-3 py-2.5">
-        <p className="text-[13px] font-semibold" style={{ color: "#EAF0F7" }}>
+        <p className="text-[13px] font-semibold" style={{ color: "#111B21" }}>
           Produtos sugeridos pelo assistente 🤖
         </p>
         <button onClick={onClose}>
-          <X size={14} style={{ color: "#4A6580" }} />
+          <X size={14} style={{ color: "#8696A0" }} />
         </button>
       </div>
       <div className="flex gap-3 overflow-x-auto px-3 pb-3 scrollbar-none">
@@ -654,11 +655,10 @@ export function Chat() {
               {/* Date label */}
               <div className="flex justify-center mb-3">
                 <span
-                  className="text-[11px] px-3 py-1 rounded-full"
+                  className="text-[11px] px-3 py-1.5 rounded-full"
                   style={{
-                    background: "rgba(255,255,255,0.04)",
-                    color: "#3E576F",
-                    border: "1px solid rgba(255,255,255,0.06)",
+                    background: "rgba(255,255,255,0.85)",
+                    color: "#8696A0",
                   }}
                 >
                   Hoje

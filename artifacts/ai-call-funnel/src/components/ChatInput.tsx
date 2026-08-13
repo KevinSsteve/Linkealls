@@ -11,7 +11,6 @@ interface ChatInputProps {
 export function ChatInput({ value, onChange, onSend, disabled }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  /* Auto-resize textarea */
   useEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
@@ -30,21 +29,19 @@ export function ChatInput({ value, onChange, onSend, disabled }: ChatInputProps)
 
   return (
     <div
-      className="flex items-end gap-2.5 flex-shrink-0"
+      className="flex items-end gap-2 flex-shrink-0 px-2 py-2"
       style={{
-        background: "linear-gradient(180deg, #080F1C 0%, #060C14 100%)",
-        borderTop: "1px solid #111E30",
-        padding: "10px 14px",
-        /* Push above safe-area on notched phones */
-        paddingBottom: "calc(10px + env(safe-area-inset-bottom, 0px))",
+        background: "#F0F2F5",
+        paddingBottom: "calc(8px + env(safe-area-inset-bottom, 0px))",
       }}
     >
       {/* Text field */}
       <div
         className="flex-1 flex items-center gap-2 rounded-full px-4"
         style={{
-          background: "#10192A",
-          border: "1px solid #1C2E45",
+          background: "#FFFFFF",
+          border: "none",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
           minHeight: "44px",
         }}
       >
@@ -58,11 +55,10 @@ export function ChatInput({ value, onChange, onSend, disabled }: ChatInputProps)
           placeholder="Mensagem"
           className="flex-1 bg-transparent outline-none resize-none leading-[1.4] py-[11px]"
           style={{
-            color: "#EAF0F7",
-            caretColor: "#00C896",
+            color: "#111B21",
+            caretColor: "#25D366",
             maxHeight: "120px",
             scrollbarWidth: "none",
-            /* 16 px prevents iOS Safari from auto-zooming on focus */
             fontSize: "16px",
             lineHeight: "1.4",
           }}
@@ -75,11 +71,9 @@ export function ChatInput({ value, onChange, onSend, disabled }: ChatInputProps)
         disabled={disabled}
         className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-90 disabled:opacity-40"
         style={{
-          background: isEmpty
-            ? "linear-gradient(135deg, #1C2E45 0%, #141E2C 100%)"
-            : "linear-gradient(135deg, #00C896 0%, #007A5C 100%)",
-          boxShadow: isEmpty ? "none" : "0 4px 16px rgba(0,200,150,0.3)",
-          color: isEmpty ? "#7B96B2" : "#fff",
+          background: "#25D366",
+          boxShadow: isEmpty ? "none" : "0 2px 8px rgba(37,211,102,0.35)",
+          color: "#FFFFFF",
         }}
       >
         {isEmpty ? <Mic size={19} /> : <Send size={17} className="translate-x-[1px]" />}
