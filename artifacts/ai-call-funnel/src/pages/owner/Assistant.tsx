@@ -274,25 +274,24 @@ export function Assistant() {
 
   return (
     <div className="flex flex-col h-full" style={{ background: C.bg }}>
-      {/* ── Header ───────────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-3 px-4 py-2.5 shrink-0"
-        style={{ background: C.white, borderBottom: `1px solid ${C.border}` }}>
+      {/* ── Header — WA Business dark green ─────────────────────────────── */}
+      <div className="flex items-center gap-3 px-4 shrink-0"
+        style={{ background: "#075E54", height: 56, paddingTop: "env(safe-area-inset-top)" }}>
+        {/* Avatar */}
         <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
-          style={{ background: "#E8F5E9" }}>
-          <Zap size={20} style={{ color: C.green }} strokeWidth={1.8} />
+          style={{ background: "#25D366" }}>
+          <Zap size={18} className="text-white" strokeWidth={2} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-[15px]" style={{ color: C.text }}>Assistente Vivo</p>
-          <p className="text-[12px]" style={{ color: C.green }}>● online · Powered by Gemini</p>
+          <p className="font-semibold text-[15px] text-white leading-tight">Assistente Vivo</p>
+          <p className="text-[12px] leading-tight" style={{ color: "rgba(255,255,255,0.75)" }}>● online · Powered by Gemini</p>
         </div>
-        <div className="flex items-center gap-3">
-          <button onClick={handleDailySummary} title="Resumo diário"
-            className="transition-colors" style={{ color: C.text2 }}>
-            <BarChart2 size={18} strokeWidth={1.8} />
+        <div className="flex items-center gap-4" style={{ color: "rgba(255,255,255,0.85)" }}>
+          <button onClick={handleDailySummary} title="Resumo diário" className="transition-colors active:scale-90">
+            <BarChart2 size={20} strokeWidth={1.8} />
           </button>
-          <button onClick={handleClear} title="Limpar histórico"
-            className="transition-colors" style={{ color: C.text2 }}>
-            <Trash2 size={18} strokeWidth={1.8} />
+          <button onClick={handleClear} title="Limpar histórico" className="transition-colors active:scale-90">
+            <Trash2 size={20} strokeWidth={1.8} />
           </button>
         </div>
       </div>

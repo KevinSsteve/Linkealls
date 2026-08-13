@@ -191,10 +191,11 @@ function ConversationDetail({ lead: initialLead, onBack, onStateChange, api }: {
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
-      {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-2.5 shrink-0"
-        style={{ background: C.white, borderBottom: `1px solid ${C.border}` }}>
-        <button onClick={onBack} className="transition-colors p-1 -ml-1" style={{ color: C.text3 }}>
+      {/* Header — WA Business dark green */}
+      <div className="flex items-center gap-3 px-3 shrink-0"
+        style={{ background: "#075E54", height: 56 }}>
+        <button onClick={onBack} className="transition-colors p-1 -ml-1 active:scale-90"
+          style={{ color: "rgba(255,255,255,0.85)" }}>
           <ArrowLeft size={22} />
         </button>
         <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
@@ -202,14 +203,14 @@ function ConversationDetail({ lead: initialLead, onBack, onStateChange, api }: {
           {initials || <User size={14} />}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-semibold truncate text-[15px]" style={{ color: C.text }}>{name}</p>
-          <p className="text-[12px]" style={{ color: C.text2 }}>
+          <p className="font-semibold truncate text-[15px] text-white">{name}</p>
+          <p className="text-[12px]" style={{ color: "rgba(255,255,255,0.75)" }}>
             {lead.qualificationData.phone ?? lead.qualificationData.interest ?? formatTime(lead.createdAt)}
           </p>
         </div>
         {lead.score !== null && (
-          <span className="text-[12px] font-bold px-2 py-0.5 rounded-full shrink-0"
-            style={{ color: scoreColor(lead.score), background: scoreColor(lead.score) + "18" }}>
+          <span className="text-[12px] font-bold px-2 py-1 rounded-full shrink-0"
+            style={{ background: "rgba(255,255,255,0.15)", color: "#fff" }}>
             {lead.score}/100
           </span>
         )}
