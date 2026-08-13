@@ -1,65 +1,56 @@
 /**
- * Assistente Vivo — conversa WhatsApp-style entre o dono e o agente Gemini.
- * Suporta: perguntas em linguagem natural, mensagens proativas, ações com
- * confirmação e rascunhos prontos a copiar.
+ * Assistente Vivo — tema claro estilo WhatsApp Business.
+ * Área de mensagens com fundo de papel #E5DDD5, bolhas verdes (dono) e
+ * brancas (IA), campo de texto limpo em branco.
  */
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { Link } from "wouter";
 import {
-  ArrowLeft,
-  Zap,
-  Trash2,
-  BarChart2,
-  AlertCircle,
-  CheckCircle2,
-  XCircle,
-  Copy,
-  Check,
-  Loader2,
-  Bell,
+  ArrowLeft, Zap, Trash2, BarChart2, AlertCircle,
+  CheckCircle2, XCircle, Copy, Check, Loader2, Bell, Send,
 } from "lucide-react";
 import { businessApi, type AssistantMessage } from "../../lib/api";
 import { useBusinessSlug } from "../../hooks/useBusinessSlug";
-import { ChatInput } from "../../components/ChatInput";
 import { OwnerNav } from "../../components/owner/OwnerNav";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ─── Colours ─────────────────────────────────────────────────────────────────
+const C = {
+  bg:      "#F0F2F5",
+  white:   "#FFFFFF",
+  text:    "#111B21",
+  text2:   "#667781",
+  text3:   "#8696A0",
+  green:   "#00A884",
+  border:  "#E9EDEF",
+  chatBg:  "#E5DDD5",   // WhatsApp paper
+  bubOut:  "#D9FDD3",   // outgoing (owner)
+  bubIn:   "#FFFFFF",   // incoming (AI)
+};
 
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString("pt-AO", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function formatTime(iso: string) {
+  return new Date(iso).toLocaleTimeString("pt-AO", { hour: "2-digit", minute: "2-digit" });
 }
 
-/** Renders **bold** and line breaks from simple markdown. */
 function renderContent(text: string) {
-  // Split by bold markers
   const parts = text.split(/\*\*(.*?)\*\*/g);
   return (
     <>
       {parts.map((part, i) =>
         i % 2 === 1 ? (
-          <strong key={i} className="font-semibold">
-            {part}
-          </strong>
+          <strong key={i} className="font-semibold">{part}</strong>
         ) : (
           <span key={i}>
             {part.split("\n").map((line, j, arr) => (
-              <span key={j}>
-                {line}
-                {j < arr.length - 1 && <br />}
-              </span>
+              <span key={j}>{line}{j < arr.length - 1 && <br />}</span>
             ))}
           </span>
-        ),
+        )
       )}
     </>
   );
 }
 
 // ─── Copy button ──────────────────────────────────────────────────────────────
-
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
   return (
@@ -69,7 +60,8 @@ function CopyButton({ text }: { text: string }) {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       }}
-      className="flex items-center gap-1 text-xs text-[#00BFA5] hover:text-[#02D4B5] transition-colors mt-2"
+      className="flex items-center gap-1 text-[12px] mt-2 font-medium transition-colors"
+      style={{ color: copied ? "#2E7D32" : C.green }}
     >
       {copied ? <Check size={12} /> : <Copy size={12} />}
       {copied ? "Copiado!" : "Copiar mensagem"}
@@ -78,35 +70,29 @@ function CopyButton({ text }: { text: string }) {
 }
 
 // ─── Bubble ───────────────────────────────────────────────────────────────────
-
 function AssistantBubble({
   msg,
   onConfirm,
 }: {
   msg: AssistantMessage;
-  onConfirm?: (messageId: string, confirmed: boolean) => void;
+  onConfirm?: (id: string, confirmed: boolean) => void;
 }) {
   const isUser = msg.role === "user";
   const isProactive = msg.role === "proactive";
 
-  // Proactive: centre pill style
   if (isProactive) {
     return (
-      <div className="flex justify-center my-3 px-4 message-enter">
+      <div className="flex justify-center my-3 px-4">
         <div
-          className="max-w-[85%] rounded-2xl px-4 py-2.5 text-sm"
-          style={{
-            background: "linear-gradient(135deg, #1A2B1F 0%, #0F1E15 100%)",
-            border: "1px solid rgba(0,191,165,0.2)",
-            color: "#C8F0E0",
-          }}
+          className="max-w-[85%] rounded-2xl px-4 py-2.5 text-[13px]"
+          style={{ background: "#E8F5E9", border: "1px solid #C8E6C9", color: "#1B5E20" }}
         >
-          <div className="flex items-center gap-1.5 mb-1.5 text-[#00BFA5] text-xs font-medium">
-            <Bell size={11} />
-            Alerta do Assistente
+          <div className="flex items-center gap-1.5 mb-1.5 text-[11px] font-semibold"
+            style={{ color: "#2E7D32" }}>
+            <Bell size={11} /> Alerta do Assistente
           </div>
           <p className="leading-relaxed">{renderContent(msg.content)}</p>
-          <p className="text-[10px] mt-1.5 text-right" style={{ color: "#3E576F" }}>
+          <p className="text-[10px] mt-1.5 text-right" style={{ color: C.text3 }}>
             {formatTime(msg.createdAt)}
           </p>
         </div>
@@ -114,99 +100,77 @@ function AssistantBubble({
     );
   }
 
-  const bubbleBg = isUser
-    ? "linear-gradient(135deg, #1C5140 0%, #12362A 100%)"
-    : "linear-gradient(135deg, #172438 0%, #10192C 100%)";
-  const textColor = isUser ? "#C8F5E2" : "#C8DCF0";
-  const tailColor = isUser ? "#12362A" : "#10192C";
-  const borderColor = isUser
-    ? "1px solid rgba(0,200,150,0.12)"
-    : "1px solid rgba(100,150,220,0.08)";
-
   const hasDraft = !!msg.meta?.draftMessage;
   const hasAction = !!msg.meta?.pendingAction;
 
   return (
-    <div className={`flex mb-2 message-enter ${isUser ? "justify-end" : "justify-start"} px-3`}>
-      {/* Zap avatar */}
+    <div className={`flex mb-1.5 ${isUser ? "justify-end" : "justify-start"} px-3`}>
+      {/* AI avatar */}
       {!isUser && (
-        <div className="w-7 h-7 rounded-full bg-[#1A2B3D] flex items-center justify-center mr-2 mt-auto mb-1 flex-shrink-0">
-          <Zap size={13} className="text-[#00BFA5]" />
+        <div className="w-7 h-7 rounded-full flex items-center justify-center mr-2 mt-auto mb-1 shrink-0"
+          style={{ background: "#E8F5E9" }}>
+          <Zap size={13} style={{ color: C.green }} />
         </div>
       )}
 
       <div className="max-w-[78%] flex flex-col">
         <div
-          className="relative px-3.5 py-2.5 shadow-lg"
+          className="relative px-3.5 py-2.5"
           style={{
-            background: bubbleBg,
-            borderRadius: isUser ? "16px 4px 16px 16px" : "4px 16px 16px 16px",
-            border: borderColor,
+            background: isUser ? C.bubOut : C.bubIn,
+            borderRadius: isUser ? "8px 2px 8px 8px" : "2px 8px 8px 8px",
+            color: C.text,
+            boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
             wordBreak: "break-word",
           }}
         >
-          <p className="text-[14px] leading-[1.55]" style={{ color: textColor }}>
-            {renderContent(msg.content)}
-          </p>
+          <p className="text-[14px] leading-[1.55]">{renderContent(msg.content)}</p>
 
-          {/* Draft message copy button */}
           {hasDraft && <CopyButton text={msg.meta.draftMessage!} />}
 
-          {/* Pending action confirmation */}
           {hasAction && onConfirm && (
-            <div className="mt-3 pt-2.5 border-t border-white/10">
-              <p className="text-xs text-[#3E576F] mb-2">{msg.meta.pendingAction!.description}</p>
+            <div className="mt-3 pt-2.5" style={{ borderTop: `1px solid ${C.border}` }}>
+              <p className="text-[12px] mb-2" style={{ color: C.text3 }}>
+                {msg.meta.pendingAction!.description}
+              </p>
               <div className="flex gap-2">
                 <button
                   onClick={() => onConfirm(msg.id, true)}
-                  className="flex items-center gap-1.5 text-xs bg-emerald-600/20 text-emerald-300 border border-emerald-600/30 rounded-lg px-3 py-1.5 hover:bg-emerald-600/30 transition-colors"
+                  className="flex items-center gap-1.5 text-[12px] rounded-lg px-3 py-1.5 font-medium"
+                  style={{ background: "#E8F5E9", color: "#1B5E20", border: "1px solid #A5D6A7" }}
                 >
-                  <CheckCircle2 size={12} />
-                  Confirmar
+                  <CheckCircle2 size={12} /> Confirmar
                 </button>
                 <button
                   onClick={() => onConfirm(msg.id, false)}
-                  className="flex items-center gap-1.5 text-xs bg-red-600/10 text-red-400 border border-red-600/20 rounded-lg px-3 py-1.5 hover:bg-red-600/20 transition-colors"
+                  className="flex items-center gap-1.5 text-[12px] rounded-lg px-3 py-1.5 font-medium"
+                  style={{ background: "#FFEBEE", color: "#C62828", border: "1px solid #FFCDD2" }}
                 >
-                  <XCircle size={12} />
-                  Cancelar
+                  <XCircle size={12} /> Cancelar
                 </button>
               </div>
             </div>
           )}
 
-          <p className="text-[10px] mt-1 text-right" style={{ color: "#3E576F" }}>
+          <p className="text-[10px] mt-1 text-right" style={{ color: C.text3 }}>
             {formatTime(msg.createdAt)}
           </p>
-
-          {/* Tail */}
-          {isUser ? (
-            <svg className="absolute -right-[6px] bottom-0" width="8" height="12" viewBox="0 0 8 12" fill="none">
-              <path d="M7 0C7 0 0 5 0 12C3 12 7 9.5 7 9.5L7 0Z" fill={tailColor} />
-            </svg>
-          ) : (
-            <svg className="absolute -left-[6px] bottom-0" width="8" height="12" viewBox="0 0 8 12" fill="none">
-              <path d="M1 0C1 0 8 5 8 12C5 12 1 9.5 1 9.5L1 0Z" fill={tailColor} />
-            </svg>
-          )}
         </div>
       </div>
     </div>
   );
 }
 
-// ─── Quick action chips ───────────────────────────────────────────────────────
-
+// ─── Quick actions ────────────────────────────────────────────────────────────
 const QUICK_ACTIONS = [
-  { label: "Resumo de hoje", text: "Dá-me o resumo de hoje" },
-  { label: "Leads qualificados", text: "Quais os leads qualificados agora?" },
-  { label: "Melhor lead", text: "Qual é o lead com maior pontuação?" },
-  { label: "Leads parados", text: "Há leads qualificados sem follow-up?" },
+  { label: "Resumo de hoje",       text: "Dá-me o resumo de hoje" },
+  { label: "Leads qualificados",   text: "Quais os leads qualificados agora?" },
+  { label: "Melhor lead",          text: "Qual é o lead com maior pontuação?" },
+  { label: "Leads parados",        text: "Há leads qualificados sem follow-up?" },
   { label: "Rascunho de mensagem", text: "Preciso de ajuda para rascunhar uma mensagem para o lead mais recente" },
 ];
 
-// ─── Main component ───────────────────────────────────────────────────────────
-
+// ─── Main ─────────────────────────────────────────────────────────────────────
 export function Assistant() {
   const slug = useBusinessSlug();
   const api = useMemo(() => (slug ? businessApi(slug) : null), [slug]);
@@ -217,99 +181,72 @@ export function Assistant() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
-
   const bottomRef = useRef<HTMLDivElement>(null);
-  const eventSourceRef = useRef<EventSource | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const scrollToZaptom = useCallback(() => {
+  const scrollToBottom = useCallback(() => {
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 80);
   }, []);
 
-  // Load history
   useEffect(() => {
     if (!api) return;
-    api
-      .listAssistantMessages()
+    api.listAssistantMessages()
       .then(({ messages: data }) => setMessages(data))
       .catch(() => setError("Não foi possível carregar o histórico"))
       .finally(() => setLoading(false));
   }, [api]);
 
-  useEffect(() => {
-    if (messages.length > 0) scrollToZaptom();
-  }, [messages, scrollToZaptom]);
+  useEffect(() => { if (messages.length > 0) scrollToBottom(); }, [messages, scrollToBottom]);
 
-  // SSE for proactive messages from other tabs / server events
   useEffect(() => {
     if (!api) return;
     const es = new EventSource(api.getAssistantEventsUrl());
-    eventSourceRef.current = es;
-
     es.addEventListener("message", (e) => {
       const msg = JSON.parse((e as MessageEvent).data) as AssistantMessage;
-      setMessages((prev) => {
-        // Avoid duplicates
-        if (prev.some((m) => m.id === msg.id)) return prev;
-        return [...prev, msg];
-      });
+      setMessages((prev) => prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]);
     });
-
     return () => es.close();
   }, [api]);
 
   const handleSend = useCallback(async () => {
     const text = input.trim();
     if (!text || sending || !api) return;
+    setInput(""); setSending(true); setError(null);
 
-    setInput("");
-    setSending(true);
-    setError(null);
-
-    // Optimistic user message
-    const optimisticId = `optimistic-${Date.now()}`;
-    const optimisticMsg: AssistantMessage = {
-      id: optimisticId,
-      role: "user",
-      content: text,
-      meta: {},
+    const optimisticId = `opt-${Date.now()}`;
+    const optimistic: AssistantMessage = {
+      id: optimisticId, role: "user", content: text, meta: {},
       createdAt: new Date().toISOString(),
     };
-    setMessages((prev) => [...prev, optimisticMsg]);
-    scrollToZaptom();
+    setMessages((prev) => [...prev, optimistic]);
+    scrollToBottom();
 
     try {
-      const { message: reply } = await api.sendAssistantMessage(text);
-      // Replace optimistic with real message from server (history reload)
+      await api.sendAssistantMessage(text);
       const { messages: fresh } = await api.listAssistantMessages();
       setMessages(fresh);
     } catch (err) {
       setMessages((prev) => prev.filter((m) => m.id !== optimisticId));
-      setError(err instanceof Error ? err.message : "Erro ao enviar mensagem");
+      setError(err instanceof Error ? err.message : "Erro ao enviar");
     } finally {
       setSending(false);
+      setTimeout(() => inputRef.current?.focus(), 100);
     }
-  }, [input, sending, scrollToZaptom, api]);
+  }, [input, sending, scrollToBottom, api]);
 
-  const handleConfirm = useCallback(
-    async (messageId: string, confirmed: boolean) => {
-      if (!api) return;
-      setConfirming(messageId);
-      try {
-        await api.confirmAssistantAction(messageId, confirmed);
-        const { messages: fresh } = await api.listAssistantMessages();
-        setMessages(fresh);
-      } catch {
-        setError("Não foi possível executar a ação");
-      } finally {
-        setConfirming(null);
-      }
-    },
-    [api],
-  );
+  const handleConfirm = useCallback(async (messageId: string, confirmed: boolean) => {
+    if (!api) return;
+    setConfirming(messageId);
+    try {
+      await api.confirmAssistantAction(messageId, confirmed);
+      const { messages: fresh } = await api.listAssistantMessages();
+      setMessages(fresh);
+    } catch { setError("Não foi possível executar a ação"); }
+    finally { setConfirming(null); }
+  }, [api]);
 
   const handleClear = useCallback(async () => {
-    if (!api) return;
-    if (!window.confirm("Limpar todo o histórico da conversa?")) return;
+    if (!api || !window.confirm("Limpar todo o histórico da conversa?")) return;
     await api.clearAssistantMessages();
     setMessages([]);
   }, [api]);
@@ -318,121 +255,100 @@ export function Assistant() {
     if (!api) return;
     try {
       const { message } = await api.triggerDailySummary();
-      setMessages((prev) => [...prev, message]);
-      scrollToZaptom();
-    } catch {
-      setError("Não foi possível gerar o resumo");
-    }
-  }, [scrollToZaptom, api]);
+      setMessages((prev) => [...prev, message]); scrollToBottom();
+    } catch { setError("Não foi possível gerar o resumo"); }
+  }, [scrollToBottom, api]);
 
   const handleStaleCheck = useCallback(async () => {
     if (!api) return;
     try {
       const { message, found } = await api.triggerStaleLeadsCheck();
-      if (message) {
-        setMessages((prev) => [...prev, message]);
-        scrollToZaptom();
-      } else if (!found) {
-        setError("Nenhum lead parado encontrado 👍");
-        setTimeout(() => setError(null), 3000);
-      }
-    } catch {
-      setError("Não foi possível verificar leads parados");
-    }
-  }, [scrollToZaptom, api]);
+      if (message) { setMessages((prev) => [...prev, message]); scrollToBottom(); }
+      else if (!found) { setError("Nenhum lead parado encontrado 👍"); setTimeout(() => setError(null), 3000); }
+    } catch { setError("Não foi possível verificar leads parados"); }
+  }, [scrollToBottom, api]);
 
   const isEmpty = messages.length === 0 && !loading;
 
   if (!slug) return null;
 
   return (
-    <div className="flex flex-col h-full bg-[#080E18]">
-      {/* Header */}
-      <div
-        className="flex items-center gap-3 px-4 py-3 border-b border-white/10 flex-shrink-0"
-        style={{ background: "#111B27" }}
-      >
-        <Link href={`/e/${slug}/dono`} className="text-[#3E576F] hover:text-[#EAF0F7]">
-          <ArrowLeft size={20} />
-        </Link>
-        <div className="w-9 h-9 rounded-full bg-[#00BFA5]/15 flex items-center justify-center flex-shrink-0">
-          <Zap size={18} className="text-[#00BFA5]" />
+    <div className="flex flex-col h-full" style={{ background: C.bg }}>
+      {/* ── Header ───────────────────────────────────────────────────────── */}
+      <div className="flex items-center gap-3 px-4 py-2.5 shrink-0"
+        style={{ background: C.white, borderBottom: `1px solid ${C.border}` }}>
+        <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+          style={{ background: "#E8F5E9" }}>
+          <Zap size={20} style={{ color: C.green }} strokeWidth={1.8} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-[#EAF0F7] text-sm">Assistente Vivo</p>
-          <p className="text-xs text-[#3E576F]">Powered by Gemini · dados reais</p>
+          <p className="font-semibold text-[15px]" style={{ color: C.text }}>Assistente Vivo</p>
+          <p className="text-[12px]" style={{ color: C.green }}>● online · Powered by Gemini</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handleDailySummary}
-            className="text-[#3E576F] hover:text-[#EAF0F7] transition-colors"
-            title="Resumo diário"
-          >
-            <BarChart2 size={16} />
+        <div className="flex items-center gap-3">
+          <button onClick={handleDailySummary} title="Resumo diário"
+            className="transition-colors" style={{ color: C.text2 }}>
+            <BarChart2 size={18} strokeWidth={1.8} />
           </button>
-          <button
-            onClick={handleClear}
-            className="text-[#3E576F] hover:text-[#EAF0F7] transition-colors"
-            title="Limpar histórico"
-          >
-            <Trash2 size={16} />
+          <button onClick={handleClear} title="Limpar histórico"
+            className="transition-colors" style={{ color: C.text2 }}>
+            <Trash2 size={18} strokeWidth={1.8} />
           </button>
         </div>
       </div>
 
-      {/* Error */}
+      {/* ── Error toast ───────────────────────────────────────────────────── */}
       {error && (
-        <div className="mx-4 mt-2 flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 flex-shrink-0">
-          <AlertCircle size={13} className="text-red-400 flex-shrink-0" />
-          <span className="text-xs text-red-300">{error}</span>
+        <div className="shrink-0 mx-4 mt-2 flex items-center gap-2 text-[13px] py-2.5 px-3.5 rounded-xl"
+          style={{ background: "#FFEBEE", color: "#C62828", border: "1px solid #FFCDD2" }}>
+          <AlertCircle size={14} className="shrink-0" />
+          <span className="flex-1">{error}</span>
+          <button onClick={() => setError(null)}><XCircle size={14} /></button>
         </div>
       )}
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto py-3 min-h-0">
+      {/* ── Messages ─────────────────────────────────────────────────────── */}
+      <div className="flex-1 overflow-y-auto py-3 min-h-0" style={{ background: C.chatBg }}>
         {loading && (
           <div className="flex items-center justify-center h-20">
-            <Loader2 size={18} className="text-[#3E576F] animate-spin" />
+            <Loader2 size={18} className="animate-spin" style={{ color: C.text3 }} />
           </div>
         )}
 
-        {/* Empty state with quick action chips */}
         {isEmpty && (
-          <div className="flex flex-col items-center justify-center h-full px-4 gap-5">
-            <div className="text-center space-y-2">
-              <div className="w-14 h-14 rounded-2xl bg-[#00BFA5]/10 flex items-center justify-center mx-auto">
-                <Zap size={26} className="text-[#00BFA5]" />
+          <div className="flex flex-col items-center justify-center h-full px-4 gap-6">
+            <div className="text-center">
+              <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3"
+                style={{ background: "#E8F5E9" }}>
+                <Zap size={28} style={{ color: C.green }} />
               </div>
-              <p className="text-sm text-[#EAF0F7] font-medium">O teu assistente de negócios</p>
-              <p className="text-xs text-[#3E576F] max-w-[260px] mx-auto">
-                Pergunta qualquer coisa sobre os teus leads, métricas e negócio — em linguagem natural.
+              <p className="font-semibold text-[15px]" style={{ color: C.text }}>
+                O teu assistente de negócios
+              </p>
+              <p className="text-[13px] mt-1 max-w-[260px] mx-auto leading-relaxed" style={{ color: C.text2 }}>
+                Pergunta qualquer coisa sobre os teus leads, métricas e negócio.
               </p>
             </div>
+            {/* Quick chips */}
             <div className="flex flex-wrap gap-2 justify-center">
               {QUICK_ACTIONS.map((a) => (
-                <button
-                  key={a.label}
-                  onClick={() => {
-                    setInput(a.text);
-                  }}
-                  className="text-xs bg-[#111B27] border border-white/10 text-[#B0C4D8] rounded-full px-3 py-1.5 hover:border-[#00BFA5]/40 hover:text-[#00BFA5] transition-colors"
-                >
+                <button key={a.label} onClick={() => setInput(a.text)}
+                  className="text-[12px] px-3 py-1.5 rounded-full font-medium"
+                  style={{ background: C.white, color: C.text2, border: `1px solid ${C.border}`, boxShadow: "0 1px 2px rgba(0,0,0,0.06)" }}>
                   {a.label}
                 </button>
               ))}
             </div>
             {/* Proactive shortcuts */}
             <div className="flex gap-2">
-              <button
-                onClick={handleDailySummary}
-                className="text-xs bg-[#00BFA5]/10 border border-[#00BFA5]/20 text-[#00BFA5] rounded-lg px-3 py-1.5 hover:bg-[#00BFA5]/20 transition-colors"
-              >
+              <button onClick={handleDailySummary}
+                className="text-[12px] px-3 py-1.5 rounded-full font-medium"
+                style={{ background: "#E8F5E9", color: "#1B5E20", border: "1px solid #C8E6C9" }}>
                 📊 Resumo do dia
               </button>
-              <button
-                onClick={handleStaleCheck}
-                className="text-xs bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 rounded-lg px-3 py-1.5 hover:bg-yellow-500/20 transition-colors"
-              >
+              <button onClick={handleStaleCheck}
+                className="text-[12px] px-3 py-1.5 rounded-full font-medium"
+                style={{ background: "#FFF8E1", color: "#E65100", border: "1px solid #FFE082" }}>
                 ⏰ Leads parados
               </button>
             </div>
@@ -441,36 +357,24 @@ export function Assistant() {
 
         {messages.map((msg) => (
           <AssistantBubble
-            key={msg.id}
-            msg={msg}
-            onConfirm={
-              msg.meta?.pendingAction && !confirming
-                ? handleConfirm
-                : undefined
-            }
+            key={msg.id} msg={msg}
+            onConfirm={msg.meta?.pendingAction && !confirming ? handleConfirm : undefined}
           />
         ))}
 
-        {/* Typing indicator while waiting for response */}
+        {/* Typing indicator */}
         {sending && (
           <div className="flex items-center gap-2 px-3 mb-2">
-            <div className="w-7 h-7 rounded-full bg-[#1A2B3D] flex items-center justify-center flex-shrink-0">
-              <Zap size={13} className="text-[#00BFA5]" />
+            <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
+              style={{ background: "#E8F5E9" }}>
+              <Zap size={13} style={{ color: C.green }} />
             </div>
-            <div
-              className="px-3.5 py-2.5 rounded-lg"
-              style={{
-                background: "linear-gradient(135deg, #172438 0%, #10192C 100%)",
-                border: "1px solid rgba(100,150,220,0.08)",
-              }}
-            >
-              <div className="flex items-center gap-[5px] px-1 py-1">
+            <div className="px-3.5 py-3 rounded-[2px_8px_8px_8px]"
+              style={{ background: C.bubIn, boxShadow: "0 1px 2px rgba(0,0,0,0.1)" }}>
+              <div className="flex items-center gap-[5px]">
                 {[0, 1, 2].map((i) => (
-                  <span
-                    key={i}
-                    className="typing-dot w-2 h-2 rounded-full inline-block"
-                    style={{ background: "#00C896", animationDelay: `${i * 0.15}s` }}
-                  />
+                  <span key={i} className="typing-dot w-2 h-2 rounded-full inline-block"
+                    style={{ background: C.text3, animationDelay: `${i * 0.15}s` }} />
                 ))}
               </div>
             </div>
@@ -480,13 +384,34 @@ export function Assistant() {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input */}
-      <ChatInput
-        value={input}
-        onChange={setInput}
-        onSend={() => void handleSend()}
-        disabled={sending}
-      />
+      {/* ── Input bar ────────────────────────────────────────────────────── */}
+      <div className="shrink-0 flex items-end gap-2 px-3 py-2"
+        style={{ background: C.bg, borderTop: `1px solid ${C.border}` }}>
+        <div className="flex-1 flex items-end rounded-2xl px-4 py-2.5 min-h-[44px]"
+          style={{ background: C.white, border: `1px solid ${C.border}` }}>
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void handleSend(); }
+            }}
+            placeholder="Mensagem"
+            rows={1}
+            className="flex-1 bg-transparent resize-none outline-none text-[15px] leading-normal"
+            style={{ color: C.text, maxHeight: "120px", overflowY: "auto" }}
+          />
+        </div>
+        <button
+          onClick={() => void handleSend()}
+          disabled={!input.trim() || sending}
+          className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-all active:scale-90 disabled:opacity-40"
+          style={{ background: C.green }}
+        >
+          <Send size={18} className="text-white" strokeWidth={2} />
+        </button>
+      </div>
+
       <OwnerNav />
     </div>
   );

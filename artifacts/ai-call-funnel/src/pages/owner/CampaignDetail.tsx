@@ -1,74 +1,51 @@
 /**
- * Detalhe de campanha — kit gerado por IA + dashboard de atribuição + optimização.
+ * Detalhe de campanha — tema claro estilo WhatsApp Business.
  */
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Link, useParams, useLocation } from "wouter";
 import {
-  ArrowLeft,
-  Sparkles,
-  Copy,
-  Check,
-  Loader2,
-  AlertCircle,
-  Globe,
-  Instagram,
-  Facebook,
-  ExternalLink,
-  ChevronDown,
-  ChevronUp,
-  Users,
-  BadgeCheck,
-  TrendingUp,
-  DollarSign,
-  Lightbulb,
-  Megaphone,
-  Play,
-  Pause,
-  CopyPlus,
+  ArrowLeft, Sparkles, Copy, Check, Loader2, AlertCircle,
+  Globe, Instagram, Facebook, ExternalLink,
+  ChevronDown, ChevronUp, Users, BadgeCheck, TrendingUp,
+  DollarSign, Lightbulb, Play, Pause, CopyPlus,
 } from "lucide-react";
 import { OwnerNav } from "../../components/owner/OwnerNav";
 import {
-  businessApi,
-  type Campaign,
-  type CampaignKit,
-  type CampaignMetrics,
-  type CampaignPlatform,
+  businessApi, type Campaign, type CampaignKit,
+  type CampaignMetrics, type CampaignPlatform,
 } from "../../lib/api";
 import { useBusinessSlug } from "../../hooks/useBusinessSlug";
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-
-const PLATFORM_META: Record<
-  CampaignPlatform,
-  { label: string; icon: React.ReactNode; color: string; bg: string }
-> = {
-  google:    { label: "Google Ads",    icon: <Globe size={14} />,     color: "#4285F4", bg: "#4285F418" },
-  instagram: { label: "Instagram",     icon: <Instagram size={14} />, color: "#E1306C", bg: "#E1306C18" },
-  facebook:  { label: "Facebook",      icon: <Facebook size={14} />,  color: "#1877F2", bg: "#1877F218" },
-  tiktok:    { label: "TikTok",        icon: <span className="text-[13px] font-bold">T</span>, color: "#69C9D0", bg: "#69C9D018" },
+// ─── Colours ─────────────────────────────────────────────────────────────────
+const C = {
+  bg:     "#F0F2F5",
+  white:  "#FFFFFF",
+  text:   "#111B21",
+  text2:  "#667781",
+  text3:  "#8696A0",
+  green:  "#00A884",
+  border: "#E9EDEF",
 };
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+const PLATFORM_META: Record<CampaignPlatform, { label: string; icon: React.ReactNode; color: string; bg: string }> = {
+  google:    { label: "Google Ads",  icon: <Globe size={14} />,     color: "#4285F4", bg: "#E8F0FE" },
+  instagram: { label: "Instagram",   icon: <Instagram size={14} />, color: "#E1306C", bg: "#FCE4EC" },
+  facebook:  { label: "Facebook",    icon: <Facebook size={14} />,  color: "#1877F2", bg: "#E3F2FD" },
+  tiktok:    { label: "TikTok",      icon: <span className="text-[13px] font-bold">T</span>, color: "#010101", bg: "#F5F5F5" },
+};
 const STATUS_NEXT: Record<Campaign["status"], Campaign["status"] | null> = {
-  rascunho: "ativa",
-  ativa:    "pausada",
-  pausada:  "ativa",
-  encerrada: null,
+  rascunho: "ativa", ativa: "pausada", pausada: "ativa", encerrada: null,
 };
 
 // ─── Copy button ──────────────────────────────────────────────────────────────
-
 function CopyBtn({ text, label = "Copiar" }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <button
-      onClick={async () => {
-        await navigator.clipboard.writeText(text);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      }}
-      className="flex items-center gap-1 text-[10px] transition-colors flex-shrink-0"
-      style={{ color: copied ? "#00C896" : "#3E576F" }}
-    >
+      onClick={async () => { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+      className="flex items-center gap-1 text-[11px] transition-colors shrink-0 font-medium"
+      style={{ color: copied ? "#2E7D32" : C.green }}>
       {copied ? <Check size={11} /> : <Copy size={11} />}
       {copied ? "Copiado!" : label}
     </button>
@@ -76,54 +53,39 @@ function CopyBtn({ text, label = "Copiar" }: { text: string; label?: string }) {
 }
 
 // ─── Collapsible section ──────────────────────────────────────────────────────
-
-function Section({
-  title,
-  children,
-  defaultOpen = true,
-  accent,
-}: {
-  title: string;
-  children: React.ReactNode;
-  defaultOpen?: boolean;
-  accent?: string;
+function Section({ title, children, defaultOpen = true }: {
+  title: string; children: React.ReactNode; defaultOpen?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.06)" }}>
-      <button
-        onClick={() => setOpen(!open)}
+    <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${C.border}` }}>
+      <button onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between px-4 py-3 text-left"
-        style={{ background: "#111B27" }}
-      >
-        <span className="text-sm font-semibold" style={{ color: accent || "#EAF0F7" }}>{title}</span>
-        {open ? <ChevronUp size={14} className="text-[#3E576F]" /> : <ChevronDown size={14} className="text-[#3E576F]" />}
+        style={{ background: C.bg, borderBottom: open ? `1px solid ${C.border}` : undefined }}>
+        <span className="text-[13px] font-semibold" style={{ color: C.text }}>{title}</span>
+        {open ? <ChevronUp size={14} style={{ color: C.text3 }} /> : <ChevronDown size={14} style={{ color: C.text3 }} />}
       </button>
       {open && (
-        <div className="px-4 py-3 space-y-2" style={{ background: "#0A1420" }}>
-          {children}
-        </div>
+        <div className="px-4 py-3 space-y-3" style={{ background: C.white }}>{children}</div>
       )}
     </div>
   );
 }
 
-// ─── Kit rendering ────────────────────────────────────────────────────────────
-
+// ─── Kit view ─────────────────────────────────────────────────────────────────
 function KitView({ kit }: { kit: CampaignKit }) {
   return (
-    <div className="space-y-3">
-      {/* Copies */}
+    <div className="space-y-3 px-4 py-3">
       <Section title="✍️ Copies prontas a usar">
         {kit.copies.map((copy, i) => (
-          <div key={i} className="rounded-xl p-3 space-y-2"
-            style={{ background: "#111B27", border: "1px solid rgba(255,255,255,0.06)" }}>
+          <div key={i} className="rounded-xl p-3 space-y-1"
+            style={{ background: C.bg, border: `1px solid ${C.border}` }}>
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
-                <p className="text-xs text-[#7B96B2] mb-1">Variante {i + 1}</p>
-                <p className="font-semibold text-sm text-[#EAF0F7]">{copy.headline}</p>
-                <p className="text-xs text-[#B0C4D8] mt-1 leading-relaxed">{copy.body}</p>
-                <p className="text-xs text-[#00C896] mt-1 font-medium">→ {copy.cta}</p>
+                <p className="text-[11px] mb-1" style={{ color: C.text3 }}>Variante {i + 1}</p>
+                <p className="font-semibold text-[14px]" style={{ color: C.text }}>{copy.headline}</p>
+                <p className="text-[13px] mt-1 leading-relaxed" style={{ color: C.text2 }}>{copy.body}</p>
+                <p className="text-[13px] mt-1 font-medium" style={{ color: C.green }}>→ {copy.cta}</p>
               </div>
               <CopyBtn text={`${copy.headline}\n\n${copy.body}\n\n${copy.cta}`} />
             </div>
@@ -131,87 +93,73 @@ function KitView({ kit }: { kit: CampaignKit }) {
         ))}
       </Section>
 
-      {/* Audience */}
       <Section title="🎯 Público-alvo">
         {[
-          { label: "Demografias", value: kit.audience.demographics },
-          { label: "Interesses", value: kit.audience.interests },
-          { label: "Comportamentos", value: kit.audience.behaviours },
-          { label: "Excluir", value: kit.audience.excludedAudiences },
+          { label: "Demografias",   value: kit.audience.demographics },
+          { label: "Interesses",    value: kit.audience.interests },
+          { label: "Comportamentos",value: kit.audience.behaviours },
+          { label: "Excluir",       value: kit.audience.excludedAudiences },
         ].map(({ label, value }) => (
           <div key={label}>
-            <p className="text-[10px] text-[#3E576F] uppercase tracking-wide mb-0.5">{label}</p>
-            <p className="text-xs text-[#B0C4D8] leading-relaxed">{value}</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wide mb-0.5" style={{ color: C.text3 }}>{label}</p>
+            <p className="text-[13px] leading-relaxed" style={{ color: C.text2 }}>{value}</p>
           </div>
         ))}
       </Section>
 
-      {/* Budget */}
       <Section title="💰 Orçamento & Licitação">
         {[
-          { label: "Distribuição", value: kit.budgetAllocation.suggestion },
-          { label: "Orçamento diário", value: kit.budgetAllocation.dailyBudget },
-          { label: "Estratégia de licitação", value: kit.budgetAllocation.bidStrategy },
+          { label: "Distribuição",          value: kit.budgetAllocation.suggestion },
+          { label: "Orçamento diário",       value: kit.budgetAllocation.dailyBudget },
+          { label: "Estratégia de licitação",value: kit.budgetAllocation.bidStrategy },
         ].map(({ label, value }) => (
           <div key={label}>
-            <p className="text-[10px] text-[#3E576F] uppercase tracking-wide mb-0.5">{label}</p>
-            <p className="text-xs text-[#B0C4D8] leading-relaxed">{value}</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wide mb-0.5" style={{ color: C.text3 }}>{label}</p>
+            <p className="text-[13px] leading-relaxed" style={{ color: C.text2 }}>{value}</p>
           </div>
         ))}
       </Section>
 
-      {/* Creative brief */}
       <Section title="🎨 Brief Criativo" defaultOpen={false}>
         <div>
-          <p className="text-[10px] text-[#3E576F] uppercase tracking-wide mb-0.5">Formatos</p>
-          <p className="text-xs text-[#B0C4D8] leading-relaxed">{kit.creativeBrief.format}</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wide mb-0.5" style={{ color: C.text3 }}>Formatos</p>
+          <p className="text-[13px] leading-relaxed" style={{ color: C.text2 }}>{kit.creativeBrief.format}</p>
         </div>
         <div>
-          <p className="text-[10px] text-[#3E576F] uppercase tracking-wide mb-0.5">Conceito visual</p>
-          <p className="text-xs text-[#B0C4D8] leading-relaxed">{kit.creativeBrief.visualConcept}</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wide mb-0.5" style={{ color: C.text3 }}>Conceito visual</p>
+          <p className="text-[13px] leading-relaxed" style={{ color: C.text2 }}>{kit.creativeBrief.visualConcept}</p>
         </div>
         <div>
-          <p className="text-[10px] text-[#00C896] uppercase tracking-wide mb-1">✓ Incluir</p>
-          <ul className="space-y-0.5">
-            {kit.creativeBrief.doList.map((d, i) => (
-              <li key={i} className="text-xs text-[#B0C4D8] leading-relaxed">• {d}</li>
-            ))}
-          </ul>
+          <p className="text-[11px] font-semibold mb-1" style={{ color: C.green }}>✓ Incluir</p>
+          <ul className="space-y-0.5">{kit.creativeBrief.doList.map((d, i) => (
+            <li key={i} className="text-[13px] leading-relaxed" style={{ color: C.text2 }}>• {d}</li>
+          ))}</ul>
         </div>
         <div>
-          <p className="text-[10px] text-[#EF4444] uppercase tracking-wide mb-1">✗ Evitar</p>
-          <ul className="space-y-0.5">
-            {kit.creativeBrief.dontList.map((d, i) => (
-              <li key={i} className="text-xs text-[#B0C4D8] leading-relaxed">• {d}</li>
-            ))}
-          </ul>
+          <p className="text-[11px] font-semibold mb-1" style={{ color: "#C62828" }}>✗ Evitar</p>
+          <ul className="space-y-0.5">{kit.creativeBrief.dontList.map((d, i) => (
+            <li key={i} className="text-[13px] leading-relaxed" style={{ color: C.text2 }}>• {d}</li>
+          ))}</ul>
         </div>
       </Section>
 
-      {/* Segmentation tips */}
       <Section title="💡 Dicas de Segmentação" defaultOpen={false}>
-        <ul className="space-y-1.5">
-          {kit.segmentationTips.map((tip, i) => (
-            <li key={i} className="text-xs text-[#B0C4D8] leading-relaxed flex items-start gap-2">
-              <span className="text-[#00C896] mt-0.5 flex-shrink-0">→</span>
-              {tip}
-            </li>
-          ))}
-        </ul>
+        <ul className="space-y-1.5">{kit.segmentationTips.map((tip, i) => (
+          <li key={i} className="text-[13px] leading-relaxed flex items-start gap-2" style={{ color: C.text2 }}>
+            <span style={{ color: C.green }} className="mt-0.5 shrink-0">→</span>{tip}
+          </li>
+        ))}</ul>
       </Section>
 
-      {/* Metrics to track */}
       {kit.keyMetricsToTrack.length > 0 && (
         <Section title="📊 Métricas a monitorar" defaultOpen={false}>
           <div className="flex flex-wrap gap-1.5">
             {kit.keyMetricsToTrack.map((m, i) => (
-              <span key={i} className="text-[11px] px-2.5 py-1 rounded-full"
-                style={{ background: "#1A2B3D", color: "#7B96B2", border: "1px solid rgba(255,255,255,0.06)" }}>
-                {m}
-              </span>
+              <span key={i} className="text-[12px] px-2.5 py-1 rounded-full"
+                style={{ background: C.bg, color: C.text2, border: `1px solid ${C.border}` }}>{m}</span>
             ))}
           </div>
-          <p className="text-xs text-[#3E576F] mt-1">Alcance estimado: {kit.estimatedReach}</p>
+          <p className="text-[12px]" style={{ color: C.text3 }}>Alcance estimado: {kit.estimatedReach}</p>
         </Section>
       )}
     </div>
@@ -219,27 +167,14 @@ function KitView({ kit }: { kit: CampaignKit }) {
 }
 
 // ─── Metrics dashboard ────────────────────────────────────────────────────────
-
-function MetricsDashboard({
-  api,
-  slug,
-  metrics,
-  campaign,
-  onSpendUpdate,
-}: {
-  api: ReturnType<typeof businessApi>;
-  slug: string;
-  metrics: CampaignMetrics;
-  campaign: Campaign;
-  onSpendUpdate: (spend: number) => void;
+function MetricsDashboard({ api, slug, metrics, campaign, onSpendUpdate }: {
+  api: ReturnType<typeof businessApi>; slug: string;
+  metrics: CampaignMetrics; campaign: Campaign; onSpendUpdate: (s: number) => void;
 }) {
   const [editingSpend, setEditingSpend] = useState(false);
-  const [spendInput,   setSpendInput]   = useState(String(campaign.totalSpend));
-  const [savingSpend,  setSavingSpend]  = useState(false);
+  const [spendInput, setSpendInput]     = useState(String(campaign.totalSpend));
+  const [savingSpend, setSavingSpend]   = useState(false);
 
-  // BASE_URL is set by Vite and includes the artifact prefix in both dev and prod
-  // (e.g. "/ai-call-funnel/"). Always use it so copied links resolve correctly.
-  // The captação page is scoped to the business: /e/:businessSlug/captacao
   const captationBaseUrl = `${import.meta.env.BASE_URL}e/${slug}/captacao`;
   const fullCaptationUrl = `${window.location.origin}${captationBaseUrl}?utm_source=${campaign.platform}&utm_medium=paid&utm_campaign=${campaign.utmSlug}`;
 
@@ -247,93 +182,79 @@ function MetricsDashboard({
     const spend = parseInt(spendInput, 10);
     if (isNaN(spend) || spend < 0) return;
     setSavingSpend(true);
-    try {
-      await api.updateCampaignStatus(campaign.id, { totalSpend: spend });
-      onSpendUpdate(spend);
-    } finally {
-      setSavingSpend(false);
-      setEditingSpend(false);
-    }
+    try { await api.updateCampaignStatus(campaign.id, { totalSpend: spend }); onSpendUpdate(spend); }
+    finally { setSavingSpend(false); setEditingSpend(false); }
   };
 
   const statCards = [
-    { label: "Leads",         value: metrics.totalLeads,      color: "#4285F4", icon: <Users size={14} /> },
-    { label: "Qualificados",  value: metrics.qualifiedLeads,  color: "#00C896", icon: <BadgeCheck size={14} /> },
-    { label: "% Qualific.",   value: `${metrics.qualificationRate}%`, color: "#F59E0B", icon: <TrendingUp size={14} /> },
-    { label: "Score médio",   value: metrics.avgScore ?? "–", color: "#A78BFA", icon: <TrendingUp size={14} /> },
+    { label: "Leads",         value: metrics.totalLeads,                   color: "#4285F4", icon: <Users size={14} /> },
+    { label: "Qualificados",  value: metrics.qualifiedLeads,               color: C.green,   icon: <BadgeCheck size={14} /> },
+    { label: "% Qualific.",   value: `${metrics.qualificationRate}%`,       color: "#E65100", icon: <TrendingUp size={14} /> },
+    { label: "Score médio",   value: metrics.avgScore ?? "–",              color: "#7B1FA2", icon: <TrendingUp size={14} /> },
   ];
 
   return (
-    <div className="space-y-3">
-      {/* Link rastreado */}
-      <div className="rounded-xl p-3 space-y-2"
-        style={{ background: "#111B27", border: "1px solid rgba(0,200,150,0.15)" }}>
-        <p className="text-[10px] text-[#3E576F] uppercase tracking-wide">Link de captação rastreado</p>
+    <div className="space-y-3 px-4 py-3">
+      {/* Tracked link */}
+      <div className="rounded-2xl p-3.5 space-y-2"
+        style={{ background: "#E8F5E9", border: "1px solid #C8E6C9" }}>
+        <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: "#2E7D32" }}>Link de captação rastreado</p>
         <div className="flex items-center gap-2">
-          <p className="text-xs text-[#00C896] flex-1 min-w-0 truncate">{fullCaptationUrl}</p>
-          <CopyBtn text={fullCaptationUrl} label="Copiar link" />
+          <p className="text-[12px] truncate flex-1" style={{ color: C.green }}>{fullCaptationUrl}</p>
+          <CopyBtn text={fullCaptationUrl} label="Copiar" />
         </div>
-        <p className="text-[10px] text-[#3E576F]">
-          Usa este link nos teus anúncios. Cada lead que vier por aqui fica atribuído a esta campanha.
+        <p className="text-[11px]" style={{ color: "#2E7D32" }}>
+          Usa este link nos teus anúncios. Cada lead fica atribuído a esta campanha.
         </p>
       </div>
 
-      {/* Stats grid */}
+      {/* Stats */}
       <div className="grid grid-cols-2 gap-2">
         {statCards.map((s) => (
-          <div key={s.label} className="rounded-xl p-3"
-            style={{ background: "#111B27", border: "1px solid rgba(255,255,255,0.06)" }}>
+          <div key={s.label} className="rounded-2xl p-3"
+            style={{ background: C.white, border: `1px solid ${C.border}` }}>
             <div className="flex items-center gap-1.5 mb-1.5" style={{ color: s.color }}>
               {s.icon}
-              <span className="text-[10px] uppercase tracking-wide text-[#3E576F]">{s.label}</span>
+              <span className="text-[10px] uppercase tracking-wide" style={{ color: C.text3 }}>{s.label}</span>
             </div>
-            <p className="text-2xl font-bold" style={{ color: s.color }}>{s.value}</p>
+            <p className="text-[22px] font-bold" style={{ color: s.color }}>{s.value}</p>
           </div>
         ))}
       </div>
 
       {/* Spend tracker */}
-      <div className="rounded-xl p-3"
-        style={{ background: "#111B27", border: "1px solid rgba(255,255,255,0.06)" }}>
+      <div className="rounded-2xl p-3.5" style={{ background: C.white, border: `1px solid ${C.border}` }}>
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5">
-            <DollarSign size={13} className="text-[#F59E0B]" />
-            <span className="text-[10px] uppercase tracking-wide text-[#3E576F]">Gasto registado</span>
+            <DollarSign size={14} style={{ color: "#E65100" }} />
+            <span className="text-[11px] uppercase tracking-wide" style={{ color: C.text3 }}>Gasto registado</span>
           </div>
-          <button
-            onClick={() => setEditingSpend(!editingSpend)}
-            className="text-[10px] text-[#3E576F] hover:text-[#EAF0F7] transition-colors"
-          >
+          <button onClick={() => setEditingSpend(!editingSpend)}
+            className="text-[12px] font-medium" style={{ color: C.green }}>
             {editingSpend ? "Cancelar" : "Editar"}
           </button>
         </div>
         {editingSpend ? (
           <div className="flex items-center gap-2">
-            <input
-              value={spendInput}
-              onChange={(e) => setSpendInput(e.target.value.replace(/\D/g, ""))}
-              className="flex-1 rounded-lg px-2.5 py-1.5 text-sm outline-none"
-              style={{ background: "#0A1420", border: "1px solid rgba(255,255,255,0.1)", color: "#EAF0F7" }}
-            />
-            <span className="text-xs text-[#3E576F]">AOA</span>
-            <button
-              onClick={saveSpend}
-              disabled={savingSpend}
-              className="text-xs text-[#00C896] font-medium"
-            >
+            <input value={spendInput} onChange={(e) => setSpendInput(e.target.value.replace(/\D/g, ""))}
+              className="flex-1 rounded-xl px-3 py-1.5 text-[14px] outline-none"
+              style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text }} />
+            <span className="text-[12px]" style={{ color: C.text3 }}>AOA</span>
+            <button onClick={saveSpend} disabled={savingSpend}
+              className="text-[13px] font-semibold" style={{ color: C.green }}>
               {savingSpend ? "…" : "OK"}
             </button>
           </div>
         ) : (
-          <p className="text-xl font-bold text-[#F59E0B]">
+          <p className="text-[20px] font-bold" style={{ color: "#E65100" }}>
             {campaign.totalSpend.toLocaleString("pt-AO")} AOA
           </p>
         )}
         {metrics.costPerLead !== null && (
-          <p className="text-xs text-[#3E576F] mt-1">
-            Custo por lead: <span className="text-[#EAF0F7]">{metrics.costPerLead.toLocaleString("pt-AO")} AOA</span>
+          <p className="text-[12px] mt-1" style={{ color: C.text2 }}>
+            Custo por lead: <span style={{ color: C.text }}>{metrics.costPerLead.toLocaleString("pt-AO")} AOA</span>
             {metrics.costPerQualifiedLead && (
-              <span> · por qualificado: <span className="text-[#EAF0F7]">{metrics.costPerQualifiedLead.toLocaleString("pt-AO")} AOA</span></span>
+              <span> · por qualificado: <span style={{ color: C.text }}>{metrics.costPerQualifiedLead.toLocaleString("pt-AO")} AOA</span></span>
             )}
           </p>
         )}
@@ -343,65 +264,49 @@ function MetricsDashboard({
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
-
 export function CampaignDetail() {
   const params = useParams<{ id: string }>();
-  const id     = params.id ?? "";
-  const slug   = useBusinessSlug();
-  const api    = useMemo(() => (slug ? businessApi(slug) : null), [slug]);
+  const id = params.id ?? "";
+  const slug = useBusinessSlug();
+  const api = useMemo(() => (slug ? businessApi(slug) : null), [slug]);
 
-  const [campaign,     setCampaign]     = useState<Campaign | null>(null);
-  const [metrics,      setMetrics]      = useState<CampaignMetrics | null>(null);
-  // null = idle, false = loading, string[] = loaded (may be empty)
-  const [suggestions,  setSuggestions]  = useState<string[] | null | false>(null);
-  const [generating,   setGenerating]   = useState(false);
-  const [loading,      setLoading]      = useState(true);
-  const [error,        setError]        = useState<string | null>(null);
-  const [tab,          setTab]          = useState<"kit" | "metricas">("kit");
+  const [campaign, setCampaign]           = useState<Campaign | null>(null);
+  const [metrics, setMetrics]             = useState<CampaignMetrics | null>(null);
+  const [suggestions, setSuggestions]     = useState<string[] | null | false>(null);
+  const [generating, setGenerating]       = useState(false);
+  const [loading, setLoading]             = useState(true);
+  const [error, setError]                 = useState<string | null>(null);
+  const [tab, setTab]                     = useState<"kit" | "metricas">("kit");
   const [changingStatus, setChangingStatus] = useState(false);
-  const [duplicating,    setDuplicating]    = useState(false);
+  const [duplicating, setDuplicating]     = useState(false);
+  const [, navigate]                      = useLocation();
 
   useEffect(() => {
     if (!api) return;
-    Promise.all([
-      api.getCampaignById(id),
-      api.getCampaignMetrics(id),
-    ])
-      .then(([{ campaign: c }, { metrics: m }]) => {
-        setCampaign(c);
-        setMetrics(m);
-      })
+    Promise.all([api.getCampaignById(id), api.getCampaignMetrics(id)])
+      .then(([{ campaign: c }, { metrics: m }]) => { setCampaign(c); setMetrics(m); })
       .catch(() => setError("Não foi possível carregar a campanha"))
       .finally(() => setLoading(false));
   }, [id, api]);
 
   const handleGenerate = useCallback(async () => {
     if (!api) return;
-    setGenerating(true);
-    setError(null);
+    setGenerating(true); setError(null);
     try {
       const { campaign: updated } = await api.generateCampaignKit(id);
-      setCampaign(updated);
-      setTab("kit");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Erro ao gerar kit");
-    } finally {
-      setGenerating(false);
-    }
+      setCampaign(updated); setTab("kit");
+    } catch (e) { setError(e instanceof Error ? e.message : "Erro ao gerar kit"); }
+    finally { setGenerating(false); }
   }, [id, api]);
 
   const handleLoadOptimizations = useCallback(async () => {
     if (!api) return;
-    setSuggestions(false); // loading state
+    setSuggestions(false);
     try {
       const { suggestions: s } = await api.getCampaignOptimizations(id);
-      setSuggestions(s.length > 0 ? s : ["Sem sugestões adicionais por agora — os dados estão bons! 👍"]);
-    } catch {
-      setSuggestions(["Não foi possível gerar sugestões agora — tenta mais tarde."]);
-    }
+      setSuggestions(s.length > 0 ? s : ["Sem sugestões adicionais — os dados estão bons! 👍"]);
+    } catch { setSuggestions(["Não foi possível gerar sugestões agora — tenta mais tarde."]); }
   }, [id, api]);
-
-  const [, navigate] = useLocation();
 
   const handleDuplicate = useCallback(async () => {
     if (!api) return;
@@ -409,86 +314,68 @@ export function CampaignDetail() {
     try {
       const { campaign: copy } = await api.duplicateCampaign(id);
       navigate(`/e/${slug}/dono/campanhas/${copy.id}`);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Erro ao duplicar");
-      setDuplicating(false);
-    }
+    } catch (e) { setError(e instanceof Error ? e.message : "Erro ao duplicar"); setDuplicating(false); }
   }, [id, navigate, api, slug]);
 
   const handleStatusToggle = useCallback(async () => {
     if (!campaign || !api) return;
-    const next = STATUS_NEXT[campaign.status];
-    if (!next) return;
+    const next = STATUS_NEXT[campaign.status]; if (!next) return;
     setChangingStatus(true);
     try {
       const { campaign: updated } = await api.updateCampaignStatus(campaign.id, { status: next });
       setCampaign(updated);
-    } finally {
-      setChangingStatus(false);
-    }
+    } finally { setChangingStatus(false); }
   }, [campaign, api]);
 
   if (!slug) return null;
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-full bg-[#080E18]">
-        <Loader2 size={20} className="text-[#3E576F] animate-spin" />
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="flex items-center justify-center h-full" style={{ background: C.bg }}>
+      <Loader2 size={20} className="animate-spin" style={{ color: C.text3 }} />
+    </div>
+  );
 
-  if (!campaign) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full bg-[#080E18] gap-3">
-        <AlertCircle size={24} className="text-red-400" />
-        <p className="text-sm text-[#EAF0F7]">Campanha não encontrada</p>
-        <Link href={`/e/${slug}/dono/campanhas`} className="text-xs text-[#00C896]">← Voltar</Link>
-      </div>
-    );
-  }
+  if (!campaign) return (
+    <div className="flex flex-col items-center justify-center h-full gap-3" style={{ background: C.bg }}>
+      <AlertCircle size={24} style={{ color: "#C62828" }} />
+      <p className="text-[14px]" style={{ color: C.text }}>Campanha não encontrada</p>
+      <Link href={`/e/${slug}/dono/campanhas`} className="text-[13px] font-medium" style={{ color: C.green }}>← Voltar</Link>
+    </div>
+  );
 
   const pm = PLATFORM_META[campaign.platform];
   const nextStatus = STATUS_NEXT[campaign.status];
 
   return (
-    <div className="flex flex-col h-full bg-[#080E18]">
+    <div className="flex flex-col h-full" style={{ background: C.bg }}>
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 border-b border-white/10 flex-shrink-0"
-        style={{ background: "#111B27" }}>
-        <Link href={`/e/${slug}/dono/campanhas`} className="text-[#3E576F] hover:text-[#EAF0F7]">
-          <ArrowLeft size={20} />
+      <div className="flex items-center gap-3 px-4 py-2.5 shrink-0"
+        style={{ background: C.white, borderBottom: `1px solid ${C.border}` }}>
+        <Link href={`/e/${slug}/dono/campanhas`} className="p-1 -ml-1" style={{ color: C.text3 }}>
+          <ArrowLeft size={22} />
         </Link>
-        <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+        <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
           style={{ background: pm.bg, color: pm.color }}>
           {pm.icon}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-[#EAF0F7] text-sm truncate">{campaign.name}</p>
-          <p className="text-xs text-[#3E576F]">{pm.label}</p>
+          <p className="font-semibold text-[15px] truncate" style={{ color: C.text }}>{campaign.name}</p>
+          <p className="text-[12px]" style={{ color: pm.color }}>{pm.label}</p>
         </div>
-        {/* Duplicate button */}
-        <button
-          onClick={handleDuplicate}
-          disabled={duplicating}
-          className="w-8 h-8 rounded-lg flex items-center justify-center transition-all active:scale-90"
-          style={{ background: "#0F1E2E", border: "1px solid rgba(255,255,255,0.08)", color: "#7B96B2" }}
-          title="Duplicar campanha"
-        >
+        <button onClick={handleDuplicate} disabled={duplicating}
+          className="w-8 h-8 rounded-xl flex items-center justify-center transition-all active:scale-90"
+          style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text2 }}
+          title="Duplicar campanha">
           {duplicating ? <Loader2 size={14} className="animate-spin" /> : <CopyPlus size={14} />}
         </button>
-
         {nextStatus && (
-          <button
-            onClick={handleStatusToggle}
-            disabled={changingStatus}
-            className="text-[10px] font-medium px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition-all"
+          <button onClick={handleStatusToggle} disabled={changingStatus}
+            className="text-[11px] font-semibold px-2.5 py-1.5 rounded-full flex items-center gap-1 transition-all"
             style={{
-              background: nextStatus === "ativa" ? "#00C89618" : "#F59E0B18",
-              color: nextStatus === "ativa" ? "#00C896" : "#F59E0B",
-              border: `1px solid ${nextStatus === "ativa" ? "#00C89630" : "#F59E0B30"}`,
-            }}
-          >
+              background: nextStatus === "ativa" ? "#E8F5E9" : "#FFF8E1",
+              color: nextStatus === "ativa" ? "#1B5E20" : "#E65100",
+              border: `1px solid ${nextStatus === "ativa" ? "#A5D6A7" : "#FFE082"}`,
+            }}>
             {changingStatus ? <Loader2 size={10} className="animate-spin" /> :
               nextStatus === "ativa" ? <Play size={10} /> : <Pause size={10} />}
             {nextStatus === "ativa" ? "Ativar" : "Pausar"}
@@ -498,147 +385,114 @@ export function CampaignDetail() {
 
       {/* Error */}
       {error && (
-        <div className="mx-4 mt-3 flex items-center gap-2 bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 flex-shrink-0">
-          <AlertCircle size={13} className="text-red-400 flex-shrink-0" />
-          <span className="text-xs text-red-300">{error}</span>
+        <div className="mx-4 mt-3 flex items-center gap-2 text-[13px] rounded-xl px-3.5 py-2.5 shrink-0"
+          style={{ background: "#FFEBEE", color: "#C62828", border: "1px solid #FFCDD2" }}>
+          <AlertCircle size={13} className="shrink-0" /> {error}
         </div>
       )}
 
       {/* Tabs */}
-      <div className="flex border-b border-white/[0.06] flex-shrink-0"
-        style={{ background: "#0A1420" }}>
-        {(["kit", "metricas"] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className="flex-1 py-2.5 text-xs font-medium transition-colors"
+      <div className="flex shrink-0" style={{ background: C.white, borderBottom: `1px solid ${C.border}` }}>
+        {([["kit", "🎯 Kit IA"], ["metricas", "📊 Métricas"]] as const).map(([key, label]) => (
+          <button key={key} onClick={() => setTab(key)}
+            className="flex-1 py-2.5 text-[13px] font-semibold"
             style={{
-              color: tab === t ? "#00C896" : "#3E576F",
-              borderBottom: tab === t ? "2px solid #00C896" : "2px solid transparent",
-            }}
-          >
-            {t === "kit" ? "🎨 Kit da Campanha" : "📊 Métricas & Atribuição"}
+              color: tab === key ? C.green : C.text3,
+              borderBottom: tab === key ? `2px solid ${C.green}` : "2px solid transparent",
+            }}>
+            {label}
           </button>
         ))}
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {tab === "kit" ? (
+      <div className="flex-1 overflow-y-auto">
+        {/* Kit tab */}
+        {tab === "kit" && (
           <>
-            {/* Generate button */}
-            {!campaign.kitJson || generating ? (
-              <div className="text-center space-y-3 py-4">
-                {!campaign.kitJson && (
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium text-[#EAF0F7]">Kit ainda não gerado</p>
-                    <p className="text-xs text-[#3E576F]">
-                      O Gemini vai estudar o teu negócio e gerar copies, públicos e briefs para {pm.label}.
-                    </p>
-                  </div>
-                )}
-                <button
-                  onClick={handleGenerate}
-                  disabled={generating}
-                  className="flex items-center gap-2 text-sm font-semibold rounded-xl px-5 py-2.5 mx-auto transition-all active:scale-95"
-                  style={{
-                    background: generating
-                      ? "rgba(0,200,150,0.15)"
-                      : "linear-gradient(135deg, #00C896 0%, #007A5C 100%)",
-                    color: generating ? "#00C896" : "#fff",
-                  }}
-                >
-                  {generating ? (
-                    <><Loader2 size={15} className="animate-spin" />A gerar kit…</>
-                  ) : (
-                    <><Sparkles size={15} />Gerar kit com IA</>
-                  )}
-                </button>
-                {generating && (
-                  <p className="text-xs text-[#3E576F]">
-                    O Gemini está a analisar o teu negócio e histórico de leads…
+            {!campaign.kitJson && (
+              <div className="flex flex-col items-center justify-center py-12 gap-4 px-6 text-center">
+                <div className="w-14 h-14 rounded-full flex items-center justify-center"
+                  style={{ background: "#E8F5E9" }}>
+                  <Sparkles size={26} style={{ color: C.green }} />
+                </div>
+                <div>
+                  <p className="text-[15px] font-semibold" style={{ color: C.text }}>Kit ainda não gerado</p>
+                  <p className="text-[13px] mt-1 leading-relaxed" style={{ color: C.text2 }}>
+                    A IA vai gerar copies, públicos, orçamento e brief criativo em segundos.
                   </p>
-                )}
+                </div>
+                <button onClick={handleGenerate} disabled={generating}
+                  className="flex items-center gap-2 text-[14px] font-semibold rounded-full px-5 py-2.5"
+                  style={{ background: C.green, color: "#fff", opacity: generating ? 0.7 : 1 }}>
+                  {generating ? <Loader2 size={15} className="animate-spin" /> : <Sparkles size={15} />}
+                  {generating ? "A gerar kit…" : "Gerar kit com IA"}
+                </button>
               </div>
-            ) : (
+            )}
+            {campaign.kitJson && (
               <>
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-[#3E576F]">
-                    Gerado em {new Date(campaign.kitJson.generatedAt).toLocaleDateString("pt-AO")}
+                {/* Regenerate button */}
+                <div className="px-4 pt-3 pb-1 flex items-center justify-between">
+                  <p className="text-[12px]" style={{ color: C.text3 }}>
+                    Kit gerado pela IA · pode ser regenerado a qualquer momento
                   </p>
                   <button
                     onClick={handleGenerate}
                     disabled={generating}
-                    className="flex items-center gap-1 text-xs text-[#3E576F] hover:text-[#00C896] transition-colors"
+                    className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-full transition-all"
+                    style={{ background: "#E8F5E9", color: "#1B5E20", border: "1px solid #A5D6A7", opacity: generating ? 0.6 : 1 }}
                   >
-                    <Sparkles size={11} />
-                    Regenerar
+                    {generating ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
+                    {generating ? "A regenerar…" : "Regenerar"}
                   </button>
                 </div>
-                <KitView kit={campaign.kitJson} />
-              </>
-            )}
-          </>
-        ) : (
-          <>
-            {metrics && (
-              <>
-                <MetricsDashboard
-                  api={api!}
-                  slug={slug}
-                  metrics={metrics}
-                  campaign={campaign}
-                  onSpendUpdate={(spend) => setCampaign((prev) => prev ? { ...prev, totalSpend: spend } : prev)}
-                />
-
-                {/* AI Optimization suggestions */}
-                <div className="rounded-xl overflow-hidden"
-                  style={{ border: "1px solid rgba(255,255,255,0.06)" }}>
-                  <div className="px-4 py-3 flex items-center justify-between"
-                    style={{ background: "#111B27" }}>
-                    <div className="flex items-center gap-2">
-                      <Lightbulb size={14} className="text-yellow-400" />
-                      <span className="text-sm font-semibold text-[#EAF0F7]">Sugestões de otimização</span>
-                    </div>
-                    {suggestions === null && (
-                      <button
-                        onClick={handleLoadOptimizations}
-                        className="text-xs text-[#00C896] font-medium"
-                      >
-                        Gerar
-                      </button>
-                    )}
-                  </div>
-                  {suggestions === null ? (
-                    // idle — not yet requested
-                    <div className="px-4 py-3" style={{ background: "#0A1420" }}>
-                      <p className="text-xs text-[#3E576F]">
-                        Clica em "Gerar" para obter sugestões personalizadas com base nos teus dados reais.
-                      </p>
-                    </div>
-                  ) : suggestions === false ? (
-                    // loading — request in flight
-                    <div className="px-4 py-3 flex items-center gap-2" style={{ background: "#0A1420" }}>
-                      <Loader2 size={14} className="animate-spin text-[#3E576F]" />
-                      <span className="text-xs text-[#3E576F]">A analisar dados…</span>
-                    </div>
-                  ) : (
-                    // loaded — array (may be empty, handled inside handleLoadOptimizations)
-                    <ul className="px-4 py-3 space-y-2" style={{ background: "#0A1420" }}>
-                      {suggestions.map((s, i) => (
-                        <li key={i} className="flex items-start gap-2">
-                          <span className="text-[#00C896] mt-0.5 flex-shrink-0 text-xs">→</span>
-                          <span className="text-xs text-[#B0C4D8] leading-relaxed">{s}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
+                <KitView kit={campaign.kitJson as CampaignKit} />
               </>
             )}
           </>
         )}
+
+        {/* Metrics tab */}
+        {tab === "metricas" && metrics && slug && (
+          <>
+            <MetricsDashboard
+              api={api!} slug={slug} metrics={metrics} campaign={campaign}
+              onSpendUpdate={(spend) => setCampaign((c) => c ? { ...c, totalSpend: spend } : c)}
+            />
+            {/* AI Suggestions */}
+            <div className="px-4 pb-4">
+              {suggestions === null && (
+                <button onClick={handleLoadOptimizations}
+                  className="w-full flex items-center justify-center gap-2 text-[13px] font-medium rounded-2xl py-3"
+                  style={{ background: C.white, border: `1px solid ${C.border}`, color: C.text2 }}>
+                  <Lightbulb size={15} style={{ color: "#E65100" }} /> Ver sugestões de otimização
+                </button>
+              )}
+              {suggestions === false && (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 size={18} className="animate-spin" style={{ color: C.text3 }} />
+                </div>
+              )}
+              {Array.isArray(suggestions) && (
+                <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${C.border}` }}>
+                  <div className="px-4 py-2.5" style={{ background: C.bg, borderBottom: `1px solid ${C.border}` }}>
+                    <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: C.text2 }}>Sugestões de IA</p>
+                  </div>
+                  <ul className="divide-y px-4" style={{ background: C.white, borderColor: C.border }}>
+                    {suggestions.map((s, i) => (
+                      <li key={i} className="py-3 flex items-start gap-2 text-[13px] leading-relaxed"
+                        style={{ color: C.text2 }}>
+                        <span style={{ color: C.green }} className="shrink-0 mt-0.5">→</span>{s}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </div>
+
       <OwnerNav />
     </div>
   );

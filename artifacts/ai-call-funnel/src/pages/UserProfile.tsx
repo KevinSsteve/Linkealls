@@ -76,8 +76,9 @@ function OwnerFooterNav({ slug }: { slug: string }) {
     <nav
       className="shrink-0 flex items-stretch"
       style={{
-        background: "#0A1420",
-        borderTop: "1px solid rgba(255,255,255,0.07)",
+        background: "#FFFFFF",
+        borderTop: "1px solid #E9EDEF",
+        boxShadow: "0 -1px 4px rgba(0,0,0,0.06)",
         paddingBottom: "env(safe-area-inset-bottom, 0)",
       }}
     >
@@ -88,12 +89,12 @@ function OwnerFooterNav({ slug }: { slug: string }) {
           : location === href || location.startsWith(href + "/");
         return (
           <Link key={href} href={href}
-            className={`flex-1 flex flex-col items-center justify-center gap-[3px] py-2.5 transition-colors select-none ${
-              active ? "text-[#00BFA5]" : "text-[#3E576F] hover:text-[#7A9BB5]"
-            }`}
+            className="flex-1 flex flex-col items-center justify-center gap-[3px] py-2.5 transition-colors select-none"
+            style={{ color: active ? "#00A884" : "#8696A0" }}
           >
-            <Icon size={20} strokeWidth={active ? 2.5 : 1.8} />
-            <span className="text-[10px] font-medium tracking-wide leading-none">{label}</span>
+            <Icon size={22} strokeWidth={active ? 2.5 : 1.8} fill={active ? "#00A88420" : "none"} />
+            <span className="text-[10px] font-semibold tracking-wide leading-none"
+              style={{ color: active ? "#00A884" : "#8696A0" }}>{label}</span>
           </Link>
         );
       })}

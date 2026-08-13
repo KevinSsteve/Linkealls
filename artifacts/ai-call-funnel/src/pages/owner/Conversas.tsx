@@ -1,11 +1,11 @@
 /**
- * Conversas — lista estilo WhatsApp de todas as conversas da IA com clientes.
+ * Conversas — lista estilo WhatsApp Business (tema claro) de todas as
+ * conversas da IA com clientes.
  */
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
-  ArrowLeft, User, Phone, Bell,
-  Search, ExternalLink, DollarSign, Clock, MapPin,
-  MessageCircle,
+  ArrowLeft, User, Phone, Search, ExternalLink,
+  DollarSign, Clock, MapPin, MessageCircle, RefreshCw,
 } from "lucide-react";
 import {
   businessApi, type Lead, type LeadState,
@@ -13,148 +13,123 @@ import {
 import { useBusinessSlug } from "../../hooks/useBusinessSlug";
 import { OwnerNav } from "../../components/owner/OwnerNav";
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// ─── Colours ─────────────────────────────────────────────────────────────────
+const C = {
+  bg:      "#F0F2F5",
+  white:   "#FFFFFF",
+  text:    "#111B21",
+  text2:   "#667781",
+  text3:   "#8696A0",
+  green:   "#00A884",
+  border:  "#E9EDEF",
+  chatBg:  "#E5DDD5",
+  bubOut:  "#D9FDD3",
+  bubIn:   "#FFFFFF",
+};
 
+// ─── State config ─────────────────────────────────────────────────────────────
 const STATE_LABELS: Record<LeadState, string> = {
   novo: "Novo", em_atendimento: "Em atendimento",
   qualificado: "Qualificado", entregue: "Entregue", perdido: "Perdido",
 };
-
-const STATE_COLORS: Record<LeadState, string> = {
-  novo:           "bg-sky-500/20 text-sky-300 border-sky-500/30",
-  em_atendimento: "bg-amber-500/20 text-amber-300 border-amber-500/30",
-  qualificado:    "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
-  entregue:       "bg-teal-500/20 text-teal-300 border-teal-500/30",
-  perdido:        "bg-red-500/20 text-red-300 border-red-500/30",
-};
-
 const STATE_DOT: Record<LeadState, string> = {
-  novo:           "#38BDF8",
-  em_atendimento: "#FBBF24",
-  qualificado:    "#34D399",
-  entregue:       "#2DD4BF",
-  perdido:        "#F87171",
+  novo: "#29B6F6", em_atendimento: "#FFA726",
+  qualificado: C.green, entregue: "#26C6DA", perdido: "#EF5350",
 };
+const STATE_PILL_BG: Record<LeadState, string> = {
+  novo: "#E3F2FD", em_atendimento: "#FFF8E1",
+  qualificado: "#E8F5E9", entregue: "#E0F7FA", perdido: "#FFEBEE",
+};
+const STATE_PILL_COLOR: Record<LeadState, string> = {
+  novo: "#0277BD", em_atendimento: "#E65100",
+  qualificado: "#1B5E20", entregue: "#006064", perdido: "#C62828",
+};
+const STATE_ORDER: LeadState[] = ["novo","em_atendimento","qualificado","entregue","perdido"];
 
-const STATE_ORDER: LeadState[] = [
-  "novo", "em_atendimento", "qualificado", "entregue", "perdido",
+// ─── Avatar palettes (light-friendly) ────────────────────────────────────────
+const PALETTES = [
+  { bg: "#F3E5F5", text: "#6A1B9A" },
+  { bg: "#E3F2FD", text: "#0D47A1" },
+  { bg: "#FCE4EC", text: "#880E4F" },
+  { bg: "#E8F5E9", text: "#1B5E20" },
+  { bg: "#FFF3E0", text: "#E65100" },
+  { bg: "#E0F7FA", text: "#006064" },
 ];
-
-// Avatar colours — assigned by name hash for visual variety
-const AVATAR_PALETTES = [
-  { bg: "#1A3828", text: "#4ADE80" },
-  { bg: "#1A2B45", text: "#60A5FA" },
-  { bg: "#3A1A2B", text: "#F472B6" },
-  { bg: "#2B1A3A", text: "#A78BFA" },
-  { bg: "#3A2B1A", text: "#FB923C" },
-  { bg: "#1A3A3A", text: "#22D3EE" },
-];
-
 function avatarPalette(name: string) {
-  let h = 0;
-  for (const c of name) h = h * 31 + c.charCodeAt(0);
-  return AVATAR_PALETTES[Math.abs(h) % AVATAR_PALETTES.length];
+  let h = 0; for (const c of name) h = h * 31 + c.charCodeAt(0);
+  return PALETTES[Math.abs(h) % PALETTES.length];
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 function formatTime(iso: string): string {
-  const d = new Date(iso);
-  const now = new Date();
+  const d = new Date(iso), now = new Date();
   const diffH = (now.getTime() - d.getTime()) / 3_600_000;
   if (diffH < 24) return d.toLocaleTimeString("pt-AO", { hour: "2-digit", minute: "2-digit" });
   if (diffH < 48) return "Ontem";
   return d.toLocaleDateString("pt-AO", { day: "2-digit", month: "short" });
 }
-
-function getLeadName(lead: Lead) {
-  return lead.qualificationData.name || "Visitante anónimo";
-}
-
+function getLeadName(lead: Lead) { return lead.qualificationData.name || "Visitante anónimo"; }
 function getLeadPreview(lead: Lead) {
   if (lead.callTranscript) return "📞 Chamada de voz concluída";
   const msgs = lead.chatMessages;
   if (!msgs.length) return "Sem mensagens";
   const last = msgs[msgs.length - 1];
-  const prefix = last.role === "user" ? "Tu: " : "";
   const t = last.text;
-  return prefix + (t.length > 50 ? t.slice(0, 50) + "…" : t);
+  return (last.role === "user" ? "" : "") + (t.length > 52 ? t.slice(0, 52) + "…" : t);
 }
-
 function scoreColor(score: number) {
-  if (score >= 80) return "#10B981";
-  if (score >= 60) return "#14B8A6";
-  if (score >= 40) return "#F59E0B";
-  return "#EF4444";
+  if (score >= 80) return "#2E7D32"; if (score >= 60) return "#00838F";
+  if (score >= 40) return "#E65100"; return "#C62828";
 }
-
 function parseTranscript(raw: string): Array<{ role: "user" | "ai"; text: string }> | null {
   const lines = raw.split("\n").map((l) => l.trim()).filter(Boolean);
   const parsed: Array<{ role: "user" | "ai"; text: string }> = [];
   for (const line of lines) {
     const m = line.match(/^(user|utilizador|cliente|ai|ia|assistente|bot):\s*(.*)/i);
-    if (m) {
-      const role = /user|utilizador|cliente/i.test(m[1]) ? "user" : "ai";
-      parsed.push({ role, text: m[2] });
-    } else {
-      return null;
-    }
+    if (m) parsed.push({ role: /user|utilizador|cliente/i.test(m[1]) ? "user" : "ai", text: m[2] });
+    else return null;
   }
   return parsed.length ? parsed : null;
 }
 
-// ─── Conversation Row (WhatsApp style) ───────────────────────────────────────
-
-function ConversationRow({ lead, isNew, onClick }: {
-  lead: Lead; isNew: boolean; onClick: () => void;
-}) {
+// ─── Conversation Row ────────────────────────────────────────────────────────
+function ConversationRow({ lead, isNew, onClick }: { lead: Lead; isNew: boolean; onClick: () => void }) {
   const name = getLeadName(lead);
   const initials = name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
-  const palette = avatarPalette(name);
+  const pal = avatarPalette(name);
   const preview = getLeadPreview(lead);
-  const dot = STATE_DOT[lead.state];
 
   return (
     <button
       onClick={onClick}
-      className="w-full flex items-center gap-3 px-4 py-3 active:bg-white/[0.04] transition-colors text-left"
+      className="w-full flex items-center gap-3 px-4 active:bg-gray-50 transition-colors text-left"
+      style={{ background: C.white }}
     >
-      {/* Avatar with state dot */}
-      <div className="relative flex-shrink-0">
-        <div
-          className="w-12 h-12 rounded-full flex items-center justify-center text-[15px] font-bold"
-          style={{ background: palette.bg, color: palette.text }}
-        >
-          {initials || <User size={18} style={{ color: palette.text }} />}
+      {/* Avatar */}
+      <div className="relative shrink-0 py-3">
+        <div className="w-12 h-12 rounded-full flex items-center justify-center text-[15px] font-bold"
+          style={{ background: pal.bg, color: pal.text }}>
+          {initials || <User size={18} />}
         </div>
-        <span
-          className="absolute bottom-0 right-0 w-3 h-3 rounded-full border-2"
-          style={{ backgroundColor: dot, borderColor: "#0D1520" }}
-        />
+        <span className="absolute bottom-3 right-0 w-3 h-3 rounded-full border-2 border-white"
+          style={{ background: STATE_DOT[lead.state] }} />
       </div>
 
       {/* Content */}
-      <div className="flex-1 min-w-0 border-b border-white/[0.05] pb-3 pt-0.5">
+      <div className="flex-1 min-w-0 border-b py-3" style={{ borderColor: C.border }}>
         <div className="flex items-baseline justify-between gap-2">
-          <span
-            className="font-semibold text-[15px] truncate"
-            style={{ color: isNew ? "#EAF0F7" : "#B0C4D8" }}
-          >
-            {name}
-          </span>
-          <span className="text-[11px] flex-shrink-0" style={{ color: isNew ? "#00BFA5" : "#3E576F" }}>
+          <span className="font-semibold text-[15px] truncate" style={{ color: C.text }}>{name}</span>
+          <span className="text-[12px] shrink-0" style={{ color: isNew ? C.green : C.text3 }}>
             {formatTime(lead.updatedAt)}
           </span>
         </div>
         <div className="flex items-center justify-between gap-2 mt-0.5">
-          <span
-            className="text-[13px] truncate flex-1 min-w-0"
-            style={{ color: isNew ? "#7B96B2" : "#3E576F" }}
-          >
-            {preview}
-          </span>
+          <span className="text-[13px] truncate flex-1" style={{ color: C.text2 }}>{preview}</span>
           {isNew && (
-            <span className="flex-shrink-0 w-2 h-2 rounded-full bg-[#00BFA5]" />
+            <span className="shrink-0 min-w-[20px] h-5 rounded-full flex items-center justify-center text-[11px] font-bold px-1.5"
+              style={{ background: C.green, color: "#fff" }}>
+              1
+            </span>
           )}
         </div>
       </div>
@@ -162,35 +137,29 @@ function ConversationRow({ lead, isNew, onClick }: {
   );
 }
 
-// ─── Conversation Detail ──────────────────────────────────────────────────────
-
+// ─── Bubble ──────────────────────────────────────────────────────────────────
 function Bubble({ isUser, text, ts }: { isUser: boolean; text: string; ts?: string }) {
   return (
     <div className={`flex mb-1.5 ${isUser ? "justify-end" : "justify-start"}`}>
       <div
         className="max-w-[78%] px-3.5 py-2 text-[14px] leading-relaxed"
         style={{
-          borderRadius: isUser ? "18px 4px 18px 18px" : "4px 18px 18px 18px",
-          background: isUser
-            ? "linear-gradient(135deg, #1A4A35 0%, #0F3025 100%)"
-            : "#1A2535",
-          color: isUser ? "#D4F5E5" : "#C8DCF0",
-          border: isUser
-            ? "1px solid rgba(0,200,150,0.15)"
-            : "1px solid rgba(100,150,220,0.1)",
+          borderRadius: isUser ? "8px 2px 8px 8px" : "2px 8px 8px 8px",
+          background: isUser ? C.bubOut : C.bubIn,
+          color: C.text,
+          boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
         }}
       >
         {text}
-        {ts && (
-          <p className="text-[9px] mt-1 text-right" style={{ color: "#4A6580" }}>
-            {new Date(ts).toLocaleTimeString("pt-AO", { hour: "2-digit", minute: "2-digit" })}
-          </p>
-        )}
+        {ts && <p className="text-[10px] mt-1 text-right" style={{ color: C.text3 }}>
+          {new Date(ts).toLocaleTimeString("pt-AO", { hour: "2-digit", minute: "2-digit" })}
+        </p>}
       </div>
     </div>
   );
 }
 
+// ─── Conversation Detail ──────────────────────────────────────────────────────
 function ConversationDetail({ lead: initialLead, onBack, onStateChange, api }: {
   lead: Lead; onBack: () => void; onStateChange: (l: Lead) => void;
   api: ReturnType<typeof businessApi>;
@@ -199,19 +168,14 @@ function ConversationDetail({ lead: initialLead, onBack, onStateChange, api }: {
   const [updating, setUpdating] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, []);
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, []);
 
   async function handleState(state: LeadState) {
     setUpdating(true);
     try {
       const { lead: updated } = await api.updateLeadState(lead.id, state);
-      setLead(updated);
-      onStateChange(updated);
-    } finally {
-      setUpdating(false);
-    }
+      setLead(updated); onStateChange(updated);
+    } finally { setUpdating(false); }
   }
 
   const waPhone = lead.qualificationData.phone
@@ -221,170 +185,133 @@ function ConversationDetail({ lead: initialLead, onBack, onStateChange, api }: {
     : null;
 
   const name = getLeadName(lead);
-  const palette = avatarPalette(name);
+  const pal = avatarPalette(name);
   const initials = name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
   const parsedTranscript = lead.callTranscript ? parseTranscript(lead.callTranscript) : null;
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
       {/* Header */}
-      <div
-        className="flex items-center gap-3 px-4 py-2.5 border-b border-white/[0.06] flex-shrink-0"
-        style={{ background: "#0D1824" }}
-      >
-        <button
-          onClick={onBack}
-          className="text-[#3E576F] hover:text-[#EAF0F7] transition-colors p-1 -ml-1"
-        >
-          <ArrowLeft size={20} />
+      <div className="flex items-center gap-3 px-4 py-2.5 shrink-0"
+        style={{ background: C.white, borderBottom: `1px solid ${C.border}` }}>
+        <button onClick={onBack} className="transition-colors p-1 -ml-1" style={{ color: C.text3 }}>
+          <ArrowLeft size={22} />
         </button>
-        <div
-          className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
-          style={{ background: palette.bg, color: palette.text }}
-        >
-          {initials || <User size={14} style={{ color: palette.text }} />}
+        <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+          style={{ background: pal.bg, color: pal.text }}>
+          {initials || <User size={14} />}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-[#EAF0F7] text-sm truncate">{name}</p>
-          <p className="text-[11px] text-[#3E576F] truncate">
+          <p className="font-semibold truncate text-[15px]" style={{ color: C.text }}>{name}</p>
+          <p className="text-[12px]" style={{ color: C.text2 }}>
             {lead.qualificationData.phone ?? lead.qualificationData.interest ?? formatTime(lead.createdAt)}
           </p>
         </div>
         {lead.score !== null && (
-          <span
-            className="text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0"
-            style={{ color: scoreColor(lead.score), background: scoreColor(lead.score) + "18" }}
-          >
+          <span className="text-[12px] font-bold px-2 py-0.5 rounded-full shrink-0"
+            style={{ color: scoreColor(lead.score), background: scoreColor(lead.score) + "18" }}>
             {lead.score}/100
           </span>
         )}
       </div>
 
       {/* Thread */}
-      <div
-        className="flex-1 overflow-y-auto px-3 py-4"
-        style={{ background: "#080E18" }}
-      >
+      <div className="flex-1 overflow-y-auto px-3 py-4" style={{ background: C.chatBg }}>
         {/* Date pill */}
         <div className="flex justify-center mb-4">
-          <span
-            className="text-[10px] px-3 py-1 rounded-full"
-            style={{ background: "#111B27", color: "#3E576F", border: "1px solid rgba(255,255,255,0.06)" }}
-          >
+          <span className="text-[11px] px-3 py-1 rounded-full"
+            style={{ background: "rgba(255,255,255,0.7)", color: C.text2 }}>
             {new Date(lead.createdAt).toLocaleDateString("pt-AO", { day: "2-digit", month: "long", year: "numeric" })}
           </span>
         </div>
-
-        {/* Chat messages */}
         {lead.chatMessages.map((m, i) => (
           <Bubble key={i} isUser={m.role === "user"} text={m.text} ts={m.ts} />
         ))}
-
-        {/* Voice call divider */}
         {lead.callTranscript && (
           <>
             <div className="flex items-center gap-3 my-5">
-              <div className="flex-1 h-px bg-white/[0.06]" />
-              <div
-                className="flex items-center gap-1.5 text-[10px] text-[#3E576F] px-2.5 py-1 rounded-full"
-                style={{ background: "#111B27", border: "1px solid rgba(255,255,255,0.08)" }}
-              >
-                <Phone size={10} />
-                Chamada de voz
-              </div>
-              <div className="flex-1 h-px bg-white/[0.06]" />
+              <div className="flex-1 h-px" style={{ background: "rgba(0,0,0,0.1)" }} />
+              <span className="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full"
+                style={{ background: "rgba(255,255,255,0.7)", color: C.text2 }}>
+                <Phone size={10} /> Chamada de voz
+              </span>
+              <div className="flex-1 h-px" style={{ background: "rgba(0,0,0,0.1)" }} />
             </div>
-
             {parsedTranscript
-              ? parsedTranscript.map((line, i) => (
-                  <Bubble key={i} isUser={line.role === "user"} text={line.text} />
-                ))
-              : (
-                <div
-                  className="rounded-2xl px-4 py-3 text-xs text-[#B0C4D8] whitespace-pre-wrap leading-relaxed"
-                  style={{ background: "#111B27", border: "1px solid rgba(255,255,255,0.06)" }}
-                >
+              ? parsedTranscript.map((l, i) => <Bubble key={i} isUser={l.role === "user"} text={l.text} />)
+              : <div className="rounded-xl px-4 py-3 text-[13px] leading-relaxed whitespace-pre-wrap"
+                  style={{ background: C.bubIn, color: C.text2, boxShadow: "0 1px 2px rgba(0,0,0,0.1)" }}>
                   {lead.callTranscript}
                 </div>
-              )}
+            }
           </>
         )}
-
-        {/* AI summary */}
         {lead.aiSummary && (
-          <div
-            className="mt-4 rounded-2xl p-3.5"
-            style={{ background: "#111B27", border: "1px solid rgba(0,191,165,0.15)" }}
-          >
-            <p className="text-[10px] text-[#00BFA5] font-semibold mb-1.5 uppercase tracking-widest">
-              Resumo
-            </p>
-            <p className="text-[13px] text-[#B0C4D8] leading-relaxed">{lead.aiSummary}</p>
+          <div className="mt-4 rounded-xl p-3.5"
+            style={{ background: C.bubIn, border: `1px solid ${C.green}30`, boxShadow: "0 1px 2px rgba(0,0,0,0.08)" }}>
+            <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: C.green }}>Resumo</p>
+            <p className="text-[13px] leading-relaxed" style={{ color: C.text2 }}>{lead.aiSummary}</p>
           </div>
         )}
-
         <div ref={bottomRef} />
       </div>
 
       {/* Footer */}
-      <div className="flex-shrink-0 border-t border-white/[0.06]" style={{ background: "#0A1420" }}>
+      <div className="shrink-0" style={{ background: C.white, borderTop: `1px solid ${C.border}` }}>
         {/* Quick info chips */}
         {(lead.qualificationData.phone || lead.qualificationData.budget || lead.qualificationData.timeline || lead.qualificationData.location) && (
-          <div className="flex flex-wrap gap-1.5 px-4 py-2.5 border-b border-white/[0.04]">
+          <div className="flex flex-wrap gap-1.5 px-4 py-2.5" style={{ borderBottom: `1px solid ${C.border}` }}>
             {lead.qualificationData.phone && (
-              <span className="flex items-center gap-1 text-[11px] text-[#B0C4D8] rounded-full px-2.5 py-1" style={{ background: "#111B27" }}>
-                <Phone size={10} className="text-[#00BFA5]" /> {lead.qualificationData.phone}
+              <span className="flex items-center gap-1 text-[12px] rounded-full px-2.5 py-1"
+                style={{ background: C.bg, color: C.text2 }}>
+                <Phone size={11} style={{ color: C.green }} /> {lead.qualificationData.phone}
               </span>
             )}
             {lead.qualificationData.budget && (
-              <span className="flex items-center gap-1 text-[11px] text-[#B0C4D8] rounded-full px-2.5 py-1" style={{ background: "#111B27" }}>
-                <DollarSign size={10} className="text-[#00BFA5]" /> {lead.qualificationData.budget}
+              <span className="flex items-center gap-1 text-[12px] rounded-full px-2.5 py-1"
+                style={{ background: C.bg, color: C.text2 }}>
+                <DollarSign size={11} style={{ color: C.green }} /> {lead.qualificationData.budget}
               </span>
             )}
             {lead.qualificationData.timeline && (
-              <span className="flex items-center gap-1 text-[11px] text-[#B0C4D8] rounded-full px-2.5 py-1" style={{ background: "#111B27" }}>
-                <Clock size={10} className="text-[#00BFA5]" /> {lead.qualificationData.timeline}
+              <span className="flex items-center gap-1 text-[12px] rounded-full px-2.5 py-1"
+                style={{ background: C.bg, color: C.text2 }}>
+                <Clock size={11} style={{ color: C.green }} /> {lead.qualificationData.timeline}
               </span>
             )}
             {lead.qualificationData.location && (
-              <span className="flex items-center gap-1 text-[11px] text-[#B0C4D8] rounded-full px-2.5 py-1" style={{ background: "#111B27" }}>
-                <MapPin size={10} className="text-[#00BFA5]" /> {lead.qualificationData.location}
+              <span className="flex items-center gap-1 text-[12px] rounded-full px-2.5 py-1"
+                style={{ background: C.bg, color: C.text2 }}>
+                <MapPin size={11} style={{ color: C.green }} /> {lead.qualificationData.location}
               </span>
             )}
           </div>
         )}
-
         {/* State selector */}
-        <div className="flex gap-2 px-4 py-2.5 overflow-x-auto scrollbar-none border-b border-white/[0.04]">
+        <div className="flex gap-2 px-4 py-2.5 overflow-x-auto scrollbar-none" style={{ borderBottom: `1px solid ${C.border}` }}>
           {STATE_ORDER.map((s) => (
             <button
               key={s}
               disabled={s === lead.state || updating}
               onClick={() => handleState(s)}
-              className={`flex-shrink-0 text-[10px] px-3 py-1 rounded-full border transition-all ${
-                s === lead.state
-                  ? `${STATE_COLORS[s]} font-semibold`
-                  : "border-white/10 text-[#3E576F] hover:border-white/30 hover:text-[#B0C4D8]"
-              } disabled:opacity-40`}
+              className="shrink-0 text-[11px] px-3 py-1.5 rounded-full font-medium transition-all disabled:opacity-40"
+              style={{
+                background: s === lead.state ? STATE_PILL_BG[s] : C.bg,
+                color: s === lead.state ? STATE_PILL_COLOR[s] : C.text3,
+                border: `1px solid ${s === lead.state ? STATE_DOT[s] + "40" : C.border}`,
+              }}
             >
               {STATE_LABELS[s]}
             </button>
           ))}
         </div>
-
         {/* WhatsApp CTA */}
         {waUrl && (
           <div className="px-4 py-3">
-            <a
-              href={waUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 text-white font-semibold text-sm py-3 rounded-2xl transition-colors"
-              style={{ background: "#25D366" }}
-            >
-              <MessageCircle size={16} />
-              Continuar no WhatsApp
-              <ExternalLink size={12} className="opacity-70" />
+            <a href={waUrl} target="_blank" rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 text-white font-semibold text-[14px] py-3 rounded-xl transition-colors"
+              style={{ background: "#25D366" }}>
+              <MessageCircle size={16} /> Continuar no WhatsApp <ExternalLink size={12} className="opacity-70" />
             </a>
           </div>
         )}
@@ -394,7 +321,6 @@ function ConversationDetail({ lead: initialLead, onBack, onStateChange, api }: {
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
-
 export function Conversas() {
   const slug = useBusinessSlug();
   const api = useMemo(() => (slug ? businessApi(slug) : null), [slug]);
@@ -411,9 +337,7 @@ export function Conversas() {
     try {
       const { leads: data } = await api.listLeads();
       setLeads([...data].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()));
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }, [api]);
 
   useEffect(() => { void load(); }, [load]);
@@ -435,32 +359,26 @@ export function Conversas() {
     if (filter !== "todos" && l.state !== filter) return false;
     if (search) {
       const q = search.toLowerCase();
-      const name = (l.qualificationData.name ?? "").toLowerCase();
-      const phone = (l.qualificationData.phone ?? "").toLowerCase();
-      const interest = (l.qualificationData.interest ?? "").toLowerCase();
-      if (!name.includes(q) && !phone.includes(q) && !interest.includes(q)) return false;
+      if (
+        !(l.qualificationData.name ?? "").toLowerCase().includes(q) &&
+        !(l.qualificationData.phone ?? "").toLowerCase().includes(q) &&
+        !(l.qualificationData.interest ?? "").toLowerCase().includes(q)
+      ) return false;
     }
     return true;
   });
 
-  const qualifiedCount = leads.filter((l) => l.state === "qualificado").length;
-  const today = new Date().toDateString();
-  const todayCount = leads.filter((l) => new Date(l.createdAt).toDateString() === today).length;
-
-  if (!slug || !api) {
-    return (
-      <div className="flex items-center justify-center h-full bg-[#080E18] text-[#3E576F] text-sm">
-        Negócio não encontrado
-      </div>
-    );
-  }
+  if (!slug || !api) return (
+    <div className="flex items-center justify-center h-full text-sm" style={{ background: C.bg, color: C.text2 }}>
+      Negócio não encontrado
+    </div>
+  );
 
   if (selected) {
     return (
-      <div className="flex flex-col h-full bg-[#080E18]">
+      <div className="flex flex-col h-full" style={{ background: C.bg }}>
         <ConversationDetail
-          lead={selected}
-          api={api}
+          lead={selected} api={api}
           onBack={() => setSelected(null)}
           onStateChange={(updated) => {
             setLeads((prev) => prev.map((l) => (l.id === updated.id ? updated : l)));
@@ -472,111 +390,105 @@ export function Conversas() {
     );
   }
 
+  const qualifiedCount = leads.filter((l) => l.state === "qualificado").length;
+
   return (
-    <div className="flex flex-col h-full" style={{ background: "#0D1520" }}>
+    <div className="flex flex-col h-full" style={{ background: C.bg }}>
       {/* Header */}
-      <div
-        className="flex items-center justify-between px-4 pt-4 pb-3 flex-shrink-0"
-        style={{ background: "#0D1520" }}
-      >
-        <div>
-          <h1 className="text-[18px] font-bold text-[#EAF0F7] leading-tight">Conversas</h1>
-          <p className="text-[12px] text-[#3E576F] mt-0.5">
-            {leads.length > 0
-              ? `${leads.length} conversa${leads.length !== 1 ? "s" : ""} · ${qualifiedCount} qualificado${qualifiedCount !== 1 ? "s" : ""} · ${todayCount} hoje`
-              : "Nenhuma conversa ainda"}
-          </p>
-        </div>
-        <button
-          onClick={load}
-          className="w-9 h-9 rounded-full flex items-center justify-center text-[#3E576F] hover:text-[#EAF0F7] hover:bg-white/[0.04] transition-colors"
-          aria-label="Atualizar"
-        >
-          <Search size={17} />
+      <div className="shrink-0 px-5 pt-5 pb-3 flex items-center justify-between"
+        style={{ background: C.white, borderBottom: `1px solid ${C.border}` }}>
+        <h1 className="text-[22px] font-bold" style={{ color: C.text }}>Conversas</h1>
+        <button onClick={() => void load()} className="p-1.5 rounded-full transition-colors"
+          style={{ color: C.text2 }} aria-label="Actualizar">
+          <RefreshCw size={18} strokeWidth={1.8} />
         </button>
       </div>
 
+      {/* Notification toast */}
+      {notification && (
+        <div className="shrink-0 mx-4 mt-3 flex items-center gap-2 text-[13px] py-2.5 px-3.5 rounded-xl"
+          style={{ background: "#E8F5E9", color: "#1B5E20", border: "1px solid #A5D6A7" }}>
+          🎯 {notification}
+        </div>
+      )}
+
       {/* Search */}
-      <div className="px-4 pb-2 flex-shrink-0">
-        <div
-          className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl"
-          style={{ background: "#111B27" }}
-        >
-          <Search size={14} className="text-[#3E576F] flex-shrink-0" />
+      <div className="shrink-0 px-3 py-2" style={{ background: C.white }}>
+        <div className="flex items-center gap-2 px-3 py-2 rounded-full"
+          style={{ background: C.bg }}>
+          <Search size={16} style={{ color: C.text3 }} className="shrink-0" />
           <input
-            className="flex-1 bg-transparent text-[14px] text-[#EAF0F7] placeholder:text-[#3E576F] outline-none"
-            placeholder="Pesquisar…"
-            value={search}
+            type="text" placeholder="Pesquisar..." value={search}
             onChange={(e) => setSearch(e.target.value)}
-            style={{ fontSize: "16px" }}
+            className="flex-1 bg-transparent text-[14px] outline-none"
+            style={{ color: C.text }}
           />
         </div>
       </div>
 
-      {/* Filter tabs */}
-      <div className="px-4 pb-1 flex gap-2 overflow-x-auto scrollbar-none flex-shrink-0">
-        {(["todos", ...STATE_ORDER] as const).map((s) => (
+      {/* State filter chips */}
+      <div className="shrink-0 flex gap-2 px-4 py-2 overflow-x-auto scrollbar-none"
+        style={{ background: C.white, borderBottom: `1px solid ${C.border}` }}>
+        {([["todos", "Todas"] as const, ...STATE_ORDER.map((s) => [s, STATE_LABELS[s]] as const)]).map(([key, label]) => (
           <button
-            key={s}
-            onClick={() => setFilter(s)}
-            className={`flex-shrink-0 text-[11px] px-3 py-1.5 rounded-full transition-colors ${
-              filter === s
-                ? "bg-[#00BFA5] text-[#080E18] font-semibold"
-                : "text-[#3E576F] hover:text-[#7A9BB5]"
-            }`}
-            style={filter !== s ? { background: "#111B27" } : {}}
+            key={key}
+            onClick={() => setFilter(key as LeadState | "todos")}
+            className="shrink-0 text-[12px] px-3 py-1.5 rounded-full font-medium transition-all"
+            style={{
+              background: filter === key ? C.green : C.bg,
+              color: filter === key ? "#fff" : C.text2,
+            }}
           >
-            {s === "todos" ? "Todas" : STATE_LABELS[s]}
+            {label}
           </button>
         ))}
       </div>
 
-      {/* Notification bar */}
-      {notification && (
-        <div className="mx-4 mt-1 mb-1 flex items-center gap-2 rounded-xl px-3 py-2 flex-shrink-0"
-          style={{ background: "rgba(52,211,153,0.1)", border: "1px solid rgba(52,211,153,0.25)" }}>
-          <Bell size={12} className="text-emerald-400 flex-shrink-0" />
-          <span className="text-xs text-emerald-300 font-medium">{notification}</span>
+      {/* Stats row */}
+      {leads.length > 0 && (
+        <div className="shrink-0 flex gap-4 px-5 py-2" style={{ background: C.bg }}>
+          <span className="text-[12px]" style={{ color: C.text3 }}>
+            {leads.length} conversa{leads.length !== 1 ? "s" : ""}
+          </span>
+          {qualifiedCount > 0 && (
+            <span className="text-[12px] font-semibold" style={{ color: C.green }}>
+              {qualifiedCount} qualificado{qualifiedCount !== 1 ? "s" : ""}
+            </span>
+          )}
         </div>
       )}
 
       {/* List */}
-      <div className="flex-1 overflow-y-auto" style={{ background: "#0D1520" }}>
+      <div className="flex-1 overflow-y-auto">
         {loading ? (
-          <div className="flex items-center justify-center h-32 text-[#3E576F] text-sm">
-            A carregar…
+          <div className="py-2">
+            {[1,2,3,4].map((i) => (
+              <div key={i} className="flex items-center gap-3 px-4 py-3 animate-pulse" style={{ background: C.white, borderBottom: `1px solid ${C.border}` }}>
+                <div className="w-12 h-12 rounded-full shrink-0" style={{ background: C.bg }} />
+                <div className="flex-1">
+                  <div className="h-4 rounded mb-2" style={{ background: C.bg, width: "50%" }} />
+                  <div className="h-3 rounded" style={{ background: C.bg, width: "75%" }} />
+                </div>
+              </div>
+            ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-40 gap-3">
-            <div className="w-14 h-14 rounded-full flex items-center justify-center" style={{ background: "#111B27" }}>
-              <MessageCircle size={24} className="text-[#3E576F]" />
+          <div className="flex flex-col items-center justify-center h-full gap-4 px-8 text-center">
+            <div className="w-16 h-16 rounded-full flex items-center justify-center"
+              style={{ background: C.bg }}>
+              <MessageCircle size={28} style={{ color: C.text3 }} />
             </div>
-            <p className="text-sm text-[#3E576F] text-center px-8">
-              {leads.length === 0
-                ? "Partilha o teu link de captação para receber os primeiros clientes"
-                : "Sem conversas com estes filtros"}
+            <p className="text-[15px] font-medium" style={{ color: C.text2 }}>
+              {search || filter !== "todos" ? "Nenhum resultado" : "Nenhuma conversa ainda"}
             </p>
           </div>
         ) : (
-          <div>
-            {filtered.map((lead) => (
+          <div style={{ background: C.white }}>
+            {filtered.map((l) => (
               <ConversationRow
-                key={lead.id}
-                lead={lead}
-                isNew={newIds.has(lead.id)}
-                onClick={async () => {
-                  try {
-                    const { lead: fresh } = await api.getLeadDetail(lead.id);
-                    setSelected(fresh);
-                  } catch {
-                    setSelected(lead);
-                  }
-                  setNewIds((prev) => {
-                    const next = new Set(prev);
-                    next.delete(lead.id);
-                    return next;
-                  });
-                }}
+                key={l.id} lead={l}
+                isNew={newIds.has(l.id)}
+                onClick={() => { setNewIds((prev) => { const s = new Set(prev); s.delete(l.id); return s; }); setSelected(l); }}
               />
             ))}
           </div>

@@ -3,10 +3,10 @@ import { Store, MessageSquare, Zap, Megaphone } from "lucide-react";
 import { useBusinessSlug } from "../../hooks/useBusinessSlug";
 
 const TABS = [
-  { sub: "",            icon: Store,          label: "Perfil",    exact: true  },
-  { sub: "/conversas",  icon: MessageSquare,  label: "Conversas", exact: false },
-  { sub: "/assistente", icon: Zap,            label: "Assistente",exact: false },
-  { sub: "/campanhas",  icon: Megaphone,      label: "Campanhas", exact: false },
+  { sub: "",            icon: Store,         label: "Perfil",     exact: true  },
+  { sub: "/conversas",  icon: MessageSquare, label: "Conversas",  exact: false },
+  { sub: "/assistente", icon: Zap,           label: "Assistente", exact: false },
+  { sub: "/campanhas",  icon: Megaphone,     label: "Campanhas",  exact: false },
 ] as const;
 
 export function OwnerNav() {
@@ -16,8 +16,13 @@ export function OwnerNav() {
 
   return (
     <nav
-      className="flex-shrink-0 flex items-stretch border-t border-white/[0.07]"
-      style={{ background: "#0A1420", paddingBottom: "env(safe-area-inset-bottom, 0)" }}
+      className="flex-shrink-0 flex items-stretch"
+      style={{
+        background: "#FFFFFF",
+        borderTop: "1px solid #E9EDEF",
+        boxShadow: "0 -1px 4px rgba(0,0,0,0.06)",
+        paddingBottom: "env(safe-area-inset-bottom, 0)",
+      }}
     >
       {TABS.map(({ sub, icon: Icon, label, exact }) => {
         const path = `${base}${sub}`;
@@ -28,12 +33,20 @@ export function OwnerNav() {
           <Link
             key={path}
             href={path}
-            className={`flex-1 flex flex-col items-center justify-center gap-[3px] py-2.5 transition-colors select-none ${
-              active ? "text-[#00BFA5]" : "text-[#3E576F] hover:text-[#7A9BB5]"
-            }`}
+            className="flex-1 flex flex-col items-center justify-center gap-[3px] py-2.5 transition-colors select-none"
+            style={{ color: active ? "#00A884" : "#8696A0" }}
           >
-            <Icon size={20} strokeWidth={active ? 2.5 : 1.8} />
-            <span className="text-[10px] font-medium tracking-wide leading-none">{label}</span>
+            <Icon
+              size={22}
+              strokeWidth={active ? 2.5 : 1.8}
+              fill={active ? "#00A88420" : "none"}
+            />
+            <span
+              className="text-[10px] font-semibold tracking-wide leading-none"
+              style={{ color: active ? "#00A884" : "#8696A0" }}
+            >
+              {label}
+            </span>
           </Link>
         );
       })}
