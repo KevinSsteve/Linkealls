@@ -11,20 +11,7 @@ import {
 import { businessApi, type AssistantMessage } from "../../lib/api";
 import { useBusinessSlug } from "../../hooks/useBusinessSlug";
 import { OwnerNav } from "../../components/owner/OwnerNav";
-
-// ─── Colours ─────────────────────────────────────────────────────────────────
-const C = {
-  bg:      "#F0F2F5",
-  white:   "#FFFFFF",
-  text:    "#111B21",
-  text2:   "#667781",
-  text3:   "#8696A0",
-  green:   "#00A884",
-  border:  "#E9EDEF",
-  chatBg:  "#E5DDD5",   // WhatsApp paper
-  bubOut:  "#D9FDD3",   // outgoing (owner)
-  bubIn:   "#FFFFFF",   // incoming (AI)
-};
+import { C } from "../../theme";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function formatTime(iso: string) {
@@ -273,7 +260,7 @@ export function Assistant() {
   if (!slug) return null;
 
   return (
-    <div className="flex flex-col h-full" style={{ background: C.bg }}>
+    <div className="flex flex-col h-full wa-page" style={{ background: C.bg }}>
       {/* ── Header — WA Business dark green ─────────────────────────────── */}
       <div className="flex items-center gap-3 px-4 shrink-0"
         style={{ background: "#075E54", height: 56, paddingTop: "env(safe-area-inset-top)" }}>

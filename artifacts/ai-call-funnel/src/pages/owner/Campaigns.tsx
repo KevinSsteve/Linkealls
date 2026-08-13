@@ -12,17 +12,9 @@ import {
 } from "../../lib/api";
 import { useBusinessSlug } from "../../hooks/useBusinessSlug";
 import { OwnerNav } from "../../components/owner/OwnerNav";
-
-// ─── Colours ─────────────────────────────────────────────────────────────────
-const C = {
-  bg:     "#F0F2F5",
-  white:  "#FFFFFF",
-  text:   "#111B21",
-  text2:  "#667781",
-  text3:  "#8696A0",
-  green:  "#00A884",
-  border: "#E9EDEF",
-};
+import { C } from "../../theme";
+import { WaSkeletonList, WaSkeletonCard } from "../../components/wa/WaSkeletonList";
+import { WaEmptyState } from "../../components/wa/WaEmptyState";
 
 // ─── Platform / status meta ───────────────────────────────────────────────────
 const PLATFORM_META: Record<CampaignPlatform, { label: string; icon: React.ReactNode; color: string; bg: string }> = {
@@ -155,8 +147,8 @@ function AnalyticsView({ api }: { api: ReturnType<typeof businessApi> }) {
   }, [api]);
 
   if (loading) return (
-    <div className="flex items-center justify-center py-16">
-      <Loader2 size={20} className="animate-spin" style={{ color: C.text3 }} />
+    <div className="px-4 py-4 grid grid-cols-1 gap-3">
+      <WaSkeletonCard /><WaSkeletonCard /><WaSkeletonCard />
     </div>
   );
   if (error) return (
@@ -285,7 +277,7 @@ export function Campaigns() {
   if (!slug || !api) return null;
 
   return (
-    <div className="flex flex-col h-full" style={{ background: C.bg }}>
+    <div className="flex flex-col h-full wa-page" style={{ background: C.bg }}>
       {/* Header */}
       <div className="flex items-center gap-3 px-4 pt-6 pb-2 shrink-0"
         style={{ background: C.white }}>
@@ -327,30 +319,23 @@ export function Campaigns() {
             </div>
           )}
 
-          {loading && (
-            <div className="flex items-center justify-center flex-1">
-              <Loader2 size={20} className="animate-spin" style={{ color: C.text3 }} />
-            </div>
-          )}
+          {loading && <WaSkeletonList count={4} />}
 
           {!loading && campaigns.length === 0 && (
-            <div className="flex flex-col items-center justify-center flex-1 px-6 gap-4 text-center">
-              <div className="w-16 h-16 rounded-full flex items-center justify-center"
-                style={{ background: "#FFF3E0" }}>
-                <Megaphone size={28} style={{ color: "#E65100" }} />
-              </div>
-              <div>
-                <p className="text-[15px] font-semibold" style={{ color: C.text }}>Nenhuma campanha ainda</p>
-                <p className="text-[13px] mt-1 max-w-[260px] mx-auto leading-relaxed" style={{ color: C.text2 }}>
-                  Cria a tua primeira campanha e a IA gera o kit completo.
-                </p>
-              </div>
-              <button onClick={() => setShowModal(true)}
-                className="flex items-center gap-2 text-[14px] font-semibold rounded-full px-5 py-2.5"
-                style={{ background: C.green, color: "#fff" }}>
-                <Plus size={15} /> Criar campanha
-              </button>
-            </div>
+            <WaEmptyState
+              icon={<Megaphone size={32} />}
+              iconBg="#FFF3E0"
+              iconColor="#E65100"
+              title="Nenhuma campanha ainda"
+              subtitle="Cria a tua primeira campanha e a IA gera o kit completo."
+              action={
+                <button onClick={() => setShowModal(true)}
+                  className="flex items-center gap-2 text-[14px] font-semibold rounded-full px-5 py-2.5"
+                  style={{ background: C.green, color: "#fff" }}>
+                  <Plus size={15} /> Criar campanha
+                </button>
+              }
+            />
           )}
 
           {!loading && campaigns.length > 0 && (

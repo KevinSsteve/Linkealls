@@ -7,17 +7,7 @@ import {
 import { businessApi, type Lead, type LeadState } from "../../lib/api";
 import { useBusinessSlug } from "../../hooks/useBusinessSlug";
 import { OwnerNav } from "../../components/owner/OwnerNav";
-
-// ─── Colours ─────────────────────────────────────────────────────────────────
-const C = {
-  bg:     "#F0F2F5",
-  white:  "#FFFFFF",
-  text:   "#111B21",
-  text2:  "#667781",
-  text3:  "#8696A0",
-  green:  "#00A884",
-  border: "#E9EDEF",
-};
+import { C } from "../../theme";
 
 // ─── State config ─────────────────────────────────────────────────────────────
 const STATE_LABELS: Record<LeadState, string> = {
@@ -384,7 +374,7 @@ export function Leads() {
   }
 
   return (
-    <div className="flex flex-col h-full" style={{ background: C.bg }}>
+    <div className="flex flex-col h-full wa-page" style={{ background: C.bg }}>
       {/* Header */}
       <div className="shrink-0 px-4 pt-6 pb-2 flex items-center justify-between"
         style={{ background: C.white }}>

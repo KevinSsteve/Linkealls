@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Router, Route, Switch, Redirect, useLocation } from "wouter";
+import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { HomePage } from "@/pages/HomePage";
 import { Chat } from "@/pages/Chat";
@@ -85,6 +86,7 @@ export default function App() {
 
   return (
     <AuthProvider>
+      <Toaster />
       <Router base={routerBase}>
         <Switch>
           {/* ── Linkealls home — standalone light-on-dark layout ────────────── */}

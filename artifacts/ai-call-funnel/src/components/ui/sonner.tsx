@@ -1,31 +1,26 @@
-'use client';
+/**
+ * Toaster — thin wrapper around sonner with Linkealls WA light-theme preset.
+ * Does NOT depend on next-themes (not used in this project).
+ */
+import { Toaster as Sonner } from "sonner";
 
-import { useTheme } from 'next-themes';
-import { Toaster as Sonner } from 'sonner';
-
-type ToasterProps = React.ComponentProps<typeof Sonner>;
-
-const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = 'system' } = useTheme();
-
+export function Toaster() {
   return (
     <Sonner
-      theme={theme as ToasterProps['theme']}
-      className="toaster group"
+      position="top-center"
+      theme="light"
+      richColors
+      closeButton
       toastOptions={{
+        style: {
+          fontFamily: "inherit",
+          fontSize: 14,
+          borderRadius: 16,
+        },
         classNames: {
-          toast:
-            'group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg',
-          description: 'group-[.toast]:text-muted-foreground',
-          actionButton:
-            'group-[.toast]:bg-primary group-[.toast]:text-primary-foreground',
-          cancelButton:
-            'group-[.toast]:bg-muted group-[.toast]:text-muted-foreground',
+          toast: "shadow-lg",
         },
       }}
-      {...props}
     />
   );
-};
-
-export { Toaster };
+}

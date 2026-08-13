@@ -12,22 +12,12 @@ import {
 } from "../lib/api";
 import { useBusinessSlug } from "../hooks/useBusinessSlug";
 import { ProfileEditor } from "../components/owner/ProfileEditor";
+import { C } from "../theme";
 
 type View = "loading" | "start" | "analyzing" | "editor";
 
 const POLL_MS = 2500;
 
-// ─── Colours ─────────────────────────────────────────────────────────────────
-const C = {
-  bg:       "#F0F2F5",
-  white:    "#FFFFFF",
-  text:     "#111B21",
-  text2:    "#667781",
-  text3:    "#8696A0",
-  green:    "#00A884",
-  border:   "#E9EDEF",
-  inputBg:  "#F0F2F5",
-};
 
 // ─── Tool row ─────────────────────────────────────────────────────────────────
 function ToolRow({
@@ -200,7 +190,7 @@ export function Owner() {
   const isProfileReady = view === "editor" && profile;
 
   return (
-    <div className="h-full flex flex-col" style={{ background: C.bg }}>
+    <div className="h-full flex flex-col wa-page" style={{ background: C.bg }}>
 
       {/* ── Header (WhatsApp Business style) ─────────────────────────────── */}
       <header
