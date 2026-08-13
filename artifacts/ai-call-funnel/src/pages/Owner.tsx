@@ -32,16 +32,14 @@ const C = {
 // ─── Tool row ─────────────────────────────────────────────────────────────────
 function ToolRow({
   icon: Icon,
-  iconColor,
-  iconBg,
   title,
   description,
   href,
   active,
 }: {
   icon: React.ElementType;
-  iconColor: string;
-  iconBg: string;
+  iconColor?: string;
+  iconBg?: string;
   title: string;
   description: string;
   href: string;
@@ -50,27 +48,22 @@ function ToolRow({
   return (
     <Link href={href}>
       <div
-        className="flex items-center gap-4 px-5 py-3.5 cursor-pointer active:bg-gray-50 transition-colors"
+        className="flex items-start gap-5 px-5 py-4 cursor-pointer active:bg-gray-50 transition-colors"
         style={{ background: C.white }}
       >
-        <div
-          className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
-          style={{ background: iconBg }}
-        >
-          <Icon size={20} style={{ color: iconColor }} strokeWidth={1.8} />
-        </div>
+        {/* Thin monochrome icon — WhatsApp Business style */}
+        <Icon size={24} style={{ color: "#3B4A54" }} strokeWidth={1.5} className="shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
-          <p className="text-[15px] font-medium" style={{ color: C.text }}>{title}</p>
-          <p className="text-[13px] mt-0.5 leading-snug" style={{ color: C.text2 }}>{description}</p>
+          <p className="text-[16px] font-semibold" style={{ color: "#0B141A" }}>{title}</p>
+          <p className="text-[14px] mt-0.5 leading-snug" style={{ color: C.text2 }}>{description}</p>
         </div>
-        {active !== undefined && (
+        {active !== undefined ? (
           <div
-            className="w-3 h-3 rounded-full shrink-0"
-            style={{ background: active ? C.green : C.border }}
+            className="w-2.5 h-2.5 rounded-full shrink-0 mt-2"
+            style={{ background: active ? "#1DAA61" : "transparent" }}
           />
-        )}
-        {active === undefined && (
-          <ChevronRight size={16} style={{ color: C.text3 }} className="shrink-0" />
+        ) : (
+          <ChevronRight size={16} style={{ color: C.text3 }} className="shrink-0 mt-2" />
         )}
       </div>
     </Link>
@@ -80,8 +73,8 @@ function ToolRow({
 // ─── Section label ────────────────────────────────────────────────────────────
 function SectionLabel({ label }: { label: string }) {
   return (
-    <div className="px-5 pt-5 pb-2">
-      <p className="text-[13px] font-semibold" style={{ color: C.text2 }}>{label}</p>
+    <div className="px-5 pt-6 pb-2">
+      <p className="text-[17px] font-bold" style={{ color: "#0B141A" }}>{label}</p>
     </div>
   );
 }
@@ -211,10 +204,10 @@ export function Owner() {
 
       {/* ── Header (WhatsApp Business style) ─────────────────────────────── */}
       <header
-        className="shrink-0 flex items-center justify-between px-5 py-4"
-        style={{ background: C.white, borderBottom: `1px solid ${C.border}` }}
+        className="shrink-0 flex items-center justify-between px-4 pt-6 pb-3"
+        style={{ background: C.white }}
       >
-        <h1 className="text-[22px] font-bold" style={{ color: C.text }}>
+        <h1 className="text-[26px] font-extrabold tracking-tight" style={{ color: "#0B141A" }}>
           {profile?.name || "Linkealls"}
         </h1>
         <div className="flex items-center gap-4" style={{ color: C.text2 }}>
@@ -418,39 +411,28 @@ export function Owner() {
         {isProfileReady && (
           <>
             <SectionLabel label="Expanda o teu negócio" />
-            <div className="rounded-none overflow-hidden" style={{ borderTop: `1px solid ${C.border}`, borderBottom: `1px solid ${C.border}` }}>
+            <div>
               <ToolRow
                 icon={Zap}
-                iconColor="#00A884"
-                iconBg="#E8F5E9"
                 title="Assistente IA"
                 description="Responde aos clientes 24 horas por dia, 7 dias por semana"
                 href={`/e/${slug}/dono/assistente`}
                 active={true}
               />
-              <div style={{ borderTop: `1px solid ${C.border}` }} />
               <ToolRow
                 icon={Grid3x3}
-                iconColor="#1976D2"
-                iconBg="#E3F2FD"
                 title="Catálogo"
                 description="Exibe os teus produtos e serviços"
                 href={`/e/${slug}/catalogo`}
               />
-              <div style={{ borderTop: `1px solid ${C.border}` }} />
               <ToolRow
                 icon={Megaphone}
-                iconColor="#E65100"
-                iconBg="#FFF3E0"
                 title="Campanhas"
                 description="Cria anúncios para trazer mais clientes"
                 href={`/e/${slug}/dono/campanhas`}
               />
-              <div style={{ borderTop: `1px solid ${C.border}` }} />
               <ToolRow
                 icon={Users}
-                iconColor="#7B1FA2"
-                iconBg="#F3E5F5"
                 title="Leads"
                 description="Gere todos os contactos qualificados"
                 href={`/e/${slug}/dono/leads`}

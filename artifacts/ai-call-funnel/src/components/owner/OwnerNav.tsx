@@ -19,8 +19,7 @@ export function OwnerNav() {
       className="flex-shrink-0 flex items-stretch"
       style={{
         background: "#FFFFFF",
-        borderTop: "1px solid #E9EDEF",
-        boxShadow: "0 -1px 4px rgba(0,0,0,0.06)",
+        borderTop: "1px solid #F0F2F5",
         paddingBottom: "env(safe-area-inset-bottom, 0)",
       }}
     >
@@ -33,17 +32,29 @@ export function OwnerNav() {
           <Link
             key={path}
             href={path}
-            className="flex-1 flex flex-col items-center justify-center gap-[3px] py-2.5 transition-colors select-none"
-            style={{ color: active ? "#00A884" : "#8696A0" }}
+            className="flex-1 flex flex-col items-center justify-center gap-1 pt-2.5 pb-2 transition-colors select-none"
           >
-            <Icon
-              size={22}
-              strokeWidth={active ? 2.5 : 1.8}
-              fill={active ? "#00A88420" : "none"}
-            />
+            {/* Pill behind active icon — WhatsApp style */}
             <span
-              className="text-[10px] font-semibold tracking-wide leading-none"
-              style={{ color: active ? "#00A884" : "#8696A0" }}
+              className="flex items-center justify-center rounded-full transition-colors"
+              style={{
+                width: 56,
+                height: 30,
+                background: active ? "#D8F3EA" : "transparent",
+              }}
+            >
+              <Icon
+                size={22}
+                strokeWidth={active ? 2.4 : 1.9}
+                style={{ color: active ? "#0B3D2E" : "#54656F" }}
+              />
+            </span>
+            <span
+              className="text-[11px] leading-none"
+              style={{
+                color: active ? "#111B21" : "#54656F",
+                fontWeight: active ? 700 : 500,
+              }}
             >
               {label}
             </span>

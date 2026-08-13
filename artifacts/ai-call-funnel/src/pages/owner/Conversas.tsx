@@ -107,24 +107,24 @@ function ConversationRow({ lead, isNew, onClick }: { lead: Lead; isNew: boolean;
     >
       {/* Avatar */}
       <div className="relative shrink-0 py-3">
-        <div className="w-12 h-12 rounded-full flex items-center justify-center text-[15px] font-bold"
+        <div className="w-[52px] h-[52px] rounded-full flex items-center justify-center text-[17px] font-bold"
           style={{ background: pal.bg, color: pal.text }}>
-          {initials || <User size={18} />}
+          {initials || <User size={20} />}
         </div>
         <span className="absolute bottom-3 right-0 w-3 h-3 rounded-full border-2 border-white"
           style={{ background: STATE_DOT[lead.state] }} />
       </div>
 
       {/* Content */}
-      <div className="flex-1 min-w-0 border-b py-3" style={{ borderColor: C.border }}>
+      <div className="flex-1 min-w-0 py-3.5">
         <div className="flex items-baseline justify-between gap-2">
-          <span className="font-semibold text-[15px] truncate" style={{ color: C.text }}>{name}</span>
+          <span className="font-semibold text-[16px] truncate" style={{ color: "#0B141A" }}>{name}</span>
           <span className="text-[12px] shrink-0" style={{ color: isNew ? C.green : C.text3 }}>
             {formatTime(lead.updatedAt)}
           </span>
         </div>
         <div className="flex items-center justify-between gap-2 mt-0.5">
-          <span className="text-[13px] truncate flex-1" style={{ color: C.text2 }}>{preview}</span>
+          <span className="text-[14px] truncate flex-1" style={{ color: C.text2 }}>{preview}</span>
           {isNew && (
             <span className="shrink-0 min-w-[20px] h-5 rounded-full flex items-center justify-center text-[11px] font-bold px-1.5"
               style={{ background: C.green, color: "#fff" }}>
@@ -395,12 +395,12 @@ export function Conversas() {
   return (
     <div className="flex flex-col h-full" style={{ background: C.bg }}>
       {/* Header */}
-      <div className="shrink-0 px-5 pt-5 pb-3 flex items-center justify-between"
-        style={{ background: C.white, borderBottom: `1px solid ${C.border}` }}>
-        <h1 className="text-[22px] font-bold" style={{ color: C.text }}>Conversas</h1>
+      <div className="shrink-0 px-4 pt-6 pb-2 flex items-center justify-between"
+        style={{ background: C.white }}>
+        <h1 className="text-[26px] font-extrabold tracking-tight" style={{ color: "#0B141A" }}>Conversas</h1>
         <button onClick={() => void load()} className="p-1.5 rounded-full transition-colors"
-          style={{ color: C.text2 }} aria-label="Actualizar">
-          <RefreshCw size={18} strokeWidth={1.8} />
+          style={{ color: "#54656F" }} aria-label="Actualizar">
+          <RefreshCw size={20} strokeWidth={1.8} />
         </button>
       </div>
 
@@ -413,14 +413,14 @@ export function Conversas() {
       )}
 
       {/* Search */}
-      <div className="shrink-0 px-3 py-2" style={{ background: C.white }}>
-        <div className="flex items-center gap-2 px-3 py-2 rounded-full"
-          style={{ background: C.bg }}>
-          <Search size={16} style={{ color: C.text3 }} className="shrink-0" />
+      <div className="shrink-0 px-4 py-2" style={{ background: C.white }}>
+        <div className="flex items-center gap-3 px-4 rounded-full"
+          style={{ background: C.bg, height: 44 }}>
+          <Search size={18} style={{ color: "#54656F" }} className="shrink-0" />
           <input
             type="text" placeholder="Pesquisar..." value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 bg-transparent text-[14px] outline-none"
+            className="flex-1 bg-transparent text-[16px] outline-none"
             style={{ color: C.text }}
           />
         </div>
@@ -428,7 +428,7 @@ export function Conversas() {
 
       {/* State filter chips */}
       <div className="shrink-0 flex gap-2 px-4 py-2 overflow-x-auto scrollbar-none"
-        style={{ background: C.white, borderBottom: `1px solid ${C.border}` }}>
+        style={{ background: C.white }}>
         {([["todos", "Todas"] as const, ...STATE_ORDER.map((s) => [s, STATE_LABELS[s]] as const)]).map(([key, label]) => (
           <button
             key={key}

@@ -287,9 +287,9 @@ export function Campaigns() {
   return (
     <div className="flex flex-col h-full" style={{ background: C.bg }}>
       {/* Header */}
-      <div className="flex items-center gap-3 px-5 pt-5 pb-3 shrink-0"
-        style={{ background: C.white, borderBottom: `1px solid ${C.border}` }}>
-        <h1 className="text-[22px] font-bold flex-1" style={{ color: C.text }}>Campanhas</h1>
+      <div className="flex items-center gap-3 px-4 pt-6 pb-2 shrink-0"
+        style={{ background: C.white }}>
+        <h1 className="text-[26px] font-extrabold tracking-tight flex-1" style={{ color: "#0B141A" }}>Campanhas</h1>
         <button
           onClick={() => setShowModal(true)}
           className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-all active:scale-90"
