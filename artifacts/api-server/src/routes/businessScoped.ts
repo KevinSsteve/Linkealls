@@ -36,6 +36,7 @@ import {
   listLeads,
   updateLeadState,
   chatWithLead,
+  appendOwnerReply,
   subscribeToLeadQualified,
   getLeadsAnalytics,
 } from "../services/leads.js";
@@ -373,6 +374,20 @@ export function createBusinessScopedRouter(): Router {
     } catch (err) {
       logger.error({ err, id }, "POST /leads/:id/chat failed");
       res.status(500).json({ error: "Erro ao processar mensagem" });
+    }
+  });
+
+  router.post("/leads/:id/owner-reply", requireOwner, async (req, res) => {
+    const id = String(req.params["id"] ?? "");
+    const schema = z.object({ message: z.string().min(1).max(2000) });
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Mensagem inválida" }); return; }
+    try {
+      const lead = await appendOwnerReply(id, parsed.data.message, bid(res));
+      res.json({ lead });
+    } catch (err) {
+      logger.error({ err }, "POST /leads/:id/owner-reply failed");
+      res.status(500).json({ error: "Erro ao guardar resposta" });
     }
   });
 

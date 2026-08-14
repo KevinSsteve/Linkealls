@@ -9,6 +9,7 @@ import { useGeminiLive, type ProductCard, type AgentMessage } from "../hooks/use
 import { businessApi, type ChatMessage } from "../lib/api";
 import { useBusinessSlug } from "../hooks/useBusinessSlug";
 import { recordVisit } from "../lib/visitedBusinesses";
+import { useAuth } from "@/context/AuthContext";
 import {
   X,
   ShoppingBag,
@@ -388,6 +389,19 @@ export function Chat() {
   const businessSlug = useBusinessSlug();
   const gemini = useGeminiLive(leadId, businessSlug ?? "");
 
+  // Auth context — detect B2B mode (logged-in owner chatting with another business)
+  const { user, isLoggedIn } = useAuth();
+  const isB2BMode = isLoggedIn && !!user && user.handle !== businessSlug;
+
+  // Fetch business name to show in header
+  const [businessName, setBusinessName] = useState<string | null>(null);
+  useEffect(() => {
+    if (!businessSlug) return;
+    businessApi(businessSlug).getCatalog()
+      .then((c) => { if (c.name) setBusinessName(c.name); })
+      .catch(() => {});
+  }, [businessSlug]);
+
   // Start/stop the shared timer when the call goes active
   useEffect(() => {
     if (stage === "call_active") {
@@ -422,15 +436,25 @@ export function Chat() {
     async (text: string) => {
       setIsBusy(true);
       setStage("typing");
-      await new Promise((r) => setTimeout(r, 1200));
+      await new Promise((r) => setTimeout(r, isB2BMode ? 600 : 1200));
 
       // A scoped lead is a hard prerequisite for the call flow — without it
       // the call would run unattributed to any business (cross-tenant risk).
       let newLeadId: string | null = null;
       try {
         if (!businessSlug) throw new Error("missing business slug");
+
+        // B2B: include sender's business identity in the lead origin so the
+        // receiving owner can see who they're talking to in their Conversas panel.
+        const origin: Record<string, string> = { url: window.location.href };
+        if (isB2BMode && user) {
+          origin.source = "b2b-mercado";
+          origin.medium = "negocio";
+          origin.content = `${user.name}${user.handle ? ` (@${user.handle})` : ""}`;
+        }
+
         const { leadId: id } = await businessApi(businessSlug).createLeadSession(
-          { url: window.location.href },
+          origin,
           chatMsgsRef.current,
         );
         newLeadId = id;
@@ -447,6 +471,21 @@ export function Chat() {
         return null;
       }
 
+      if (isB2BMode) {
+        // B2B mode: get AI text reply directly — no voice call trigger
+        try {
+          const { reply } = await businessApi(businessSlug ?? "").sendLeadChat(newLeadId!, text);
+          addMessage("bot", reply);
+        } catch {
+          addMessage("bot", "Desculpa, não consegui responder neste momento. Tenta de novo.");
+        }
+        setCallTriggered(true);
+        setStage("chat");
+        setIsBusy(false);
+        return newLeadId;
+      }
+
+      // Consumer mode — greet + trigger incoming call
       const botText =
         "Olá 👋 Obrigado pelo teu interesse. Vou ligar agora para te ajudar e perceber exactamente o que precisas.";
       const botMsg = addMessage("bot", botText);
@@ -458,7 +497,7 @@ export function Chat() {
       setTimeout(() => setStage("call_incoming"), 1000);
       return newLeadId;
     },
-    [addMessage, businessSlug],
+    [addMessage, businessSlug, isB2BMode, user],
   );
 
   // ── Subsequent chat messages ─────────────────────────────────────────────
@@ -585,7 +624,8 @@ export function Chat() {
   }, [stage]);
 
   const isCallActive = stage === "call_active";
-  const canCall = callTriggered && !isBusy;
+  // B2B visitors don't trigger voice calls — text-only conversation
+  const canCall = callTriggered && !isBusy && !isB2BMode;
 
   // ── RENDER ───────────────────────────────────────────────────────────────
   if (!businessSlug) return <Redirect to="/" />;
@@ -595,6 +635,7 @@ export function Chat() {
       onBack={() => window.history.back()}
       onCall={canCall ? handleCallFromHeader : undefined}
       businessSlug={businessSlug}
+      businessName={businessName ?? undefined}
     >
       <div className="flex flex-col h-full overflow-hidden">
         {/* ── Incoming call overlay ── */}

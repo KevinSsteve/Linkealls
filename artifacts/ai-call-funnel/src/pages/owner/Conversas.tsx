@@ -5,7 +5,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   ArrowLeft, User, Phone, Search, ExternalLink,
-  DollarSign, Clock, MapPin, MessageCircle, RefreshCw, Zap,
+  DollarSign, Clock, MapPin, MessageCircle, RefreshCw, Zap, Send,
 } from "lucide-react";
 import { Link } from "wouter";
 import {
@@ -126,22 +126,32 @@ function ConversationRow({ lead, isNew, onClick }: { lead: Lead; isNew: boolean;
 }
 
 // ─── Bubble ──────────────────────────────────────────────────────────────────
-function Bubble({ isUser, text, ts }: { isUser: boolean; text: string; ts?: string }) {
+/**
+ * role "user"  → visitor/client message (right, light-green)
+ * role "bot"   → AI automated reply (left, white)
+ * role "agent" → business owner's manual reply (right, teal — distinguishable from visitor)
+ */
+function Bubble({ role, text, ts }: { role: "user" | "bot" | "agent"; text: string; ts?: string }) {
+  const isRight = role === "user" || role === "agent";
+  const bg = role === "agent" ? "#B2DFDB" : role === "user" ? C.bubOut : C.bubIn;
+  const radius = isRight ? "8px 2px 8px 8px" : "2px 8px 8px 8px";
   return (
-    <div className={`flex mb-1.5 ${isUser ? "justify-end" : "justify-start"}`}>
+    <div className={`flex flex-col mb-1.5 ${isRight ? "items-end" : "items-start"}`}>
+      {role === "agent" && (
+        <p className="text-[10px] font-semibold mb-0.5 px-1" style={{ color: "#00695C" }}>
+          Dono
+        </p>
+      )}
       <div
         className="max-w-[78%] px-3.5 py-2 text-[14px] leading-relaxed"
-        style={{
-          borderRadius: isUser ? "8px 2px 8px 8px" : "2px 8px 8px 8px",
-          background: isUser ? C.bubOut : C.bubIn,
-          color: C.text,
-          boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
-        }}
+        style={{ borderRadius: radius, background: bg, color: C.text, boxShadow: "0 1px 2px rgba(0,0,0,0.1)" }}
       >
         {text}
-        {ts && <p className="text-[10px] mt-1 text-right" style={{ color: C.text3 }}>
-          {new Date(ts).toLocaleTimeString("pt-AO", { hour: "2-digit", minute: "2-digit" })}
-        </p>}
+        {ts && (
+          <p className="text-[10px] mt-1 text-right" style={{ color: C.text3 }}>
+            {new Date(ts).toLocaleTimeString("pt-AO", { hour: "2-digit", minute: "2-digit" })}
+          </p>
+        )}
       </div>
     </div>
   );
@@ -154,9 +164,34 @@ function ConversationDetail({ lead: initialLead, onBack, onStateChange, api }: {
 }) {
   const [lead, setLead] = useState(initialLead);
   const [updating, setUpdating] = useState(false);
+  const [replyText, setReplyText] = useState("");
+  const [replying, setReplying] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const replyInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, []);
+
+  // Scroll to bottom whenever messages change
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [lead.chatMessages.length]);
+
+  async function handleOwnerReply() {
+    const text = replyText.trim();
+    if (!text || replying) return;
+    setReplying(true);
+    setReplyText("");
+    try {
+      const { lead: updated } = await api.ownerReplyToLead(lead.id, text);
+      setLead(updated);
+      onStateChange(updated);
+    } catch {
+      setReplyText(text); // restore on failure
+    } finally {
+      setReplying(false);
+      replyInputRef.current?.focus();
+    }
+  }
 
   async function handleState(state: LeadState) {
     setUpdating(true);
@@ -214,7 +249,7 @@ function ConversationDetail({ lead: initialLead, onBack, onStateChange, api }: {
           </span>
         </div>
         {lead.chatMessages.map((m, i) => (
-          <Bubble key={i} isUser={m.role === "user"} text={m.text} ts={m.ts} />
+          <Bubble key={i} role={m.role} text={m.text} ts={m.ts} />
         ))}
         {lead.callTranscript && (
           <>
@@ -227,7 +262,7 @@ function ConversationDetail({ lead: initialLead, onBack, onStateChange, api }: {
               <div className="flex-1 h-px" style={{ background: "rgba(0,0,0,0.1)" }} />
             </div>
             {parsedTranscript
-              ? parsedTranscript.map((l, i) => <Bubble key={i} isUser={l.role === "user"} text={l.text} />)
+              ? parsedTranscript.map((l, i) => <Bubble key={i} role={l.role === "user" ? "user" : "bot"} text={l.text} />)
               : <div className="rounded-xl px-4 py-3 text-[13px] leading-relaxed whitespace-pre-wrap"
                   style={{ background: C.bubIn, color: C.text2, boxShadow: "0 1px 2px rgba(0,0,0,0.1)" }}>
                   {lead.callTranscript}
@@ -296,14 +331,41 @@ function ConversationDetail({ lead: initialLead, onBack, onStateChange, api }: {
         </div>
         {/* WhatsApp CTA */}
         {waUrl && (
-          <div className="px-4 py-3">
+          <div className="px-4 py-2.5">
             <a href={waUrl} target="_blank" rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 text-white font-semibold text-[14px] py-3 rounded-xl transition-colors"
+              className="flex items-center justify-center gap-2 text-white font-semibold text-[14px] py-2.5 rounded-xl transition-colors"
               style={{ background: "#25D366" }}>
               <MessageCircle size={16} /> Continuar no WhatsApp <ExternalLink size={12} className="opacity-70" />
             </a>
           </div>
         )}
+
+        {/* ── Owner reply input — respond as agent ─────────────────────── */}
+        <div
+          className="flex items-center gap-2 px-3 py-2.5"
+          style={{ borderTop: `1px solid ${C.border}` }}
+        >
+          <input
+            ref={replyInputRef}
+            type="text"
+            value={replyText}
+            onChange={(e) => setReplyText(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void handleOwnerReply(); } }}
+            placeholder="Responder como dono…"
+            disabled={replying}
+            className="flex-1 text-[14px] px-3.5 py-2.5 rounded-full outline-none disabled:opacity-50"
+            style={{ background: C.bg, color: C.text }}
+          />
+          <button
+            onClick={() => void handleOwnerReply()}
+            disabled={!replyText.trim() || replying}
+            className="w-10 h-10 rounded-full flex items-center justify-center text-white transition-all disabled:opacity-30 shrink-0"
+            style={{ background: C.green }}
+            aria-label="Enviar resposta"
+          >
+            <Send size={16} />
+          </button>
+        </div>
       </div>
     </div>
   );

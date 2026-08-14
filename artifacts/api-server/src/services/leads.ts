@@ -379,6 +379,34 @@ REGRAS:
   return { reply };
 }
 
+// ─── Owner manual reply (agent message, no AI) ───────────────────────────────
+
+/**
+ * Appends a manual reply from the business owner (role "agent") to the lead's
+ * chatMessages without triggering the AI. Used when the owner takes over the
+ * conversation from the Conversas panel.
+ */
+export async function appendOwnerReply(
+  leadId: string,
+  message: string,
+  businessId: number,
+): Promise<Lead> {
+  const lead = await getLead(leadId, businessId);
+  if (!lead) throw new Error("Lead não encontrado");
+  const ts = new Date().toISOString();
+  // Use type assertion — "agent" is a valid ChatMessage role per the interface
+  const updated = [
+    ...lead.chatMessages,
+    { role: "agent" as ChatMessage["role"], text: message, ts },
+  ];
+  const rows = await db
+    .update(leadsTable)
+    .set({ chatMessages: updated, updatedAt: new Date() })
+    .where(and(eq(leadsTable.id, leadId), eq(leadsTable.businessId, businessId)))
+    .returning();
+  return rows[0]!;
+}
+
 // ─── SSE notification bus ─────────────────────────────────────────────────────
 
 type SseListener = (leadId: string) => void;

@@ -32,7 +32,8 @@ export interface LeadOrigin {
 
 /** A single message from the pre-call chat. */
 export interface ChatMessage {
-  role: "user" | "bot";
+  /** user = visitor, bot = AI, agent = business owner replying manually */
+  role: "user" | "bot" | "agent";
   text: string;
   ts: string; // ISO timestamp
 }

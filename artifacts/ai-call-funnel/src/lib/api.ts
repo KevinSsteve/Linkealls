@@ -151,7 +151,8 @@ export interface LeadOrigin {
 }
 
 export interface ChatMessage {
-  role: "user" | "bot";
+  /** user = visitor, bot = AI, agent = business owner replying manually */
+  role: "user" | "bot" | "agent";
   text: string;
   ts: string;
 }
@@ -403,6 +404,10 @@ export function businessApi(slug: string) {
     },
     sendLeadChat: (leadId: string, message: string) =>
       bRequest<{ reply: string }>(`/leads/${leadId}/chat`, {
+        method: "POST", body: JSON.stringify({ message }),
+      }),
+    ownerReplyToLead: (leadId: string, message: string) =>
+      bRequest<{ lead: Lead }>(`/leads/${leadId}/owner-reply`, {
         method: "POST", body: JSON.stringify({ message }),
       }),
     getLeadsAnalytics: () =>

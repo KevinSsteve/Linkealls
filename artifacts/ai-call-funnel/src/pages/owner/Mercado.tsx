@@ -47,7 +47,7 @@ function initials(name: string) {
 function StatusCard({ business }: { business: Business }) {
   const pal = avatarPalette(business.name);
   return (
-    <Link href={`/e/${business.slug}/catalogo`}>
+    <Link href={`/e/${business.slug}`}>
       <div
         className="flex flex-col items-center gap-1.5 cursor-pointer select-none shrink-0"
         style={{ width: 68 }}
@@ -86,7 +86,7 @@ function StatusCard({ business }: { business: Business }) {
 function BusinessRow({ business }: { business: Business }) {
   const pal = avatarPalette(business.name);
   return (
-    <Link href={`/e/${business.slug}/catalogo`}>
+    <Link href={`/e/${business.slug}`}>
       <div
         className="flex items-center gap-3 px-4 py-3 cursor-pointer active:bg-[#F5F6F6] transition-colors"
         style={{ background: C.white, borderBottom: `1px solid ${C.border}` }}
