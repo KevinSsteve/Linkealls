@@ -101,6 +101,21 @@ export interface GpoChargeResult {
 }
 
 /**
+ * The gateway validates Description strictly (INVALID_FORMAT on colons,
+ * accents, "x2", etc.). Spec examples only use [A-Za-z0-9_], so strip
+ * diacritics and map everything else to underscores.
+ */
+export function sanitizeGpoDescription(input: string): string {
+  const cleaned = input
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Za-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 40);
+  return cleaned || "Linkealls";
+}
+
+/**
  * Create a GPO charge: the buyer receives a Multicaixa Express push on their
  * phone and approves the payment there. Settlement arrives via webhook.
  */
@@ -125,7 +140,7 @@ export async function createGpoCharge(params: {
     body: JSON.stringify({
       amount: params.amount,
       currency: "AOA",
-      description: params.description.slice(0, 120),
+      description: sanitizeGpoDescription(params.description),
       merchantTransactionId: params.merchantTransactionId,
       paymentMethod: EKWANZA_GPO_PAYMENT_METHOD,
       paymentInfo: { phoneNumber: params.phoneNumber },

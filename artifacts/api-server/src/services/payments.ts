@@ -113,7 +113,13 @@ export async function createProductOrder(
     // Real mode: the gateway call blocks until the buyer approves/declines,
     // so the outcome is already final — settle or fail right away.
     if (charge.outcome === "paid") {
-      await settleGpoPayment(merchantTransactionId, 1);
+      // The buyer HAS paid. If local settlement fails, never mark the order
+      // failed — leave it pendente so the webhook (or reconciliation) settles it.
+      try {
+        await settleGpoPayment(merchantTransactionId, 1);
+      } catch (settleErr) {
+        logger.error({ err: settleErr, merchantTransactionId }, "createProductOrder: paid but local settlement failed — awaiting webhook/reconciliation");
+      }
     } else if (charge.outcome === "failed") {
       await db.update(ordersTable)
         .set({ status: "falhada", updatedAt: new Date() })
@@ -222,7 +228,13 @@ export async function createPlanCharge(businessId: number, phone: string): Promi
       description: `Plano Linkealls — ${PLAN_DAYS} dias`,
     });
     if (charge.outcome === "paid") {
-      await settleGpoPayment(merchantTransactionId, 1);
+      // The buyer HAS paid. If local settlement fails, never mark the
+      // subscription failed — leave it pendente for the webhook/reconciliation.
+      try {
+        await settleGpoPayment(merchantTransactionId, 1);
+      } catch (settleErr) {
+        logger.error({ err: settleErr, merchantTransactionId }, "createPlanCharge: paid but local settlement failed — awaiting webhook/reconciliation");
+      }
     } else if (charge.outcome === "failed") {
       await db.update(subscriptionsTable)
         .set({ status: "falhada", updatedAt: new Date() })
