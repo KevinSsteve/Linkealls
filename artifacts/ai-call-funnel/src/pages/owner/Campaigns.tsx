@@ -281,7 +281,7 @@ export function Campaigns() {
       {/* Header */}
       <div className="flex items-center gap-3 px-4 pt-6 pb-2 shrink-0"
         style={{ background: C.white }}>
-        <h1 className="text-[26px] font-extrabold tracking-tight flex-1" style={{ color: "#0B141A" }}>Campanhas</h1>
+        <h1 className="text-[22px] font-bold tracking-tight flex-1" style={{ color: C.text }}>Campanhas</h1>
         <button
           onClick={() => setShowModal(true)}
           className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition-all active:scale-90"
@@ -292,7 +292,7 @@ export function Campaigns() {
 
       {/* Tabs */}
       <div className="flex shrink-0" style={{ background: C.white, borderBottom: `1px solid ${C.border}` }}>
-        {([["campanhas", "📢 Campanhas"], ["analise", "📊 Análise"]] as const).map(([key, label]) => (
+        {([["campanhas", "Campanhas"], ["analise", "Análise"]] as const).map(([key, label]) => (
           <button key={key} onClick={() => setTab(key)}
             className="flex-1 py-2.5 text-[13px] font-semibold transition-colors"
             style={{

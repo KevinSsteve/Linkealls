@@ -1,15 +1,16 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { Plus, Trash2, Save, RefreshCw, Loader2, Camera, X, Phone, Bell, BellOff, BellRing, Store, Copy, Check, ExternalLink, Link, GripVertical, Star } from "lucide-react";
+import { C } from "../../theme";
 import { useNotifications } from "../../hooks/useNotifications";
 import { useBusinessSlug } from "../../hooks/useBusinessSlug";
 import { businessApi, checkSlugAvailability } from "../../lib/api";
 import type { BusinessProfile, ProfileDraft, Offering, FaqItem } from "../../lib/api";
 
 const inputCls =
-  "w-full bg-[#F0F2F5] border border-[#E9EDEF] rounded-xl px-4 py-3 text-[15px] text-[#111B21] placeholder:text-[#8696A0] focus:outline-none focus:border-[#25D366] transition-colors";
-const labelCls = "block text-[13px] font-semibold text-[#667781] mb-1.5 uppercase tracking-wide";
+  "w-full bg-[#F3F4F6] border border-[#E5E7EB] rounded-xl px-4 py-3 text-[15px] text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#16A34A] transition-colors";
+const labelCls = "block text-[11px] font-semibold text-[#9CA3AF] mb-1.5 uppercase tracking-wider";
 const sectionCls =
-  "bg-white border border-[#E9EDEF] rounded-2xl p-4 space-y-4";
+  "bg-white border border-[#E5E7EB] rounded-2xl p-4 space-y-4";
 
 interface Props {
   profile: BusinessProfile;
@@ -132,8 +133,8 @@ function CatalogSection({ profile, businessSlug }: { profile: BusinessProfile; b
             <Store size={16} style={{ color: "#0EA5E9" }} />
           </div>
           <div>
-            <h3 className="text-[15px] font-semibold" style={{ color: "#111B21" }}>Catálogo público</h3>
-            <p className="text-[13px] mt-0.5" style={{ color: enabled && isReady ? "#25D366" : "#8696A0" }}>
+            <h3 className="text-[15px] font-semibold" style={{ color: "#111827" }}>Catálogo público</h3>
+            <p className="text-[13px] mt-0.5" style={{ color: enabled && isReady ? "#16A34A" : "#9CA3AF" }}>
               {!isReady
                 ? "Incompleto — adiciona pelo menos 1 produto"
                 : enabled
@@ -147,8 +148,8 @@ function CatalogSection({ profile, businessSlug }: { profile: BusinessProfile; b
           disabled={toggling}
           className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] font-semibold transition-colors disabled:opacity-50"
           style={enabled
-            ? { background: "#D9FDD3", color: "#128C7E" }
-            : { background: "#F0F2F5", color: "#667781" }}
+            ? { background: "#DCFCE7", color: "#166534" }
+            : { background: "#F3F4F6", color: "#6B7280" }}
         >
           {toggling ? <Loader2 size={13} className="animate-spin" /> : null}
           {enabled ? "Activo" : "Inactivo"}
@@ -157,23 +158,23 @@ function CatalogSection({ profile, businessSlug }: { profile: BusinessProfile; b
 
       {/* Generic catalog URL */}
       <div>
-        <p className="text-[12px] font-semibold uppercase tracking-wide mb-2" style={{ color: "#8696A0" }}>Link genérico</p>
+        <p className="text-[12px] font-semibold uppercase tracking-wide mb-2" style={{ color: "#9CA3AF" }}>Link genérico</p>
         <div className="flex items-center gap-2">
-          <div className="flex-1 min-w-0 flex items-center gap-2 rounded-xl px-3 py-2.5" style={{ background: "#F0F2F5" }}>
-            <span className="text-[12px] truncate flex-1 font-mono" style={{ color: "#667781" }}>{genericUrl}</span>
+          <div className="flex-1 min-w-0 flex items-center gap-2 rounded-xl px-3 py-2.5" style={{ background: "#F3F4F6" }}>
+            <span className="text-[12px] truncate flex-1 font-mono" style={{ color: "#6B7280" }}>{genericUrl}</span>
           </div>
           <button
             onClick={() => handleCopy(genericUrl, setCopied)}
             className="shrink-0 flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-[13px] font-medium transition-colors"
-            style={{ background: "#F0F2F5", color: "#667781" }}
+            style={{ background: "#F3F4F6", color: "#6B7280" }}
             title="Copiar link genérico"
           >
-            {copied ? <Check size={14} style={{ color: "#25D366" }} /> : <Copy size={14} />}
+            {copied ? <Check size={14} style={{ color: "#16A34A" }} /> : <Copy size={14} />}
           </button>
           <a
             href={genericUrl} target="_blank" rel="noopener noreferrer"
             className="shrink-0 flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-[13px] font-medium"
-            style={{ background: "#F0F2F5", color: "#667781" }}
+            style={{ background: "#F3F4F6", color: "#6B7280" }}
             title="Ver catálogo"
           >
             <ExternalLink size={14} />
@@ -183,13 +184,13 @@ function CatalogSection({ profile, businessSlug }: { profile: BusinessProfile; b
 
       {/* Vanity slug */}
       <div>
-        <p className="text-[12px] font-semibold uppercase tracking-wide mb-2" style={{ color: "#8696A0" }}>Link personalizado</p>
+        <p className="text-[12px] font-semibold uppercase tracking-wide mb-2" style={{ color: "#9CA3AF" }}>Link personalizado</p>
         <div className="flex items-center gap-2">
-          <div className="flex-1 min-w-0 flex items-center rounded-xl px-3 py-2.5 gap-1.5" style={{ background: "#F0F2F5" }}>
-            <span className="text-[13px] font-mono shrink-0" style={{ color: "#8696A0" }}>{`${base}c/`}</span>
+          <div className="flex-1 min-w-0 flex items-center rounded-xl px-3 py-2.5 gap-1.5" style={{ background: "#F3F4F6" }}>
+            <span className="text-[13px] font-mono shrink-0" style={{ color: "#9CA3AF" }}>{`${base}c/`}</span>
             <input
               className="flex-1 min-w-0 bg-transparent text-[13px] font-mono outline-none"
-              style={{ color: "#111B21" }}
+              style={{ color: "#111827" }}
               placeholder="nome-do-negocio"
               value={slug}
               onChange={handleSlugChange}
@@ -201,7 +202,7 @@ function CatalogSection({ profile, businessSlug }: { profile: BusinessProfile; b
             onClick={handleSaveSlug}
             disabled={!canSaveSlug}
             className="shrink-0 flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-[13px] font-medium transition-colors disabled:opacity-40"
-            style={{ background: "#D9FDD3", color: "#128C7E" }}
+            style={{ background: "#DCFCE7", color: "#166534" }}
             title="Guardar slug"
           >
             {slugSaving ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
@@ -212,14 +213,14 @@ function CatalogSection({ profile, businessSlug }: { profile: BusinessProfile; b
         )}
         {slugUrl && (
           <div className="flex items-center gap-2 mt-2">
-            <div className="flex-1 min-w-0 flex items-center gap-2 rounded-xl px-3 py-2.5" style={{ background: "#D9FDD3" }}>
-              <Link size={12} style={{ color: "#128C7E" }} className="shrink-0" />
-              <span className="text-[12px] truncate flex-1 font-mono" style={{ color: "#128C7E" }}>{slugUrl}</span>
+            <div className="flex-1 min-w-0 flex items-center gap-2 rounded-xl px-3 py-2.5" style={{ background: "#DCFCE7" }}>
+              <Link size={12} style={{ color: "#166534" }} className="shrink-0" />
+              <span className="text-[12px] truncate flex-1 font-mono" style={{ color: "#166534" }}>{slugUrl}</span>
             </div>
             <button
               onClick={() => handleCopy(slugUrl, setSlugCopied)}
               className="shrink-0 flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-[13px] font-medium"
-              style={{ background: "#D9FDD3", color: "#128C7E" }}
+              style={{ background: "#DCFCE7", color: "#166534" }}
               title="Copiar link personalizado"
             >
               {slugCopied ? <Check size={14} /> : <Copy size={14} />}
@@ -227,7 +228,7 @@ function CatalogSection({ profile, businessSlug }: { profile: BusinessProfile; b
             <a
               href={slugUrl} target="_blank" rel="noopener noreferrer"
               className="shrink-0 flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-[13px] font-medium"
-              style={{ background: "#D9FDD3", color: "#128C7E" }}
+              style={{ background: "#DCFCE7", color: "#166534" }}
               title="Abrir link personalizado"
             >
               <ExternalLink size={14} />
@@ -252,8 +253,8 @@ function NotificationsSection({ slug }: { slug: string }) {
     <div className={sectionCls}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
-          <h3 className="text-[15px] font-semibold" style={{ color: "#111B21" }}>Notificações no telemóvel</h3>
-          <p className="text-[13px] mt-1 leading-relaxed" style={{ color: "#667781" }}>
+          <h3 className="text-[15px] font-semibold" style={{ color: "#111827" }}>Notificações no telemóvel</h3>
+          <p className="text-[13px] mt-1 leading-relaxed" style={{ color: "#6B7280" }}>
             {isDenied
               ? "Bloqueaste as notificações neste browser. Activa nas definições do browser."
               : isSubscribed
@@ -267,8 +268,8 @@ function NotificationsSection({ slug }: { slug: string }) {
             disabled={isLoading}
             className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-full text-[13px] font-semibold transition-colors disabled:opacity-50"
             style={isSubscribed
-              ? { background: "#D9FDD3", color: "#128C7E" }
-              : { background: "#F0F2F5", color: "#667781" }}
+              ? { background: "#DCFCE7", color: "#166534" }
+              : { background: "#F3F4F6", color: "#6B7280" }}
           >
             {isLoading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -279,7 +280,7 @@ function NotificationsSection({ slug }: { slug: string }) {
             )}
           </button>
         )}
-        {isDenied && <BellOff className="w-5 h-5 shrink-0 mt-0.5" style={{ color: "#8696A0" }} />}
+        {isDenied && <BellOff className="w-5 h-5 shrink-0 mt-0.5" style={{ color: "#9CA3AF" }} />}
       </div>
     </div>
   );
@@ -332,7 +333,7 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
         <button
           onClick={onBack}
           className="flex items-center gap-2 text-[14px] font-semibold px-1 pt-1 pb-2"
-          style={{ color: "#25D366" }}
+          style={{ color: "#16A34A" }}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
           Voltar ao perfil
@@ -341,7 +342,7 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
 
       {/* Identity */}
       <div className={sectionCls}>
-        <h3 className="text-[16px] font-bold" style={{ color: "#111B21" }}>Identidade</h3>
+        <h3 className="text-[16px] font-bold" style={{ color: "#111827" }}>Identidade</h3>
         <div>
           <label className={labelCls}>Nome do negócio *</label>
           <input className={inputCls} value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Óptica Luanda Premium" />
@@ -366,7 +367,7 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
 
       {/* Contact & location — new fields */}
       <div className={sectionCls}>
-        <h3 className="text-[16px] font-bold" style={{ color: "#111B21" }}>Contacto & localização</h3>
+        <h3 className="text-[16px] font-bold" style={{ color: "#111827" }}>Contacto & localização</h3>
         <div>
           <label className={labelCls}>Endereço</label>
           <input className={inputCls} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Ex.: Rua da Missão 42, Luanda" />
@@ -391,7 +392,7 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
       {/* Differentials */}
       <div className={sectionCls}>
         <div className="flex items-center justify-between">
-          <h3 className="text-[16px] font-bold" style={{ color: "#111B21" }}>Diferenciais</h3>
+          <h3 className="text-[16px] font-bold" style={{ color: "#111827" }}>Diferenciais</h3>
           <AddBtn onClick={() => setDifferentials([...differentials, ""])} />
         </div>
         {differentials.length === 0 && <EmptyHint text="O que torna o negócio único (entrega rápida, garantia, etc.)." />}
@@ -406,12 +407,12 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
       {/* FAQ */}
       <div className={sectionCls}>
         <div className="flex items-center justify-between">
-          <h3 className="text-[16px] font-bold" style={{ color: "#111B21" }}>Perguntas frequentes</h3>
+          <h3 className="text-[16px] font-bold" style={{ color: "#111827" }}>Perguntas frequentes</h3>
           <AddBtn onClick={() => setFaq([...faq, { question: "", answer: "" }])} />
         </div>
         {faq.length === 0 && <EmptyHint text="Respostas prontas que a IA usa nas chamadas." />}
         {faq.map((f, i) => (
-          <div key={i} className="border rounded-2xl p-3 space-y-2 relative" style={{ borderColor: "#E9EDEF" }}>
+          <div key={i} className="border rounded-2xl p-3 space-y-2 relative" style={{ borderColor: "#E5E7EB" }}>
             <RemoveBtn onClick={() => setFaq(faq.filter((_, j) => j !== i))} />
             <input className={inputCls} value={f.question} placeholder="Pergunta" onChange={(e) => setFaq(faq.map((x, j) => (j === i ? { ...x, question: e.target.value } : x)))} />
             <textarea className={`${inputCls} min-h-[60px] resize-y`} value={f.answer} placeholder="Resposta" onChange={(e) => setFaq(faq.map((x, j) => (j === i ? { ...x, answer: e.target.value } : x)))} />
@@ -422,7 +423,7 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
       {/* Qualification goals */}
       <div className={sectionCls}>
         <div className="flex items-center justify-between">
-          <h3 className="text-[16px] font-bold" style={{ color: "#111B21" }}>Objetivos de qualificação</h3>
+          <h3 className="text-[16px] font-bold" style={{ color: "#111827" }}>Objetivos de qualificação</h3>
           <AddBtn onClick={() => setQualificationGoals([...qualificationGoals, ""])} />
         </div>
         <EmptyHint text="O que a IA deve descobrir em cada chamada (orçamento, prazo, contacto...)." />
@@ -444,15 +445,15 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
       <div className={sectionCls}>
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-[16px] font-bold" style={{ color: "#111B21" }}>Testar a chamada</h3>
-            <p className="text-[13px] mt-1" style={{ color: "#667781" }}>Simula o que um lead vai ouvir com o perfil actual.</p>
+            <h3 className="text-[16px] font-bold" style={{ color: "#111827" }}>Testar a chamada</h3>
+            <p className="text-[13px] mt-1" style={{ color: "#6B7280" }}>Simula o que um lead vai ouvir com o perfil actual.</p>
           </div>
           <a
             href={`${import.meta.env.BASE_URL}e/${slug}?test=1`}
             target="_blank"
             rel="noopener noreferrer"
             className="shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-full text-[13px] font-semibold transition-colors"
-            style={{ background: "#D9FDD3", color: "#128C7E" }}
+            style={{ background: "#DCFCE7", color: "#166534" }}
           >
             <Phone className="w-4 h-4" />
             Testar
@@ -462,15 +463,15 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
 
       {/* Re-analysis */}
       <div className={sectionCls}>
-        <h3 className="text-[16px] font-bold" style={{ color: "#111B21" }}>Reanalisar o site</h3>
-        <p className="text-[13px] mt-1" style={{ color: "#667781" }}>Substitui o perfil pelo resultado de uma nova análise do site.</p>
+        <h3 className="text-[16px] font-bold" style={{ color: "#111827" }}>Reanalisar o site</h3>
+        <p className="text-[13px] mt-1" style={{ color: "#6B7280" }}>Substitui o perfil pelo resultado de uma nova análise do site.</p>
         <div className="flex gap-2 mt-2">
           <input className={inputCls} value={siteUrl} onChange={(e) => setSiteUrl(e.target.value)} placeholder="https://oteusite.co.ao" />
           <button
             onClick={() => siteUrl.trim() && onReanalyze(siteUrl.trim())}
             disabled={reanalyzing || !siteUrl.trim()}
             className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-semibold disabled:opacity-40 transition-colors"
-            style={{ background: "#F0F2F5", color: "#667781" }}
+            style={{ background: "#F3F4F6", color: "#6B7280" }}
           >
             {reanalyzing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
             Reanalisar
@@ -491,7 +492,7 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
             onClick={handleSave}
             disabled={saving || !name.trim()}
             className="w-full flex items-center justify-center gap-2 disabled:opacity-40 font-bold rounded-full px-4 py-3.5 transition-colors text-[16px]"
-            style={{ background: "#25D366", color: "#FFFFFF" }}
+            style={{ background: "#16A34A", color: "#FFFFFF" }}
           >
             {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
             {saving ? "A guardar..." : "Guardar perfil"}
@@ -559,18 +560,18 @@ function OfferingCard({
     }
   }, [offering, onChange]);
 
-  const inputCls = "w-full bg-[#F0F2F5] border border-[#E9EDEF] rounded-xl px-4 py-3 text-[15px] text-[#111B21] placeholder:text-[#8696A0] focus:outline-none focus:border-[#25D366] transition-colors";
+  const inputCls = "w-full bg-[#F3F4F6] border border-[#E5E7EB] rounded-xl px-4 py-3 text-[15px] text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#16A34A] transition-colors";
 
   return (
     <div
       className="border rounded-2xl p-3 space-y-2 relative"
       style={offering.featured
         ? { borderColor: "#FCD34D", background: "#FFFBEB" }
-        : { borderColor: "#E9EDEF", background: "#FFFFFF" }}
+        : { borderColor: "#E5E7EB", background: "#FFFFFF" }}
     >
       {/* Top bar: drag handle + featured toggle + remove */}
       <div className="flex items-center gap-2 mb-1">
-        <div className="cursor-grab active:cursor-grabbing shrink-0" style={{ color: "#8696A0" }} title="Arrastar">
+        <div className="cursor-grab active:cursor-grabbing shrink-0" style={{ color: "#9CA3AF" }} title="Arrastar">
           <GripVertical size={16} />
         </div>
         <button
@@ -579,7 +580,7 @@ function OfferingCard({
           className="flex items-center gap-1 text-[12px] font-semibold rounded-full px-2.5 py-1 transition-colors disabled:opacity-40"
           style={offering.featured
             ? { background: "#FEF3C7", color: "#B45309" }
-            : { background: "#F0F2F5", color: "#8696A0" }}
+            : { background: "#F3F4F6", color: "#9CA3AF" }}
           title={offering.featured ? "Remover destaque" : featuredCount >= 3 ? "Máximo de 3 destaques" : "Marcar como destaque"}
         >
           <Star size={12} className={offering.featured ? "fill-yellow-600" : ""} />
@@ -594,16 +595,16 @@ function OfferingCard({
         <div className="relative flex-shrink-0">
           <div
             className="w-20 h-20 rounded-xl overflow-hidden flex items-center justify-center"
-            style={{ background: "#F0F2F5" }}
+            style={{ background: "#F3F4F6" }}
           >
             {offering.imageUrl ? (
               <img src={offering.imageUrl} alt={offering.name || "Produto"} className="w-full h-full object-cover" />
             ) : (
-              <Camera size={22} style={{ color: "#8696A0" }} />
+              <Camera size={22} style={{ color: "#9CA3AF" }} />
             )}
             {uploading && (
               <div className="absolute inset-0 flex items-center justify-center" style={{ background: "rgba(255,255,255,0.75)" }}>
-                <Loader2 size={18} className="animate-spin" style={{ color: "#25D366" }} />
+                <Loader2 size={18} className="animate-spin" style={{ color: "#16A34A" }} />
               </div>
             )}
           </div>
@@ -624,12 +625,12 @@ function OfferingCard({
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
             className="flex items-center gap-1.5 text-[13px] font-semibold disabled:opacity-50 transition-colors"
-            style={{ color: "#25D366" }}
+            style={{ color: "#16A34A" }}
           >
             <Camera size={14} />
             {offering.imageUrl ? "Alterar foto" : "Adicionar foto"}
           </button>
-          <p className="text-[12px]" style={{ color: "#8696A0" }}>JPG ou PNG · máx. 5 MB</p>
+          <p className="text-[12px]" style={{ color: "#9CA3AF" }}>JPG ou PNG · máx. 5 MB</p>
           {uploadError && <p className="text-[12px]" style={{ color: "#EF4444" }}>{uploadError}</p>}
         </div>
 
@@ -722,7 +723,7 @@ function OfferingsSection({
   return (
     <div className={sectionCls}>
       <div className="flex items-center justify-between">
-        <h3 className="text-[16px] font-bold" style={{ color: "#111B21" }}>Produtos & serviços</h3>
+        <h3 className="text-[16px] font-bold" style={{ color: "#111827" }}>Produtos & serviços</h3>
         <AddBtn onClick={handleAdd} />
       </div>
       {offerings.length === 0 && (
@@ -752,7 +753,7 @@ function OfferingsSection({
         </div>
       ))}
       {offerings.length > 0 && (
-        <p className="text-[12px] mt-1" style={{ color: "#8696A0" }}>
+        <p className="text-[12px] mt-1" style={{ color: "#9CA3AF" }}>
           Arrasta os produtos para reordenar · Até 3 destaques (⭐)
         </p>
       )}
@@ -764,7 +765,7 @@ function AddBtn({ onClick }: { onClick: () => void }) {
   return (
     <button onClick={onClick}
       className="flex items-center gap-1 text-[13px] font-semibold transition-colors"
-      style={{ color: "#25D366" }}>
+      style={{ color: "#16A34A" }}>
       <Plus className="w-4 h-4" /> Adicionar
     </button>
   );
@@ -779,7 +780,7 @@ function RemoveBtn({ onClick, inline }: { onClick: () => void; inline?: boolean 
           ? "shrink-0 p-2 rounded-xl transition-colors"
           : "absolute top-2 right-2 p-1.5 rounded-xl transition-colors"
       }
-      style={{ color: "#8696A0" }}
+      style={{ color: "#9CA3AF" }}
       aria-label="Remover"
     >
       <Trash2 className="w-4 h-4" />
@@ -788,5 +789,5 @@ function RemoveBtn({ onClick, inline }: { onClick: () => void; inline?: boolean 
 }
 
 function EmptyHint({ text }: { text: string }) {
-  return <p className="text-[13px]" style={{ color: "#8696A0" }}>{text}</p>;
+  return <p className="text-[13px]" style={{ color: "#9CA3AF" }}>{text}</p>;
 }

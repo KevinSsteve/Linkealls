@@ -266,7 +266,7 @@ export function Assistant() {
         style={{ background: "#075E54", height: 56, paddingTop: "env(safe-area-inset-top)" }}>
         {/* Avatar */}
         <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
-          style={{ background: "#25D366" }}>
+          style={{ background: "#16A34A" }}>
           <Zap size={18} className="text-white" strokeWidth={2} />
         </div>
         <div className="flex-1 min-w-0">

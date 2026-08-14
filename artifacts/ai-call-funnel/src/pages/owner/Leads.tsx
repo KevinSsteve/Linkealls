@@ -331,7 +331,7 @@ export function Leads() {
     es.addEventListener("lead_qualified", (e) => {
       const data = JSON.parse((e as MessageEvent).data) as { leadId: string };
       setNewLeadIds((prev) => new Set([...prev, data.leadId]));
-      setNotification("🎯 Novo lead qualificado!");
+      setNotification("Novo lead qualificado!");
       void loadLeads();
       setTimeout(() => setNotification(null), 5000);
     });
@@ -378,15 +378,15 @@ export function Leads() {
       {/* Header */}
       <div className="shrink-0 px-4 pt-6 pb-2 flex items-center justify-between"
         style={{ background: C.white }}>
-        <h1 className="text-[26px] font-extrabold tracking-tight" style={{ color: "#0B141A" }}>Leads</h1>
-        <button onClick={() => void loadLeads()} className="p-1.5 rounded-full" style={{ color: "#54656F" }}>
+        <h1 className="text-[22px] font-bold tracking-tight" style={{ color: C.text }}>Leads</h1>
+        <button onClick={() => void loadLeads()} className="p-1.5 rounded-full" style={{ color: C.text3 }}>
           <RefreshCw size={20} strokeWidth={1.8} />
         </button>
       </div>
 
       {notification && (
         <div className="shrink-0 mx-4 mt-3 flex items-center gap-2 text-[13px] py-2.5 px-3.5 rounded-xl"
-          style={{ background: "#E8F5E9", color: "#1B5E20", border: "1px solid #A5D6A7" }}>
+          style={{ background: C.successBg, color: C.successText, border: `1px solid ${C.successBorder}` }}>
           {notification}
         </div>
       )}

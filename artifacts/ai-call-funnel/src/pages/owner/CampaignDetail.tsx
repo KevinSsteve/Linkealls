@@ -18,13 +18,13 @@ import { useBusinessSlug } from "../../hooks/useBusinessSlug";
 
 // ─── Colours ─────────────────────────────────────────────────────────────────
 const C = {
-  bg:     "#F0F2F5",
+  bg:     "#F3F4F6",
   white:  "#FFFFFF",
-  text:   "#111B21",
-  text2:  "#667781",
-  text3:  "#8696A0",
+  text:   "#111827",
+  text2:  "#6B7280",
+  text3:  "#9CA3AF",
   green:  "#00A884",
-  border: "#E9EDEF",
+  border: "#E5E7EB",
 };
 
 // ─── Constants ────────────────────────────────────────────────────────────────

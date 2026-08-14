@@ -5,7 +5,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   ArrowLeft, User, Phone, Search, ExternalLink,
-  DollarSign, Clock, MapPin, MessageCircle, RefreshCw, Zap, Send,
+  DollarSign, Clock, MapPin, MessageCircle, RefreshCw, Zap, Send, Target,
 } from "lucide-react";
 import { Link } from "wouter";
 import {
@@ -58,7 +58,7 @@ function formatTime(iso: string): string {
 }
 function getLeadName(lead: Lead) { return lead.qualificationData.name || "Visitante anónimo"; }
 function getLeadPreview(lead: Lead) {
-  if (lead.callTranscript) return "📞 Chamada de voz concluída";
+  if (lead.callTranscript) return "Chamada de voz concluída";
   const msgs = lead.chatMessages;
   if (!msgs.length) return "Sem mensagens";
   const last = msgs[msgs.length - 1];
@@ -214,9 +214,9 @@ function ConversationDetail({ lead: initialLead, onBack, onStateChange, api }: {
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
-      {/* Header — WA Business dark green */}
+      {/* Header */}
       <div className="flex items-center gap-3 px-3 shrink-0"
-        style={{ background: "#075E54", height: 56 }}>
+        style={{ background: C.headerBg, height: 56 }}>
         <button onClick={onBack} className="transition-colors p-1 -ml-1 active:scale-90"
           style={{ color: "rgba(255,255,255,0.85)" }}>
           <ArrowLeft size={22} />
@@ -448,9 +448,9 @@ export function Conversas() {
       {/* Header */}
       <div className="shrink-0 px-4 pt-6 pb-2 flex items-center justify-between"
         style={{ background: C.white }}>
-        <h1 className="text-[26px] font-extrabold tracking-tight" style={{ color: "#0B141A" }}>Conversas</h1>
+        <h1 className="text-[22px] font-bold tracking-tight" style={{ color: C.text }}>Conversas</h1>
         <button onClick={() => void load()} className="p-1.5 rounded-full transition-colors"
-          style={{ color: "#54656F" }} aria-label="Actualizar">
+          style={{ color: C.text3 }} aria-label="Actualizar">
           <RefreshCw size={20} strokeWidth={1.8} />
         </button>
       </div>
@@ -458,8 +458,8 @@ export function Conversas() {
       {/* Notification toast */}
       {notification && (
         <div className="shrink-0 mx-4 mt-3 flex items-center gap-2 text-[13px] py-2.5 px-3.5 rounded-xl"
-          style={{ background: "#E8F5E9", color: "#1B5E20", border: "1px solid #A5D6A7" }}>
-          🎯 {notification}
+          style={{ background: C.successBg, color: C.successText, border: `1px solid ${C.successBorder}` }}>
+          <Target size={14} className="shrink-0" /> {notification}
         </div>
       )}
 

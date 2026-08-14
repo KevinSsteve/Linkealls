@@ -1,0 +1,747 @@
+Sim. Eu faria o prompt **menos “faça um design bonito” e mais como uma especificação de engenharia de UI**. O ponto crítico é impedir o Replit de alterar a lógica enquanto força uma reconstrução visual sistemática.
+
+# LINKealls — UI/UX DESIGN SYSTEM REFACTOR
+
+## CONTEXTO
+
+Estamos a refatorar a interface mobile da Linkealls.
+
+A aplicação já possui funcionalidades, lógica, dados, navegação e backend. **NÃO quero reconstruir o sistema. Quero reconstruir a camada visual.**
+
+O problema atual é que a interface funciona, mas visualmente parece uma aplicação construída com HTML/CSS básico: muitos containers, muitos backgrounds cinzentos, excesso de bordas, espaçamentos inconsistentes, hierarquia visual fraca e componentes que não parecem pertencer ao mesmo produto.
+
+A referência visual principal é a linguagem de **WhatsApp Business**, especialmente:
+
+* simplicidade
+* hierarquia
+* densidade de informação
+* listas limpas
+* ícones consistentes
+* separadores discretos
+* ações claras
+* navegação mobile
+* aparência de aplicação nativa
+
+**NÃO copiar o WhatsApp.**
+
+A Linkealls deve ter identidade própria, mas atingir o mesmo nível de simplicidade e acabamento.
+
+---
+
+# 1. REGRA MAIS IMPORTANTE
+
+## NÃO ALTERAR A LÓGICA DO PRODUTO
+
+Antes de alterar qualquer coisa:
+
+1. Inspecione a estrutura atual do projeto.
+2. Identifique o framework utilizado.
+3. Identifique como estão implementados:
+
+   * routing
+   * autenticação
+   * estado
+   * API
+   * banco de dados
+   * formulários
+   * upload de imagens
+   * catálogo
+   * conversas
+   * campanhas
+4. Preserve toda essa lógica.
+
+Não reescreva backend.
+
+Não altere schema do banco.
+
+Não altere endpoints.
+
+Não altere regras de negócio.
+
+Não remova funcionalidades existentes.
+
+Não faça uma nova aplicação paralela.
+
+O objetivo é:
+
+**EXISTING FUNCTIONALITY + NEW DESIGN SYSTEM**
+
+---
+
+# 2. PRIMEIRO: AUDITORIA VISUAL
+
+Antes de codificar, analise as telas existentes e identifique:
+
+* componentes duplicados
+* estilos inline
+* CSS repetido
+* cores hardcoded
+* border-radius inconsistentes
+* tamanhos de fonte inconsistentes
+* espaçamentos inconsistentes
+* botões diferentes para a mesma função
+* ícones de famílias diferentes
+* excesso de cards
+* excesso de borders
+* backgrounds desnecessários
+* elementos que parecem desktop adaptado para mobile
+* componentes que deveriam ser reutilizados
+
+Depois faça a refatoração.
+
+Não tente corrigir tudo adicionando mais CSS local.
+
+---
+
+# 3. STACK VISUAL
+
+Se já existirem bibliotecas equivalentes no projeto, reutilize-as.
+
+Se não existirem, utilize preferencialmente:
+
+* Tailwind CSS
+* shadcn/ui
+* Radix UI
+* Lucide Icons
+* Motion
+
+Não instalar bibliotecas desnecessárias.
+
+Não introduzir uma biblioteca apenas para resolver um componente simples.
+
+O objetivo é criar uma base visual consistente e reutilizável.
+
+---
+
+# 4. DESIGN TOKENS
+
+Crie um sistema global de tokens.
+
+Não espalhe valores arbitrários pelo código.
+
+## Espaçamento
+
+Utilizar uma escala baseada em múltiplos de 4:
+
+4
+8
+12
+16
+20
+24
+32
+40
+48
+
+Evitar valores como:
+
+11px
+13px
+17px
+19px
+
+sem uma razão específica.
+
+## Border radius
+
+Definir poucos níveis:
+
+* pequeno: 8px
+* médio: 12px
+* grande: 16px
+* pill: 9999px
+
+Não utilizar um radius diferente em cada componente.
+
+## Sombras
+
+Usar sombras extremamente sutis.
+
+Evitar:
+
+* sombras pesadas
+* efeito "floating card" exagerado
+* múltiplas sombras
+
+A interface deve parecer limpa e premium.
+
+## Borders
+
+Borders devem ser:
+
+* finos
+* discretos
+* usados somente quando necessários
+
+Não colocar uma border em absolutamente todos os elementos.
+
+---
+
+# 5. FILOSOFIA VISUAL
+
+A regra principal é:
+
+> MENOS CAIXAS. MAIS HIERARQUIA.
+
+A interface atual transforma cada informação em um card.
+
+Isso deve acabar.
+
+Evitar:
+
+```text
+┌──────────────────────┐
+│ Descrição            │
+└──────────────────────┘
+
+┌──────────────────────┐
+│ Endereço             │
+└──────────────────────┘
+
+┌──────────────────────┐
+│ Horário              │
+└──────────────────────┘
+```
+
+Preferir:
+
+```text
+DESCRIÇÃO
+
+texto...
+
+──────────────────────
+
+📍 Endereço
+Luanda
+
+──────────────────────
+
+◷ Horário
+Seg–Sex 08:00–17:00
+
+──────────────────────
+
+☎ Contacto
++244 ...
+```
+
+Ou seja:
+
+**listas + separadores + whitespace**
+
+em vez de
+
+**card + card + card + card.**
+
+---
+
+# 6. TIPOGRAFIA
+
+A tipografia deve ter uma hierarquia clara.
+
+Defina estilos globais:
+
+* Display
+* Page title
+* Section title
+* Body
+* Body secondary
+* Caption
+* Label
+* Button
+
+Não usar dezenas de tamanhos diferentes.
+
+Priorizar:
+
+* peso
+* tamanho
+* line-height
+* contraste
+* whitespace
+
+O texto secundário deve ter contraste menor, mas continuar legível.
+
+Não deixar labels em uppercase excessivo.
+
+---
+
+# 7. ÍCONES
+
+Utilizar UMA única família de ícones.
+
+Preferência:
+
+**Lucide Icons**
+
+Não misturar:
+
+* emojis
+* SVGs aleatórios
+* Material Icons
+* Font Awesome
+* ícones desenhados manualmente
+
+sem necessidade.
+
+Os ícones devem ter:
+
+* tamanho consistente
+* stroke consistente
+* alinhamento consistente
+
+Ícones não devem dominar o conteúdo.
+
+---
+
+# 8. BOTÕES
+
+Criar um componente Button global.
+
+Estados obrigatórios:
+
+* default
+* hover
+* pressed
+* disabled
+* loading
+
+Não criar botões manualmente com CSS diferente em cada página.
+
+Ações primárias devem ser visualmente claras.
+
+Ações secundárias devem ser discretas.
+
+Não transformar todas as ações em botões coloridos.
+
+---
+
+# 9. INPUTS E FORMULÁRIOS
+
+A Linkealls atualmente parece muito com um formulário.
+
+Corrigir isso.
+
+Inputs de edição podem utilizar background suave, mas a visualização pública do perfil NÃO deve parecer um formulário.
+
+Separar claramente:
+
+### MODO VISUALIZAÇÃO
+
+conteúdo limpo e comercial.
+
+### MODO EDIÇÃO
+
+inputs, controles, upload, drag-and-drop etc.
+
+Nunca misturar os dois visualmente.
+
+---
+
+# 10. PERFIL DO NEGÓCIO
+
+Refazer especialmente esta tela.
+
+Estrutura desejada:
+
+### HEADER
+
+[Voltar]
+
+Perfil do negócio
+
+[...]
+
+---
+
+### IDENTIDADE
+
+Logo/foto
+
+**Electro Panga**
+
+Material Eléctrico, Automação e Ferramentas
+
+● Ativo
+
+---
+
+### AÇÕES
+
+Editar | Catálogo | Partilhar | Mais
+
+Essas quatro ações devem ter aparência consistente.
+
+---
+
+### INFORMAÇÕES
+
+Descrição
+
+Endereço
+
+Horário
+
+Contacto
+
+E-mail
+
+Website
+
+Utilizar uma lista limpa.
+
+Não criar um card separado para cada informação.
+
+---
+
+### DESTAQUES
+
+Criar seção horizontal:
+
+Destaques                         Gerir
+
+[Promoções] [Novidades] [Serviços]
+
+Os itens devem ser visuais e compactos.
+
+---
+
+### CATÁLOGO
+
+Catálogo                         Ver tudo
+
+Mostrar produtos reais.
+
+Cada produto deve possuir:
+
+* imagem
+* nome
+* preço
+* eventualmente etiqueta/status
+
+Usar grid ou lista dependendo do contexto.
+
+---
+
+# 11. MOBILE FIRST
+
+A aplicação é prioritariamente mobile.
+
+Não trate mobile como:
+
+"desktop reduzido".
+
+O layout deve ser desenhado primeiro para aproximadamente:
+
+* 360px
+* 375px
+* 390px
+* 412px
+
+Depois adaptar para telas maiores.
+
+Garantir:
+
+* áreas de toque adequadas
+* navegação inferior
+* scroll natural
+* headers compactos
+* drawers/bottom sheets para ações secundárias
+* ausência de overflow horizontal
+* textos sem clipping
+
+---
+
+# 12. NAVEGAÇÃO INFERIOR
+
+A bottom navigation deve parecer parte do sistema operacional da aplicação.
+
+Exemplo:
+
+Conversas | Ligações | Campanhas | Mercado
+
+ou a navegação atualmente existente.
+
+Requisitos:
+
+* altura consistente
+* ícones Lucide
+* label
+* estado ativo claramente distinguível
+* área de toque confortável
+* safe-area para Android/iOS
+* não sobrepor conteúdo
+
+---
+
+# 13. MICROINTERAÇÕES
+
+Utilizar Motion apenas quando acrescentar qualidade.
+
+Adicionar microinterações para:
+
+* abrir drawer
+* abrir modal
+* trocar tabs
+* pressionar botão
+* adicionar produto
+* remover produto
+* salvar alterações
+* loading
+* sucesso
+* erro
+
+As animações devem ser:
+
+* rápidas
+* suaves
+* discretas
+
+Nada de animações chamativas.
+
+---
+
+# 14. COMPONENTES REUTILIZÁVEIS
+
+Criar ou refatorar componentes reutilizáveis:
+
+* AppHeader
+* BusinessHeader
+* ActionButton
+* SectionHeader
+* InfoList
+* InfoListItem
+* ProductCard
+* ProductList
+* HighlightCard
+* EmptyState
+* BottomNavigation
+* Sheet
+* Dialog
+* Button
+* Input
+* Avatar
+* Badge
+* Tabs
+* SearchBar
+
+Se um componente aparece duas vezes, ele deve provavelmente ser um componente reutilizável.
+
+---
+
+# 15. CORES
+
+A Linkealls deve possuir identidade visual própria.
+
+Não utilizar verde WhatsApp como cor principal.
+
+Usar a cor primária atual da Linkealls como accent.
+
+Criar tokens:
+
+primary
+primary-foreground
+background
+surface
+surface-muted
+text
+text-secondary
+border
+success
+warning
+danger
+
+O verde pode existir para estados de sucesso/ativo, mas não deve dominar toda a interface.
+
+---
+
+# 16. DENSIDADE VISUAL
+
+A interface atual está muito carregada.
+
+Reduzir:
+
+* quantidade de borders
+* quantidade de backgrounds
+* quantidade de cards
+* quantidade de elementos simultaneamente destacados
+
+A interface deve ter:
+
+**hierarquia → conteúdo → ação**
+
+e não:
+
+**tudo destacado ao mesmo tempo.**
+
+---
+
+# 17. REFERÊNCIA DE QUALIDADE
+
+Use a filosofia visual de:
+
+* WhatsApp Business
+* iOS
+* Linear
+* Stripe
+* Vercel
+* Notion
+
+Não copie nenhum deles.
+
+Observe apenas princípios:
+
+* simplicidade
+* consistência
+* whitespace
+* tipografia
+* hierarquia
+* componentes reutilizáveis
+* estados
+* feedback
+* densidade
+
+---
+
+# 18. NÃO FAZER
+
+NÃO:
+
+* adicionar gradientes sem necessidade
+* usar sombras fortes
+* colocar border em tudo
+* transformar tudo em card
+* usar emojis como ícones
+* misturar famílias de ícones
+* usar dezenas de cores
+* usar valores de spacing arbitrários
+* criar CSS duplicado
+* criar estilos inline desnecessários
+* criar uma UI desktop comprimida para mobile
+* alterar backend
+* alterar banco
+* remover funcionalidades
+* substituir dados reais por mocks
+* criar páginas visualmente diferentes entre si
+
+---
+
+# 19. CRITÉRIO DE SUCESSO
+
+Quando terminar, a aplicação deve parecer que foi criada por **uma única equipa de produto**, e não por diferentes prompts.
+
+Todas as telas devem compartilhar:
+
+* mesma tipografia
+* mesmos espaçamentos
+* mesmos botões
+* mesmos ícones
+* mesmos cards
+* mesmas cores
+* mesmos estados
+* mesma linguagem visual
+
+Se eu abrir:
+
+Perfil
+Catálogo
+Conversas
+Campanhas
+Leads
+Assistente IA
+
+deve ficar imediatamente claro que todas pertencem ao mesmo produto.
+
+---
+
+# 20. PROCESSO DE IMPLEMENTAÇÃO
+
+Não faça tudo de uma vez.
+
+### PASSO 1
+
+Audite o código existente.
+
+### PASSO 2
+
+Identifique o design system atual.
+
+### PASSO 3
+
+Crie/refatore os tokens globais.
+
+### PASSO 4
+
+Crie/refatore os componentes base.
+
+### PASSO 5
+
+Refaça APENAS o "Perfil do negócio".
+
+### PASSO 6
+
+Teste em 360–412px.
+
+### PASSO 7
+
+Corrija spacing, typography, alignment e density.
+
+### PASSO 8
+
+Depois aplique o mesmo sistema ao Catálogo.
+
+### PASSO 9
+
+Depois às restantes áreas.
+
+Não avance para a próxima área enquanto o componente base ainda estiver visualmente inconsistente.
+
+---
+
+# 21. REGRA FINAL
+
+Quero que você pense como:
+
+**Senior Product Designer + Senior Frontend Engineer**
+
+e não apenas como desenvolvedor implementando requisitos.
+
+Antes de escrever código, pergunte:
+
+> "Este elemento realmente precisa existir?"
+
+> "Precisa ser um card?"
+
+> "Precisa de uma border?"
+
+> "Precisa de uma cor?"
+
+> "Precisa de um ícone?"
+
+> "Esta informação poderia ser apresentada de maneira mais simples?"
+
+O objetivo não é adicionar design.
+
+O objetivo é **remover complexidade visual**.
+
+A interface final deve transmitir:
+
+**simples → confiável → profissional → comercial → premium**
+
+sem parecer exageradamente sofisticada.
+
+---
+
+## ENTREGA
+
+Ao terminar a primeira etapa, mostre o resultado visualmente e explique apenas:
+
+1. quais componentes foram criados/refatorados;
+2. quais problemas visuais foram eliminados;
+3. quais páginas foram alteradas;
+4. se a lógica/backend permaneceram intactos.
+
+**Não faça mudanças arquiteturais desnecessárias.**
+
+Primeiro transforme o Perfil do Negócio em uma referência visual de qualidade. Depois use esse mesmo sistema para o restante da Linkealls.

@@ -57,7 +57,7 @@ function StatusCard({ business }: { business: Business }) {
           className="rounded-full shrink-0"
           style={{
             padding: 2.5,
-            background: `conic-gradient(${C.green} 0%, #128C7E 100%)`,
+            background: `conic-gradient(${C.green} 0%, #166534 100%)`,
           }}
         >
           <div
@@ -104,7 +104,7 @@ function BusinessRow({ business }: { business: Business }) {
           <div className="flex items-center gap-2">
             <p
               className="font-semibold text-[16px] truncate"
-              style={{ color: "#111B21" }}
+              style={{ color: "#111827" }}
             >
               {business.name}
             </p>
@@ -183,7 +183,7 @@ export function Mercado() {
   }, [businesses, query]);
 
   return (
-    <div className="flex flex-col h-full wa-page" style={{ background: "#F0F2F5" }}>
+    <div className="flex flex-col h-full wa-page" style={{ background: "#F3F4F6" }}>
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="shrink-0" style={{ background: C.white }}>
@@ -191,15 +191,15 @@ export function Mercado() {
         <div className="flex items-center justify-between px-4 pt-5 pb-2">
           <h1
             className="text-[26px] font-extrabold tracking-tight"
-            style={{ color: "#0B141A" }}
+            style={{ color: "#111827" }}
           >
             Mercado
           </h1>
           <button
             onClick={() => void load()}
-            className="p-1.5 rounded-full transition-colors active:bg-[#F0F2F5]"
+            className="p-1.5 rounded-full transition-colors active:bg-[#F3F4F6]"
             aria-label="Actualizar"
-            style={{ color: "#54656F" }}
+            style={{ color: "#6B7280" }}
           >
             <RefreshCw size={20} strokeWidth={1.8} />
           </button>
@@ -209,22 +209,22 @@ export function Mercado() {
         <div className="px-4 pb-3">
           <div
             className="flex items-center gap-2.5 px-4 rounded-full"
-            style={{ background: "#F0F2F5", height: 44 }}
+            style={{ background: "#F3F4F6", height: 44 }}
           >
-            <Search size={16} className="shrink-0" style={{ color: "#8696A0" }} />
+            <Search size={16} className="shrink-0" style={{ color: "#9CA3AF" }} />
             <input
               type="text"
               placeholder="Pesquisar..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="flex-1 bg-transparent text-[15px] outline-none"
-              style={{ color: "#111B21" }}
+              style={{ color: "#111827" }}
             />
             {query && (
               <button
                 onClick={() => setQuery("")}
                 className="shrink-0"
-                style={{ color: "#8696A0" }}
+                style={{ color: "#9CA3AF" }}
                 aria-label="Limpar"
               >
                 ×
@@ -289,7 +289,7 @@ export function Mercado() {
         {!loading && businesses.length > 0 && filtered.length === 0 && (
           <WaEmptyState
             icon={<Search size={36} />}
-            iconBg="#F0F2F5"
+            iconBg="#F3F4F6"
             iconColor={C.text3}
             title={`Sem resultados para "${query}"`}
             subtitle="Tenta um nome de negócio ou sector diferente."

@@ -1,48 +1,54 @@
 /**
- * Linkealls / WhatsApp Business design tokens — single source of truth.
- * Import this everywhere instead of defining local `const C = { ... }`.
+ * Linkealls — Design System Tokens
+ * Single source of truth. Import this everywhere.
+ *
+ * Brand philosophy: simple → reliable → professional → commercial → premium
+ * Reference: Linear, Stripe, Notion clarity — NOT WhatsApp green.
  */
 export const C = {
-  // ── Backgrounds ────────────────────────────────────────────────────────────
-  /** Alias for appBg — keep pages compatible with old local `C.bg` */
-  bg:            "#F0F2F5",
-  appBg:         "#F0F2F5",
-  white:         "#FFFFFF",
-  chatWallpaper: "#E5DDD5",
-  chatBg:        "#E5DDD5",
-  bubOut:        "#D9FDD3",
-  bubIn:         "#FFFFFF",
+  // ── App backgrounds ────────────────────────────────────────────────────────
+  bg:            "#F9FAFB",   // cool light gray — app shell background
+  appBg:         "#F9FAFB",
+  white:         "#FFFFFF",   // surface / card background
+  surface:       "#FFFFFF",
 
-  // ── WA Brand ───────────────────────────────────────────────────────────────
-  green:         "#25D366",
-  /** Darker teal used for text on green backgrounds */
-  greenDark:     "#128C7E",
-  /** Old legacy green kept for compatibility */
-  greenLegacy:   "#00A884",
-  /** Dark green used for chat/owner headers */
-  headerBg:      "#075E54",
+  // ── Linkealls brand ─────────────────────────────────────────────────────────
+  green:         "#16A34A",   // brand green (Linkealls — not WhatsApp's #25D366)
+  greenDark:     "#166534",   // deep green — text on light, header backgrounds
+  greenLight:    "#DCFCE7",   // mint tint — active pills, badge backgrounds
+  greenMuted:    "#F0FDF4",   // barely-green — hover states, subtle tints
+  /** @deprecated keep for chat bubble compat */
+  greenLegacy:   "#16A34A",
+  /** Dark green header (chat detail headers) */
+  headerBg:      "#166534",
 
   // ── Text ───────────────────────────────────────────────────────────────────
-  text:          "#111B21",
-  text2:         "#667781",
-  text3:         "#8696A0",
+  text:          "#111827",   // cool near-black — primary text
+  text2:         "#6B7280",   // gray-500 — secondary / supporting
+  text3:         "#9CA3AF",   // gray-400 — muted / placeholders
 
-  // ── Chat bubbles ───────────────────────────────────────────────────────────
+  // ── Chat (intentionally WhatsApp-style — this IS a chat product) ──────────
+  chatBg:        "#E5DDD5",
+  chatWallpaper: "#E5DDD5",
+  bubOut:        "#D9FDD3",   // visitor/user bubble
+  bubIn:         "#FFFFFF",   // AI bubble
   bubbleUser:    "#D9FDD3",
   bubbleBot:     "#FFFFFF",
 
-  // ── UI chrome ──────────────────────────────────────────────────────────────
-  border:        "#E9EDEF",
-  inputBg:       "#F0F2F5",
+  // ── UI chrome ───────────────────────────────────────────────────────────────
+  border:        "#E5E7EB",   // gray-200 — subtle dividers
+  inputBg:       "#F3F4F6",   // gray-100 — input fields
 
-  // ── Feedback ───────────────────────────────────────────────────────────────
-  successBg:     "#D9FDD3",
-  successText:   "#128C7E",
-  errorBg:       "#FFEBEE",
-  errorText:     "#C62828",
-  errorBorder:   "#FFCDD2",
-  warnBg:        "#FFF8E1",
-  warnText:      "#E65100",
+  // ── Feedback ────────────────────────────────────────────────────────────────
+  successBg:     "#F0FDF4",
+  successText:   "#15803D",
+  successBorder: "#BBF7D0",
+  errorBg:       "#FEF2F2",
+  errorText:     "#DC2626",
+  errorBorder:   "#FECACA",
+  warnBg:        "#FFFBEB",
+  warnText:      "#D97706",
+  warnBorder:    "#FDE68A",
 } as const;
 
 export type ColorToken = keyof typeof C;
