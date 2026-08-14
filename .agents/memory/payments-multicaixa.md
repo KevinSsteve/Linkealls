@@ -9,6 +9,8 @@ Rules that must survive any future change to payments code:
 - **Settlement is one transaction**: status transition (pendente→paga) + ledger credit must commit together; retries repair a lost credit via the unique index on `wallet_ledger.order_id` + `onConflictDoNothing`.
 - **Payout unknown outcome ≠ failure**: on gateway timeout/network error keep the payout `pendente` (debit retained) and reconcile later; only refund (`estorno_saque`) after an authoritative rejection. Refunding on timeout is a double-spend.
 - **Webhook fail-closed**: real-mode callbacks require a valid HMAC x-signature (timingSafeEqual); merchant identifier is public info, not auth. In simulation mode real webhooks get 401 and `/payments/simulate/pay` is the only settlement path.
+- **Gateway field rules (found via real 401/400s):** `merchantTransactionId` max 15 chars, alphanumeric only (no dashes); `paymentMethod` must carry the `GPO_` prefix (the portal shows only the GUID — code normalizes). A bad paymentMethod yields an opaque 401 `{"error":"UNKNOWN"}`, not a validation message.
+- **POST /charges is synchronous**: it blocks up to ~60s until the buyer approves/declines; the 200 response's `responseStatus.successful` is the final outcome — settle/fail immediately from it, don't wait only for the webhook (code 211 = buyer didn't approve in time).
 - Simulation mode = any of APPYPAY_CLIENT_ID/SECRET/RESOURCE or EKWANZA_GPO_PAYMENT_METHOD missing; going live also needs EKWANZA_API_KEY/NOTIFICATION_TOKEN/PARTNER_REGISTRATION for webhook verification.
 
 **Why:** each rule maps to a concrete failure found in review (forged settlement, lost credit on crash, timeout double-spend, renewal race).

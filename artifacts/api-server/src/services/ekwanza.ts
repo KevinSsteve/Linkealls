@@ -28,8 +28,13 @@ const APPYPAY_AUTH_URL = env("APPYPAY_AUTH_URL") ||
   "https://login.microsoftonline.com/auth.appypay.co.ao/oauth2/token";
 const APPYPAY_RESOURCE = env("APPYPAY_RESOURCE");
 const APPYPAY_BASE_URL = env("APPYPAY_BASE_URL") || "https://gwy-api.appypay.co.ao/v2.0";
-/** paymentMethod id da aplicação GPO, e.g. "GPO_5cc3d5ab-…". */
-const EKWANZA_GPO_PAYMENT_METHOD = env("EKWANZA_GPO_PAYMENT_METHOD");
+/**
+ * paymentMethod id da aplicação GPO, e.g. "GPO_5cc3d5ab-…".
+ * O portal mostra só o GUID; o gateway exige o prefixo "GPO_" — normalizamos.
+ */
+const rawGpoMethod = env("EKWANZA_GPO_PAYMENT_METHOD");
+const EKWANZA_GPO_PAYMENT_METHOD =
+  rawGpoMethod && !rawGpoMethod.startsWith("GPO_") ? `GPO_${rawGpoMethod}` : rawGpoMethod;
 const EKWANZA_MERCHANT_IDENTIFIER = env("EKWANZA_MERCHANT_IDENTIFIER");
 const EKWANZA_API_KEY = env("EKWANZA_API_KEY");
 const EKWANZA_NOTIFICATION_TOKEN = env("EKWANZA_NOTIFICATION_TOKEN");
@@ -81,6 +86,16 @@ async function getAccessToken(): Promise<string> {
 
 export interface GpoChargeResult {
   simulated: boolean;
+  /**
+   * Synchronous outcome. The gateway's POST /charges blocks until the buyer
+   * approves/declines or the 60s window expires, so in real mode the response
+   * already carries the final result ("paid"/"failed"). "pending" only when
+   * the response is inconclusive (or in simulation, where the webhook/simulate
+   * endpoint settles later).
+   */
+  outcome: "pending" | "paid" | "failed";
+  /** Buyer-facing failure message (real mode, outcome === "failed"). */
+  failureMessage?: string;
   /** Raw gateway response (real mode). */
   raw?: unknown;
 }
@@ -97,7 +112,7 @@ export async function createGpoCharge(params: {
 }): Promise<GpoChargeResult> {
   if (IS_SIMULATION) {
     logger.info({ ...params }, "[SIMULAÇÃO] Charge GPO criada — aprova via endpoint de simulação");
-    return { simulated: true };
+    return { simulated: true, outcome: "pending" };
   }
   const token = await getAccessToken();
   const res = await fetch(`${APPYPAY_BASE_URL}/charges`, {
@@ -120,12 +135,30 @@ export async function createGpoCharge(params: {
       },
     }),
   });
-  const raw = await res.json().catch(() => null);
+  const raw = await res.json().catch(() => null) as {
+    responseStatus?: { successful?: boolean; status?: string | null; code?: number; message?: string };
+  } | null;
   if (!res.ok) {
     logger.error({ status: res.status, raw }, "GPO charge failed");
     throw new Error(`Falha ao criar cobrança Multicaixa Express (${res.status})`);
   }
-  return { simulated: false, raw };
+  const rs = raw?.responseStatus;
+  let outcome: GpoChargeResult["outcome"] = "pending";
+  if (rs?.successful === true) outcome = "paid";
+  else if (rs?.successful === false) outcome = "failed";
+  if (outcome === "failed") {
+    logger.warn({ raw }, "GPO charge declined/expired (synchronous)");
+  }
+  return {
+    simulated: false,
+    outcome,
+    failureMessage: outcome === "failed"
+      ? (rs?.code === 211
+        ? "O pagamento não foi aprovado a tempo na app Multicaixa Express (60 segundos). Tenta novamente."
+        : "O pagamento foi recusado. Verifica o saldo e tenta novamente.")
+      : undefined,
+    raw,
+  };
 }
 
 // ─── Webhook signature ────────────────────────────────────────────────────────

@@ -42,8 +42,11 @@ const ORDER_EXPIRY_HOURS = 24;
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function newMerchantTransactionId(prefix: "LKO" | "LKS"): string {
-  // Unique, gateway-friendly (no dashes beyond prefix), ≤ 40 chars.
-  return `${prefix}-${Date.now()}${randomUUID().replace(/-/g, "").slice(0, 10).toUpperCase()}`;
+  // AppyPay rule: 1-15 chars, alphanumeric only (no dashes).
+  // prefix (3) + timestamp base36 (8-9) + random base36 (3) = 14-15 chars.
+  const ts = Date.now().toString(36).toUpperCase();
+  const rand = randomUUID().replace(/-/g, "").slice(0, 3).toUpperCase();
+  return `${prefix}${ts}${rand}`.slice(0, 15);
 }
 
 /** Parse a free-form offering price ("244 329,00 Kz", "50.000 Kz") into AOA. Returns null when not sellable. */
@@ -107,11 +110,26 @@ export async function createProductOrder(
       phoneNumber: input.phone,
       description: `${profile.name}: ${offering.name} x${input.quantity}`,
     });
-    return { order, simulated: charge.simulated };
+    // Real mode: the gateway call blocks until the buyer approves/declines,
+    // so the outcome is already final — settle or fail right away.
+    if (charge.outcome === "paid") {
+      await settleGpoPayment(merchantTransactionId, 1);
+    } else if (charge.outcome === "failed") {
+      await db.update(ordersTable)
+        .set({ status: "falhada", updatedAt: new Date() })
+        .where(and(eq(ordersTable.id, order.id), eq(ordersTable.status, "pendente")));
+      throw new PaymentError(
+        charge.failureMessage ?? "O pagamento não foi aprovado. Tenta novamente.",
+        402,
+      );
+    }
+    const fresh = await db.select().from(ordersTable).where(eq(ordersTable.id, order.id)).limit(1);
+    return { order: fresh[0] ?? order, simulated: charge.simulated };
   } catch (err) {
+    if (err instanceof PaymentError) throw err;
     await db.update(ordersTable)
       .set({ status: "falhada", updatedAt: new Date() })
-      .where(eq(ordersTable.id, order.id));
+      .where(and(eq(ordersTable.id, order.id), eq(ordersTable.status, "pendente")));
     logger.error({ err, merchantTransactionId }, "createProductOrder: charge failed");
     throw new PaymentError("Não foi possível iniciar o pagamento Multicaixa Express", 502);
   }
@@ -203,11 +221,28 @@ export async function createPlanCharge(businessId: number, phone: string): Promi
       phoneNumber: phone,
       description: `Plano Linkealls — ${PLAN_DAYS} dias`,
     });
-    return { subscription, simulated: charge.simulated };
+    if (charge.outcome === "paid") {
+      await settleGpoPayment(merchantTransactionId, 1);
+    } else if (charge.outcome === "failed") {
+      await db.update(subscriptionsTable)
+        .set({ status: "falhada", updatedAt: new Date() })
+        .where(and(eq(subscriptionsTable.id, subscription.id), eq(subscriptionsTable.status, "pendente")));
+      throw new PaymentError(
+        charge.failureMessage ?? "O pagamento não foi aprovado. Tenta novamente.",
+        402,
+      );
+    }
+    const fresh = await db
+      .select()
+      .from(subscriptionsTable)
+      .where(eq(subscriptionsTable.id, subscription.id))
+      .limit(1);
+    return { subscription: fresh[0] ?? subscription, simulated: charge.simulated };
   } catch (err) {
+    if (err instanceof PaymentError) throw err;
     await db.update(subscriptionsTable)
       .set({ status: "falhada", updatedAt: new Date() })
-      .where(eq(subscriptionsTable.id, subscription.id));
+      .where(and(eq(subscriptionsTable.id, subscription.id), eq(subscriptionsTable.status, "pendente")));
     logger.error({ err, merchantTransactionId }, "createPlanCharge: charge failed");
     throw new PaymentError("Não foi possível iniciar o pagamento Multicaixa Express", 502);
   }
