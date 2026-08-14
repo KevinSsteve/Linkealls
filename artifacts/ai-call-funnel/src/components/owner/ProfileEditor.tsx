@@ -18,6 +18,7 @@ interface Props {
   reanalyzing: boolean;
   onSave: (fields: ProfileDraft & { websiteUrl?: string | null }) => void;
   onReanalyze: (url: string) => void;
+  onBack?: () => void;
 }
 
 /** Validate slug format client-side: 3-60 chars, only lowercase letters, digits, hyphens. */
@@ -284,7 +285,7 @@ function NotificationsSection({ slug }: { slug: string }) {
   );
 }
 
-export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onReanalyze }: Props) {
+export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onReanalyze, onBack }: Props) {
   const slug = useBusinessSlug();
   const init = <K extends keyof ProfileDraft>(key: K, fallback: NonNullable<ProfileDraft[K]>) =>
     (draft?.[key] ?? (profile[key as keyof BusinessProfile] as ProfileDraft[K]) ?? fallback) as NonNullable<ProfileDraft[K]>;
@@ -299,6 +300,11 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
   const [faq, setFaq] = useState<FaqItem[]>(init("faq", []));
   const [qualificationGoals, setQualificationGoals] = useState<string[]>(init("qualificationGoals", []));
   const [siteUrl, setSiteUrl] = useState<string>(profile.websiteUrl ?? "");
+  // New contact & location fields
+  const [address, setAddress] = useState<string>(profile.address ?? "");
+  const [hours, setHours] = useState<string>(profile.hours ?? "");
+  const [phone, setPhone] = useState<string>(profile.phone ?? "");
+  const [email, setEmail] = useState<string>(profile.email ?? "");
 
   const handleSave = () => {
     onSave({
@@ -312,11 +318,27 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
       faq: faq.filter((f) => f.question.trim()),
       qualificationGoals: qualificationGoals.map((g) => g.trim()).filter(Boolean),
       websiteUrl: siteUrl.trim() || null,
+      address: address.trim() || null,
+      hours: hours.trim() || null,
+      phone: phone.trim() || null,
+      email: email.trim() || null,
     });
   };
 
   return (
     <div className="space-y-3 pb-48">
+      {/* Back button when accessed from profile view */}
+      {onBack && (
+        <button
+          onClick={onBack}
+          className="flex items-center gap-2 text-[14px] font-semibold px-1 pt-1 pb-2"
+          style={{ color: "#25D366" }}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+          Voltar ao perfil
+        </button>
+      )}
+
       {/* Identity */}
       <div className={sectionCls}>
         <h3 className="text-[16px] font-bold" style={{ color: "#111B21" }}>Identidade</h3>
@@ -339,6 +361,27 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
         <div>
           <label className={labelCls}>Tom de voz</label>
           <input className={inputCls} value={toneOfVoice} onChange={(e) => setToneOfVoice(e.target.value)} placeholder="Ex.: profissional e acolhedor" />
+        </div>
+      </div>
+
+      {/* Contact & location — new fields */}
+      <div className={sectionCls}>
+        <h3 className="text-[16px] font-bold" style={{ color: "#111B21" }}>Contacto & localização</h3>
+        <div>
+          <label className={labelCls}>Endereço</label>
+          <input className={inputCls} value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Ex.: Rua da Missão 42, Luanda" />
+        </div>
+        <div>
+          <label className={labelCls}>Horário</label>
+          <input className={inputCls} value={hours} onChange={(e) => setHours(e.target.value)} placeholder="Ex.: Seg–Sex 08:00–17:00 · Sáb 08:00–13:00" />
+        </div>
+        <div>
+          <label className={labelCls}>Telemóvel / WhatsApp</label>
+          <input className={inputCls} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Ex.: +244 923 456 789" inputMode="tel" />
+        </div>
+        <div>
+          <label className={labelCls}>E-mail</label>
+          <input className={inputCls} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Ex.: geral@meusite.ao" inputMode="email" />
         </div>
       </div>
 

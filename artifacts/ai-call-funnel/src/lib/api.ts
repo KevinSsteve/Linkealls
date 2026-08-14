@@ -123,6 +123,11 @@ export interface BusinessProfile {
   lastAnalyzedAt: string | null;
   catalogEnabled: boolean;
   catalogSlug: string | null;
+  // Contact & location
+  address: string | null;
+  hours: string | null;
+  phone: string | null;
+  email: string | null;
 }
 
 export interface ProfileDraft {
@@ -135,6 +140,10 @@ export interface ProfileDraft {
   offerings?: Offering[];
   faq?: FaqItem[];
   qualificationGoals?: string[];
+  address?: string | null;
+  hours?: string | null;
+  phone?: string | null;
+  email?: string | null;
 }
 
 // ─── Leads ───────────────────────────────────────────────────────────────────

@@ -49,6 +49,11 @@ export const businessProfilesTable = pgTable("business_profiles", {
   ownerPin: text("owner_pin"),
   /** Web Push subscription objects (one per browser/device). */
   pushSubscriptions: jsonb("push_subscriptions").$type<PushSubscriptionJSON[]>().notNull().default([]),
+  /** Contact & location fields shown on the public profile card. */
+  address: text("address"),
+  hours: text("hours"),
+  phone: text("phone"),
+  email: text("email"),
   /** Whether the public product catalog is visible to visitors. */
   catalogEnabled: boolean("catalog_enabled").notNull().default(true),
   /** Vanity slug for the public catalog URL, e.g. "hungry-lion" → /c/hungry-lion */
@@ -89,6 +94,10 @@ export const updateBusinessProfileSchema = z.object({
   offerings: z.array(offeringSchema).max(50).optional(),
   faq: z.array(faqItemSchema).max(50).optional(),
   qualificationGoals: z.array(z.string().max(500)).max(20).optional(),
+  address: z.string().max(500).nullable().optional(),
+  hours: z.string().max(500).nullable().optional(),
+  phone: z.string().max(100).nullable().optional(),
+  email: z.string().max(200).nullable().optional(),
   catalogEnabled: z.boolean().optional(),
   catalogSlug: z
     .string()
