@@ -5,8 +5,9 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   ArrowLeft, User, Phone, Search, ExternalLink,
-  DollarSign, Clock, MapPin, MessageCircle, RefreshCw,
+  DollarSign, Clock, MapPin, MessageCircle, RefreshCw, Zap,
 } from "lucide-react";
+import { Link } from "wouter";
 import {
   businessApi, type Lead, type LeadState,
 } from "../../lib/api";
@@ -482,6 +483,27 @@ export function Conversas() {
           </div>
         )}
       </div>
+
+      {/* ── FAB — Assistente IA ──────────────────────────────────────────── */}
+      <Link
+        href={`/e/${slug}/dono/assistente`}
+        className="fixed right-4 wa-page"
+        style={{
+          bottom: "calc(68px + env(safe-area-inset-bottom, 0px))",
+          width: 56,
+          height: 56,
+          background: "#111B21",
+          borderRadius: 16,
+          boxShadow: "0 4px 16px rgba(0,0,0,0.28), 0 1px 4px rgba(0,0,0,0.18)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 20,
+        }}
+        aria-label="Abrir Assistente IA"
+      >
+        <Zap size={24} className="text-white" strokeWidth={2} />
+      </Link>
 
       <OwnerNav />
     </div>
