@@ -3,6 +3,7 @@ import { Link } from "wouter";
 import {
   Globe, Sparkles, Loader2, AlertCircle, CheckCircle2,
   Zap, Grid3x3, Megaphone, Users, ChevronRight, X, Store,
+  MessageSquare, Phone, RefreshCw,
 } from "lucide-react";
 import { OwnerNav } from "../components/owner/OwnerNav";
 import {
@@ -12,6 +13,7 @@ import {
 } from "../lib/api";
 import { useBusinessSlug } from "../hooks/useBusinessSlug";
 import { ProfileEditor } from "../components/owner/ProfileEditor";
+import { WaSkeletonList } from "../components/wa/WaSkeletonList";
 import { C } from "../theme";
 
 type View = "loading" | "start" | "analyzing" | "editor";
@@ -19,52 +21,112 @@ type View = "loading" | "start" | "analyzing" | "editor";
 const POLL_MS = 2500;
 
 
-// ─── Tool row ─────────────────────────────────────────────────────────────────
+// ─── Section header — WA Business "Ferramentas" uppercase label ───────────────
+function SectionHeader({ label }: { label: string }) {
+  return (
+    <div className="px-4 pt-5 pb-1.5">
+      <p
+        className="text-[11px] font-bold tracking-wider uppercase"
+        style={{ color: C.text3 }}
+      >
+        {label}
+      </p>
+    </div>
+  );
+}
+
+// ─── Tool row — navigation link ───────────────────────────────────────────────
 function ToolRow({
   icon: Icon,
   title,
   description,
   href,
-  active,
+  border = true,
 }: {
   icon: React.ElementType;
-  iconColor?: string;
-  iconBg?: string;
   title: string;
   description: string;
   href: string;
-  active?: boolean;
+  border?: boolean;
 }) {
   return (
     <Link href={href}>
       <div
-        className="flex items-start gap-5 px-5 py-4 cursor-pointer active:bg-gray-50 transition-colors"
-        style={{ background: C.white }}
+        className="flex items-center gap-4 px-4 py-3.5 cursor-pointer active:bg-[#F5F6F6] transition-colors"
+        style={{
+          background: C.white,
+          borderBottom: border ? `1px solid ${C.border}` : "none",
+        }}
       >
-        {/* Thin monochrome icon — WhatsApp Business style */}
-        <Icon size={24} style={{ color: "#3B4A54" }} strokeWidth={1.5} className="shrink-0 mt-0.5" />
-        <div className="flex-1 min-w-0">
-          <p className="text-[16px] font-semibold" style={{ color: "#0B141A" }}>{title}</p>
-          <p className="text-[14px] mt-0.5 leading-snug" style={{ color: C.text2 }}>{description}</p>
+        {/* Circular icon bg — WA Ferramentas style */}
+        <div
+          className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
+          style={{ background: C.inputBg }}
+        >
+          <Icon size={18} style={{ color: "#3B4A54" }} strokeWidth={1.8} />
         </div>
-        {active !== undefined ? (
-          <div
-            className="w-2.5 h-2.5 rounded-full shrink-0 mt-2"
-            style={{ background: active ? "#1DAA61" : "transparent" }}
-          />
-        ) : (
-          <ChevronRight size={16} style={{ color: C.text3 }} className="shrink-0 mt-2" />
-        )}
+        <div className="flex-1 min-w-0">
+          <p className="text-[15px] font-semibold leading-tight" style={{ color: C.text }}>{title}</p>
+          <p className="text-[13px] mt-0.5 leading-snug" style={{ color: C.text2 }}>{description}</p>
+        </div>
+        <ChevronRight size={16} style={{ color: C.text3 }} className="shrink-0" />
       </div>
     </Link>
   );
 }
 
-// ─── Section label ────────────────────────────────────────────────────────────
-function SectionLabel({ label }: { label: string }) {
+// ─── Action row — button (no navigation) ─────────────────────────────────────
+function ActionRow({
+  icon: Icon,
+  title,
+  description,
+  onClick,
+  loading = false,
+  border = true,
+}: {
+  icon: React.ElementType;
+  title: string;
+  description: string;
+  onClick: () => void;
+  loading?: boolean;
+  border?: boolean;
+}) {
   return (
-    <div className="px-5 pt-6 pb-2">
-      <p className="text-[17px] font-bold" style={{ color: "#0B141A" }}>{label}</p>
+    <button
+      onClick={onClick}
+      disabled={loading}
+      className="w-full flex items-center gap-4 px-4 py-3.5 cursor-pointer active:bg-[#F5F6F6] transition-colors text-left disabled:opacity-50"
+      style={{
+        background: C.white,
+        borderBottom: border ? `1px solid ${C.border}` : "none",
+      }}
+    >
+      <div
+        className="w-9 h-9 rounded-full flex items-center justify-center shrink-0"
+        style={{ background: C.inputBg }}
+      >
+        {loading
+          ? <Loader2 size={18} style={{ color: "#3B4A54" }} className="animate-spin" />
+          : <Icon size={18} style={{ color: "#3B4A54" }} strokeWidth={1.8} />
+        }
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-[15px] font-semibold leading-tight" style={{ color: C.text }}>{title}</p>
+        <p className="text-[13px] mt-0.5 leading-snug" style={{ color: C.text2 }}>{description}</p>
+      </div>
+      <ChevronRight size={16} style={{ color: C.text3 }} className="shrink-0" />
+    </button>
+  );
+}
+
+// ─── Section group wrapper — white card with border ───────────────────────────
+function SectionGroup({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="mx-4 rounded-2xl overflow-hidden"
+      style={{ border: `1px solid ${C.border}` }}
+    >
+      {children}
     </div>
   );
 }
@@ -233,8 +295,8 @@ export function Owner() {
 
         {/* ── Loading ────────────────────────────────────────────────────── */}
         {view === "loading" && (
-          <div className="flex items-center justify-center py-24">
-            <Loader2 className="w-6 h-6 animate-spin" style={{ color: C.text3 }} />
+          <div className="pt-4">
+            <WaSkeletonList count={4} showAvatar={false} />
           </div>
         )}
 
@@ -244,7 +306,7 @@ export function Owner() {
             {/* Promo card "Para você" */}
             {promoVisible && (
               <>
-                <SectionLabel label="Para você" />
+                <SectionHeader label="Para você" />
                 <div className="mx-4">
                   <div className="rounded-2xl p-4 flex gap-3 relative" style={{ background: C.white, border: `1px solid ${C.border}` }}>
                     <button
@@ -284,7 +346,7 @@ export function Owner() {
               </>
             )}
 
-            <SectionLabel label="Configurar negócio" />
+            <SectionHeader label="Configurar negócio" />
             <div className="mx-4 rounded-2xl overflow-hidden" style={{ border: `1px solid ${C.border}`, background: C.white }}>
               {/* Mode toggle */}
               <div className="flex" style={{ borderBottom: `1px solid ${C.border}` }}>
@@ -384,31 +446,28 @@ export function Owner() {
 
         {/* ── Editor ─────────────────────────────────────────────────────── */}
         {view === "editor" && profile && (
-          <div className="mx-4 my-4">
-            <ProfileEditor
-              key={editorKey}
-              profile={profile}
-              draft={draft}
-              saving={saving}
-              reanalyzing={reanalyzing}
-              onSave={handleSave}
-              onReanalyze={handleReanalyze}
-            />
-          </div>
+          <>
+            <SectionHeader label="Perfil do negócio" />
+            <div className="mx-4">
+              <ProfileEditor
+                key={editorKey}
+                profile={profile}
+                draft={draft}
+                saving={saving}
+                reanalyzing={reanalyzing}
+                onSave={handleSave}
+                onReanalyze={handleReanalyze}
+              />
+            </div>
+          </>
         )}
 
-        {/* ── Ferramentas (only when profile is ready) ───────────────────── */}
+        {/* ── Ferramentas em 3 secções (only when profile is ready) ──────── */}
         {isProfileReady && (
           <>
-            <SectionLabel label="Expanda o teu negócio" />
-            <div>
-              <ToolRow
-                icon={Zap}
-                title="Assistente IA"
-                description="Responde aos clientes 24 horas por dia, 7 dias por semana"
-                href={`/e/${slug}/dono/assistente`}
-                active={true}
-              />
+            {/* Secção 1 — O teu negócio */}
+            <SectionHeader label="O teu negócio" />
+            <SectionGroup>
               <ToolRow
                 icon={Grid3x3}
                 title="Catálogo"
@@ -416,22 +475,62 @@ export function Owner() {
                 href={`/e/${slug}/catalogo`}
               />
               <ToolRow
+                icon={Zap}
+                title="Assistente IA"
+                description="Responde aos clientes 24 h por dia, 7 dias por semana"
+                href={`/e/${slug}/dono/assistente`}
+              />
+              <ToolRow
                 icon={Megaphone}
                 title="Campanhas"
                 description="Cria anúncios para trazer mais clientes"
                 href={`/e/${slug}/dono/campanhas`}
+                border={false}
               />
+            </SectionGroup>
+
+            {/* Secção 2 — Leads & conversas */}
+            <SectionHeader label="Leads & conversas" />
+            <SectionGroup>
               <ToolRow
                 icon={Users}
                 title="Leads"
                 description="Gere todos os contactos qualificados"
                 href={`/e/${slug}/dono/leads`}
               />
-            </div>
+              <ToolRow
+                icon={MessageSquare}
+                title="Conversas"
+                description="Historial de conversas com os clientes"
+                href={`/e/${slug}/dono/conversas`}
+                border={false}
+              />
+            </SectionGroup>
+
+            {/* Secção 3 — Configura */}
+            <SectionHeader label="Configura" />
+            <SectionGroup>
+              <ToolRow
+                icon={Phone}
+                title="Testar chamada"
+                description="Fala com o teu assistente IA como um cliente"
+                href={`/e/${slug}`}
+              />
+              {profile.websiteUrl && (
+                <ActionRow
+                  icon={RefreshCw}
+                  title="Reanalisar site"
+                  description="Actualiza o perfil com as últimas informações do site"
+                  onClick={() => handleReanalyze(profile.websiteUrl ?? "")}
+                  loading={reanalyzing}
+                  border={false}
+                />
+              )}
+            </SectionGroup>
           </>
         )}
 
-        <div className="h-4" />
+        <div className="h-6" />
       </main>
 
       <OwnerNav />
