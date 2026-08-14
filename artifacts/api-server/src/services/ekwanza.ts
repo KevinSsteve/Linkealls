@@ -22,8 +22,10 @@ const env = (k: string) => process.env[k]?.trim() || "";
 
 const APPYPAY_CLIENT_ID = env("APPYPAY_CLIENT_ID");
 const APPYPAY_CLIENT_SECRET = env("APPYPAY_CLIENT_SECRET");
+// NB: o tenant correto é "auth.appypay.co.ao" — o tenant "appypay.onmicrosoft.com"
+// rejeita o resource com AADSTS500011 (invalid_resource).
 const APPYPAY_AUTH_URL = env("APPYPAY_AUTH_URL") ||
-  "https://login.microsoftonline.com/appypay.onmicrosoft.com/oauth2/token";
+  "https://login.microsoftonline.com/auth.appypay.co.ao/oauth2/token";
 const APPYPAY_RESOURCE = env("APPYPAY_RESOURCE");
 const APPYPAY_BASE_URL = env("APPYPAY_BASE_URL") || "https://gwy-api.appypay.co.ao/v2.0";
 /** paymentMethod id da aplicação GPO, e.g. "GPO_5cc3d5ab-…". */

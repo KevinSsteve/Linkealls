@@ -3,5 +3,6 @@
 - [WS upgrade conflicts & dev routing](ws-upgrade-conflicts.md) — never attach two WebSocketServer({server,path}) to one HTTP server (mutual 400s); dev WS URLs must stay under the artifact base path.
 - [Screenshot centering](screenshot-centering.md) — screenshot captures ignore margin-inline (mx-auto → left-aligned); center with flex justify-center + w-full max-w-*.
 - [Owner nav pattern](owner-nav-pattern.md) — bottom OwnerNav (4 tabs: Perfil/Conversas/IA/Camps) used on all owner pages; LeadDetail must use flex-1 min-h-0 not h-full when inside a flex-col parent with OwnerNav below.
+- [AppyPay OAuth tenant](appypay-oauth-tenant.md) — token URL must use tenant auth.appypay.co.ao; AADSTS500011 means wrong tenant, not wrong APPYPAY_RESOURCE secret.
 - [Multicaixa payments invariants](payments-multicaixa.md) — derived balance + advisory locks; atomic settlement; never refund payouts on timeout; webhook fail-closed HMAC.
 - [Web Push Setup](web-push-setup.md) — VAPID env secrets, pushSubscriptions jsonb in business_profiles, daily cron at WAT 08:00, Uint8Array cast quirk.
