@@ -68,6 +68,12 @@ export class PaymentError extends Error {
   }
 }
 
+/**
+ * Creates the pending order record and immediately fires the GPO charge in
+ * the background. Returns the order right away so the HTTP response can be
+ * sent before the ~30-60 s gateway round-trip completes, preventing mobile
+ * browser timeouts. The caller should start polling /orders/:id/status.
+ */
 export async function createProductOrder(
   businessId: number,
   input: { offeringName: string; quantity: number; phone: string; buyerName?: string },
@@ -103,42 +109,40 @@ export async function createProductOrder(
     .returning();
   const order = inserted[0]!;
 
-  try {
-    const charge = await createGpoCharge({
-      amount,
-      merchantTransactionId,
-      phoneNumber: input.phone,
-      description: `${profile.name}: ${offering.name} x${input.quantity}`,
-    });
-    // Real mode: the gateway call blocks until the buyer approves/declines,
-    // so the outcome is already final — settle or fail right away.
-    if (charge.outcome === "paid") {
-      // The buyer HAS paid. If local settlement fails, never mark the order
-      // failed — leave it pendente so the webhook (or reconciliation) settles it.
-      try {
-        await settleGpoPayment(merchantTransactionId, 1);
-      } catch (settleErr) {
-        logger.error({ err: settleErr, merchantTransactionId }, "createProductOrder: paid but local settlement failed — awaiting webhook/reconciliation");
+  // In simulation mode the charge is instant; in real mode it blocks until
+  // the buyer approves (up to 60 s). We fire it in the background so the HTTP
+  // response can go back immediately and the client can start polling.
+  const fireCharge = async () => {
+    try {
+      const charge = await createGpoCharge({
+        amount,
+        merchantTransactionId,
+        phoneNumber: input.phone,
+        description: `${profile.name}: ${offering.name} x${input.quantity}`,
+      });
+      if (charge.outcome === "paid") {
+        try {
+          await settleGpoPayment(merchantTransactionId, 1);
+        } catch (settleErr) {
+          logger.error({ err: settleErr, merchantTransactionId }, "createProductOrder: paid but local settlement failed — awaiting webhook/reconciliation");
+        }
+      } else if (charge.outcome === "failed") {
+        await db.update(ordersTable)
+          .set({ status: "falhada", updatedAt: new Date() })
+          .where(and(eq(ordersTable.id, order.id), eq(ordersTable.status, "pendente")));
       }
-    } else if (charge.outcome === "failed") {
+    } catch (err) {
       await db.update(ordersTable)
         .set({ status: "falhada", updatedAt: new Date() })
         .where(and(eq(ordersTable.id, order.id), eq(ordersTable.status, "pendente")));
-      throw new PaymentError(
-        charge.failureMessage ?? "O pagamento não foi aprovado. Tenta novamente.",
-        402,
-      );
+      logger.error({ err, merchantTransactionId }, "createProductOrder: background charge failed");
     }
-    const fresh = await db.select().from(ordersTable).where(eq(ordersTable.id, order.id)).limit(1);
-    return { order: fresh[0] ?? order, simulated: charge.simulated };
-  } catch (err) {
-    if (err instanceof PaymentError) throw err;
-    await db.update(ordersTable)
-      .set({ status: "falhada", updatedAt: new Date() })
-      .where(and(eq(ordersTable.id, order.id), eq(ordersTable.status, "pendente")));
-    logger.error({ err, merchantTransactionId }, "createProductOrder: charge failed");
-    throw new PaymentError("Não foi possível iniciar o pagamento Multicaixa Express", 502);
-  }
+  };
+
+  // setImmediate lets the current call stack (HTTP response) finish first.
+  setImmediate(() => { void fireCharge(); });
+
+  return { order, simulated: false };
 }
 
 /** Public polling endpoint helper — the order UUID is the capability. */
@@ -220,44 +224,38 @@ export async function createPlanCharge(businessId: number, phone: string): Promi
     })
     .returning();
   const subscription = inserted[0]!;
-  try {
-    const charge = await createGpoCharge({
-      amount: PLAN_PRICE_AOA,
-      merchantTransactionId,
-      phoneNumber: phone,
-      description: `Plano Linkealls — ${PLAN_DAYS} dias`,
-    });
-    if (charge.outcome === "paid") {
-      // The buyer HAS paid. If local settlement fails, never mark the
-      // subscription failed — leave it pendente for the webhook/reconciliation.
-      try {
-        await settleGpoPayment(merchantTransactionId, 1);
-      } catch (settleErr) {
-        logger.error({ err: settleErr, merchantTransactionId }, "createPlanCharge: paid but local settlement failed — awaiting webhook/reconciliation");
+
+  // Fire the GPO charge in the background — same async pattern as product orders.
+  const fireCharge = async () => {
+    try {
+      const charge = await createGpoCharge({
+        amount: PLAN_PRICE_AOA,
+        merchantTransactionId,
+        phoneNumber: phone,
+        description: `Plano_Linkealls_${PLAN_DAYS}_dias`,
+      });
+      if (charge.outcome === "paid") {
+        try {
+          await settleGpoPayment(merchantTransactionId, 1);
+        } catch (settleErr) {
+          logger.error({ err: settleErr, merchantTransactionId }, "createPlanCharge: paid but local settlement failed — awaiting webhook/reconciliation");
+        }
+      } else if (charge.outcome === "failed") {
+        await db.update(subscriptionsTable)
+          .set({ status: "falhada", updatedAt: new Date() })
+          .where(and(eq(subscriptionsTable.id, subscription.id), eq(subscriptionsTable.status, "pendente")));
       }
-    } else if (charge.outcome === "failed") {
+    } catch (err) {
       await db.update(subscriptionsTable)
         .set({ status: "falhada", updatedAt: new Date() })
         .where(and(eq(subscriptionsTable.id, subscription.id), eq(subscriptionsTable.status, "pendente")));
-      throw new PaymentError(
-        charge.failureMessage ?? "O pagamento não foi aprovado. Tenta novamente.",
-        402,
-      );
+      logger.error({ err, merchantTransactionId }, "createPlanCharge: background charge failed");
     }
-    const fresh = await db
-      .select()
-      .from(subscriptionsTable)
-      .where(eq(subscriptionsTable.id, subscription.id))
-      .limit(1);
-    return { subscription: fresh[0] ?? subscription, simulated: charge.simulated };
-  } catch (err) {
-    if (err instanceof PaymentError) throw err;
-    await db.update(subscriptionsTable)
-      .set({ status: "falhada", updatedAt: new Date() })
-      .where(and(eq(subscriptionsTable.id, subscription.id), eq(subscriptionsTable.status, "pendente")));
-    logger.error({ err, merchantTransactionId }, "createPlanCharge: charge failed");
-    throw new PaymentError("Não foi possível iniciar o pagamento Multicaixa Express", 502);
-  }
+  };
+
+  setImmediate(() => { void fireCharge(); });
+
+  return { subscription, simulated: false };
 }
 
 export async function getSubscriptionPublicStatus(id: string, businessId: number): Promise<Subscription | null> {
