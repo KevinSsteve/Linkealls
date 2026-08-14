@@ -17,6 +17,7 @@ import { Assistant } from "@/pages/owner/Assistant";
 import { Campaigns } from "@/pages/owner/Campaigns";
 import { CampaignDetail } from "@/pages/owner/CampaignDetail";
 import { Conversas } from "@/pages/owner/Conversas";
+import { Mercado } from "@/pages/owner/Mercado";
 
 // Serve under the artifact base path. With BASE_PATH="/" this is "".
 const routerBase = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -122,6 +123,7 @@ export default function App() {
                   <Route path="/e/:businessSlug/dono/assistente">{() => <OwnerGate><Assistant /></OwnerGate>}</Route>
                   <Route path="/e/:businessSlug/dono/campanhas/:id">{() => <OwnerGate><CampaignDetail /></OwnerGate>}</Route>
                   <Route path="/e/:businessSlug/dono/campanhas">{() => <OwnerGate><Campaigns /></OwnerGate>}</Route>
+                  <Route path="/e/:businessSlug/dono/mercado">{() => <OwnerGate><Mercado /></OwnerGate>}</Route>
                   <Route path="/e/:businessSlug/dono">{() => <OwnerGate><Owner /></OwnerGate>}</Route>
                   <Route path="/e/:businessSlug/captacao" component={Captacao} />
                   <Route path="/e/:businessSlug" component={Chat} />

@@ -1,7 +1,7 @@
 /**
  * GET /api/businesses
- * Public endpoint — returns all businesses with a slug and catalogEnabled=true.
- * Used by the Linkealls homepage and sitemap generator.
+ * Public endpoint — returns all businesses with a slug.
+ * Used by the Linkealls homepage, sitemap generator, and the Mercado discovery page.
  */
 import { Router } from "express";
 import { db } from "@workspace/db";
@@ -16,6 +16,10 @@ export interface PublicBusiness {
   name: string;
   sector: string;
   description: string;
+  /** True when the AI profile has been fully configured (analysisStatus = 'done') */
+  hasActiveAI: boolean;
+  /** True when the public catalog is enabled */
+  catalogEnabled: boolean;
 }
 
 router.get("/businesses", async (_req, res) => {
@@ -27,6 +31,8 @@ router.get("/businesses", async (_req, res) => {
         name: businessProfilesTable.name,
         sector: businessProfilesTable.sector,
         description: businessProfilesTable.description,
+        analysisStatus: businessProfilesTable.analysisStatus,
+        catalogEnabled: businessProfilesTable.catalogEnabled,
       })
       .from(businessProfilesTable)
       .where(
@@ -38,8 +44,13 @@ router.get("/businesses", async (_req, res) => {
 
     // slug is guaranteed non-null by the WHERE clause
     const businesses: PublicBusiness[] = rows.map((r) => ({
-      ...r,
+      id: r.id,
       slug: r.slug!,
+      name: r.name,
+      sector: r.sector,
+      description: r.description,
+      hasActiveAI: r.analysisStatus === "done",
+      catalogEnabled: r.catalogEnabled ?? false,
     }));
 
     res.json({ businesses });
