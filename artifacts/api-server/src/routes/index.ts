@@ -5,6 +5,7 @@ import storageRouter from "./storage";
 import catalogRouter from "./catalog";
 import { createBusinessScopedRouter } from "./businessScoped.js";
 import businessesRouter from "./businesses.js";
+import paymentsRouter from "./payments.js";
 
 const router: IRouter = Router();
 
@@ -18,6 +19,7 @@ router.use(healthRouter);
 router.use(userAuthRouter);
 router.use(storageRouter);
 router.use(catalogRouter); // public catalog by slug + slug availability check
+router.use(paymentsRouter); // GPO webhook + simulation endpoint
 
 // ── Legacy single-tenant routes — removed (410) ──────────────────────────────
 // The old global endpoints all pointed to one shared business profile.

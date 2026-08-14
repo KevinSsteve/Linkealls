@@ -7,12 +7,13 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "wouter";
 import {
   MessageSquare, X, Phone, CheckCircle2, ChevronDown, ChevronUp,
-  Send, ShoppingBag, ArrowRight, Sparkles, Loader2, ImageOff, Store, ArrowLeft,
+  Send, ShoppingBag, ArrowRight, Sparkles, Loader2, ImageOff, Store, ArrowLeft, Smartphone,
 } from "lucide-react";
 import {
   getCatalogBySlug, businessApi,
   type CatalogData, type Offering, type FaqItem, type ChatMessage,
 } from "../lib/api";
+import { BuyModal, parsePriceAoa } from "../components/BuyModal";
 
 // UTM source for any lead that comes through the catalog
 const CATALOG_ORIGIN = {
@@ -48,9 +49,11 @@ function makeId() {
 function ProductCard({
   offering,
   onLearnMore,
+  onBuy,
 }: {
   offering: Offering;
   onLearnMore: () => void;
+  onBuy?: () => void;
 }) {
   const [imgError, setImgError] = useState(false);
 
@@ -109,15 +112,28 @@ function ProductCard({
             {offering.description}
           </p>
         )}
-        <button
-          onClick={onLearnMore}
-          className="mt-2 w-full py-2.5 rounded-xl text-[13px] font-semibold text-white transition-colors flex items-center justify-center gap-1.5"
-          style={{ background: "#2563EB" }}
-          onMouseOver={(e) => (e.currentTarget.style.background = "#1D4ED8")}
-          onMouseOut={(e) => (e.currentTarget.style.background = "#2563EB")}
-        >
-          Saber mais <ArrowRight size={13} />
-        </button>
+        <div className="mt-2 flex flex-col gap-1.5">
+          {onBuy && (
+            <button
+              onClick={onBuy}
+              className="w-full py-2.5 rounded-xl text-[13px] font-bold text-white transition-colors flex items-center justify-center gap-1.5"
+              style={{ background: "#16A34A" }}
+              onMouseOver={(e) => (e.currentTarget.style.background = "#15803D")}
+              onMouseOut={(e) => (e.currentTarget.style.background = "#16A34A")}
+            >
+              <Smartphone size={13} /> Comprar
+            </button>
+          )}
+          <button
+            onClick={onLearnMore}
+            className={`w-full py-2.5 rounded-xl text-[13px] font-semibold transition-colors flex items-center justify-center gap-1.5 ${onBuy ? "" : "text-white"}`}
+            style={onBuy
+              ? { background: "#EFF6FF", color: "#2563EB", border: "1px solid #BFDBFE" }
+              : { background: "#2563EB" }}
+          >
+            Saber mais <ArrowRight size={13} />
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -448,6 +464,7 @@ export function Catalogo() {
   const [loading, setLoading] = useState(true);
   const [chatOpen, setChatOpen] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
+  const [buyOffering, setBuyOffering] = useState<Offering | null>(null);
 
   useEffect(() => {
     let fetch: Promise<CatalogData>;
@@ -629,6 +646,11 @@ export function Catalogo() {
                   key={i}
                   offering={offering}
                   onLearnMore={() => handleLearnMore(offering)}
+                  onBuy={
+                    catalog.businessSlug && offering.price && parsePriceAoa(offering.price) !== null
+                      ? () => setBuyOffering(offering)
+                      : undefined
+                  }
                 />
               ))}
           </div>
@@ -713,6 +735,15 @@ export function Catalogo() {
           Catálogo gerado por AI Call Funnel
         </p>
       </div>
+
+      {/* ── Buy Modal (Multicaixa Express) ── */}
+      {buyOffering && catalog.businessSlug && (
+        <BuyModal
+          businessSlug={catalog.businessSlug}
+          offering={buyOffering}
+          onClose={() => setBuyOffering(null)}
+        />
+      )}
 
       {/* ── Chat Widget ── */}
       <CatalogChat

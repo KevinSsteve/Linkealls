@@ -68,6 +68,7 @@ import {
 import type { PushSubscriptionJSON } from "@workspace/db";
 import { logger } from "../lib/logger.js";
 import { getUserByToken, requestToken } from "./userAuth.js";
+import { createPaymentsScopedRouter } from "./paymentsScoped.js";
 
 function bid(res: Response): number {
   return res.locals["businessId"] as number;
@@ -290,6 +291,10 @@ export function createBusinessScopedRouter(): Router {
     }
     next();
   }
+
+  // ── PAYMENTS (Multicaixa Express) ────────────────────────────────────────────
+  // Public checkout + owner sales/wallet/subscription — see paymentsScoped.ts.
+  router.use(createPaymentsScopedRouter(requireOwner, bid, publicRateLimit));
 
   const createSessionSchema = z.object({
     origin: leadOriginSchema.optional(),

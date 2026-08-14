@@ -351,6 +351,98 @@ export function checkSlugAvailability(slug: string): Promise<{ available: boolea
   return request(`/catalog/slug-check/${encodeURIComponent(slug)}`);
 }
 
+// ─── Payments (Multicaixa Express) ────────────────────────────────────────────
+
+export type OrderStatus = "pendente" | "paga" | "expirada" | "falhada";
+
+export interface OrderCheckout {
+  orderId: string;
+  merchantTransactionId: string;
+  amount: number;
+  status: OrderStatus;
+  /** True when the gateway is in simulation mode (no real credentials yet). */
+  simulated: boolean;
+}
+
+export interface OrderPublicStatus {
+  orderId: string;
+  status: OrderStatus;
+  amount: number;
+  offeringName: string;
+  quantity: number;
+  merchantTransactionId: string;
+  paidAt: string | null;
+}
+
+export interface Order {
+  id: string;
+  offeringName: string;
+  unitPrice: string;
+  quantity: number;
+  amount: string;
+  buyerPhone: string;
+  buyerName: string | null;
+  status: OrderStatus;
+  paidAt: string | null;
+  createdAt: string;
+}
+
+export interface WalletLedgerEntry {
+  id: string;
+  type: "venda" | "saque" | "estorno_saque" | "ajuste";
+  amount: string;
+  description: string;
+  createdAt: string;
+}
+
+export interface WalletData {
+  balance: number;
+  entries: WalletLedgerEntry[];
+  payoutMin: number;
+  simulation: boolean;
+}
+
+export type PayoutStatus = "pendente" | "processado" | "falhado" | "revertido";
+
+export interface Payout {
+  id: string;
+  amount: string;
+  destinationType: "telemovel" | "iban";
+  destination: string;
+  status: PayoutStatus;
+  error: string | null;
+  createdAt: string;
+}
+
+export type SubscriptionStatus = "pendente" | "ativa" | "expirada" | "falhada";
+
+export interface Subscription {
+  id: string;
+  plan: string;
+  amount: string;
+  status: SubscriptionStatus;
+  startsAt: string | null;
+  expiresAt: string | null;
+  paidAt: string | null;
+  createdAt: string;
+}
+
+export interface SubscriptionInfo {
+  active: Subscription | null;
+  pending: Subscription | null;
+  history: Subscription[];
+  planPrice: number;
+  simulation: boolean;
+}
+
+/** SIMULATION ONLY — approve a pending charge as if paid on the phone. */
+export function simulatePayment(merchantTransactionId: string, approve = true) {
+  return request<{ ok: boolean }>("/payments/simulate/pay", {
+    method: "POST",
+    body: JSON.stringify({ merchantTransactionId, approve }),
+  });
+}
+
 // ─── Business-scoped API factory ──────────────────────────────────────────────
 
 /**
@@ -433,6 +525,33 @@ export function businessApi(slug: string) {
       bRequest<{ profile: BusinessProfile; filled: boolean }>("/profile", {
         method: "PUT", body: JSON.stringify({ catalogEnabled }),
       }),
+
+    // Payments — public checkout (visitor)
+    createOrder: (data: { offeringName: string; quantity: number; phone: string; buyerName?: string }) =>
+      bRequest<OrderCheckout>("/orders", { method: "POST", body: JSON.stringify(data) }),
+    getOrderStatus: (orderId: string) =>
+      bRequest<OrderPublicStatus>(`/orders/${orderId}/status`),
+
+    // Payments — owner
+    listOrders: () =>
+      bRequest<{ orders: Order[]; simulation: boolean }>("/orders"),
+    getWallet: () =>
+      bRequest<WalletData>("/wallet"),
+    listPayouts: () =>
+      bRequest<{ payouts: Payout[] }>("/wallet/payouts"),
+    requestPayout: (data: { amount: number; destinationType: "telemovel" | "iban"; destination: string }) =>
+      bRequest<{ payout: Payout }>("/wallet/payouts", { method: "POST", body: JSON.stringify(data) }),
+    reconcilePayout: (id: string) =>
+      bRequest<{ payout: Payout }>(`/wallet/payouts/${id}/reconcile`, { method: "POST" }),
+    getSubscription: () =>
+      bRequest<SubscriptionInfo>("/subscription"),
+    checkoutSubscription: (phone: string) =>
+      bRequest<{ subscriptionId: string; merchantTransactionId: string; amount: number; status: SubscriptionStatus; simulated: boolean }>(
+        "/subscription/checkout",
+        { method: "POST", body: JSON.stringify({ phone }) },
+      ),
+    getSubscriptionStatus: (id: string) =>
+      bRequest<{ subscriptionId: string; status: SubscriptionStatus; expiresAt: string | null }>(`/subscription/${id}/status`),
 
     // Assistant proactive triggers
     triggerDailySummary: () =>

@@ -4,7 +4,7 @@ import {
   Globe, Sparkles, Loader2, AlertCircle, CheckCircle2,
   Zap, Grid3x3, Megaphone, Users, ChevronRight, X, Store,
   MessageSquare, Phone, RefreshCw, Edit2, Share2, MoreHorizontal,
-  MapPin, Clock, Mail, Image,
+  MapPin, Clock, Mail, Image, ShoppingCart, Wallet, Crown,
 } from "lucide-react";
 import { OwnerNav } from "../components/owner/OwnerNav";
 import {
@@ -325,6 +325,14 @@ function ProfileView({
         <ToolRow icon={Grid3x3}   title="Catálogo"      description="Exibe os teus produtos e serviços"     href={`/e/${slug}/catalogo`} />
         <ToolRow icon={Zap}       title="Assistente IA" description="Responde automaticamente, 24h por dia"  href={`/e/${slug}/dono/assistente`} />
         <ToolRow icon={Megaphone} title="Campanhas"     description="Cria anúncios para trazer mais clientes" href={`/e/${slug}/dono/campanhas`} last />
+      </SectionList>
+
+      {/* ── Pagamentos ────────────────────────────────────────────────────── */}
+      <SectionHeader label="Pagamentos" />
+      <SectionList>
+        <ToolRow icon={ShoppingCart} title="Vendas"   description="Encomendas pagas no catálogo"              href={`/e/${slug}/dono/vendas`} />
+        <ToolRow icon={Wallet}       title="Carteira" description="Saldo, extracto e saques"                  href={`/e/${slug}/dono/carteira`} />
+        <ToolRow icon={Crown}        title="Plano"    description="Subscrição Linkealls — 10.000 Kz / 30 dias" href={`/e/${slug}/dono/plano`} last />
       </SectionList>
 
       {/* ── Leads & conversas ─────────────────────────────────────────────── */}
