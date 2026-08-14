@@ -93,7 +93,7 @@ export function HomePage() {
   const [showSearch, setShowSearch] = useState(false);
 
   if (isLoggedIn) {
-    return user?.handle ? <Redirect to={`/u/${user.handle}`} /> : <Redirect to="/escolher-handle" />;
+    return user?.handle ? <Redirect to={`/e/${user.handle}/dono`} /> : <Redirect to="/escolher-handle" />;
   }
 
   useEffect(() => {

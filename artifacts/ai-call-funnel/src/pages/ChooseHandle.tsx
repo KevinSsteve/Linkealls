@@ -22,7 +22,7 @@ export function ChooseHandle() {
   const debounceRef            = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   if (!isLoggedIn) return <Redirect to="/login?next=/escolher-handle" />;
-  if (user?.handle)  return <Redirect to={`/u/${user.handle}`} />;
+  if (user?.handle)  return <Redirect to={`/e/${user.handle}/dono`} />;
 
   const handle = raw.trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
 
@@ -50,7 +50,7 @@ export function ChooseHandle() {
     try {
       const { user: updated } = await setUserHandle(handle, token);
       setHandle(updated.handle ?? handle);
-      nav(`/u/${handle}`);
+      nav(`/e/${handle}/dono`);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Erro ao guardar");
     } finally {

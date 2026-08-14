@@ -63,7 +63,7 @@ function LegacyOwnerRedirect() {
  */
 function LegacyLinkNotice() {
   const { isLoggedIn, user } = useAuth();
-  if (isLoggedIn && user?.handle) return <Redirect to={`/u/${user.handle}`} />;
+  if (isLoggedIn && user?.handle) return <Redirect to={`/e/${user.handle}/dono`} />;
   return (
     <div className="flex flex-col items-center justify-center h-full px-8 text-center gap-4">
       <p className="text-[15px] font-semibold text-[#EAF0F7]">Este link mudou</p>

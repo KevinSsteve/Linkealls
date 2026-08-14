@@ -93,7 +93,7 @@ type Step = "name" | "phone" | "pin" | "confirm";
 function getSafeNext(handle: string | null): string {
   const next = new URLSearchParams(window.location.search).get("next");
   if (next && next.startsWith("/") && !next.startsWith("//")) return next;
-  return handle ? `/u/${handle}` : "/escolher-handle";
+  return handle ? `/e/${handle}/dono` : "/escolher-handle";
 }
 
 export function RegisterPage() {

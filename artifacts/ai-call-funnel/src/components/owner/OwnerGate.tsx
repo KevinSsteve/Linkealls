@@ -22,7 +22,7 @@ export function OwnerGate({ children }: { children: ReactNode }) {
 
   if (!isLoggedIn) return <Redirect to={`/login?next=${encodeURIComponent(location)}`} />;
   if (!user?.handle) return <Redirect to="/escolher-handle" />;
-  if (slug && user.handle !== slug) return <Redirect to={`/u/${user.handle}`} />;
+  if (slug && user.handle !== slug) return <Redirect to={`/e/${user.handle}/dono`} />;
 
   return <>{children}</>;
 }

@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "wouter";
 import {
   MessageSquare, X, Phone, CheckCircle2, ChevronDown, ChevronUp,
-  Send, ShoppingBag, ArrowRight, Sparkles, Loader2, ImageOff, Store,
+  Send, ShoppingBag, ArrowRight, Sparkles, Loader2, ImageOff, Store, ArrowLeft,
 } from "lucide-react";
 import {
   getCatalogBySlug, businessApi,
@@ -508,6 +508,17 @@ export function Catalogo() {
         style={{ borderBottom: "1px solid #F1F5F9", boxShadow: "0 1px 4px rgba(0,0,0,0.06)" }}
       >
         <div className="max-w-5xl mx-auto px-4 h-14 flex items-center gap-3">
+          {/* Back button — visible when navigated from within the app */}
+          {typeof window !== "undefined" && window.history.length > 1 && (
+            <button
+              onClick={() => window.history.back()}
+              className="shrink-0 w-8 h-8 flex items-center justify-center rounded-full transition-colors"
+              style={{ color: "#374151" }}
+              aria-label="Voltar"
+            >
+              <ArrowLeft size={18} />
+            </button>
+          )}
           {/* Logo mark */}
           <div
             className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
