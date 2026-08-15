@@ -284,6 +284,23 @@ export interface CampaignKit {
   generatedAt: string;
 }
 
+export type CampaignPaymentStatus = "nao_pago" | "pendente" | "pago" | "falhado";
+export type CampaignCreativeStatus = "nenhum" | "a_gerar" | "pronto" | "erro";
+export type CampaignPublishStatus =
+  | "nao_publicada" | "a_publicar" | "em_revisao" | "ativa"
+  | "pausada" | "encerrada" | "rejeitada" | "erro";
+
+export interface AdCreative {
+  productNames: string[];
+  headline: string;
+  body: string;
+  callToAction: string;
+  mediaType: "image" | "video";
+  mediaUrl: string;
+  concept: string;
+  generatedAt: string;
+}
+
 export interface Campaign {
   id: string;
   name: string;
@@ -294,8 +311,32 @@ export interface Campaign {
   utmSlug: string;
   kitJson: CampaignKit | null;
   totalSpend: number;
+  durationDays: number;
+  paymentStatus: CampaignPaymentStatus;
+  paymentMethod: "carteira" | "multicaixa" | null;
+  paidAt: string | null;
+  fxRateAoaPerUsd: string | null;
+  budgetUsd: string | null;
+  creativeStatus: CampaignCreativeStatus;
+  creativeJson: AdCreative | null;
+  creativeError: string | null;
+  publishStatus: CampaignPublishStatus;
+  publishError: string | null;
+  zernioAdId: string | null;
+  publishedSimulated: number;
+  syncedSpendUsd: string | null;
+  syncedImpressions: number;
+  syncedClicks: number;
+  lastSyncAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface AdsQuote {
+  fxRateAoaPerUsd: number;
+  minBudgetAoa: number;
+  budgetUsd: number;
+  simulated: boolean;
 }
 
 export interface CampaignMetrics {
@@ -577,7 +618,7 @@ export function businessApi(slug: string) {
     getCampaignById: (id: string) =>
       bRequest<{ campaign: Campaign }>(`/campaigns/${id}`),
     createCampaign: (data: {
-      name: string; platform: CampaignPlatform; objective: string; budget: number;
+      name: string; platform: CampaignPlatform; objective: string; budget: number; durationDays?: number;
     }) =>
       bRequest<{ campaign: Campaign }>("/campaigns", {
         method: "POST", body: JSON.stringify(data),
@@ -597,6 +638,20 @@ export function businessApi(slug: string) {
       bRequest<{ suggestions: string[] }>(`/campaigns/${id}/optimize`),
     duplicateCampaign: (id: string) =>
       bRequest<{ campaign: Campaign }>(`/campaigns/${id}/duplicate`, { method: "POST" }),
+    getAdsQuote: (budget: number) =>
+      bRequest<AdsQuote>(`/campaigns/ads/quote?budget=${budget}`),
+    payCampaign: (id: string, data: { method: "carteira" } | { method: "multicaixa"; phone: string }) =>
+      bRequest<{ campaign: Campaign }>(`/campaigns/${id}/pay`, {
+        method: "POST", body: JSON.stringify(data),
+      }),
+    generateCampaignCreative: (id: string) =>
+      bRequest<{ campaign: Campaign }>(`/campaigns/${id}/creative`, { method: "POST" }),
+    publishCampaign: (id: string) =>
+      bRequest<{ campaign: Campaign }>(`/campaigns/${id}/publish`, { method: "POST" }),
+    controlCampaignAd: (id: string, action: "pause" | "resume" | "end") =>
+      bRequest<{ campaign: Campaign }>(`/campaigns/${id}/control`, {
+        method: "POST", body: JSON.stringify({ action }),
+      }),
 
     // Assistant
     listAssistantMessages: () =>

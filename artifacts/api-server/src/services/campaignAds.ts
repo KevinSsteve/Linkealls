@@ -1,0 +1,404 @@
+/**
+ * Real ad campaigns — payment in Kwanzas, publication via Zernio, metrics sync.
+ *
+ * Money invariants (same as payments.ts):
+ *  - Wallet balance is ALWAYS derived from SUM(wallet_ledger.amount).
+ *  - Campaign wallet debit is idempotent via the unique partial index on
+ *    wallet_ledger.campaign_id; the per-business advisory lock (917001) is the
+ *    same one used by payouts so debits and payouts serialize together.
+ *  - FX rate (AOA/USD incl. margin) is locked at payment time and stored on
+ *    the campaign for audit.
+ */
+import { and, eq, sql, isNotNull, inArray } from "drizzle-orm";
+import {
+  db,
+  campaignsTable,
+  walletLedgerTable,
+  businessProfilesTable,
+  type Campaign,
+} from "@workspace/db";
+import { newMerchantTransactionId, PaymentError } from "./payments.js";
+import { createGpoCharge } from "./ekwanza.js";
+import * as zernio from "./zernio.js";
+import { effectiveAoaPerUsd, aoaToUsd } from "./fx.js";
+import { sendPushToOwner } from "./notifications.js";
+import { logger } from "../lib/logger.js";
+
+export const CAMPAIGN_MIN_BUDGET_AOA = 5_000;
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+async function getOwnedCampaign(campaignId: string, businessId: number): Promise<Campaign> {
+  const rows = await db
+    .select()
+    .from(campaignsTable)
+    .where(and(eq(campaignsTable.id, campaignId), eq(campaignsTable.businessId, businessId)))
+    .limit(1);
+  const campaign = rows[0];
+  if (!campaign) throw new PaymentError("Campanha não encontrada", 404);
+  return campaign;
+}
+
+function lockFxOnPayment(budgetAoa: number): { fxRate: string; budgetUsd: string } {
+  const rate = effectiveAoaPerUsd();
+  const usd = aoaToUsd(budgetAoa, rate);
+  if (usd < 1) throw new PaymentError("Orçamento demasiado baixo para publicar (mínimo ~1 USD)");
+  return { fxRate: rate.toFixed(4), budgetUsd: usd.toFixed(2) };
+}
+
+function assertPayable(campaign: Campaign): void {
+  if (campaign.paymentStatus === "pago") throw new PaymentError("Esta campanha já está paga");
+  if (campaign.paymentStatus === "pendente") throw new PaymentError("Pagamento já em curso — aguarda a confirmação");
+  if (campaign.budget < CAMPAIGN_MIN_BUDGET_AOA) {
+    throw new PaymentError(`Orçamento mínimo: ${CAMPAIGN_MIN_BUDGET_AOA.toLocaleString("pt-AO")} Kz`);
+  }
+  if (!["google", "instagram", "facebook", "tiktok"].includes(campaign.platform)) {
+    throw new PaymentError("Plataforma inválida");
+  }
+  if (campaign.platform === "google") {
+    throw new PaymentError("Google Ads ainda não está disponível — usa TikTok, Facebook ou Instagram");
+  }
+}
+
+// ─── Payment: wallet debit ────────────────────────────────────────────────────
+
+export async function payCampaignFromWallet(
+  campaignId: string,
+  businessId: number,
+): Promise<Campaign> {
+  const campaign = await getOwnedCampaign(campaignId, businessId);
+  assertPayable(campaign);
+  const { fxRate, budgetUsd } = lockFxOnPayment(campaign.budget);
+
+  const updated = await db.transaction(async (tx) => {
+    // Same lock as payouts: balance check + debit must be serialized per business.
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(917001, ${businessId})`);
+    const balRows = await tx
+      .select({ balance: sql<string>`COALESCE(SUM(${walletLedgerTable.amount}), 0)` })
+      .from(walletLedgerTable)
+      .where(eq(walletLedgerTable.businessId, businessId));
+    const balance = Number(balRows[0]?.balance ?? 0);
+    if (balance < campaign.budget) {
+      throw new PaymentError(
+        `Saldo insuficiente na carteira (${balance.toLocaleString("pt-AO")} Kz). Carrega a carteira ou paga por Multicaixa Express.`,
+      );
+    }
+    await tx.insert(walletLedgerTable).values({
+      businessId,
+      type: "campanha",
+      amount: (-campaign.budget).toFixed(2),
+      campaignId: campaign.id,
+      description: `Orçamento da campanha: ${campaign.name}`,
+    });
+    const rows = await tx
+      .update(campaignsTable)
+      .set({
+        paymentStatus: "pago",
+        paymentMethod: "carteira",
+        paidAt: new Date(),
+        fxRateAoaPerUsd: fxRate,
+        budgetUsd,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(campaignsTable.id, campaign.id), eq(campaignsTable.paymentStatus, "nao_pago")))
+      .returning();
+    if (rows.length === 0) throw new PaymentError("Esta campanha já está paga");
+    return rows[0]!;
+  });
+  return updated;
+}
+
+// ─── Payment: direct Multicaixa Express charge ───────────────────────────────
+
+export async function payCampaignWithMulticaixa(
+  campaignId: string,
+  businessId: number,
+  phone: string,
+): Promise<Campaign> {
+  const campaign = await getOwnedCampaign(campaignId, businessId);
+  assertPayable(campaign);
+  const { fxRate, budgetUsd } = lockFxOnPayment(campaign.budget);
+
+  const merchantTransactionId = newMerchantTransactionId("LKC");
+  const updatedRows = await db
+    .update(campaignsTable)
+    .set({
+      paymentStatus: "pendente",
+      paymentMethod: "multicaixa",
+      paymentMerchantTransactionId: merchantTransactionId,
+      fxRateAoaPerUsd: fxRate,
+      budgetUsd,
+      updatedAt: new Date(),
+    })
+    .where(and(
+      eq(campaignsTable.id, campaign.id),
+      inArray(campaignsTable.paymentStatus, ["nao_pago", "falhado"]),
+    ))
+    .returning();
+  const updated = updatedRows[0];
+  if (!updated) throw new PaymentError("Pagamento já em curso ou concluído");
+
+  const fireCharge = async () => {
+    try {
+      const charge = await createGpoCharge({
+        amount: campaign.budget,
+        merchantTransactionId,
+        phoneNumber: phone,
+        description: `Campanha ${campaign.name}`,
+      });
+      if (charge.outcome === "paid") {
+        await settleCampaignGpoPayment(merchantTransactionId, 1);
+      } else if (charge.outcome === "failed") {
+        await settleCampaignGpoPayment(merchantTransactionId, 0);
+      }
+    } catch (err) {
+      logger.error({ err, merchantTransactionId }, "campaign GPO charge failed");
+      await settleCampaignGpoPayment(merchantTransactionId, 0);
+    }
+  };
+  setImmediate(() => { void fireCharge(); });
+  return updated;
+}
+
+/**
+ * Settles a campaign GPO charge (called from settleGpoPayment webhook path and
+ * from the background charge above). Idempotent: only transitions "pendente".
+ * Returns false when the merchantTransactionId doesn't belong to a campaign.
+ */
+export async function settleCampaignGpoPayment(
+  merchantTransactionId: string,
+  operationStatus: number,
+  _ekwanzaTransactionId?: string,
+): Promise<boolean> {
+  const rows = await db
+    .select()
+    .from(campaignsTable)
+    .where(eq(campaignsTable.paymentMerchantTransactionId, merchantTransactionId))
+    .limit(1);
+  const campaign = rows[0];
+  if (!campaign) return false;
+
+  if (operationStatus === 1) {
+    const updated = await db
+      .update(campaignsTable)
+      .set({ paymentStatus: "pago", paidAt: new Date(), updatedAt: new Date() })
+      .where(and(eq(campaignsTable.id, campaign.id), eq(campaignsTable.paymentStatus, "pendente")))
+      .returning();
+    if (updated.length > 0 && campaign.businessId) {
+      void sendPushToOwner({
+        title: "Orçamento da campanha pago!",
+        body: `"${campaign.name}" — ${campaign.budget.toLocaleString("pt-AO")} Kz. Já podes gerar o criativo e publicar.`,
+        tag: `campaign-pay-${campaign.id}`,
+        url: await ownerCampaignUrl(campaign),
+      }, campaign.businessId).catch(() => {});
+    }
+  } else {
+    await db
+      .update(campaignsTable)
+      .set({ paymentStatus: "falhado", updatedAt: new Date() })
+      .where(and(eq(campaignsTable.id, campaign.id), eq(campaignsTable.paymentStatus, "pendente")));
+  }
+  return true;
+}
+
+async function ownerCampaignUrl(campaign: Campaign): Promise<string> {
+  if (!campaign.businessId) return "/";
+  const rows = await db
+    .select({ slug: businessProfilesTable.slug })
+    .from(businessProfilesTable)
+    .where(eq(businessProfilesTable.id, campaign.businessId))
+    .limit(1);
+  const slug = rows[0]?.slug;
+  return slug ? `/e/${slug}/dono/campanhas/${campaign.id}` : "/";
+}
+
+// ─── Publish ──────────────────────────────────────────────────────────────────
+
+/** Absolute public base URL used to build media/destination links for Zernio. */
+function publicBaseUrl(): string {
+  const configured = process.env["PUBLIC_BASE_URL"];
+  if (configured) return configured.replace(/\/$/, "");
+  const devDomain = process.env["REPLIT_DEV_DOMAIN"];
+  if (devDomain) return `https://${devDomain}`;
+  return "";
+}
+
+export async function publishCampaign(campaignId: string, businessId: number): Promise<Campaign> {
+  const campaign = await getOwnedCampaign(campaignId, businessId);
+  if (campaign.paymentStatus !== "pago") throw new PaymentError("Paga o orçamento antes de publicar");
+  if (campaign.creativeStatus !== "pronto" || !campaign.creativeJson) {
+    throw new PaymentError("Gera e aprova o criativo antes de publicar");
+  }
+  if (!["nao_publicada", "erro", "rejeitada"].includes(campaign.publishStatus)) {
+    throw new PaymentError("Esta campanha já foi publicada");
+  }
+  if (!campaign.budgetUsd) throw new PaymentError("Orçamento USD em falta — contacta o suporte");
+
+  const profileRows = await db
+    .select({ catalogSlug: businessProfilesTable.catalogSlug, slug: businessProfilesTable.slug })
+    .from(businessProfilesTable)
+    .where(eq(businessProfilesTable.id, businessId))
+    .limit(1);
+  const profile = profileRows[0];
+  if (!profile) throw new PaymentError("Negócio não encontrado", 404);
+
+  const base = publicBaseUrl();
+  if (!base && !zernio.IS_ZERNIO_SIMULATION) {
+    throw new PaymentError("PUBLIC_BASE_URL não configurado — necessário para publicar anúncios reais", 500);
+  }
+  const destPath = profile.catalogSlug ? `/c/${profile.catalogSlug}` : `/e/${profile.slug}`;
+  const linkUrl = `${base}${destPath}?utm_source=${campaign.platform}&utm_medium=paid&utm_campaign=${campaign.utmSlug}`;
+  const mediaUrl = `${base}${campaign.creativeJson.mediaUrl}`;
+  const channel: zernio.ZernioChannel = campaign.platform === "tiktok" ? "tiktok" : "meta";
+
+  // Mark as "a_publicar" first (optimistic lock against double publish).
+  const locked = await db
+    .update(campaignsTable)
+    .set({ publishStatus: "a_publicar", publishError: null, updatedAt: new Date() })
+    .where(and(
+      eq(campaignsTable.id, campaign.id),
+      inArray(campaignsTable.publishStatus, ["nao_publicada", "erro", "rejeitada"]),
+    ))
+    .returning();
+  if (locked.length === 0) throw new PaymentError("Publicação já em curso");
+
+  try {
+    const result = await zernio.createAd({
+      channel,
+      name: `Linkealls ${campaign.utmSlug}`,
+      budgetUsd: Math.floor(Number(campaign.budgetUsd)),
+      durationDays: campaign.durationDays,
+      headline: campaign.creativeJson.headline,
+      body: campaign.creativeJson.body,
+      callToAction: campaign.creativeJson.callToAction,
+      mediaUrl,
+      mediaType: campaign.creativeJson.mediaType,
+      linkUrl,
+      idempotencyKey: `linkealls-pub-${campaign.id}`,
+    });
+    const publishStatus = result.reviewStatus && result.reviewStatus !== "APPROVED" ? "em_revisao" : "ativa";
+    const rows = await db
+      .update(campaignsTable)
+      .set({
+        publishStatus,
+        zernioAdId: result.adId,
+        zernioCampaignId: result.campaignId,
+        zernioAdSetId: result.adSetId,
+        publishedSimulated: result.simulated ? 1 : 0,
+        status: "ativa",
+        updatedAt: new Date(),
+      })
+      .where(eq(campaignsTable.id, campaign.id))
+      .returning();
+    return rows[0]!;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Erro ao publicar";
+    await db
+      .update(campaignsTable)
+      .set({ publishStatus: "erro", publishError: message, updatedAt: new Date() })
+      .where(eq(campaignsTable.id, campaign.id));
+    throw err instanceof PaymentError ? err : new PaymentError(message, 502);
+  }
+}
+
+// ─── Pause / resume / end ─────────────────────────────────────────────────────
+
+export async function controlCampaignAd(
+  campaignId: string,
+  businessId: number,
+  action: "pause" | "resume" | "end",
+): Promise<Campaign> {
+  const campaign = await getOwnedCampaign(campaignId, businessId);
+  if (!campaign.zernioAdId) throw new PaymentError("Esta campanha ainda não foi publicada");
+  if (["encerrada", "rejeitada"].includes(campaign.publishStatus)) {
+    throw new PaymentError("Esta campanha já terminou");
+  }
+  const simulated = campaign.publishedSimulated === 1;
+
+  if (action === "end") {
+    await zernio.cancelAd(campaign.zernioAdId, simulated);
+  } else {
+    await zernio.setAdStatus(campaign.zernioAdId, action, simulated);
+  }
+
+  const publishStatus = action === "end" ? "encerrada" : action === "pause" ? "pausada" : "ativa";
+  const status = action === "end" ? "encerrada" : action === "pause" ? "pausada" : "ativa";
+  const rows = await db
+    .update(campaignsTable)
+    .set({ publishStatus, status, updatedAt: new Date() })
+    .where(eq(campaignsTable.id, campaign.id))
+    .returning();
+  return rows[0]!;
+}
+
+// ─── Metrics sync ─────────────────────────────────────────────────────────────
+
+const SYNC_INTERVAL_MS = 15 * 60_000;
+
+export async function syncPublishedCampaigns(): Promise<void> {
+  const rows = await db
+    .select()
+    .from(campaignsTable)
+    .where(and(
+      isNotNull(campaignsTable.zernioAdId),
+      inArray(campaignsTable.publishStatus, ["ativa", "em_revisao", "pausada"]),
+    ))
+    .limit(200);
+
+  for (const campaign of rows) {
+    try {
+      const snap = await zernio.getAd(campaign.zernioAdId!, campaign.publishedSimulated === 1);
+      const fxRate = Number(campaign.fxRateAoaPerUsd ?? 0);
+      const spendAoa = fxRate > 0 ? Math.round(snap.spendUsd * fxRate) : campaign.totalSpend;
+
+      let publishStatus = campaign.publishStatus;
+      if (snap.reviewStatus === "REJECTED") publishStatus = "rejeitada";
+      else if (snap.status === "PAUSED" && publishStatus === "ativa") publishStatus = "pausada";
+      else if (["COMPLETED", "CANCELLED", "ARCHIVED", "DELETED"].includes(snap.status)) publishStatus = "encerrada";
+      else if (snap.status === "ACTIVE" && publishStatus === "em_revisao" && snap.reviewStatus === "APPROVED") publishStatus = "ativa";
+
+      // Lifetime window elapsed → mark ended.
+      if (
+        campaign.paidAt &&
+        Date.now() > new Date(campaign.paidAt).getTime() + campaign.durationDays * 24 * 3600_000 &&
+        ["ativa", "pausada", "em_revisao"].includes(publishStatus)
+      ) {
+        publishStatus = "encerrada";
+      }
+
+      await db
+        .update(campaignsTable)
+        .set({
+          syncedSpendUsd: snap.spendUsd.toFixed(2),
+          syncedImpressions: snap.impressions,
+          syncedClicks: snap.clicks,
+          totalSpend: spendAoa,
+          publishStatus,
+          ...(publishStatus === "encerrada" ? { status: "encerrada" as const } : {}),
+          lastSyncAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(campaignsTable.id, campaign.id));
+
+      if (publishStatus === "rejeitada" && campaign.publishStatus !== "rejeitada" && campaign.businessId) {
+        void sendPushToOwner({
+          title: "Anúncio rejeitado",
+          body: `A campanha "${campaign.name}" foi rejeitada pela plataforma. Regenera o criativo e tenta de novo.`,
+          tag: `campaign-rej-${campaign.id}`,
+          url: await ownerCampaignUrl(campaign),
+        }, campaign.businessId).catch(() => {});
+      }
+    } catch (err) {
+      logger.warn({ err, campaignId: campaign.id }, "campaign metrics sync failed");
+    }
+  }
+}
+
+export function startCampaignSyncCron(): void {
+  setInterval(() => {
+    void syncPublishedCampaigns().catch((err) => {
+      logger.error({ err }, "syncPublishedCampaigns crashed");
+    });
+  }, SYNC_INTERVAL_MS).unref();
+  logger.info("campaign metrics sync cron started (15 min)");
+}

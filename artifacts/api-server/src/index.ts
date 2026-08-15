@@ -2,6 +2,7 @@ import http from "http";
 import app from "./app.js";
 import { setupCallFunnelWebSocket } from "./routes/callFunnelWs.js";
 import { startDailySummaryCron } from "./services/notifications.js";
+import { startCampaignSyncCron } from "./services/campaignAds.js";
 import { wireProactiveEvents } from "./services/assistant.js";
 import { logger } from "./lib/logger.js";
 
@@ -32,4 +33,5 @@ server.listen(port, () => {
   logger.info({ port }, "Server listening");
   startDailySummaryCron();
   wireProactiveEvents();
+  startCampaignSyncCron();
 });

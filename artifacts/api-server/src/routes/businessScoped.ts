@@ -51,6 +51,18 @@ import {
   generateOptimizationSuggestions,
 } from "../services/campaigns.js";
 import {
+  payCampaignFromWallet,
+  payCampaignWithMulticaixa,
+  publishCampaign,
+  controlCampaignAd,
+  CAMPAIGN_MIN_BUDGET_AOA,
+} from "../services/campaignAds.js";
+import { startCreativeGeneration } from "../services/adCreatives.js";
+import { effectiveAoaPerUsd, aoaToUsd } from "../services/fx.js";
+import { IS_ZERNIO_SIMULATION } from "../services/zernio.js";
+import { PaymentError } from "../services/payments.js";
+import { aoPhoneSchema } from "@workspace/db";
+import {
   chat,
   listMessages,
   clearMessages,
@@ -523,6 +535,78 @@ export function createBusinessScopedRouter(): Router {
     } catch (err) {
       logger.error({ err }, "GET /campaigns/:id/metrics failed");
       res.status(500).json({ error: "Erro ao carregar métricas" });
+    }
+  });
+
+  // ── Real ads (Zernio, paid in Kz) ──────────────────────────────────────────
+
+  /** Quote: FX rate + USD estimate for a given AOA budget. */
+  router.get("/campaigns/ads/quote", requireOwner, (req, res) => {
+    const budget = Number(req.query["budget"] ?? 0);
+    const rate = effectiveAoaPerUsd();
+    res.json({
+      fxRateAoaPerUsd: rate,
+      minBudgetAoa: CAMPAIGN_MIN_BUDGET_AOA,
+      budgetUsd: budget > 0 ? aoaToUsd(budget, rate) : 0,
+      simulated: IS_ZERNIO_SIMULATION,
+    });
+  });
+
+  router.post("/campaigns/:id/pay", requireOwner, async (req, res) => {
+    const id = String(req.params["id"] ?? "");
+    const schema = z.discriminatedUnion("method", [
+      z.object({ method: z.literal("carteira") }),
+      z.object({ method: z.literal("multicaixa"), phone: aoPhoneSchema }),
+    ]);
+    const parsed = schema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Dados inválidos" }); return; }
+    try {
+      const campaign = parsed.data.method === "carteira"
+        ? await payCampaignFromWallet(id, bid(res))
+        : await payCampaignWithMulticaixa(id, bid(res), parsed.data.phone);
+      res.json({ campaign });
+    } catch (err) {
+      if (err instanceof PaymentError) { res.status(err.statusCode).json({ error: err.message }); return; }
+      logger.error({ err }, "POST /campaigns/:id/pay failed");
+      res.status(500).json({ error: "Erro ao pagar a campanha" });
+    }
+  });
+
+  router.post("/campaigns/:id/creative", requireOwner, async (req, res) => {
+    const id = String(req.params["id"] ?? "");
+    try {
+      const campaign = await startCreativeGeneration(id, bid(res));
+      if (!campaign) { res.status(404).json({ error: "Campanha não encontrada" }); return; }
+      res.json({ campaign });
+    } catch (err) {
+      logger.error({ err }, "POST /campaigns/:id/creative failed");
+      res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao gerar criativo" });
+    }
+  });
+
+  router.post("/campaigns/:id/publish", requireOwner, async (req, res) => {
+    const id = String(req.params["id"] ?? "");
+    try {
+      const campaign = await publishCampaign(id, bid(res));
+      res.json({ campaign });
+    } catch (err) {
+      if (err instanceof PaymentError) { res.status(err.statusCode).json({ error: err.message }); return; }
+      logger.error({ err }, "POST /campaigns/:id/publish failed");
+      res.status(500).json({ error: "Erro ao publicar a campanha" });
+    }
+  });
+
+  router.post("/campaigns/:id/control", requireOwner, async (req, res) => {
+    const id = String(req.params["id"] ?? "");
+    const parsed = z.object({ action: z.enum(["pause", "resume", "end"]) }).safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Ação inválida" }); return; }
+    try {
+      const campaign = await controlCampaignAd(id, bid(res), parsed.data.action);
+      res.json({ campaign });
+    } catch (err) {
+      if (err instanceof PaymentError) { res.status(err.statusCode).json({ error: err.message }); return; }
+      logger.error({ err }, "POST /campaigns/:id/control failed");
+      res.status(500).json({ error: "Erro ao alterar o anúncio" });
     }
   });
 

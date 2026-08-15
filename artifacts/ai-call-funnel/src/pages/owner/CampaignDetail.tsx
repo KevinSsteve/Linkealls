@@ -8,11 +8,13 @@ import {
   Globe, Instagram, Facebook, ExternalLink,
   ChevronDown, ChevronUp, Users, BadgeCheck, TrendingUp,
   DollarSign, Lightbulb, Play, Pause, CopyPlus,
+  Wallet, Smartphone, Rocket, Eye, MousePointerClick, StopCircle,
 } from "lucide-react";
 import { OwnerNav } from "../../components/owner/OwnerNav";
 import {
   businessApi, type Campaign, type CampaignKit,
   type CampaignMetrics, type CampaignPlatform,
+  type AdsQuote, type CampaignPublishStatus,
 } from "../../lib/api";
 import { useBusinessSlug } from "../../hooks/useBusinessSlug";
 
@@ -166,6 +168,284 @@ function KitView({ kit }: { kit: CampaignKit }) {
   );
 }
 
+// ─── Publish flow (real ads via Zernio, paid in Kz) ──────────────────────────
+const PUBLISH_LABEL: Record<CampaignPublishStatus, { label: string; color: string; bg: string }> = {
+  nao_publicada: { label: "Não publicada", color: "#6B7280", bg: "#F3F4F6" },
+  a_publicar:    { label: "A publicar…",   color: "#E65100", bg: "#FFF8E1" },
+  em_revisao:    { label: "Em revisão",    color: "#E65100", bg: "#FFF8E1" },
+  ativa:         { label: "Ativa",         color: "#1B5E20", bg: "#E8F5E9" },
+  pausada:       { label: "Pausada",       color: "#E65100", bg: "#FFF8E1" },
+  encerrada:     { label: "Encerrada",     color: "#6B7280", bg: "#F3F4F6" },
+  rejeitada:     { label: "Rejeitada",     color: "#C62828", bg: "#FFEBEE" },
+  erro:          { label: "Erro",          color: "#C62828", bg: "#FFEBEE" },
+};
+
+function StepCard({ n, title, done, active, children }: {
+  n: number; title: string; done: boolean; active: boolean; children?: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-2xl p-3.5 space-y-2.5"
+      style={{ background: C.white, border: `1px solid ${done ? "#A5D6A7" : C.border}`, opacity: active || done ? 1 : 0.55 }}>
+      <div className="flex items-center gap-2">
+        <div className="w-6 h-6 rounded-full flex items-center justify-center text-[12px] font-bold shrink-0"
+          style={{ background: done ? C.green : C.bg, color: done ? "#fff" : C.text2, border: done ? "none" : `1px solid ${C.border}` }}>
+          {done ? <Check size={13} /> : n}
+        </div>
+        <p className="text-[13px] font-semibold" style={{ color: C.text }}>{title}</p>
+      </div>
+      {(active || done) && children}
+    </div>
+  );
+}
+
+function PublishFlow({ api, campaign, onUpdate }: {
+  api: ReturnType<typeof businessApi>;
+  campaign: Campaign;
+  onUpdate: (c: Campaign) => void;
+}) {
+  const [quote, setQuote] = useState<AdsQuote | null>(null);
+  const [payMethod, setPayMethod] = useState<"carteira" | "multicaixa">("carteira");
+  const [phone, setPhone] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    api.getAdsQuote(campaign.budget).then(setQuote).catch(() => {});
+  }, [api, campaign.budget]);
+
+  // Poll while payment pending or creative generating or a_publicar
+  const polling = campaign.paymentStatus === "pendente" || campaign.creativeStatus === "a_gerar" || campaign.publishStatus === "a_publicar";
+  useEffect(() => {
+    if (!polling) return;
+    const t = setInterval(() => {
+      api.getCampaignById(campaign.id).then(({ campaign: c }) => onUpdate(c)).catch(() => {});
+    }, 4000);
+    return () => clearInterval(t);
+  }, [polling, api, campaign.id, onUpdate]);
+
+  const run = async (key: string, fn: () => Promise<{ campaign: Campaign }>) => {
+    setBusy(key); setErr(null);
+    try { const { campaign: c } = await fn(); onUpdate(c); }
+    catch (e) { setErr(e instanceof Error ? e.message : "Erro inesperado"); }
+    finally { setBusy(null); }
+  };
+
+  const paid = campaign.paymentStatus === "pago";
+  const creativeReady = campaign.creativeStatus === "pronto" && !!campaign.creativeJson;
+  const published = !["nao_publicada", "erro", "rejeitada"].includes(campaign.publishStatus);
+  const ps = PUBLISH_LABEL[campaign.publishStatus];
+  const isTikTok = campaign.platform === "tiktok";
+  const unsupported = campaign.platform === "google";
+
+  return (
+    <div className="space-y-3 px-4 py-3">
+      {/* Status banner */}
+      <div className="rounded-2xl px-3.5 py-3 flex items-center justify-between"
+        style={{ background: ps.bg, border: `1px solid ${ps.color}22` }}>
+        <div>
+          <p className="text-[11px] uppercase tracking-wide font-semibold" style={{ color: ps.color }}>Anúncio real</p>
+          <p className="text-[15px] font-bold" style={{ color: ps.color }}>{ps.label}</p>
+        </div>
+        {quote?.simulated && published && (
+          <span className="text-[10px] px-2 py-1 rounded-full font-semibold" style={{ background: "#FFF", color: "#E65100" }}>
+            SIMULAÇÃO
+          </span>
+        )}
+      </div>
+
+      {campaign.publishError && (
+        <div className="rounded-xl px-3.5 py-2.5 text-[12px]" style={{ background: "#FFEBEE", color: "#C62828" }}>
+          {campaign.publishError}
+        </div>
+      )}
+      {err && (
+        <div className="rounded-xl px-3.5 py-2.5 text-[12px] flex items-start gap-2" style={{ background: "#FFEBEE", color: "#C62828" }}>
+          <AlertCircle size={13} className="shrink-0 mt-0.5" /> {err}
+        </div>
+      )}
+
+      {unsupported ? (
+        <div className="rounded-2xl p-4 text-[13px]" style={{ background: C.white, border: `1px solid ${C.border}`, color: C.text2 }}>
+          Google Ads ainda não está disponível para publicação automática. Cria uma campanha TikTok, Facebook ou Instagram.
+        </div>
+      ) : (
+        <>
+          {/* Step 1 — Pay */}
+          <StepCard n={1} title="Pagar o orçamento em Kz" done={paid} active={!paid}>
+            {!paid ? (
+              <>
+                <p className="text-[12px]" style={{ color: C.text2 }}>
+                  Orçamento: <b style={{ color: C.text }}>{campaign.budget.toLocaleString("pt-AO")} Kz</b> · {campaign.durationDays} dias
+                  {quote && quote.budgetUsd > 0 && (
+                    <> · ≈ <b style={{ color: C.text }}>${quote.budgetUsd.toFixed(2)}</b> em anúncios (câmbio {quote.fxRateAoaPerUsd.toLocaleString("pt-AO")} Kz/USD)</>
+                  )}
+                </p>
+                {quote && campaign.budget < quote.minBudgetAoa && (
+                  <p className="text-[12px]" style={{ color: "#C62828" }}>
+                    Orçamento mínimo: {quote.minBudgetAoa.toLocaleString("pt-AO")} Kz — edita a campanha.
+                  </p>
+                )}
+                {campaign.paymentStatus === "pendente" ? (
+                  <div className="flex items-center gap-2 text-[13px]" style={{ color: "#E65100" }}>
+                    <Loader2 size={14} className="animate-spin" /> Aguarda a confirmação no Multicaixa Express…
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex gap-2">
+                      {([["carteira", "Carteira", <Wallet key="w" size={13} />], ["multicaixa", "Multicaixa", <Smartphone key="m" size={13} />]] as const).map(([m, label, icon]) => (
+                        <button key={m} onClick={() => setPayMethod(m)}
+                          className="flex-1 flex items-center justify-center gap-1.5 text-[12px] font-semibold rounded-xl py-2"
+                          style={{
+                            background: payMethod === m ? "#E8F5E9" : C.bg,
+                            color: payMethod === m ? "#1B5E20" : C.text2,
+                            border: `1px solid ${payMethod === m ? "#A5D6A7" : C.border}`,
+                          }}>
+                          {icon}{label}
+                        </button>
+                      ))}
+                    </div>
+                    {payMethod === "multicaixa" && (
+                      <input value={phone} onChange={(e) => setPhone(e.target.value)}
+                        placeholder="Telemóvel (9XXXXXXXX)" inputMode="tel"
+                        className="w-full rounded-xl px-3 py-2 text-[14px] outline-none"
+                        style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text }} />
+                    )}
+                    {campaign.paymentStatus === "falhado" && (
+                      <p className="text-[12px]" style={{ color: "#C62828" }}>O pagamento anterior falhou — tenta de novo.</p>
+                    )}
+                    <button
+                      onClick={() => run("pay", () => api.payCampaign(campaign.id,
+                        payMethod === "carteira" ? { method: "carteira" } : { method: "multicaixa", phone }))}
+                      disabled={busy !== null || (payMethod === "multicaixa" && !/^9\d{8}$/.test(phone.replace(/\s/g, "")))}
+                      className="w-full flex items-center justify-center gap-2 text-[13px] font-semibold rounded-full py-2.5"
+                      style={{ background: C.green, color: "#fff", opacity: busy ? 0.7 : 1 }}>
+                      {busy === "pay" ? <Loader2 size={14} className="animate-spin" /> : <DollarSign size={14} />}
+                      Pagar {campaign.budget.toLocaleString("pt-AO")} Kz
+                    </button>
+                  </>
+                )}
+              </>
+            ) : (
+              <p className="text-[12px]" style={{ color: C.text2 }}>
+                Pago {campaign.paymentMethod === "carteira" ? "com a carteira" : "por Multicaixa Express"} · ≈ ${Number(campaign.budgetUsd ?? 0).toFixed(2)} (câmbio {Number(campaign.fxRateAoaPerUsd ?? 0).toLocaleString("pt-AO")} Kz/USD)
+              </p>
+            )}
+          </StepCard>
+
+          {/* Step 2 — Creative */}
+          <StepCard n={2} title={isTikTok ? "Gerar vídeo do anúncio com IA" : "Gerar imagem do anúncio com IA"}
+            done={creativeReady} active={paid}>
+            {campaign.creativeStatus === "a_gerar" && (
+              <div className="flex items-center gap-2 text-[13px]" style={{ color: "#E65100" }}>
+                <Loader2 size={14} className="animate-spin" />
+                {isTikTok ? "A gerar o vídeo… pode demorar 1-3 minutos" : "A gerar a imagem…"}
+              </div>
+            )}
+            {campaign.creativeStatus === "erro" && (
+              <p className="text-[12px]" style={{ color: "#C62828" }}>{campaign.creativeError ?? "Erro ao gerar"}</p>
+            )}
+            {creativeReady && campaign.creativeJson && (
+              <div className="space-y-2">
+                {campaign.creativeJson.mediaType === "video" ? (
+                  <video src={campaign.creativeJson.mediaUrl} controls playsInline
+                    className="w-full rounded-xl" style={{ maxHeight: 320, background: "#000" }} />
+                ) : (
+                  <img src={campaign.creativeJson.mediaUrl} alt="Criativo do anúncio" className="w-full rounded-xl" />
+                )}
+                <p className="text-[14px] font-semibold" style={{ color: C.text }}>{campaign.creativeJson.headline}</p>
+                <p className="text-[13px]" style={{ color: C.text2 }}>{campaign.creativeJson.body}</p>
+                {campaign.creativeJson.productNames.length > 0 && (
+                  <p className="text-[11px]" style={{ color: C.text3 }}>
+                    Produtos: {campaign.creativeJson.productNames.join(", ")}
+                  </p>
+                )}
+              </div>
+            )}
+            {paid && campaign.creativeStatus !== "a_gerar" && !published && (
+              <button
+                onClick={() => run("creative", () => api.generateCampaignCreative(campaign.id))}
+                disabled={busy !== null}
+                className="w-full flex items-center justify-center gap-2 text-[13px] font-semibold rounded-full py-2.5"
+                style={{
+                  background: creativeReady ? "#E8F5E9" : C.green,
+                  color: creativeReady ? "#1B5E20" : "#fff",
+                  border: creativeReady ? "1px solid #A5D6A7" : "none",
+                  opacity: busy ? 0.7 : 1,
+                }}>
+                {busy === "creative" ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                {creativeReady ? "Regenerar criativo" : "Gerar criativo com IA"}
+              </button>
+            )}
+          </StepCard>
+
+          {/* Step 3 — Publish */}
+          <StepCard n={3} title="Publicar o anúncio" done={published} active={paid && creativeReady}>
+            {!published ? (
+              <button
+                onClick={() => run("publish", () => api.publishCampaign(campaign.id))}
+                disabled={busy !== null || !paid || !creativeReady}
+                className="w-full flex items-center justify-center gap-2 text-[13px] font-semibold rounded-full py-2.5"
+                style={{ background: "#111827", color: "#fff", opacity: busy || !paid || !creativeReady ? 0.6 : 1 }}>
+                {busy === "publish" ? <Loader2 size={14} className="animate-spin" /> : <Rocket size={14} />}
+                Publicar no {isTikTok ? "TikTok" : campaign.platform === "instagram" ? "Instagram" : "Facebook"}
+              </button>
+            ) : (
+              <>
+                {/* Real metrics */}
+                <div className="grid grid-cols-3 gap-2">
+                  {[
+                    { label: "Impressões", value: campaign.syncedImpressions.toLocaleString("pt-AO"), icon: <Eye size={13} /> },
+                    { label: "Cliques", value: campaign.syncedClicks.toLocaleString("pt-AO"), icon: <MousePointerClick size={13} /> },
+                    { label: "Gasto", value: `${campaign.totalSpend.toLocaleString("pt-AO")} Kz`, icon: <DollarSign size={13} /> },
+                  ].map((s) => (
+                    <div key={s.label} className="rounded-xl p-2.5" style={{ background: C.bg, border: `1px solid ${C.border}` }}>
+                      <div className="flex items-center gap-1 mb-1" style={{ color: C.text3 }}>{s.icon}
+                        <span className="text-[9px] uppercase tracking-wide">{s.label}</span></div>
+                      <p className="text-[14px] font-bold" style={{ color: C.text }}>{s.value}</p>
+                    </div>
+                  ))}
+                </div>
+                {campaign.lastSyncAt && (
+                  <p className="text-[11px]" style={{ color: C.text3 }}>
+                    Atualizado {new Date(campaign.lastSyncAt).toLocaleString("pt-AO")}
+                  </p>
+                )}
+                {/* Controls */}
+                {["ativa", "pausada", "em_revisao"].includes(campaign.publishStatus) && (
+                  <div className="flex gap-2">
+                    {campaign.publishStatus === "ativa" ? (
+                      <button onClick={() => run("ctl", () => api.controlCampaignAd(campaign.id, "pause"))}
+                        disabled={busy !== null}
+                        className="flex-1 flex items-center justify-center gap-1.5 text-[12px] font-semibold rounded-full py-2"
+                        style={{ background: "#FFF8E1", color: "#E65100", border: "1px solid #FFE082" }}>
+                        <Pause size={12} /> Pausar
+                      </button>
+                    ) : campaign.publishStatus === "pausada" ? (
+                      <button onClick={() => run("ctl", () => api.controlCampaignAd(campaign.id, "resume"))}
+                        disabled={busy !== null}
+                        className="flex-1 flex items-center justify-center gap-1.5 text-[12px] font-semibold rounded-full py-2"
+                        style={{ background: "#E8F5E9", color: "#1B5E20", border: "1px solid #A5D6A7" }}>
+                        <Play size={12} /> Retomar
+                      </button>
+                    ) : null}
+                    <button
+                      onClick={() => { if (confirm("Encerrar o anúncio definitivamente?")) void run("ctl", () => api.controlCampaignAd(campaign.id, "end")); }}
+                      disabled={busy !== null}
+                      className="flex-1 flex items-center justify-center gap-1.5 text-[12px] font-semibold rounded-full py-2"
+                      style={{ background: "#FFEBEE", color: "#C62828", border: "1px solid #FFCDD2" }}>
+                      <StopCircle size={12} /> Encerrar
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </StepCard>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ─── Metrics dashboard ────────────────────────────────────────────────────────
 function MetricsDashboard({ api, slug, metrics, campaign, onSpendUpdate }: {
   api: ReturnType<typeof businessApi>; slug: string;
@@ -276,7 +556,7 @@ export function CampaignDetail() {
   const [generating, setGenerating]       = useState(false);
   const [loading, setLoading]             = useState(true);
   const [error, setError]                 = useState<string | null>(null);
-  const [tab, setTab]                     = useState<"kit" | "metricas">("kit");
+  const [tab, setTab]                     = useState<"kit" | "publicar" | "metricas">("kit");
   const [changingStatus, setChangingStatus] = useState(false);
   const [duplicating, setDuplicating]     = useState(false);
   const [, navigate]                      = useLocation();
@@ -393,7 +673,7 @@ export function CampaignDetail() {
 
       {/* Tabs */}
       <div className="flex shrink-0" style={{ background: C.white, borderBottom: `1px solid ${C.border}` }}>
-        {([["kit", "🎯 Kit IA"], ["metricas", "📊 Métricas"]] as const).map(([key, label]) => (
+        {([["kit", "🎯 Kit IA"], ["publicar", "🚀 Publicar"], ["metricas", "📊 Métricas"]] as const).map(([key, label]) => (
           <button key={key} onClick={() => setTab(key)}
             className="flex-1 py-2.5 text-[13px] font-semibold"
             style={{
@@ -450,6 +730,11 @@ export function CampaignDetail() {
               </>
             )}
           </>
+        )}
+
+        {/* Publish tab */}
+        {tab === "publicar" && api && (
+          <PublishFlow api={api} campaign={campaign} onUpdate={setCampaign} />
         )}
 
         {/* Metrics tab */}

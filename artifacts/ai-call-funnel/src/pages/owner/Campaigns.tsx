@@ -42,6 +42,7 @@ function CreateModal({ api, onClose, onCreate }: {
   const [platform, setPlatform] = useState<CampaignPlatform>("instagram");
   const [objective, setObjective] = useState("");
   const [budget, setBudget] = useState("");
+  const [durationDays, setDurationDays] = useState("7");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -49,7 +50,11 @@ function CreateModal({ api, onClose, onCreate }: {
     if (!name.trim() || !objective.trim()) { setErr("Preenche o nome e o objetivo."); return; }
     setSaving(true); setErr(null);
     try {
-      const { campaign } = await api.createCampaign({ name: name.trim(), platform, objective: objective.trim(), budget: parseInt(budget, 10) || 0 });
+      const { campaign } = await api.createCampaign({
+        name: name.trim(), platform, objective: objective.trim(),
+        budget: parseInt(budget, 10) || 0,
+        durationDays: Math.min(90, Math.max(1, parseInt(durationDays, 10) || 7)),
+      });
       onCreate(campaign);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Erro ao criar campanha");
@@ -114,12 +119,21 @@ function CreateModal({ api, onClose, onCreate }: {
             style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text }} />
         </div>
 
-        <div>
-          <label className="text-[12px] font-semibold block mb-1.5" style={{ color: C.text2 }}>Orçamento (AOA) — opcional</label>
-          <input value={budget} onChange={(e) => setBudget(e.target.value.replace(/\D/g, ""))}
-            placeholder="Ex: 50000"
-            className="w-full rounded-xl px-3.5 py-2.5 text-[14px] outline-none"
-            style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text }} />
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="text-[12px] font-semibold block mb-1.5" style={{ color: C.text2 }}>Orçamento (Kz)</label>
+            <input value={budget} onChange={(e) => setBudget(e.target.value.replace(/\D/g, ""))}
+              placeholder="Ex: 50000" inputMode="numeric"
+              className="w-full rounded-xl px-3.5 py-2.5 text-[14px] outline-none"
+              style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text }} />
+          </div>
+          <div>
+            <label className="text-[12px] font-semibold block mb-1.5" style={{ color: C.text2 }}>Duração (dias)</label>
+            <input value={durationDays} onChange={(e) => setDurationDays(e.target.value.replace(/\D/g, ""))}
+              placeholder="7" inputMode="numeric"
+              className="w-full rounded-xl px-3.5 py-2.5 text-[14px] outline-none"
+              style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text }} />
+          </div>
         </div>
 
         <button onClick={handleCreate} disabled={saving}

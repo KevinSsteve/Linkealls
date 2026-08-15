@@ -41,7 +41,7 @@ const ORDER_EXPIRY_HOURS = 24;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function newMerchantTransactionId(prefix: "LKO" | "LKS"): string {
+export function newMerchantTransactionId(prefix: "LKO" | "LKS" | "LKC"): string {
   // AppyPay rule: 1-15 chars, alphanumeric only (no dashes).
   // prefix (3) + timestamp base36 (8-9) + random base36 (3) = 14-15 chars.
   const ts = Date.now().toString(36).toUpperCase();
@@ -391,6 +391,12 @@ export async function settleGpoPayment(
         .set({ status: "falhada", updatedAt: new Date() })
         .where(and(eq(subscriptionsTable.id, sub.id), eq(subscriptionsTable.status, "pendente")));
     }
+    return true;
+  }
+
+  // Campaign budget charge? (paid directly via Multicaixa, not via wallet)
+  const { settleCampaignGpoPayment } = await import("./campaignAds.js");
+  if (await settleCampaignGpoPayment(merchantTransactionId, operationStatus, ekwanzaTransactionId)) {
     return true;
   }
 

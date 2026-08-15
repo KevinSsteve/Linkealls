@@ -133,6 +133,21 @@ export class ObjectStorageService {
     });
   }
 
+  /**
+   * Uploads a server-generated buffer as a new private object entity.
+   * Returns the entity path (`/objects/uploads/<uuid>`) served by
+   * GET /api/storage/objects/... — the same shape the client-upload flow uses.
+   */
+  async uploadObjectEntity(buffer: Buffer, contentType: string): Promise<string> {
+    const privateObjectDir = this.getPrivateObjectDir();
+    const objectId = randomUUID();
+    const fullPath = `${privateObjectDir}/uploads/${objectId}`;
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+    const file = objectStorageClient.bucket(bucketName).file(objectName);
+    await file.save(buffer, { contentType, resumable: false });
+    return `/objects/uploads/${objectId}`;
+  }
+
   async getObjectEntityFile(objectPath: string): Promise<File> {
     if (!objectPath.startsWith('/objects/')) {
       throw new ObjectNotFoundError();

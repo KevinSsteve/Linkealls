@@ -59,7 +59,7 @@ export const subscriptionsTable = pgTable("subscriptions", {
 
 // ─── Wallet ledger (immutable; balance = SUM(amount)) ─────────────────────────
 
-export type LedgerEntryType = "venda" | "saque" | "estorno_saque" | "ajuste";
+export type LedgerEntryType = "venda" | "saque" | "estorno_saque" | "ajuste" | "campanha";
 
 export const walletLedgerTable = pgTable(
   "wallet_ledger",
@@ -71,6 +71,8 @@ export const walletLedgerTable = pgTable(
     amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
     orderId: uuid("order_id"),
     payoutId: uuid("payout_id"),
+    /** Set when the entry is a campaign budget debit (type "campanha"). */
+    campaignId: uuid("campaign_id"),
     description: text("description").notNull().default(""),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
@@ -79,6 +81,10 @@ export const walletLedgerTable = pgTable(
     uniqueIndex("wallet_ledger_order_credit_uq")
       .on(t.orderId)
       .where(sql`order_id IS NOT NULL`),
+    // One budget debit per campaign — campaign payment idempotency at DB level.
+    uniqueIndex("wallet_ledger_campaign_debit_uq")
+      .on(t.campaignId)
+      .where(sql`campaign_id IS NOT NULL`),
   ],
 );
 
