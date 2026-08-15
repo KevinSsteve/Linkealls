@@ -46,6 +46,7 @@ import {
   createCampaign,
   duplicateCampaign,
   updateCampaign,
+  CampaignLockedError,
   generateCampaignKit,
   getCampaignMetrics,
   generateOptimizationSuggestions,
@@ -58,7 +59,7 @@ import {
   CAMPAIGN_MIN_BUDGET_AOA,
 } from "../services/campaignAds.js";
 import { startCreativeGeneration } from "../services/adCreatives.js";
-import { effectiveAoaPerUsd, aoaToUsd } from "../services/fx.js";
+import { effectiveAoaPerUsd, aoaToWholeUsd } from "../services/fx.js";
 import { IS_ZERNIO_SIMULATION } from "../services/zernio.js";
 import { PaymentError } from "../services/payments.js";
 import { aoPhoneSchema } from "@workspace/db";
@@ -499,6 +500,7 @@ export function createBusinessScopedRouter(): Router {
       if (!campaign) { res.status(404).json({ error: "Campanha não encontrada" }); return; }
       res.json({ campaign });
     } catch (err) {
+      if (err instanceof CampaignLockedError) { res.status(err.statusCode).json({ error: err.message }); return; }
       logger.error({ err }, "PATCH /campaigns/:id failed");
       res.status(500).json({ error: "Erro ao atualizar campanha" });
     }
@@ -547,7 +549,7 @@ export function createBusinessScopedRouter(): Router {
     res.json({
       fxRateAoaPerUsd: rate,
       minBudgetAoa: CAMPAIGN_MIN_BUDGET_AOA,
-      budgetUsd: budget > 0 ? aoaToUsd(budget, rate) : 0,
+      budgetUsd: budget > 0 ? aoaToWholeUsd(budget, rate) : 0,
       simulated: IS_ZERNIO_SIMULATION,
     });
   });
@@ -576,7 +578,10 @@ export function createBusinessScopedRouter(): Router {
     const id = String(req.params["id"] ?? "");
     try {
       const campaign = await startCreativeGeneration(id, bid(res));
-      if (!campaign) { res.status(404).json({ error: "Campanha não encontrada" }); return; }
+      if (!campaign) {
+        res.status(409).json({ error: "Não é possível gerar agora — a campanha tem de estar paga, sem geração em curso e ainda não publicada" });
+        return;
+      }
       res.json({ campaign });
     } catch (err) {
       logger.error({ err }, "POST /campaigns/:id/creative failed");

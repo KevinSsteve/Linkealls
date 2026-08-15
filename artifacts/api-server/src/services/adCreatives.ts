@@ -10,7 +10,7 @@
  * /api/storage/objects/... .
  */
 import { GoogleGenAI, Type } from "@google/genai";
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   db,
   campaignsTable,
@@ -137,10 +137,19 @@ export async function startCreativeGeneration(
   campaignId: string,
   businessId: number,
 ): Promise<Campaign | null> {
+  // Atomic gate: only a paid, not-yet-published campaign that isn't already
+  // generating may start a (paid) generation job. Prevents duplicate concurrent
+  // jobs and generation for unpaid or live campaigns.
   const updated = await db
     .update(campaignsTable)
     .set({ creativeStatus: "a_gerar", creativeError: null, updatedAt: new Date() })
-    .where(and(eq(campaignsTable.id, campaignId), eq(campaignsTable.businessId, businessId)))
+    .where(and(
+      eq(campaignsTable.id, campaignId),
+      eq(campaignsTable.businessId, businessId),
+      eq(campaignsTable.paymentStatus, "pago"),
+      sql`${campaignsTable.creativeStatus} <> 'a_gerar'`,
+      inArray(campaignsTable.publishStatus, ["nao_publicada", "erro", "rejeitada"]),
+    ))
     .returning();
   const campaign = updated[0];
   if (!campaign) return null;

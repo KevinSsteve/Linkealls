@@ -13,18 +13,22 @@ import { and, eq, sql, isNotNull, inArray } from "drizzle-orm";
 import {
   db,
   campaignsTable,
+  campaignPaymentAttemptsTable,
   walletLedgerTable,
   businessProfilesTable,
   type Campaign,
 } from "@workspace/db";
 import { newMerchantTransactionId, PaymentError } from "./payments.js";
-import { createGpoCharge } from "./ekwanza.js";
+import { createGpoCharge, IS_SIMULATION as IS_EKWANZA_SIMULATION } from "./ekwanza.js";
 import * as zernio from "./zernio.js";
-import { effectiveAoaPerUsd, aoaToUsd } from "./fx.js";
+import { effectiveAoaPerUsd, aoaToWholeUsd } from "./fx.js";
 import { sendPushToOwner } from "./notifications.js";
 import { logger } from "../lib/logger.js";
 
 export const CAMPAIGN_MIN_BUDGET_AOA = 5_000;
+
+/** Simulated-payment bypasses are opt-in to explicit development only. */
+const IS_DEV_ENV = process.env["NODE_ENV"] === "development";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -41,7 +45,9 @@ async function getOwnedCampaign(campaignId: string, businessId: number): Promise
 
 function lockFxOnPayment(budgetAoa: number): { fxRate: string; budgetUsd: string } {
   const rate = effectiveAoaPerUsd();
-  const usd = aoaToUsd(budgetAoa, rate);
+  // Whole USD: exactly what Zernio will be funded with — same number the
+  // owner saw in the quote, no silent rounding at publish time.
+  const usd = aoaToWholeUsd(budgetAoa, rate);
   if (usd < 1) throw new PaymentError("Orçamento demasiado baixo para publicar (mínimo ~1 USD)");
   return { fxRate: rate.toFixed(4), budgetUsd: usd.toFixed(2) };
 }
@@ -57,6 +63,40 @@ function assertPayable(campaign: Campaign): void {
   }
   if (campaign.platform === "google") {
     throw new PaymentError("Google Ads ainda não está disponível — usa TikTok, Facebook ou Instagram");
+  }
+  const channel: zernio.ZernioChannel = campaign.platform === "tiktok" ? "tiktok" : "meta";
+  if (!zernio.isChannelConfigured(channel)) {
+    throw new PaymentError(
+      `O canal ${campaign.platform} ainda não está configurado na plataforma — contacta o suporte antes de pagar`,
+      503,
+    );
+  }
+  // Never collect real money for a simulated ad outside development: the
+  // gateway would only fabricate a fake publication. Fail closed in prod.
+  // Fail-closed default: simulated payments are only allowed in an explicit
+  // development environment. Unset NODE_ENV (e.g. a misconfigured deploy)
+  // blocks charges rather than silently accepting money for fake ads.
+  if (zernio.IS_ZERNIO_SIMULATION && !IS_DEV_ENV) {
+    throw new PaymentError(
+      "A publicação de anúncios reais ainda não está ativa — o pagamento está bloqueado até a plataforma estar configurada",
+      503,
+    );
+  }
+  // Every prerequisite for actually publishing must exist BEFORE any money
+  // moves — an owner must never be charged into a flow that cannot complete.
+  if (!zernio.IS_ZERNIO_SIMULATION) {
+    if (!publicBaseUrl()) {
+      throw new PaymentError(
+        "Publicação indisponível: URL pública da plataforma não configurada — contacta o suporte antes de pagar",
+        503,
+      );
+    }
+    if (!process.env["GEMINI_API_KEY"]) {
+      throw new PaymentError(
+        "Publicação indisponível: geração de criativos não configurada — contacta o suporte antes de pagar",
+        503,
+      );
+    }
   }
 }
 
@@ -117,6 +157,14 @@ export async function payCampaignWithMulticaixa(
 ): Promise<Campaign> {
   const campaign = await getOwnedCampaign(campaignId, businessId);
   assertPayable(campaign);
+  // A simulated Multicaixa charge must never gate a real ad: in production
+  // with real Zernio but missing e-kwanza credentials, fail closed.
+  if (IS_EKWANZA_SIMULATION && !IS_DEV_ENV) {
+    throw new PaymentError(
+      "Pagamento por Multicaixa Express indisponível de momento — usa a carteira",
+      503,
+    );
+  }
   const { fxRate, budgetUsd } = lockFxOnPayment(campaign.budget);
 
   const merchantTransactionId = newMerchantTransactionId("LKC");
@@ -138,6 +186,13 @@ export async function payCampaignWithMulticaixa(
   const updated = updatedRows[0];
   if (!updated) throw new PaymentError("Pagamento já em curso ou concluído");
 
+  // Immutable record of this attempt — retries create new rows, so a delayed
+  // webhook for ANY earlier attempt can always be matched (never lost).
+  await db.insert(campaignPaymentAttemptsTable).values({
+    campaignId: campaign.id,
+    merchantTransactionId,
+  });
+
   const fireCharge = async () => {
     try {
       const charge = await createGpoCharge({
@@ -147,13 +202,20 @@ export async function payCampaignWithMulticaixa(
         description: `Campanha ${campaign.name}`,
       });
       if (charge.outcome === "paid") {
-        await settleCampaignGpoPayment(merchantTransactionId, 1);
+        try {
+          await settleCampaignGpoPayment(merchantTransactionId, 1);
+        } catch (settleErr) {
+          logger.error({ err: settleErr, merchantTransactionId }, "campaign paid but local settlement failed — awaiting webhook/reconciliation");
+        }
       } else if (charge.outcome === "failed") {
         await settleCampaignGpoPayment(merchantTransactionId, 0);
       }
+      // outcome === "pending": leave the campaign pendente — the webhook settles it.
     } catch (err) {
-      logger.error({ err, merchantTransactionId }, "campaign GPO charge failed");
-      await settleCampaignGpoPayment(merchantTransactionId, 0);
+      // Unknown outcome (network error / timeout): do NOT mark falhado — the
+      // charge may still have succeeded. Leave pendente for the webhook or
+      // reconciliation; marking it failed here could allow a double charge.
+      logger.error({ err, merchantTransactionId }, "campaign GPO charge errored with unknown outcome — left pendente for webhook/reconciliation");
     }
   };
   setImmediate(() => { void fireCharge(); });
@@ -170,19 +232,57 @@ export async function settleCampaignGpoPayment(
   operationStatus: number,
   _ekwanzaTransactionId?: string,
 ): Promise<boolean> {
+  // Attempts table is the settlement authority: it survives retries that
+  // overwrite the campaign's current merchantTransactionId.
+  const attemptRows = await db
+    .select()
+    .from(campaignPaymentAttemptsTable)
+    .where(eq(campaignPaymentAttemptsTable.merchantTransactionId, merchantTransactionId))
+    .limit(1);
+  const attempt = attemptRows[0];
+  if (!attempt) return false;
+
   const rows = await db
     .select()
     .from(campaignsTable)
-    .where(eq(campaignsTable.paymentMerchantTransactionId, merchantTransactionId))
+    .where(eq(campaignsTable.id, attempt.campaignId))
     .limit(1);
   const campaign = rows[0];
   if (!campaign) return false;
 
   if (operationStatus === 1) {
+    if (campaign.paymentStatus === "pago") {
+      // Campaign already paid (possibly via a NEWER attempt): the owner was
+      // charged twice. Record it loudly for support/refund — never drop it.
+      const dup = await db
+        .update(campaignPaymentAttemptsTable)
+        .set({ status: "pago_duplicado", updatedAt: new Date() })
+        .where(and(
+          eq(campaignPaymentAttemptsTable.id, attempt.id),
+          eq(campaignPaymentAttemptsTable.status, "pendente"),
+        ))
+        .returning();
+      if (dup.length > 0) {
+        logger.error(
+          { merchantTransactionId, campaignId: campaign.id },
+          "DUPLICATE campaign payment: charge settled after campaign already paid — needs manual refund",
+        );
+      }
+      return true;
+    }
+    await db
+      .update(campaignPaymentAttemptsTable)
+      .set({ status: "pago", updatedAt: new Date() })
+      .where(eq(campaignPaymentAttemptsTable.id, attempt.id));
     const updated = await db
       .update(campaignsTable)
       .set({ paymentStatus: "pago", paidAt: new Date(), updatedAt: new Date() })
-      .where(and(eq(campaignsTable.id, campaign.id), eq(campaignsTable.paymentStatus, "pendente")))
+      // A definitive "paid" callback wins even over a locally-recorded failure
+      // (delayed webhook after a transient error).
+      .where(and(
+        eq(campaignsTable.id, campaign.id),
+        inArray(campaignsTable.paymentStatus, ["pendente", "falhado"]),
+      ))
       .returning();
     if (updated.length > 0 && campaign.businessId) {
       void sendPushToOwner({
@@ -194,9 +294,21 @@ export async function settleCampaignGpoPayment(
     }
   } else {
     await db
+      .update(campaignPaymentAttemptsTable)
+      .set({ status: "falhado", updatedAt: new Date() })
+      .where(and(
+        eq(campaignPaymentAttemptsTable.id, attempt.id),
+        eq(campaignPaymentAttemptsTable.status, "pendente"),
+      ));
+    // Only fail the campaign if this attempt is still its CURRENT one.
+    await db
       .update(campaignsTable)
       .set({ paymentStatus: "falhado", updatedAt: new Date() })
-      .where(and(eq(campaignsTable.id, campaign.id), eq(campaignsTable.paymentStatus, "pendente")));
+      .where(and(
+        eq(campaignsTable.id, campaign.id),
+        eq(campaignsTable.paymentMerchantTransactionId, merchantTransactionId),
+        eq(campaignsTable.paymentStatus, "pendente"),
+      ));
   }
   return true;
 }
@@ -285,6 +397,7 @@ export async function publishCampaign(campaignId: string, businessId: number): P
         zernioCampaignId: result.campaignId,
         zernioAdSetId: result.adSetId,
         publishedSimulated: result.simulated ? 1 : 0,
+        publishedAt: new Date(),
         status: "ativa",
         updatedAt: new Date(),
       })
@@ -357,12 +470,16 @@ export async function syncPublishedCampaigns(): Promise<void> {
       else if (["COMPLETED", "CANCELLED", "ARCHIVED", "DELETED"].includes(snap.status)) publishStatus = "encerrada";
       else if (snap.status === "ACTIVE" && publishStatus === "em_revisao" && snap.reviewStatus === "APPROVED") publishStatus = "ativa";
 
-      // Lifetime window elapsed → mark ended.
+      // Lifetime window elapsed (counted from actual publication, not payment)
+      // → cancel remotely FIRST so a real ad never keeps spending after we
+      // mark it ended locally, then mark ended.
+      const startedAt = campaign.publishedAt ?? campaign.paidAt;
       if (
-        campaign.paidAt &&
-        Date.now() > new Date(campaign.paidAt).getTime() + campaign.durationDays * 24 * 3600_000 &&
+        startedAt &&
+        Date.now() > new Date(startedAt).getTime() + campaign.durationDays * 24 * 3600_000 &&
         ["ativa", "pausada", "em_revisao"].includes(publishStatus)
       ) {
+        await zernio.cancelAd(campaign.zernioAdId!, campaign.publishedSimulated === 1);
         publishStatus = "encerrada";
       }
 

@@ -121,10 +121,29 @@ export const campaignsTable = pgTable("campaigns", {
   syncedImpressions: integer("synced_impressions").notNull().default(0),
   syncedClicks:      integer("synced_clicks").notNull().default(0),
   lastSyncAt:        timestamp("last_sync_at"),
+  publishedAt:       timestamp("published_at"),
 
   createdAt:  timestamp("created_at").notNull().defaultNow(),
   updatedAt:  timestamp("updated_at").notNull().defaultNow(),
 });
+
+/**
+ * One row per Multicaixa (GPO) charge attempt for a campaign. The merchant
+ * transaction id is immutable here even when the campaign row is retried with
+ * a fresh id — so a delayed success webhook for an earlier attempt can always
+ * be matched and audited (never silently lost).
+ */
+export const campaignPaymentAttemptsTable = pgTable("campaign_payment_attempts", {
+  id:                    uuid("id").primaryKey().defaultRandom(),
+  campaignId:            uuid("campaign_id").notNull(),
+  merchantTransactionId: text("merchant_transaction_id").notNull().unique(),
+  /** pendente | pago | falhado | pago_duplicado (paid after campaign already paid via another attempt) */
+  status:                text("status").$type<"pendente" | "pago" | "falhado" | "pago_duplicado">().notNull().default("pendente"),
+  createdAt:             timestamp("created_at").notNull().defaultNow(),
+  updatedAt:             timestamp("updated_at").notNull().defaultNow(),
+});
+
+export type CampaignPaymentAttempt = typeof campaignPaymentAttemptsTable.$inferSelect;
 
 // ─── Zod schemas ──────────────────────────────────────────────────────────────
 

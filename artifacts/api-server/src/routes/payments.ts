@@ -89,7 +89,9 @@ router.post("/payments/webhook/gpo", async (req, res) => {
  * answered the Multicaixa Express push. Disabled when real credentials exist.
  */
 router.post("/payments/simulate/pay", async (req, res) => {
-  if (!IS_SIMULATION) {
+  // Development-only: never enabled in production, even if credentials are
+  // missing there — otherwise anyone could settle charges without paying.
+  if (!IS_SIMULATION || process.env["NODE_ENV"] !== "development") {
     res.status(404).json({ error: "Não disponível" });
     return;
   }

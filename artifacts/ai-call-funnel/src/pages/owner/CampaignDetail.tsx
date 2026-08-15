@@ -274,6 +274,13 @@ function PublishFlow({ api, campaign, onUpdate }: {
           <StepCard n={1} title="Pagar o orçamento em Kz" done={paid} active={!paid}>
             {!paid ? (
               <>
+                {quote?.simulated && (
+                  <div className="rounded-xl px-3 py-2 text-[12px] font-medium flex items-start gap-1.5"
+                    style={{ background: "#FFF8E1", color: "#E65100", border: "1px solid #FFE082" }}>
+                    <AlertCircle size={13} className="shrink-0 mt-0.5" />
+                    Modo de teste: nenhum anúncio real será publicado. Não uses dinheiro real neste modo.
+                  </div>
+                )}
                 <p className="text-[12px]" style={{ color: C.text2 }}>
                   Orçamento: <b style={{ color: C.text }}>{campaign.budget.toLocaleString("pt-AO")} Kz</b> · {campaign.durationDays} dias
                   {quote && quote.budgetUsd > 0 && (

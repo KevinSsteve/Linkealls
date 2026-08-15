@@ -6,4 +6,5 @@
 - [AppyPay OAuth tenant](appypay-oauth-tenant.md) — token URL must use tenant auth.appypay.co.ao; AADSTS500011 means wrong tenant, not wrong APPYPAY_RESOURCE secret.
 - [Multicaixa payments invariants](payments-multicaixa.md) — derived balance + advisory locks; atomic settlement; never refund payouts on timeout; webhook fail-closed HMAC.
 - [pg Pool error handler](pg-pool-error-handler.md) — unhandled pool 'error' from Neon idle-kills crashed prod & failed publish health checks; always pool.on('error') + idleTimeoutMillis.
+- [Zernio real ads decisions](zernio-ads.md) — payment fails closed unless NODE_ENV=development; all publish prerequisites checked before any charge; immutable payment attempts; whole-USD funding.
 - [Web Push Setup](web-push-setup.md) — VAPID env secrets, pushSubscriptions jsonb in business_profiles, daily cron at WAT 08:00, Uint8Array cast quirk.

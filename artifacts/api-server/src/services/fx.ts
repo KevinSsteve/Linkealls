@@ -28,3 +28,12 @@ export function effectiveAoaPerUsd(): number {
 export function aoaToUsd(amountAoa: number, rateAoaPerUsd: number): number {
   return Math.floor((amountAoa / rateAoaPerUsd) * 100) / 100;
 }
+
+/**
+ * Campaign funding amount in WHOLE USD (Zernio budgets are whole units).
+ * Floored so the quoted/funded amount is exactly what the gateway receives —
+ * the owner sees this number before paying; no hidden rounding at publish.
+ */
+export function aoaToWholeUsd(amountAoa: number, rateAoaPerUsd: number): number {
+  return Math.floor(amountAoa / rateAoaPerUsd);
+}

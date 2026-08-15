@@ -40,6 +40,16 @@ function houseAccount(channel: ZernioChannel): HouseAccount | null {
 
 export const IS_ZERNIO_SIMULATION = !API_KEY;
 
+/**
+ * A channel is publishable when we're in global simulation (everything is
+ * simulated) OR when both house-account env vars for the channel are set.
+ * Fail-closed: with a real API key but missing account IDs, payment/publish
+ * must be blocked up-front instead of failing after the owner already paid.
+ */
+export function isChannelConfigured(channel: ZernioChannel): boolean {
+  return IS_ZERNIO_SIMULATION || houseAccount(channel) !== null;
+}
+
 if (IS_ZERNIO_SIMULATION) {
   logger.warn(
     "ZERNIO_API_KEY not set — Zernio ads gateway running in SIMULATION mode (no real ads are published)",

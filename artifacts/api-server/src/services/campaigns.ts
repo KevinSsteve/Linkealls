@@ -96,19 +96,42 @@ export async function updateCampaign(
     status: CampaignStatus;
     budget: number;
     totalSpend: number;
+    durationDays: number;
   }>,
   businessId?: number,
 ): Promise<Campaign | null> {
+  const scope =
+    businessId !== undefined
+      ? and(eq(campaignsTable.id, id), eq(campaignsTable.businessId, businessId))
+      : eq(campaignsTable.id, id);
+
+  // Commercial terms are immutable once payment started: budget/duration
+  // define what was (or is being) paid for and what goes to the ads gateway.
+  const touchesCommercialTerms = patch.budget !== undefined || patch.durationDays !== undefined;
+  const where = touchesCommercialTerms
+    ? and(scope, eq(campaignsTable.paymentStatus, "nao_pago"))
+    : scope;
+
   const rows = await db
     .update(campaignsTable)
     .set({ ...patch, updatedAt: new Date() })
-    .where(
-      businessId !== undefined
-        ? and(eq(campaignsTable.id, id), eq(campaignsTable.businessId, businessId))
-        : eq(campaignsTable.id, id),
-    )
+    .where(where)
     .returning();
-  return rows[0] ?? null;
+  if (rows[0]) return rows[0];
+
+  if (touchesCommercialTerms) {
+    const existing = await db.select({ id: campaignsTable.id }).from(campaignsTable).where(scope).limit(1);
+    if (existing[0]) {
+      throw new CampaignLockedError(
+        "O orçamento e a duração não podem ser alterados depois de o pagamento ter começado",
+      );
+    }
+  }
+  return null;
+}
+
+export class CampaignLockedError extends Error {
+  statusCode = 409;
 }
 
 // ─── UTM slug helper ──────────────────────────────────────────────────────────
