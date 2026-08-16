@@ -1,0 +1,750 @@
+# Refinamento final dos cards + design do popup de compra
+
+A página já recebeu a primeira atualização visual e melhorou bastante.
+
+Agora quero uma **segunda rodada de refinamento visual**, focada principalmente nos **cards de produtos** e no **popup/modal que aparece quando o usuário clica em "Comprar"**.
+
+IMPORTANTE:
+
+* Não adicionar bibliotecas.
+* Não adicionar frameworks.
+* Não alterar lógica de negócio.
+* Não alterar banco de dados.
+* Não alterar APIs.
+* Não alterar funcionalidades.
+* Não alterar os produtos, preços ou informações.
+* Trabalhar apenas com os componentes e CSS já existentes.
+* Não reconstruir a aplicação.
+* Fazer apenas refinamento visual e de layout.
+
+Use como referência visual as imagens anteriores do **Atelier Norte**, especialmente o tratamento dos cards, espaçamento, bordas, tipografia e sensação premium.
+
+---
+
+# 1. OBJETIVO DESTA SEGUNDA RODADA
+
+O resultado atual já está muito melhor, mas os cards ainda parecem um pouco:
+
+* altos demais na área da imagem;
+* apertados na área de texto;
+* com muita informação competindo;
+* com títulos cortados de forma abrupta;
+* com pouco respiro entre preço, descrição e CTA;
+* visualmente muito próximos uns dos outros.
+
+Quero que eles pareçam mais com uma **vitrine premium**, e menos com uma grade tradicional de e-commerce.
+
+A sensação deve ser:
+
+**imagem elegante → informação organizada → CTA claro**
+
+e não:
+
+**imagem grande → muito texto comprimido → vários elementos empilhados.**
+
+---
+
+# 2. REDUZIR UM POUCO A ALTURA DAS IMAGENS
+
+No screenshot atual, a imagem ocupa uma parte muito grande da altura do card.
+
+Reduzir ligeiramente a altura visual da imagem para que o conteúdo textual tenha mais espaço sem aumentar exageradamente a altura total do card.
+
+Manter:
+
+* `object-fit: cover`;
+* proporção consistente;
+* foco correto da fotografia;
+* cantos superiores arredondados.
+
+Mas evitar que a fotografia domine completamente o card.
+
+A imagem deve funcionar como **hero visual do produto**, mas não como 70% do card.
+
+---
+
+# 3. NÃO DEIXAR O TEXTO DO PRODUTO PARECER CORTADO
+
+Este é um dos problemas mais visíveis no screenshot atual.
+
+Exemplo:
+
+"Disjuntor 4P 80A
+Curva-C 6KA S204-..."
+
+O `...` está aparecendo de maneira muito agressiva.
+
+Não quero títulos visualmente truncados dessa forma quando houver espaço suficiente.
+
+Preferir:
+
+* permitir 2 ou 3 linhas;
+* aumentar um pouco o line-height;
+* usar `line-clamp` somente quando realmente necessário;
+* manter o título visualmente completo sempre que possível;
+* não colocar uma altura fixa muito pequena para o título.
+
+O truncamento deve parecer intencional.
+
+Se precisar cortar, cortar depois de uma quantidade razoável de linhas, nunca no meio visualmente desconfortável.
+
+---
+
+# 4. CRIAR UMA ÁREA INTERNA DE CONTEÚDO
+
+A área abaixo da imagem precisa ter um padding interno mais consistente.
+
+Atualmente o texto parece começar praticamente na borda do card.
+
+Criar claramente:
+
+**imagem**
+
+↓
+
+**padding interno**
+
+↓
+
+**nome**
+
+↓
+
+**espaço**
+
+↓
+
+**preço**
+
+↓
+
+**espaço**
+
+↓
+
+**descrição**
+
+↓
+
+**espaço**
+
+↓
+
+**botões**
+
+O conteúdo nunca deve parecer encostado na borda.
+
+No mobile, usar aproximadamente 12–16px de padding interno como ponto de partida e ajustar visualmente.
+
+---
+
+# 5. HIERARQUIA DO CONTEÚDO
+
+A hierarquia deve ser muito clara.
+
+### 1º — Nome do produto
+
+Mais forte.
+
+### 2º — Preço
+
+Destaque importante.
+
+### 3º — Descrição
+
+Mais discreta.
+
+### 4º — Comprar
+
+CTA principal.
+
+### 5º — Saber mais
+
+CTA secundário.
+
+Não deixar nome, preço e descrição com pesos visuais semelhantes.
+
+O usuário deve conseguir entender o produto rapidamente apenas olhando para o card.
+
+---
+
+# 6. TÍTULO DO PRODUTO
+
+Ajustar o título para:
+
+* font-weight semibold;
+* tamanho confortável;
+* line-height aproximadamente 1.25–1.35;
+* cor principal;
+* alinhamento consistente;
+* margem inferior confortável.
+
+Evitar títulos gigantes.
+
+Evitar também títulos pequenos demais.
+
+O nome deve ser claramente o elemento textual mais importante dentro do card.
+
+---
+
+# 7. PREÇO
+
+O preço atual está bom, mas precisa de um pouco mais de separação do título.
+
+Criar aproximadamente:
+
+NOME
+
+↓ 8–12px
+
+PREÇO
+
+↓ 10–14px
+
+DESCRIÇÃO
+
+O preço pode continuar em peso semibold.
+
+Não adicionar cores novas.
+
+---
+
+# 8. DESCRIÇÃO
+
+A descrição deve parecer secundária.
+
+Usar:
+
+* cinza;
+* tamanho ligeiramente menor;
+* line-height confortável;
+* no máximo 2–3 linhas visíveis.
+
+Não deixar a descrição competir com o preço.
+
+Se o texto for muito longo, truncar de maneira elegante.
+
+Exemplo:
+
+"Disjuntor de proteção tetrapolar da marca ABB..."
+
+é melhor que permitir que o texto crie uma enorme área vertical dentro do card.
+
+---
+
+# 9. ALTURA DOS CARDS
+
+Não tentar fazer todos os cards extremamente altos para acomodar todo o conteúdo.
+
+Criar uma estrutura visual consistente.
+
+A área de conteúdo deve ter uma altura previsível.
+
+Principalmente:
+
+* imagem com altura consistente;
+* título com altura previsível;
+* preço;
+* descrição limitada;
+* CTAs posicionados de forma consistente.
+
+Quando dois cards aparecem lado a lado, eles devem parecer visualmente alinhados.
+
+Evitar:
+
+CARD A muito alto
+
+ao lado de
+
+CARD B muito baixo.
+
+---
+
+# 10. BOTÃO COMPRAR
+
+O botão "Comprar" está muito dominante no screenshot atual.
+
+Reduzir ligeiramente a altura se necessário.
+
+Ele deve continuar sendo o CTA principal, mas parecer mais refinado.
+
+Características:
+
+* largura 100% da área interna;
+* altura aproximadamente 48–52px;
+* border-radius grande;
+* fundo escuro;
+* texto branco;
+* ícone pequeno;
+* alinhamento perfeito;
+* font-weight semibold.
+
+Não precisa ocupar uma altura enorme.
+
+O botão deve parecer premium, não pesado.
+
+---
+
+# 11. BOTÃO SABER MAIS
+
+Criar uma separação visual mais clara entre:
+
+[ Comprar ]
+
+e
+
+[ Saber mais ]
+
+Usar aproximadamente 10–12px de espaço vertical entre os dois.
+
+O botão "Saber mais" deve ter:
+
+* fundo branco;
+* borda muito sutil;
+* texto escuro;
+* mesma largura do botão Comprar;
+* altura aproximadamente 48–52px;
+* border-radius grande.
+
+Ele deve parecer um CTA secundário elegante.
+
+---
+
+# 12. NÃO DEIXAR OS BOTÕES ENCOSTAREM NO FINAL DO CARD
+
+Adicionar padding inferior confortável.
+
+O card deve terminar visualmente depois do botão.
+
+Não:
+
+[ SABER MAIS ]
+borda do card
+
+E sim:
+
+[ SABER MAIS ]
+
+espaço
+
+borda do card
+
+Esse pequeno espaço faz muita diferença na percepção premium.
+
+---
+
+# 13. ESPAÇO ENTRE OS CARDS
+
+No screenshot atual os cards estão melhores, mas ainda podem respirar mais.
+
+No mobile:
+
+* manter aproximadamente 16–20px de gap horizontal;
+* manter aproximadamente 24–32px de gap vertical;
+* não deixar os cards visualmente colados.
+
+O espaço entre cards deve ser visível.
+
+Não precisa exagerar.
+
+---
+
+# 14. BORDA DOS CARDS
+
+Manter uma borda extremamente discreta.
+
+Algo visualmente próximo de:
+
+`1px solid rgba(...)`
+
+sem criar contraste excessivo.
+
+O card deve se separar do fundo, mas de maneira quase imperceptível.
+
+---
+
+# 15. RADIUS
+
+Manter uma linguagem consistente:
+
+* card: aproximadamente 20–24px;
+* imagem: respeitar os cantos superiores;
+* botões: pill/alto arredondamento;
+* popup: aproximadamente 24–28px.
+
+Não misturar vários estilos de radius.
+
+Toda a plataforma deve parecer construída com o mesmo sistema visual.
+
+---
+
+# 16. DESTAQUE DO PRODUTO
+
+Se existir a etiqueta "Destaque", manter.
+
+Mas refiná-la:
+
+* pequena;
+* branca;
+* border-radius pill;
+* sombra muito discreta;
+* posicionada dentro da imagem;
+* margem de aproximadamente 10–12px da borda;
+* não cobrir a parte importante da fotografia.
+
+Ela deve parecer uma etiqueta editorial, não um botão.
+
+---
+
+# 17. BOTÃO FLUTUANTE "FALAR COM IA"
+
+No screenshot atual ele está cobrindo parcialmente o conteúdo do card inferior.
+
+Corrigir isso.
+
+O botão flutuante deve:
+
+* continuar fixo;
+* manter a mesma identidade;
+* nunca cobrir preço;
+* nunca cobrir nome de produto;
+* nunca cobrir botão Comprar;
+* nunca cobrir conteúdo importante.
+
+No mobile, manter aproximadamente 16–20px das bordas laterais.
+
+Também deixar uma distância segura da parte inferior da viewport.
+
+Se houver uma barra fixa do editor, considerar essa barra ao calcular a posição.
+
+---
+
+# 18. AGORA O POPUP "COMPRAR"
+
+Esta é uma parte MUITO IMPORTANTE.
+
+Quando o usuário clicar em:
+
+**Comprar**
+
+o popup/modal que aparece atualmente está visualmente sem o mesmo tratamento da página.
+
+Quero que o popup pareça que pertence naturalmente à mesma interface.
+
+Não criar outro estilo.
+
+Ele deve usar exatamente a mesma linguagem visual dos cards e da página.
+
+---
+
+# 19. MODAL — FUNDO
+
+Ao abrir o popup:
+
+Adicionar um overlay atrás.
+
+O fundo da página deve ficar visualmente recuado.
+
+Usar um overlay escuro/translúcido discreto.
+
+Não usar preto totalmente opaco.
+
+O objetivo é:
+
+**página ao fundo + foco imediato no modal.**
+
+---
+
+# 20. MODAL — CONTAINER
+
+O popup deve parecer um card premium.
+
+No mobile:
+
+* largura aproximadamente calc(100% - 24px ou 32px);
+* centralizado;
+* border-radius aproximadamente 24–28px;
+* fundo branco;
+* sem bordas agressivas;
+* sombra suave;
+* padding interno confortável.
+
+Não deixar o modal encostar nas bordas da tela.
+
+Deve existir espaço visual entre:
+
+borda da tela
+
+e
+
+modal.
+
+---
+
+# 21. MODAL — HIERARQUIA
+
+A estrutura deve ser visualmente clara:
+
+IMAGEM / PRODUTO
+
+↓
+
+NOME DO PRODUTO
+
+↓
+
+PREÇO
+
+↓
+
+INFORMAÇÃO NECESSÁRIA
+
+↓
+
+FORMULÁRIO / CAMPOS
+
+↓
+
+CTA PRINCIPAL
+
+↓
+
+FECHAR/CANCELAR
+
+Não colocar tudo comprimido.
+
+---
+
+# 22. IMAGEM DO PRODUTO NO MODAL
+
+Se o popup atualmente mostra a imagem do produto, manter.
+
+Mas limitar sua altura.
+
+A imagem deve ter:
+
+* border-radius aproximadamente 16–20px;
+* aspect-ratio consistente;
+* `object-fit: cover`;
+* altura controlada.
+
+Não permitir que uma imagem ocupe praticamente todo o modal.
+
+---
+
+# 23. NOME E PREÇO NO MODAL
+
+O nome deve ser claramente visível.
+
+O preço deve aparecer logo abaixo com destaque.
+
+Exemplo visual:
+
+**Disjuntor 4P 80A Curva-C**
+
+244 329,00 Kz
+
+Usar espaçamento suficiente.
+
+---
+
+# 24. CAMPOS DO MODAL
+
+Se o popup tiver campos como:
+
+Nome
+Telefone
+Quantidade
+Mensagem
+etc.
+
+Todos devem usar o mesmo estilo visual.
+
+### Inputs:
+
+* altura confortável;
+* border-radius aproximadamente 12–14px;
+* borda fina;
+* fundo branco;
+* padding horizontal 14–16px;
+* fonte legível;
+* label pequena e clara;
+* espaço vertical entre campos.
+
+Não usar inputs pequenos e apertados.
+
+---
+
+# 25. CTA DO MODAL
+
+O botão final do popup deve ser o elemento de maior destaque.
+
+Exemplo:
+
+[ Confirmar compra ]
+
+Usar exatamente a linguagem do botão "Comprar":
+
+* fundo escuro;
+* texto branco;
+* border-radius grande;
+* altura confortável;
+* largura total.
+
+Não criar outra cor de botão.
+
+---
+
+# 26. FECHAR MODAL
+
+O botão de fechar deve ser discreto.
+
+Pode ser:
+
+×
+
+no canto superior direito.
+
+Criar uma área clicável confortável, mas visualmente pequena.
+
+Não transformar o botão fechar em protagonista.
+
+---
+
+# 27. MODAL NO MOBILE
+
+Muito importante.
+
+O popup deve funcionar perfeitamente em:
+
+* 360px;
+* 375px;
+* 390px;
+* 414px.
+
+Não permitir:
+
+* conteúdo cortado;
+* botão fora da tela;
+* overflow horizontal;
+* campos ultrapassando o modal;
+* modal maior que a viewport sem possibilidade de scroll.
+
+Se o conteúdo for maior que a altura disponível:
+
+**permitir scroll interno no modal.**
+
+A página atrás não deve ficar rolando enquanto o modal estiver aberto.
+
+---
+
+# 28. MICROESPAÇAMENTOS
+
+Quero atenção especial aos pequenos espaços.
+
+Não basta aumentar tudo.
+
+A diferença premium vem da proporção correta.
+
+Usar aproximadamente:
+
+* 8px → pequenos agrupamentos;
+* 12px → elementos relacionados;
+* 16px → conteúdo interno;
+* 20–24px → separações maiores;
+* 32px+ → separação entre blocos.
+
+O importante é manter consistência.
+
+---
+
+# 29. PRINCÍPIO VISUAL FINAL
+
+O design deve seguir esta lógica:
+
+### CARD
+
+Imagem
+
+↓
+
+Nome
+
+↓
+
+Preço
+
+↓
+
+Descrição
+
+↓
+
+Comprar
+
+↓
+
+Saber mais
+
+↓
+
+Respiro
+
+### MODAL
+
+Produto
+
+↓
+
+Informação
+
+↓
+
+Campos
+
+↓
+
+CTA
+
+↓
+
+Respiro
+
+Tudo deve ter espaço suficiente para respirar.
+
+---
+
+# 30. TESTE VISUAL FINAL
+
+Depois de implementar, não apenas verifique se "funciona".
+
+Faça uma inspeção visual comparando com as referências.
+
+Pergunte:
+
+1. Os cards parecem premium?
+2. Existe espaço suficiente entre os elementos?
+3. Os títulos estão sendo cortados de forma elegante?
+4. O preço está claramente visível?
+5. Os botões parecem proporcionais?
+6. Os cards estão alinhados?
+7. O botão flutuante está cobrindo alguma informação?
+8. O popup parece pertencer à mesma plataforma?
+9. O popup parece um produto premium ou um formulário genérico?
+10. Em um celular pequeno, tudo continua confortável?
+
+Se alguma resposta for "não", ajuste o CSS existente.
+
+## REGRA FINAL
+
+Não adicionar tecnologia.
+
+Não adicionar biblioteca.
+
+Não criar componentes desnecessários.
+
+Não mudar funcionalidades.
+
+**Apenas elevar a qualidade visual do que já existe.**
+
+Quero que o resultado final pareça uma plataforma de comércio digital premium, minimalista e moderna, mantendo exatamente a simplicidade visual das referências Atelier Norte.

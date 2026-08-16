@@ -114,13 +114,17 @@ function ProductCard({
       style={{
         background: T.surface,
         borderRadius: T.rCard,
-        border: `1px solid ${T.line}`,
+        border: `1px solid rgba(20,23,26,0.08)`,
       }}
     >
-      {/* Image — altura fixa para consistência entre cards */}
+      {/* Imagem — hero visual do produto, não domina o card */}
       <div
         className="relative w-full overflow-hidden shrink-0"
-        style={{ height: 156, background: T.subtle }}
+        style={{
+          height: 124,
+          background: T.subtle,
+          borderRadius: `${T.rCard} ${T.rCard} 0 0`,
+        }}
       >
         {offering.imageUrl && !imgError ? (
           <img
@@ -133,22 +137,29 @@ function ProductCard({
           <div className="w-full h-full flex items-center justify-center">
             {imgError ? (
               <div className="flex flex-col items-center gap-2" style={{ color: "#C4C4BE" }}>
-                <ShoppingBag size={24} />
-                <ImageOff size={12} />
+                <ShoppingBag size={22} />
+                <ImageOff size={11} />
               </div>
             ) : (
-              <ShoppingBag size={24} style={{ color: "#C4C4BE" }} />
+              <ShoppingBag size={22} style={{ color: "#C4C4BE" }} />
             )}
           </div>
         )}
         {offering.featured && (
           <div
-            className="absolute top-2.5 left-2.5 px-2.5 py-[4px] rounded-full text-[10px] font-semibold"
+            className="absolute rounded-full text-[9.5px] font-semibold"
             style={{
-              background: "rgba(255,255,255,0.93)",
+              top: 10,
+              left: 10,
+              paddingLeft: 10,
+              paddingRight: 10,
+              paddingTop: 3,
+              paddingBottom: 3,
+              background: "rgba(255,255,255,0.92)",
               color: T.ink,
-              border: `1px solid ${T.line}`,
-              backdropFilter: "blur(6px)",
+              border: `1px solid rgba(20,23,26,0.10)`,
+              backdropFilter: "blur(8px)",
+              boxShadow: "0 1px 4px rgba(0,0,0,0.07)",
             }}
           >
             Destaque
@@ -156,65 +167,87 @@ function ProductCard({
         )}
       </div>
 
-      {/* Content — padding generoso para respirar */}
-      <div className="px-4 pt-3.5 pb-4 flex flex-col flex-1">
-        {/* Nome */}
+      {/* Área de conteúdo — hierarquia clara: nome → preço → descrição → CTAs */}
+      <div
+        className="flex flex-col flex-1"
+        style={{ padding: "13px 13px 14px" }}
+      >
+        {/* 1º — Nome: elemento textual mais importante */}
         <h3
-          className="font-semibold text-[13.5px] leading-[1.4] line-clamp-2"
-          style={{ color: T.ink }}
+          className="font-semibold line-clamp-3"
+          style={{
+            color: T.ink,
+            fontSize: 12.5,
+            lineHeight: 1.3,
+          }}
         >
           {offering.name}
         </h3>
 
-        {/* Preço */}
+        {/* 2º — Preço: destaque numérico */}
         {offering.price && (
           <p
-            className="mt-2 text-[14.5px] font-bold tabular-nums"
-            style={{ color: T.ink }}
+            className="font-bold tabular-nums"
+            style={{
+              color: T.ink,
+              fontSize: 13.5,
+              marginTop: 8,
+            }}
           >
             {offering.price}
           </p>
         )}
 
-        {/* Descrição */}
+        {/* 3º — Descrição: discreta, limitada a 2 linhas */}
         {offering.description && (
           <p
-            className="mt-2 text-[11.5px] leading-[1.6] line-clamp-2 flex-1"
-            style={{ color: T.inkSoft }}
+            className="line-clamp-2"
+            style={{
+              color: T.inkSoft,
+              fontSize: 10.5,
+              lineHeight: 1.55,
+              marginTop: 5,
+              flexGrow: 1,
+            }}
           >
             {offering.description}
           </p>
         )}
 
-        {/* Botões — espaço confortável entre eles */}
-        <div className="mt-4 flex flex-col gap-2">
+        {/* 4º / 5º — CTAs: empurrados para o fundo para alinhamento entre cards */}
+        <div
+          className="flex flex-col"
+          style={{ marginTop: 14, gap: 8 }}
+        >
           {onBuy && (
             <button
               onClick={onBuy}
-              className="w-full flex items-center justify-center gap-1.5 font-semibold text-[13px] transition-opacity hover:opacity-90"
+              className="w-full flex items-center justify-center gap-1.5 font-semibold transition-opacity hover:opacity-90"
               style={{
                 background: T.accent,
                 color: T.accentInk,
                 borderRadius: T.rBtn,
-                minHeight: 42,
+                fontSize: 12.5,
+                minHeight: 40,
               }}
             >
-              <Smartphone size={13} />
+              <Smartphone size={12} />
               Comprar
             </button>
           )}
           <button
             onClick={onLearnMore}
-            className="w-full flex items-center justify-center gap-1.5 font-semibold text-[13px] transition-colors"
+            className="w-full flex items-center justify-center gap-1.5 font-semibold"
             style={{
               background: T.surface,
               color: T.ink,
               border: `1px solid ${T.line}`,
               borderRadius: T.rBtn,
-              minHeight: 42,
+              fontSize: 12.5,
+              minHeight: 40,
             }}
           >
-            Saber mais <ArrowRight size={13} />
+            Saber mais <ArrowRight size={12} />
           </button>
         </div>
       </div>
@@ -834,10 +867,10 @@ export function Catalogo() {
               Produtos &amp; Serviços
             </SectionLabel>
 
-            {/* Grid — gap generoso, nunca cards colados */}
+            {/* Grid — gap horizontal 14px, vertical 20px */}
             <div
               className="grid grid-cols-2"
-              style={{ gap: 16 }}
+              style={{ columnGap: 14, rowGap: 20 }}
             >
               {[...catalog.offerings]
                 .sort((a, b) => {
