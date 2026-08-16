@@ -1,10 +1,9 @@
 /**
- * Catálogo público AI-first — design "link na bio" universal, limpo e neutro.
- * URL: /catalogo
- * Qualquer visitante pode ver os produtos, iniciar chat com IA ou ligar.
+ * Catálogo público AI-first — design editorial premium, minimalista, mobile-first.
+ * URL: /catalogo / /c/:slug / /e/:businessSlug/catalogo
  *
- * NOTA: apenas o DESIGN foi alterado. Toda a lógica (estado, efeitos,
- * chamadas à API, props e fluxos) é idêntica à versão anterior.
+ * APENAS DESIGN — toda a lógica, estado, efeitos, rotas e chamadas à API
+ * são idênticos à versão anterior.
  */
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "wouter";
@@ -27,22 +26,25 @@ const CATALOG_ORIGIN = {
 
 const BASE = import.meta.env.BASE_URL;
 
-// ─── Design tokens (neutros, universais para qualquer negócio) ───────────────
+// ─── Design tokens ─────────────────────────────────────────────────────────────
 const T = {
-  bg: "#F6F6F4",        // fundo da página
-  surface: "#FFFFFF",   // cartões
-  ink: "#14171A",       // texto principal
-  inkSoft: "#6B7280",   // texto secundário
-  line: "#E7E7E3",      // linhas / bordas
-  lineSoft: "#F0F0EC",
-  accent: "#14171A",    // acção principal (neutro, sem cor dominante)
+  bg:        "#F6F6F4",   // fundo da página
+  surface:   "#FFFFFF",   // cartões e containers
+  ink:       "#14171A",   // texto principal
+  inkSoft:   "#6B7280",   // texto secundário / cinza
+  inkFaint:  "#9CA3AF",   // texto muito suave
+  line:      "#E7E7E3",   // bordas
+  lineSoft:  "#F0F0EC",   // separadores internos
+  accent:    "#14171A",   // botão/acção principal
   accentInk: "#FFFFFF",
-  subtle: "#F2F2EF",    // superfícies suaves
-  radius: 16,
+  subtle:    "#F2F2EF",   // superfícies suaves (placeholder imagem, hover)
+  // Escala de radius
+  rCard:  "20px",         // cards de produto e containers FAQ/diferencias
+  rBtn:   "999px",        // botões → pill completo
+  rBadge: "999px",        // badges
 };
 
-/** Business-scoped call-funnel URL. Falls back to the app root when the
- *  business slug is unknown (shouldn't happen for a published catalog). */
+/** Business-scoped call-funnel URL. */
 function captacaoUrl(businessSlug: string | null): string {
   return businessSlug
     ? `${BASE}e/${businessSlug}/captacao?utm_source=catalogo&utm_campaign=catalogo-publico`
@@ -61,26 +63,7 @@ function makeId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-/** Etiqueta de secção — discreta, alinhada à esquerda. */
-function SectionLabel({ children, hint }: { children: React.ReactNode; hint?: string }) {
-  return (
-    <div className="mb-4">
-      <h2
-        className="text-[11px] font-semibold uppercase"
-        style={{ color: T.inkSoft, letterSpacing: "0.12em" }}
-      >
-        {children}
-      </h2>
-      {hint && (
-        <p className="mt-1.5 text-[13px] leading-relaxed" style={{ color: T.inkSoft }}>
-          {hint}
-        </p>
-      )}
-    </div>
-  );
-}
-
-/** Iniciais do negócio, usadas como avatar neutro. */
+/** Iniciais do negócio para avatar neutro. */
 function initials(name: string) {
   return (name || "")
     .split(/\s+/)
@@ -88,6 +71,28 @@ function initials(name: string) {
     .slice(0, 2)
     .map((w) => w[0]?.toUpperCase() ?? "")
     .join("");
+}
+
+/**
+ * Etiqueta editorial de secção.
+ * Bastante espaço acima (controlado pelo pt da <section>) e abaixo.
+ */
+function SectionLabel({ children, hint }: { children: React.ReactNode; hint?: string }) {
+  return (
+    <div className="mb-7">
+      <h2
+        className="text-[11px] font-semibold uppercase tracking-widest"
+        style={{ color: T.inkSoft, letterSpacing: "0.14em" }}
+      >
+        {children}
+      </h2>
+      {hint && (
+        <p className="mt-2.5 text-[13.5px] leading-relaxed" style={{ color: T.inkSoft }}>
+          {hint}
+        </p>
+      )}
+    </div>
+  );
 }
 
 // ─── Product Card ─────────────────────────────────────────────────────────────
@@ -108,12 +113,15 @@ function ProductCard({
       className="relative overflow-hidden flex flex-col"
       style={{
         background: T.surface,
-        borderRadius: T.radius,
+        borderRadius: T.rCard,
         border: `1px solid ${T.line}`,
       }}
     >
-      {/* Image */}
-      <div className="relative w-full overflow-hidden" style={{ height: 160, background: T.subtle }}>
+      {/* Image — altura fixa para consistência entre cards */}
+      <div
+        className="relative w-full overflow-hidden shrink-0"
+        style={{ height: 156, background: T.subtle }}
+      >
         {offering.imageUrl && !imgError ? (
           <img
             src={offering.imageUrl}
@@ -124,21 +132,20 @@ function ProductCard({
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             {imgError ? (
-              <div className="flex flex-col items-center gap-1.5" style={{ color: "#C4C4BE" }}>
-                <ShoppingBag size={26} />
-                <ImageOff size={13} />
+              <div className="flex flex-col items-center gap-2" style={{ color: "#C4C4BE" }}>
+                <ShoppingBag size={24} />
+                <ImageOff size={12} />
               </div>
             ) : (
-              <ShoppingBag size={26} style={{ color: "#C4C4BE" }} />
+              <ShoppingBag size={24} style={{ color: "#C4C4BE" }} />
             )}
           </div>
         )}
-        {/* Featured badge */}
         {offering.featured && (
           <div
-            className="absolute top-2 left-2 px-2 py-[3px] rounded-full text-[10px] font-semibold"
+            className="absolute top-2.5 left-2.5 px-2.5 py-[4px] rounded-full text-[10px] font-semibold"
             style={{
-              background: "rgba(255,255,255,0.92)",
+              background: "rgba(255,255,255,0.93)",
               color: T.ink,
               border: `1px solid ${T.line}`,
               backdropFilter: "blur(6px)",
@@ -149,35 +156,63 @@ function ProductCard({
         )}
       </div>
 
-      {/* Content */}
-      <div className="px-3 pb-3.5 pt-2.5 flex flex-col flex-1">
-        <h3 className="font-semibold text-[13.5px] leading-snug line-clamp-2" style={{ color: T.ink }}>
+      {/* Content — padding generoso para respirar */}
+      <div className="px-4 pt-3.5 pb-4 flex flex-col flex-1">
+        {/* Nome */}
+        <h3
+          className="font-semibold text-[13.5px] leading-[1.4] line-clamp-2"
+          style={{ color: T.ink }}
+        >
           {offering.name}
         </h3>
+
+        {/* Preço */}
         {offering.price && (
-          <p className="mt-1 text-[14px] font-bold tabular-nums" style={{ color: T.ink }}>
+          <p
+            className="mt-2 text-[14.5px] font-bold tabular-nums"
+            style={{ color: T.ink }}
+          >
             {offering.price}
           </p>
         )}
+
+        {/* Descrição */}
         {offering.description && (
-          <p className="mt-1 text-[11.5px] leading-relaxed line-clamp-2 flex-1" style={{ color: T.inkSoft }}>
+          <p
+            className="mt-2 text-[11.5px] leading-[1.6] line-clamp-2 flex-1"
+            style={{ color: T.inkSoft }}
+          >
             {offering.description}
           </p>
         )}
-        <div className="mt-3 flex flex-col gap-1.5">
+
+        {/* Botões — espaço confortável entre eles */}
+        <div className="mt-4 flex flex-col gap-2">
           {onBuy && (
             <button
               onClick={onBuy}
-              className="w-full h-10 rounded-full text-[13px] font-semibold flex items-center justify-center gap-1.5 transition-opacity hover:opacity-90"
-              style={{ background: T.accent, color: T.accentInk }}
+              className="w-full flex items-center justify-center gap-1.5 font-semibold text-[13px] transition-opacity hover:opacity-90"
+              style={{
+                background: T.accent,
+                color: T.accentInk,
+                borderRadius: T.rBtn,
+                minHeight: 42,
+              }}
             >
-              <Smartphone size={13} /> Comprar
+              <Smartphone size={13} />
+              Comprar
             </button>
           )}
           <button
             onClick={onLearnMore}
-            className="w-full h-10 rounded-full text-[13px] font-semibold flex items-center justify-center gap-1.5 transition-colors"
-            style={{ background: T.surface, color: T.ink, border: `1px solid ${T.line}` }}
+            className="w-full flex items-center justify-center gap-1.5 font-semibold text-[13px] transition-colors"
+            style={{
+              background: T.surface,
+              color: T.ink,
+              border: `1px solid ${T.line}`,
+              borderRadius: T.rBtn,
+              minHeight: 42,
+            }}
           >
             Saber mais <ArrowRight size={13} />
           </button>
@@ -195,15 +230,26 @@ function FaqAccordion({ faq }: { faq: FaqItem[] }) {
   return (
     <div
       className="overflow-hidden"
-      style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: T.radius }}
+      style={{
+        background: T.surface,
+        border: `1px solid ${T.line}`,
+        borderRadius: T.rCard,
+      }}
     >
       {faq.map((item, i) => (
-        <div key={i} style={{ borderTop: i === 0 ? "none" : `1px solid ${T.lineSoft}` }}>
+        <div
+          key={i}
+          style={{ borderTop: i === 0 ? "none" : `1px solid ${T.lineSoft}` }}
+        >
           <button
             onClick={() => setOpen(open === i ? null : i)}
-            className="w-full flex items-center justify-between gap-3 px-4 py-3.5 text-left"
+            className="w-full flex items-center justify-between gap-4 text-left"
+            style={{ padding: "18px 20px" }}
           >
-            <span className="font-medium text-[13.5px] leading-snug" style={{ color: T.ink }}>
+            <span
+              className="font-medium text-[13.5px] leading-snug"
+              style={{ color: T.ink }}
+            >
               {item.question}
             </span>
             {open === i ? (
@@ -213,8 +259,11 @@ function FaqAccordion({ faq }: { faq: FaqItem[] }) {
             )}
           </button>
           {open === i && (
-            <div className="px-4 pb-4 -mt-1">
-              <p className="text-[13px] leading-relaxed" style={{ color: T.inkSoft }}>
+            <div style={{ padding: "0 20px 18px" }}>
+              <p
+                className="text-[13px] leading-relaxed"
+                style={{ color: T.inkSoft }}
+              >
                 {item.answer}
               </p>
             </div>
@@ -248,7 +297,6 @@ function CatalogChat({
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Inject greeting when chat opens for the first time
   useEffect(() => {
     if (open && messages.length === 0) {
       const greeting = catalog.name
@@ -258,7 +306,6 @@ function CatalogChat({
     }
   }, [open, catalog.name, messages.length]);
 
-  // Pre-fill input when user clicks "Saber mais" on a product
   useEffect(() => {
     if (open && initialProduct) {
       setInput(`Tenho interesse em ${initialProduct}. Pode dizer-me mais?`);
@@ -266,7 +313,6 @@ function CatalogChat({
     }
   }, [open, initialProduct]);
 
-  // Scroll to bottom on new messages
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isBusy]);
@@ -281,9 +327,6 @@ function CatalogChat({
 
     try {
       let currentLeadId = leadId;
-
-      // Create lead on first message — only flip firstMsg AFTER successful creation
-      // so that a network failure allows the user to retry without losing the session.
       if (!catalog.businessSlug) throw new Error("sem slug de negócio");
       const api = businessApi(catalog.businessSlug);
 
@@ -292,14 +335,13 @@ function CatalogChat({
         const { leadId: newId } = await api.createLeadSession(origin, []);
         currentLeadId = newId;
         setLeadId(newId);
-        setFirstMsg(false); // commit only after success
+        setFirstMsg(false);
       }
 
       if (!currentLeadId) throw new Error("sem lead id");
       const { reply } = await api.sendLeadChat(currentLeadId, text);
       setMessages((prev) => [...prev, { id: makeId(), role: "bot", text: reply }]);
     } catch {
-      // firstMsg stays true on lead-creation failure → next send will retry
       setMessages((prev) => [
         ...prev,
         { id: makeId(), role: "bot", text: "Desculpa, ocorreu um erro. Tenta de novo." },
@@ -318,16 +360,22 @@ function CatalogChat({
 
   return (
     <>
-      {/* Floating open button */}
+      {/* Botão flutuante — posicionado com espaço suficiente para não cobrir conteúdo */}
       {!open && (
         <button
           onClick={onOpen}
           aria-label="Abrir chat com IA"
-          className="fixed bottom-5 right-4 z-40 flex items-center gap-2 pl-4 pr-5 h-12 rounded-full font-semibold text-[14px] transition-transform hover:scale-[1.03]"
+          className="fixed z-40 flex items-center gap-2 font-semibold text-[14px] transition-transform hover:scale-[1.02]"
           style={{
+            bottom: 28,
+            right: 20,
             background: T.accent,
             color: T.accentInk,
-            boxShadow: "0 8px 24px rgba(20,23,26,0.18)",
+            borderRadius: T.rBtn,
+            paddingLeft: 20,
+            paddingRight: 22,
+            minHeight: 48,
+            boxShadow: "0 4px 16px rgba(20,23,26,0.14)",
           }}
         >
           <MessageSquare size={17} />
@@ -335,7 +383,7 @@ function CatalogChat({
         </button>
       )}
 
-      {/* Chat panel */}
+      {/* Painel de chat */}
       {open && (
         <div
           className="fixed z-50 flex flex-col overflow-hidden"
@@ -345,15 +393,15 @@ function CatalogChat({
             width: "min(100vw, 400px)",
             height: "min(100svh, 600px)",
             background: T.surface,
-            borderRadius: "18px 18px 0 0",
+            borderRadius: "20px 20px 0 0",
             border: `1px solid ${T.line}`,
             borderBottom: "none",
-            boxShadow: "0 -10px 40px rgba(20,23,26,0.14)",
+            boxShadow: "0 -8px 40px rgba(20,23,26,0.12)",
           }}
         >
           {/* Header */}
           <div
-            className="flex items-center gap-3 px-3 py-3 shrink-0"
+            className="flex items-center gap-3 px-4 py-3 shrink-0"
             style={{ background: T.surface, borderBottom: `1px solid ${T.lineSoft}` }}
           >
             <button
@@ -390,10 +438,16 @@ function CatalogChat({
             </button>
           </div>
 
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2.5" style={{ background: T.bg }}>
+          {/* Mensagens */}
+          <div
+            className="flex-1 overflow-y-auto px-4 py-4 space-y-2.5"
+            style={{ background: T.bg }}
+          >
             {messages.map((m) => (
-              <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+              <div
+                key={m.id}
+                className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
+              >
                 <div
                   className="max-w-[82%] px-3.5 py-2.5 text-[13.5px] leading-relaxed"
                   style={
@@ -412,7 +466,6 @@ function CatalogChat({
               </div>
             ))}
 
-            {/* Typing indicator */}
             {isBusy && (
               <div className="flex justify-start">
                 <div
@@ -439,12 +492,18 @@ function CatalogChat({
             <div ref={bottomRef} />
           </div>
 
-          {/* Call CTA strip */}
-          <div className="px-3 pt-2.5 shrink-0" style={{ background: T.surface }}>
+          {/* CTA de chamada */}
+          <div className="px-4 pt-2.5 shrink-0" style={{ background: T.surface }}>
             <a
               href={captacaoUrl(catalog.businessSlug)}
-              className="flex items-center justify-center gap-2 w-full h-9 rounded-full text-[12.5px] font-medium"
-              style={{ color: T.ink, background: T.subtle, border: `1px solid ${T.line}` }}
+              className="flex items-center justify-center gap-2 w-full font-medium text-[12.5px]"
+              style={{
+                color: T.ink,
+                background: T.subtle,
+                border: `1px solid ${T.line}`,
+                borderRadius: T.rBtn,
+                minHeight: 36,
+              }}
             >
               <Phone size={13} />
               Preferes uma chamada? Clica aqui
@@ -452,7 +511,10 @@ function CatalogChat({
           </div>
 
           {/* Input */}
-          <div className="px-3 py-3 flex gap-2 items-center shrink-0" style={{ background: T.surface }}>
+          <div
+            className="px-4 py-3 flex gap-2 items-center shrink-0"
+            style={{ background: T.surface }}
+          >
             <input
               ref={inputRef}
               value={input}
@@ -460,16 +522,30 @@ function CatalogChat({
               onKeyDown={handleKey}
               placeholder="Escreve uma mensagem…"
               disabled={isBusy}
-              className="flex-1 text-[14px] rounded-full px-4 h-11 outline-none disabled:opacity-60"
-              style={{ background: T.bg, color: T.ink, border: `1px solid ${T.line}` }}
+              className="flex-1 text-[14px] outline-none disabled:opacity-60"
+              style={{
+                background: T.bg,
+                color: T.ink,
+                border: `1px solid ${T.line}`,
+                borderRadius: T.rBtn,
+                height: 44,
+                paddingLeft: 16,
+                paddingRight: 16,
+              }}
               onFocus={(e) => (e.currentTarget.style.border = `1px solid ${T.ink}`)}
               onBlur={(e) => (e.currentTarget.style.border = `1px solid ${T.line}`)}
             />
             <button
               onClick={() => void sendMessage()}
               disabled={!input.trim() || isBusy}
-              className="w-11 h-11 rounded-full flex items-center justify-center transition-opacity disabled:opacity-30 shrink-0"
-              style={{ background: T.accent, color: T.accentInk }}
+              className="flex items-center justify-center transition-opacity disabled:opacity-30 shrink-0"
+              style={{
+                background: T.accent,
+                color: T.accentInk,
+                borderRadius: T.rBtn,
+                width: 44,
+                height: 44,
+              }}
             >
               <Send size={16} />
             </button>
@@ -480,23 +556,30 @@ function CatalogChat({
   );
 }
 
-// ─── "Em breve" / "Inactivo" placeholder ─────────────────────────────────────
+// ─── Placeholder "em breve" ───────────────────────────────────────────────────
 
 function ComingSoon({ name, reason }: { name: string; reason: "disabled" | "not_ready" }) {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-5 px-6" style={{ background: T.bg }}>
+    <div
+      className="min-h-screen flex flex-col items-center justify-center gap-6 px-6"
+      style={{ background: T.bg }}
+    >
       <div
-        className="w-14 h-14 rounded-2xl flex items-center justify-center"
+        className="w-16 h-16 rounded-2xl flex items-center justify-center"
         style={{ background: T.surface, border: `1px solid ${T.line}` }}
       >
         <Store size={24} style={{ color: T.ink }} />
       </div>
       <div
-        className="max-w-xs text-center px-5 py-5"
-        style={{ background: T.surface, borderRadius: T.radius, border: `1px solid ${T.line}` }}
+        className="max-w-xs w-full text-center px-6 py-6"
+        style={{ background: T.surface, borderRadius: T.rCard, border: `1px solid ${T.line}` }}
       >
-        {name && <h1 className="text-lg font-semibold mb-1" style={{ color: T.ink }}>{name}</h1>}
-        <p className="text-[13px] leading-relaxed" style={{ color: T.inkSoft }}>
+        {name && (
+          <h1 className="text-lg font-semibold mb-2" style={{ color: T.ink }}>
+            {name}
+          </h1>
+        )}
+        <p className="text-[13.5px] leading-relaxed" style={{ color: T.inkSoft }}>
           {reason === "disabled"
             ? "O catálogo está temporariamente indisponível. Volta mais tarde!"
             : "O catálogo ainda está a ser preparado. Volta em breve!"}
@@ -506,12 +589,9 @@ function ComingSoon({ name, reason }: { name: string; reason: "disabled" | "not_
   );
 }
 
-// ─── Main Catalog Page ────────────────────────────────────────────────────────
+// ─── Página principal ─────────────────────────────────────────────────────────
 
 export function Catalogo() {
-  // /c/:slug          → catalog vanity-slug (used by QR links, legacy)
-  // /e/:businessSlug/catalogo → business-scoped route (multi-tenant)
-  // /catalogo         → legacy single-tenant route (falls back to businessSlug "electropanga")
   const params = useParams<{ slug?: string; businessSlug?: string }>();
   const catalogSlug = params.slug ?? null;
   const businessSlug = params.businessSlug ?? null;
@@ -525,13 +605,10 @@ export function Catalogo() {
   useEffect(() => {
     let fetch: Promise<CatalogData>;
     if (catalogSlug) {
-      // /c/:slug → fetch by catalog vanity slug
       fetch = getCatalogBySlug(catalogSlug);
     } else if (businessSlug) {
-      // /e/:businessSlug/catalogo → fetch via scoped business API
       fetch = businessApi(businessSlug).getCatalog();
     } else {
-      // No slug — cannot resolve a business
       fetch = Promise.reject(new Error("Catálogo não encontrado"));
     }
     fetch
@@ -553,39 +630,38 @@ export function Catalogo() {
   // ── Loading ──
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: T.bg }}>
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ background: T.bg }}
+      >
         <Loader2 size={28} className="animate-spin" style={{ color: T.inkSoft }} />
       </div>
     );
   }
 
-  // ── Error / not available ──
-  if (!catalog) {
-    return <ComingSoon name="" reason="not_ready" />;
-  }
+  // ── Erro / indisponível ──
+  if (!catalog) return <ComingSoon name="" reason="not_ready" />;
+  if (!catalog.catalogEnabled) return <ComingSoon name={catalog.name} reason="disabled" />;
+  if (!catalog.isReady) return <ComingSoon name={catalog.name} reason="not_ready" />;
 
-  if (!catalog.catalogEnabled) {
-    return <ComingSoon name={catalog.name} reason="disabled" />;
-  }
-
-  if (!catalog.isReady) {
-    return <ComingSoon name={catalog.name} reason="not_ready" />;
-  }
-
-  // ── Full Catalog ──
+  // ── Catálogo completo ──
   return (
     <div className="min-h-screen" style={{ background: T.bg, color: T.ink }}>
-      {/* ── Sticky Header ── */}
+
+      {/* ══ CABEÇALHO FIXO ══════════════════════════════════════════════════════ */}
       <header
         className="sticky top-0 z-30"
         style={{
-          background: "rgba(246,246,244,0.85)",
-          backdropFilter: "blur(10px)",
+          background: "rgba(246,246,244,0.88)",
+          backdropFilter: "blur(12px)",
           borderBottom: `1px solid ${T.line}`,
         }}
       >
-        <div className="max-w-2xl mx-auto px-4 h-14 flex items-center gap-3">
-          {/* Back button — visible when navigated from within the app */}
+        {/* Largura máxima + margens laterais confortáveis */}
+        <div
+          className="mx-auto flex items-center gap-3"
+          style={{ maxWidth: 680, padding: "0 24px", height: 60 }}
+        >
           {typeof window !== "undefined" && window.history.length > 1 && (
             <button
               onClick={() => window.history.back()}
@@ -596,22 +672,34 @@ export function Catalogo() {
               <ArrowLeft size={18} />
             </button>
           )}
-          {/* Avatar */}
+
+          {/* Avatar pequeno — apenas identificação, não elemento dominante */}
           <div
             className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-[11px] font-semibold"
             style={{ background: T.surface, color: T.ink, border: `1px solid ${T.line}` }}
           >
-            {initials(catalog.name) || <Store size={15} />}
+            {initials(catalog.name) || <Store size={14} />}
           </div>
-          <p className="flex-1 min-w-0 font-semibold text-[14.5px] truncate" style={{ color: T.ink }}>
+
+          <p
+            className="flex-1 min-w-0 font-semibold truncate"
+            style={{ color: T.ink, fontSize: 15 }}
+          >
             {catalog.name}
           </p>
 
           <a
             href={captacaoUrl(catalog.businessSlug)}
-            className="shrink-0 inline-flex items-center gap-1.5 h-9 px-4 rounded-full text-[13px] font-semibold"
-            style={{ background: T.accent, color: T.accentInk }}
-            aria-label="Ligar"
+            className="shrink-0 inline-flex items-center gap-1.5 font-semibold"
+            style={{
+              background: T.accent,
+              color: T.accentInk,
+              borderRadius: T.rBtn,
+              fontSize: 13,
+              paddingLeft: 16,
+              paddingRight: 16,
+              height: 36,
+            }}
           >
             <Phone size={13} />
             Ligar
@@ -619,56 +707,114 @@ export function Catalogo() {
         </div>
       </header>
 
-      {/* ── Hero (perfil do negócio, estilo link na bio) ── */}
-      <section className="max-w-2xl mx-auto px-4 pt-8 pb-2">
-        <div className="flex flex-col items-center text-center">
+      {/* ══ HERO — apresentação do negócio ══════════════════════════════════════ */}
+      <section>
+        <div
+          className="mx-auto flex flex-col items-center text-center"
+          style={{ maxWidth: 680, padding: "56px 24px 0" }}
+        >
+          {/* Avatar grande centralizado */}
           <div
-            className="w-16 h-16 rounded-2xl flex items-center justify-center text-[18px] font-semibold"
-            style={{ background: T.surface, color: T.ink, border: `1px solid ${T.line}` }}
+            className="flex items-center justify-center text-[20px] font-semibold"
+            style={{
+              width: 72,
+              height: 72,
+              borderRadius: 20,
+              background: T.surface,
+              color: T.ink,
+              border: `1px solid ${T.line}`,
+            }}
           >
-            {initials(catalog.name) || <Store size={24} />}
+            {initials(catalog.name) || <Store size={26} />}
           </div>
 
-          <h1 className="mt-4 text-[28px] font-bold leading-tight tracking-tight" style={{ color: T.ink }}>
+          {/* Nome do negócio */}
+          <h1
+            className="font-bold leading-tight tracking-tight"
+            style={{ color: T.ink, fontSize: 30, marginTop: 20 }}
+          >
             {catalog.name}
           </h1>
 
+          {/* Sector / categoria */}
           {catalog.sector && (
-            <p className="mt-1.5 text-[13.5px]" style={{ color: T.inkSoft }}>
+            <p
+              style={{ color: T.inkSoft, fontSize: 14, marginTop: 8 }}
+            >
               {catalog.sector}
             </p>
           )}
 
+          {/* Badge "Assistente disponível 24h" */}
           <div
-            className="mt-3 inline-flex items-center gap-1.5 text-[11.5px] font-medium px-2.5 py-1 rounded-full"
-            style={{ color: T.inkSoft, background: T.surface, border: `1px solid ${T.line}` }}
+            className="inline-flex items-center gap-1.5 font-medium"
+            style={{
+              color: T.inkSoft,
+              background: T.surface,
+              border: `1px solid ${T.line}`,
+              borderRadius: T.rBadge,
+              fontSize: 11.5,
+              paddingLeft: 12,
+              paddingRight: 12,
+              height: 28,
+              marginTop: 16,
+            }}
           >
-            <span className="w-1.5 h-1.5 rounded-full" style={{ background: "#3FB27F" }} />
+            <span
+              className="rounded-full shrink-0"
+              style={{ width: 6, height: 6, background: "#3FB27F" }}
+            />
             Assistente disponível 24h
           </div>
 
+          {/* Descrição — editorial, respirada, max-width estreita */}
           {catalog.description && (
-            <p className="mt-4 text-[13.5px] leading-relaxed max-w-md" style={{ color: T.inkSoft }}>
+            <p
+              className="leading-7"
+              style={{
+                color: T.inkSoft,
+                fontSize: 14,
+                maxWidth: 360,
+                marginTop: 20,
+                textAlign: "center",
+              }}
+            >
               {catalog.description.length > 320
                 ? catalog.description.slice(0, 320) + "…"
                 : catalog.description}
             </p>
           )}
 
-          {/* CTAs — botões cheios estilo "link na bio" */}
-          <div className="mt-6 w-full max-w-sm flex flex-col gap-2.5">
+          {/* CTAs principais — grande espaço, pill, cheios de ar */}
+          <div
+            className="flex flex-col w-full"
+            style={{ maxWidth: 340, gap: 12, marginTop: 32 }}
+          >
             <button
               onClick={openChat}
-              className="flex items-center justify-center gap-2 w-full h-13 rounded-full font-semibold text-[15px] transition-opacity hover:opacity-90 active:scale-[0.995]"
-              style={{ background: T.accent, color: T.accentInk, minHeight: 52 }}
+              className="flex items-center justify-center gap-2 font-semibold transition-opacity hover:opacity-90 active:scale-[0.995]"
+              style={{
+                background: T.accent,
+                color: T.accentInk,
+                borderRadius: T.rBtn,
+                fontSize: 15,
+                minHeight: 52,
+              }}
             >
               <MessageSquare size={17} />
               Falar com IA
             </button>
             <a
               href={captacaoUrl(catalog.businessSlug)}
-              className="flex items-center justify-center gap-2 w-full h-13 rounded-full font-semibold text-[15px]"
-              style={{ background: T.surface, color: T.ink, border: `1px solid ${T.line}`, minHeight: 52 }}
+              className="flex items-center justify-center gap-2 font-semibold"
+              style={{
+                background: T.surface,
+                color: T.ink,
+                border: `1px solid ${T.line}`,
+                borderRadius: T.rBtn,
+                fontSize: 15,
+                minHeight: 52,
+              }}
             >
               <Phone size={17} />
               Ligar agora
@@ -677,115 +823,184 @@ export function Catalogo() {
         </div>
       </section>
 
-      {/* ── Products Grid ── */}
+      {/* ══ PRODUTOS & SERVIÇOS ══════════════════════════════════════════════════ */}
       {catalog.offerings.length > 0 && (
-        <section className="max-w-2xl mx-auto px-4 pt-10 pb-4">
-          <SectionLabel hint='Clica em "Saber mais" — a nossa IA responde em segundos.'>
-            Produtos &amp; serviços
-          </SectionLabel>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {[...catalog.offerings]
-              .sort((a, b) => {
-                // Featured products always first
-                if (a.featured && !b.featured) return -1;
-                if (!a.featured && b.featured) return 1;
-                // Then respect sortOrder set by the owner
-                return (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
-              })
-              .map((offering, i) => (
-                <ProductCard
-                  key={i}
-                  offering={offering}
-                  onLearnMore={() => handleLearnMore(offering)}
-                  onBuy={
-                    catalog.businessSlug && offering.price && parsePriceAoa(offering.price) !== null
-                      ? () => setBuyOffering(offering)
-                      : undefined
-                  }
-                />
-              ))}
-          </div>
-        </section>
-      )}
-
-      {/* ── Differentials ── */}
-      {catalog.differentials.length > 0 && (
-        <section className="max-w-2xl mx-auto px-4 pt-8 pb-4">
-          <SectionLabel>Porquê escolher-nos</SectionLabel>
+        <section>
           <div
-            className="overflow-hidden"
-            style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: T.radius }}
+            className="mx-auto"
+            style={{ maxWidth: 680, padding: "64px 24px 0" }}
           >
-            {catalog.differentials.map((diff, i) => (
-              <div
-                key={i}
-                className="flex items-start gap-3 px-4 py-3.5"
-                style={{ borderTop: i === 0 ? "none" : `1px solid ${T.lineSoft}` }}
-              >
-                <span
-                  className="mt-0.5 w-5 h-5 rounded-full flex items-center justify-center shrink-0"
-                  style={{ background: T.subtle }}
-                >
-                  <Check size={12} style={{ color: T.ink }} />
-                </span>
-                <p className="text-[13px] leading-relaxed" style={{ color: T.ink }}>
-                  {diff}
-                </p>
-              </div>
-            ))}
+            <SectionLabel hint='Clica em "Saber mais" — a nossa IA responde em segundos.'>
+              Produtos &amp; Serviços
+            </SectionLabel>
+
+            {/* Grid — gap generoso, nunca cards colados */}
+            <div
+              className="grid grid-cols-2"
+              style={{ gap: 16 }}
+            >
+              {[...catalog.offerings]
+                .sort((a, b) => {
+                  if (a.featured && !b.featured) return -1;
+                  if (!a.featured && b.featured) return 1;
+                  return (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
+                })
+                .map((offering, i) => (
+                  <ProductCard
+                    key={i}
+                    offering={offering}
+                    onLearnMore={() => handleLearnMore(offering)}
+                    onBuy={
+                      catalog.businessSlug &&
+                      offering.price &&
+                      parsePriceAoa(offering.price) !== null
+                        ? () => setBuyOffering(offering)
+                        : undefined
+                    }
+                  />
+                ))}
+            </div>
           </div>
         </section>
       )}
 
-      {/* ── FAQ ── */}
-      {catalog.faq.length > 0 && (
-        <section className="max-w-2xl mx-auto px-4 pt-8 pb-4">
-          <SectionLabel>Perguntas frequentes</SectionLabel>
-          <FaqAccordion faq={catalog.faq} />
+      {/* ══ PORQUÊ ESCOLHER-NOS ══════════════════════════════════════════════════ */}
+      {catalog.differentials.length > 0 && (
+        <section>
+          <div
+            className="mx-auto"
+            style={{ maxWidth: 680, padding: "64px 24px 0" }}
+          >
+            <SectionLabel>Porquê escolher-nos</SectionLabel>
+
+            {/* Lista unificada num único container arredondado */}
+            <div
+              className="overflow-hidden"
+              style={{
+                background: T.surface,
+                border: `1px solid ${T.line}`,
+                borderRadius: T.rCard,
+              }}
+            >
+              {catalog.differentials.map((diff, i) => (
+                <div
+                  key={i}
+                  className="flex items-start gap-3.5"
+                  style={{
+                    borderTop: i === 0 ? "none" : `1px solid ${T.lineSoft}`,
+                    padding: "16px 20px",
+                  }}
+                >
+                  {/* Ícone circular pequeno */}
+                  <span
+                    className="shrink-0 flex items-center justify-center rounded-full mt-[1px]"
+                    style={{
+                      width: 22,
+                      height: 22,
+                      background: T.subtle,
+                      border: `1px solid ${T.line}`,
+                    }}
+                  >
+                    <Check size={11} style={{ color: T.ink }} />
+                  </span>
+                  <p
+                    className="leading-relaxed"
+                    style={{ color: T.ink, fontSize: 13.5 }}
+                  >
+                    {diff}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
         </section>
       )}
 
-      {/* ── Footer CTA ── */}
-      <section className="max-w-2xl mx-auto px-4 pt-8 pb-8">
+      {/* ══ PERGUNTAS FREQUENTES ═════════════════════════════════════════════════ */}
+      {catalog.faq.length > 0 && (
+        <section>
+          <div
+            className="mx-auto"
+            style={{ maxWidth: 680, padding: "64px 24px 0" }}
+          >
+            <SectionLabel>Perguntas Frequentes</SectionLabel>
+            <FaqAccordion faq={catalog.faq} />
+          </div>
+        </section>
+      )}
+
+      {/* ══ FOOTER CTA ═══════════════════════════════════════════════════════════ */}
+      <section>
         <div
-          className="px-6 py-8 text-center"
-          style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: T.radius }}
+          className="mx-auto"
+          style={{ maxWidth: 680, padding: "64px 24px 48px" }}
         >
-          <h2 className="text-[19px] font-semibold tracking-tight" style={{ color: T.ink }}>
-            Ainda tens dúvidas?
-          </h2>
-          <p className="mt-2 text-[13px] leading-relaxed max-w-xs mx-auto" style={{ color: T.inkSoft }}>
-            A nossa assistente responde em segundos, 24h por dia, 7 dias por semana.
-          </p>
-          <div className="mt-6 flex flex-col gap-2.5 w-full max-w-xs mx-auto">
-            <button
-              onClick={openChat}
-              className="flex items-center justify-center gap-2 w-full rounded-full text-[14px] font-semibold transition-opacity hover:opacity-90"
-              style={{ background: T.accent, color: T.accentInk, minHeight: 48 }}
+          <div
+            className="flex flex-col items-center text-center px-6 py-10"
+            style={{
+              background: T.surface,
+              border: `1px solid ${T.line}`,
+              borderRadius: T.rCard,
+            }}
+          >
+            <h2
+              className="font-bold tracking-tight"
+              style={{ color: T.ink, fontSize: 22 }}
             >
-              <MessageSquare size={16} />
-              Falar com IA agora
-            </button>
-            <a
-              href={captacaoUrl(catalog.businessSlug)}
-              className="flex items-center justify-center gap-2 w-full rounded-full text-[14px] font-semibold"
-              style={{ background: T.subtle, color: T.ink, border: `1px solid ${T.line}`, minHeight: 48 }}
+              Ainda tens dúvidas?
+            </h2>
+            <p
+              className="leading-relaxed"
+              style={{ color: T.inkSoft, fontSize: 13.5, maxWidth: 280, marginTop: 10 }}
             >
-              <Phone size={16} />
-              Ligar agora
-            </a>
+              A nossa assistente responde em segundos, 24h por dia, 7 dias por semana.
+            </p>
+            <div
+              className="flex flex-col w-full"
+              style={{ maxWidth: 300, gap: 12, marginTop: 28 }}
+            >
+              <button
+                onClick={openChat}
+                className="flex items-center justify-center gap-2 font-semibold transition-opacity hover:opacity-90"
+                style={{
+                  background: T.accent,
+                  color: T.accentInk,
+                  borderRadius: T.rBtn,
+                  fontSize: 14,
+                  minHeight: 48,
+                }}
+              >
+                <MessageSquare size={16} />
+                Falar com IA agora
+              </button>
+              <a
+                href={captacaoUrl(catalog.businessSlug)}
+                className="flex items-center justify-center gap-2 font-semibold"
+                style={{
+                  background: T.subtle,
+                  color: T.ink,
+                  border: `1px solid ${T.line}`,
+                  borderRadius: T.rBtn,
+                  fontSize: 14,
+                  minHeight: 48,
+                }}
+              >
+                <Phone size={16} />
+                Ligar agora
+              </a>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ── Powered by tag ── */}
-      <div className="text-center pb-28 pt-2">
-        <p className="text-[11px]" style={{ color: "rgba(20,23,26,0.38)" }}>
+      {/* ══ RODAPÉ ════════════════════════════════════════════════════════════════ */}
+      <div className="text-center pb-32 pt-2">
+        <p style={{ fontSize: 11, color: "rgba(20,23,26,0.32)" }}>
           Catálogo gerado por AI Call Funnel
         </p>
       </div>
 
-      {/* ── Buy Modal (Multicaixa Express) ── */}
+      {/* ══ MODAIS / OVERLAYS ════════════════════════════════════════════════════ */}
       {buyOffering && catalog.businessSlug && (
         <BuyModal
           businessSlug={catalog.businessSlug}
@@ -794,7 +1009,6 @@ export function Catalogo() {
         />
       )}
 
-      {/* ── Chat Widget ── */}
       <CatalogChat
         catalog={catalog}
         open={chatOpen}

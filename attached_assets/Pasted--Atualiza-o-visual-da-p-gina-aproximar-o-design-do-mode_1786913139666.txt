@@ -1,0 +1,819 @@
+# Atualização visual da página — aproximar o design do modelo de referência
+
+Quero fazer **APENAS uma atualização visual da página existente**, mantendo toda a lógica, funcionalidades, dados, rotas, componentes funcionais e comportamento atual.
+
+Use as **três últimas imagens de referência** como direção visual e transforme principalmente a aparência apresentada nas **duas primeiras imagens** para esse estilo.
+
+## REGRA PRINCIPAL
+
+NÃO adicionar bibliotecas, frameworks, componentes externos ou novas funcionalidades.
+
+NÃO reconstruir a página do zero.
+
+NÃO alterar a lógica existente.
+
+NÃO alterar os textos, produtos, preços, botões, funcionalidades ou comportamento.
+
+O objetivo é fazer a interface existente parecer muito mais próxima das referências através de:
+
+* espaçamento;
+* margens;
+* padding;
+* largura dos elementos;
+* altura dos cards;
+* proporção das imagens;
+* tipografia;
+* hierarquia visual;
+* bordas;
+* radius;
+* alinhamento;
+* densidade de informação;
+* posicionamento dos botões;
+* distância entre seções;
+* quantidade de conteúdo visível;
+* respiro visual.
+
+---
+
+# 1. SENSAÇÃO GERAL
+
+A página deve deixar de parecer uma interface "compactada" e passar a transmitir:
+
+**minimalista + premium + clean + editorial + espaçosa + sofisticada.**
+
+A referência não tem aparência de dashboard.
+
+Ela parece mais uma **vitrine digital premium de uma marca**, onde cada elemento tem espaço para respirar.
+
+Portanto:
+
+* aumentar espaços vazios;
+* reduzir a sensação de elementos colados uns aos outros;
+* evitar excesso de informação por viewport;
+* aumentar margens laterais;
+* aumentar padding interno;
+* criar separações claras entre blocos;
+* manter tudo muito simples visualmente.
+
+Não adicionar sombras fortes, gradientes, efeitos exagerados ou elementos decorativos desnecessários.
+
+---
+
+# 2. CONTAINER PRINCIPAL DA PÁGINA
+
+A primeira alteração deve ser no container geral.
+
+Nas duas primeiras imagens, o conteúdo está excessivamente próximo das extremidades da tela.
+
+Aproximar do comportamento das três últimas referências:
+
+* adicionar margem horizontal confortável;
+* usar um container centralizado;
+* não deixar cards encostarem diretamente nas bordas da viewport;
+* criar aproximadamente 24–32px de espaço horizontal em mobile;
+* em telas maiores, aumentar proporcionalmente o espaço lateral;
+* manter o conteúdo com uma largura máxima confortável.
+
+A página deve parecer que existe uma "moldura invisível" ao redor do conteúdo.
+
+No mobile, o usuário deve perceber claramente espaço entre:
+
+**borda da tela → conteúdo.**
+
+---
+
+# 3. CABEÇALHO / IDENTIDADE DO NEGÓCIO
+
+Manter o cabeçalho existente, mas aproximá-lo da referência.
+
+O cabeçalho deve ser mais leve e respirar mais.
+
+### Ajustes:
+
+* aumentar ligeiramente o padding vertical;
+* manter o nome do negócio visualmente forte;
+* reduzir a sensação de elementos comprimidos;
+* manter o botão "Ligar" como CTA principal no canto superior;
+* deixar mais espaço entre avatar, nome e botão;
+* manter o cabeçalho visualmente simples;
+* não adicionar elementos novos.
+
+O avatar/logo deve ter tamanho equilibrado.
+
+Não deixar o avatar parecer um grande bloco dominante.
+
+---
+
+# 4. HERO / APRESENTAÇÃO DO NEGÓCIO
+
+Esta é uma das áreas que mais precisa mudar.
+
+Nas primeiras imagens, o bloco inicial está muito comprimido verticalmente.
+
+Aproximar do modelo Atelier Norte.
+
+### Aumentar:
+
+* distância entre avatar e título;
+* distância entre título e subtítulo;
+* distância entre subtítulo e badge "Assistente disponível 24h";
+* distância entre badge e descrição;
+* distância entre descrição e CTAs.
+
+O título deve ter bastante presença, mas sem ocupar toda a tela.
+
+Usar uma hierarquia clara:
+
+**Nome do negócio**
+↓
+**Categoria**
+↓
+**Status do assistente**
+↓
+**Descrição**
+↓
+**CTA**
+
+Não colocar todos esses elementos praticamente encostados.
+
+---
+
+# 5. DESCRIÇÃO
+
+A descrição deve parecer um texto editorial, não um bloco de informação comprimido.
+
+Nas duas primeiras imagens há muitas linhas ocupando toda a largura.
+
+Aproximar do comportamento da referência:
+
+* limitar a largura máxima do texto;
+* centralizar o bloco;
+* aumentar o line-height;
+* deixar mais espaço entre os parágrafos/blocos;
+* evitar linhas excessivamente longas;
+* permitir que o texto tenha aproximadamente 1–2 linhas a mais quando necessário, em vez de tentar colocar tudo numa linha muito larga.
+
+A descrição deve ser confortável de ler.
+
+Preferir:
+
+`max-width` razoável + `line-height` generoso
+
+em vez de simplesmente aumentar o tamanho da fonte.
+
+---
+
+# 6. BADGE "ASSISTENTE DISPONÍVEL 24H"
+
+O badge deve seguir o estilo das referências.
+
+Ele deve parecer um pequeno indicador elegante, não um botão.
+
+Características:
+
+* formato pill;
+* background muito discreto;
+* borda fina;
+* padding horizontal confortável;
+* padding vertical pequeno;
+* texto cinza;
+* indicador verde pequeno;
+* alinhamento perfeito entre ponto e texto.
+
+Deixar espaço acima e abaixo.
+
+---
+
+# 7. BOTÕES PRINCIPAIS
+
+Os CTAs precisam ter mais respiro.
+
+Na referência, o botão "Falar com IA" é grande, simples e muito claro.
+
+Manter:
+
+**Falar com IA**
+
+como CTA principal.
+
+### Botão principal:
+
+* largura quase total do container;
+* altura confortável;
+* border-radius grande/pill;
+* fundo escuro;
+* texto branco;
+* ícone bem alinhado;
+* fonte com peso médio/semibold;
+* padding horizontal confortável.
+
+### Botão secundário:
+
+"Ligar agora"
+
+deve continuar abaixo do principal.
+
+Mas aumentar a distância entre os dois.
+
+Não deixar os botões visualmente colados.
+
+O conjunto deve parecer:
+
+[ Falar com IA ]
+
+espaço
+
+[ Ligar agora ]
+
+---
+
+# 8. BOTÃO FLUTUANTE "FALAR COM IA"
+
+O botão flutuante atual está visualmente pesado porque aparece muito próximo dos cards e, em alguns momentos, cobre conteúdo importante.
+
+Manter a funcionalidade, mas melhorar o posicionamento.
+
+### Regras:
+
+* posição fixa;
+* distância confortável das bordas;
+* nunca esconder informações importantes;
+* nunca cobrir preço;
+* nunca cobrir o botão "Comprar";
+* nunca cobrir títulos de produtos;
+* manter distância do bottom navigation/editor quando estiver no modo de edição;
+* no mobile, usar uma largura confortável, mas não exagerada;
+* manter aparência de pill;
+* sombra muito discreta ou nenhuma sombra pesada.
+
+A referência mostra o botão flutuante como um elemento secundário, não como protagonista da página.
+
+---
+
+# 9. TÍTULOS DAS SEÇÕES
+
+Transformar títulos como:
+
+"PRODUTOS & SERVIÇOS"
+
+"PORQUÊ ESCOLHER-NOS"
+
+"PERGUNTAS FREQUENTES"
+
+em pequenos títulos editoriais.
+
+Características:
+
+* uppercase quando já estiver assim;
+* letter-spacing discreto;
+* fonte menor;
+* peso medium/semibold;
+* cor cinza;
+* bastante espaço acima;
+* bastante espaço abaixo.
+
+O título da seção não deve ficar colado ao conteúdo abaixo.
+
+Exemplo visual:
+
+PRODUTOS & SERVIÇOS
+
+[espaço]
+
+Descrição da seção
+
+[espaço maior]
+
+Cards
+
+---
+
+# 10. GRID DE PRODUTOS
+
+Esta é uma das alterações MAIS IMPORTANTES.
+
+As duas primeiras imagens possuem cards excessivamente densos.
+
+Aproximar exatamente da sensação dos cards das referências Atelier Norte.
+
+## Mobile
+
+Manter duas colunas se essa for a estrutura atual.
+
+Porém:
+
+* aumentar o espaço entre os dois cards;
+* aumentar o espaço vertical entre linhas;
+* aumentar margem lateral;
+* reduzir a sensação de cards colados;
+* aumentar padding interno onde existir conteúdo textual;
+* manter bordas suaves;
+* usar border-radius generoso;
+* evitar que os cards encostem uns nos outros.
+
+O grid deve ter aparência de:
+
+[ CARD ]     [ CARD ]
+
+```
+  espaço
+```
+
+[ CARD ]     [ CARD ]
+
+e não:
+
+[card][card]
+
+---
+
+# 11. CARD DE PRODUTO
+
+O card precisa parecer muito mais premium.
+
+### Estrutura visual:
+
+IMAGEM
+
+espaço
+
+NOME DO PRODUTO
+
+espaço
+
+PREÇO
+
+espaço
+
+DESCRIÇÃO
+
+espaço maior
+
+[ COMPRAR ]
+
+espaço
+
+[ SABER MAIS ]
+
+Cada bloco precisa respirar.
+
+Não colocar nome, preço e descrição praticamente colados.
+
+---
+
+# 12. IMAGEM DOS CARDS
+
+Nas duas primeiras imagens, as fotografias estão muito dominantes e os cards ficam visualmente pesados.
+
+A referência possui imagens maiores em qualidade visual, mas com uma apresentação mais controlada.
+
+### Ajustar:
+
+* border-radius apenas no topo do card, quando a imagem estiver integrada ao card;
+* manter aspect-ratio consistente;
+* evitar imagens excessivamente altas;
+* evitar que a imagem ocupe quase todo o card;
+* usar `object-fit: cover`;
+* manter foco central da imagem;
+* impedir que imagens diferentes criem cards com alturas visualmente inconsistentes.
+
+Todos os cards devem parecer pertencer ao mesmo sistema.
+
+---
+
+# 13. NOME DO PRODUTO
+
+O nome precisa ter mais espaço.
+
+Nas duas primeiras imagens existem títulos que parecem cortados ou comprimidos.
+
+Fazer:
+
+* padding horizontal consistente;
+* line-height confortável;
+* tamanho de fonte moderado;
+* peso semibold;
+* permitir duas ou três linhas quando necessário;
+* NÃO comprimir o texto para obrigá-lo a caber em uma linha;
+* manter alinhamento no topo da área textual.
+
+Exemplo:
+
+`Disjuntor 4P 80A Curva-C`
+`6KA S204-C80 ABB`
+
+deve parecer intencional e legível.
+
+---
+
+# 14. PREÇO
+
+O preço precisa ter mais destaque que a descrição, mas menos destaque que o nome da marca.
+
+Usar:
+
+* tamanho um pouco maior;
+* peso medium/semibold;
+* cor principal escura;
+* margem superior e inferior confortável.
+
+Não deixar o preço colado ao nome.
+
+---
+
+# 15. DESCRIÇÃO DO PRODUTO
+
+A descrição deve ficar visualmente secundária.
+
+Usar:
+
+* cinza;
+* tamanho menor;
+* line-height maior;
+* máximo de algumas linhas;
+* `line-clamp` apenas se já fizer parte do comportamento atual;
+* nunca deixar a descrição ocupar visualmente mais importância que o produto.
+
+Criar bastante espaço entre:
+
+PREÇO
+
+e
+
+DESCRIÇÃO
+
+e depois entre:
+
+DESCRIÇÃO
+
+e
+
+COMPRAR.
+
+---
+
+# 16. BOTÃO "COMPRAR"
+
+O botão preto deve ter uma aparência semelhante ao CTA principal.
+
+Características:
+
+* largura quase total do card;
+* altura confortável;
+* border-radius grande;
+* ícone pequeno;
+* texto semibold;
+* alinhamento perfeito;
+* margem superior maior.
+
+Não deixar o botão encostado nas bordas do card.
+
+O padding lateral interno do card precisa ser perceptível.
+
+---
+
+# 17. BOTÃO "SABER MAIS"
+
+O botão secundário deve ficar separado visualmente do botão "Comprar".
+
+Não fazer:
+
+[ COMPRAR ]
+[ SABER MAIS ]
+
+praticamente encostados.
+
+Fazer:
+
+[ COMPRAR ]
+
+pequeno espaço vertical
+
+[ SABER MAIS ]
+
+O botão secundário deve ter:
+
+* fundo branco;
+* borda sutil;
+* texto escuro;
+* border-radius grande;
+* altura semelhante ao botão principal.
+
+---
+
+# 18. CARDS "PORQUÊ ESCOLHER-NOS"
+
+Usar o mesmo conceito da referência Atelier Norte.
+
+Em vez de vários cards pequenos separados, manter uma estrutura de lista única com linhas bem espaçadas.
+
+Exemplo:
+
+┌──────────────────────────────┐
+│ ✓   Produção própria...      │
+├──────────────────────────────┤
+│ ✓   Entrega e montagem...    │
+├──────────────────────────────┤
+│ ✓   Garantia de 2 anos...    │
+├──────────────────────────────┤
+│ ✓   Atendimento...           │
+└──────────────────────────────┘
+
+### Visual:
+
+* border-radius grande;
+* borda fina;
+* background branco;
+* cada item com padding vertical generoso;
+* separadores muito discretos;
+* ícone circular pequeno;
+* texto alinhado verticalmente;
+* não adicionar sombras fortes.
+
+---
+
+# 19. FAQ
+
+A FAQ deve seguir exatamente a mesma linguagem visual.
+
+Um único container arredondado.
+
+Cada pergunta é uma linha.
+
+Muito espaço vertical.
+
+Exemplo:
+
+┌──────────────────────────────┐
+│ Fazem entregas...?        ˅  │
+├──────────────────────────────┤
+│ Posso encomendar...?       ˅ │
+├──────────────────────────────┤
+│ Quais são as formas...?    ˅ │
+└──────────────────────────────┘
+
+### Ajustar:
+
+* padding vertical;
+* padding horizontal;
+* tamanho da fonte;
+* espaçamento entre pergunta e ícone;
+* bordas/separadores;
+* radius do container.
+
+O ícone de expansão deve ficar sempre alinhado à direita.
+
+---
+
+# 20. ESPAÇAMENTO ENTRE SEÇÕES
+
+A página precisa respirar muito mais.
+
+Aumentar significativamente o espaço entre:
+
+Hero
+↓
+CTAs
+↓
+Produtos
+↓
+Porquê escolher-nos
+↓
+FAQ
+↓
+Footer
+
+Não colocar uma seção imediatamente depois da outra.
+
+A referência possui uma sensação clara de:
+
+**bloco → espaço → próximo bloco**
+
+e não:
+
+**bloco → bloco → bloco → bloco**
+
+---
+
+# 21. SISTEMA DE ESPAÇAMENTO
+
+Criar consistência visual.
+
+Não usar valores aleatórios diferentes em cada componente.
+
+Priorizar uma escala coerente de espaçamento.
+
+Por exemplo:
+
+* pequeno: ~8px
+* médio: ~12–16px
+* confortável: ~20–24px
+* grande: ~32px
+* seção: ~48–64px
+* hero/seções principais: ~64–80px quando houver espaço
+
+Esses valores são apenas referência visual; adapte ao CSS existente.
+
+O importante é que exista uma hierarquia clara.
+
+---
+
+# 22. BORDAS E RADIUS
+
+A referência utiliza cantos arredondados, mas de forma elegante.
+
+Usar:
+
+* cards: radius aproximadamente 20–24px;
+* botões: radius grande/pill;
+* containers de FAQ: radius aproximadamente 20–24px;
+* badge: totalmente arredondado;
+* imagens: respeitar o radius do card.
+
+Evitar radius pequenos e quadrados.
+
+Evitar também exagerar até parecer uma interface infantil.
+
+---
+
+# 23. SOMBRAS
+
+Reduzir sombras.
+
+O design de referência é muito clean.
+
+Se houver sombras atuais fortes nos cards:
+
+**reduzir bastante ou remover.**
+
+Priorizar:
+
+* borda sutil;
+* contraste de background;
+* espaçamento.
+
+A profundidade deve vir principalmente do espaço, não de sombras.
+
+---
+
+# 24. CORES
+
+Não alterar a identidade visual atual do negócio.
+
+Mas melhorar a distribuição visual.
+
+Priorizar:
+
+* fundo muito claro;
+* texto principal escuro;
+* textos secundários em cinza;
+* bordas muito suaves;
+* botões principais escuros;
+* branco nos cards.
+
+Não adicionar novas cores apenas para "embelezar".
+
+---
+
+# 25. TIPOGRAFIA
+
+Não instalar nova fonte.
+
+Usar a fonte que já existe.
+
+Ajustar somente:
+
+* font-size;
+* font-weight;
+* line-height;
+* letter-spacing;
+* hierarquia.
+
+A sensação desejada é semelhante às referências:
+
+**títulos fortes + textos secundários leves + bastante espaço.**
+
+Evitar deixar tudo em bold.
+
+Nem todos os elementos precisam chamar atenção.
+
+---
+
+# 26. RESPONSIVIDADE
+
+IMPORTANTE:
+
+A alteração deve ser especialmente perceptível no mobile, porque as imagens de referência são mobile.
+
+Verificar cuidadosamente:
+
+* 360px;
+* 375px;
+* 390px;
+* 414px.
+
+Em telas pequenas:
+
+* nunca deixar texto tocar nas bordas;
+* nunca deixar cards encostarem na tela;
+* manter pelo menos ~16–24px de margem lateral;
+* manter gap consistente entre cards;
+* evitar overflow horizontal;
+* evitar textos cortados;
+* evitar botões ultrapassando o card;
+* evitar elementos sobrepostos.
+
+---
+
+# 27. O QUE NÃO FAZER
+
+NÃO:
+
+* adicionar novas bibliotecas;
+* adicionar Tailwind se já não estiver sendo usado;
+* adicionar Bootstrap;
+* instalar componentes;
+* criar animações;
+* criar gradientes;
+* adicionar glassmorphism;
+* adicionar sombras fortes;
+* alterar a lógica;
+* alterar o banco de dados;
+* alterar APIs;
+* alterar funcionalidades;
+* alterar textos;
+* criar novos elementos desnecessários;
+* transformar a página em dashboard;
+* mudar a identidade da marca.
+
+É uma **refinação visual**, não uma reconstrução funcional.
+
+---
+
+# 28. PRIORIDADE DAS ALTERAÇÕES
+
+Se precisar priorizar, faça nesta ordem:
+
+### PRIORIDADE 1
+
+Aumentar margens laterais e espaço interno.
+
+### PRIORIDADE 2
+
+Aumentar o espaçamento vertical entre seções.
+
+### PRIORIDADE 3
+
+Redesenhar visualmente os cards para ficarem mais espaçosos.
+
+### PRIORIDADE 4
+
+Melhorar hierarquia de título → preço → descrição → botões.
+
+### PRIORIDADE 5
+
+Aumentar espaço entre botões.
+
+### PRIORIDADE 6
+
+Ajustar radius e bordas.
+
+### PRIORIDADE 7
+
+Ajustar tipografia e line-height.
+
+### PRIORIDADE 8
+
+Corrigir posicionamento do botão flutuante.
+
+---
+
+# RESULTADO ESPERADO
+
+Ao terminar, compare visualmente a página com as três imagens de referência.
+
+A página deve parecer:
+
+**menos compacta**
+→ **mais espaçosa**
+
+**menos "template"**
+→ **mais editorial**
+
+**menos carregada**
+→ **mais minimalista**
+
+**menos apertada**
+→ **mais premium**
+
+**menos cards colados**
+→ **mais respiro entre cards**
+
+**menos informação competindo**
+→ **hierarquia visual clara**
+
+O objetivo é que alguém olhando para a página diga:
+
+> "É a mesma plataforma, mas esta versão parece muito mais profissional e premium."
+
+Faça essas alterações diretamente nos componentes e CSS existentes. **Não introduza nenhuma tecnologia nova.**
