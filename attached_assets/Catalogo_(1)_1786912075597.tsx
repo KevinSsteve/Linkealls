@@ -113,7 +113,7 @@ function ProductCard({
       }}
     >
       {/* Image */}
-      <div className="relative w-full overflow-hidden" style={{ height: 160, background: T.subtle }}>
+      <div className="relative w-full overflow-hidden" style={{ aspectRatio: "4 / 3", background: T.subtle }}>
         {offering.imageUrl && !imgError ? (
           <img
             src={offering.imageUrl}
@@ -136,7 +136,7 @@ function ProductCard({
         {/* Featured badge */}
         {offering.featured && (
           <div
-            className="absolute top-2 left-2 px-2 py-[3px] rounded-full text-[10px] font-semibold"
+            className="absolute top-2.5 left-2.5 px-2 py-[3px] rounded-full text-[10px] font-semibold"
             style={{
               background: "rgba(255,255,255,0.92)",
               color: T.ink,
@@ -150,17 +150,17 @@ function ProductCard({
       </div>
 
       {/* Content */}
-      <div className="px-3 pb-3.5 pt-2.5 flex flex-col flex-1">
+      <div className="px-3.5 pb-3.5 pt-3 flex flex-col flex-1">
         <h3 className="font-semibold text-[13.5px] leading-snug line-clamp-2" style={{ color: T.ink }}>
           {offering.name}
         </h3>
         {offering.price && (
-          <p className="mt-1 text-[14px] font-bold tabular-nums" style={{ color: T.ink }}>
+          <p className="mt-1 text-[14px] font-semibold tabular-nums" style={{ color: T.ink }}>
             {offering.price}
           </p>
         )}
         {offering.description && (
-          <p className="mt-1 text-[11.5px] leading-relaxed line-clamp-2 flex-1" style={{ color: T.inkSoft }}>
+          <p className="mt-1.5 text-[12px] leading-relaxed line-clamp-2 flex-1" style={{ color: T.inkSoft }}>
             {offering.description}
           </p>
         )}
@@ -168,7 +168,7 @@ function ProductCard({
           {onBuy && (
             <button
               onClick={onBuy}
-              className="w-full h-10 rounded-full text-[13px] font-semibold flex items-center justify-center gap-1.5 transition-opacity hover:opacity-90"
+              className="w-full h-9 rounded-xl text-[12.5px] font-semibold flex items-center justify-center gap-1.5 transition-opacity hover:opacity-90"
               style={{ background: T.accent, color: T.accentInk }}
             >
               <Smartphone size={13} /> Comprar
@@ -176,7 +176,7 @@ function ProductCard({
           )}
           <button
             onClick={onLearnMore}
-            className="w-full h-10 rounded-full text-[13px] font-semibold flex items-center justify-center gap-1.5 transition-colors"
+            className="w-full h-9 rounded-xl text-[12.5px] font-semibold flex items-center justify-center gap-1.5 transition-colors"
             style={{ background: T.surface, color: T.ink, border: `1px solid ${T.line}` }}
           >
             Saber mais <ArrowRight size={13} />
@@ -323,7 +323,7 @@ function CatalogChat({
         <button
           onClick={onOpen}
           aria-label="Abrir chat com IA"
-          className="fixed bottom-5 right-4 z-40 flex items-center gap-2 pl-4 pr-5 h-12 rounded-full font-semibold text-[14px] transition-transform hover:scale-[1.03]"
+          className="fixed bottom-5 right-4 z-40 flex items-center gap-2 pl-4 pr-5 h-12 rounded-full font-semibold text-[13.5px] transition-transform hover:scale-[1.03]"
           style={{
             background: T.accent,
             color: T.accentInk,
@@ -443,7 +443,7 @@ function CatalogChat({
           <div className="px-3 pt-2.5 shrink-0" style={{ background: T.surface }}>
             <a
               href={captacaoUrl(catalog.businessSlug)}
-              className="flex items-center justify-center gap-2 w-full h-9 rounded-full text-[12.5px] font-medium"
+              className="flex items-center justify-center gap-2 w-full h-9 rounded-xl text-[12.5px] font-medium"
               style={{ color: T.ink, background: T.subtle, border: `1px solid ${T.line}` }}
             >
               <Phone size={13} />
@@ -460,7 +460,7 @@ function CatalogChat({
               onKeyDown={handleKey}
               placeholder="Escreve uma mensagem…"
               disabled={isBusy}
-              className="flex-1 text-[14px] rounded-full px-4 h-11 outline-none disabled:opacity-60"
+              className="flex-1 text-[14px] rounded-xl px-3.5 h-11 outline-none disabled:opacity-60"
               style={{ background: T.bg, color: T.ink, border: `1px solid ${T.line}` }}
               onFocus={(e) => (e.currentTarget.style.border = `1px solid ${T.ink}`)}
               onBlur={(e) => (e.currentTarget.style.border = `1px solid ${T.line}`)}
@@ -468,7 +468,7 @@ function CatalogChat({
             <button
               onClick={() => void sendMessage()}
               disabled={!input.trim() || isBusy}
-              className="w-11 h-11 rounded-full flex items-center justify-center transition-opacity disabled:opacity-30 shrink-0"
+              className="w-11 h-11 rounded-xl flex items-center justify-center transition-opacity disabled:opacity-30 shrink-0"
               style={{ background: T.accent, color: T.accentInk }}
             >
               <Send size={16} />
@@ -609,7 +609,7 @@ export function Catalogo() {
 
           <a
             href={captacaoUrl(catalog.businessSlug)}
-            className="shrink-0 inline-flex items-center gap-1.5 h-9 px-4 rounded-full text-[13px] font-semibold"
+            className="shrink-0 inline-flex items-center gap-1.5 h-8 px-3 rounded-full text-[12.5px] font-semibold"
             style={{ background: T.accent, color: T.accentInk }}
             aria-label="Ligar"
           >
@@ -629,7 +629,7 @@ export function Catalogo() {
             {initials(catalog.name) || <Store size={24} />}
           </div>
 
-          <h1 className="mt-4 text-[28px] font-bold leading-tight tracking-tight" style={{ color: T.ink }}>
+          <h1 className="mt-4 text-[26px] font-semibold leading-tight tracking-tight" style={{ color: T.ink }}>
             {catalog.name}
           </h1>
 
@@ -656,21 +656,21 @@ export function Catalogo() {
           )}
 
           {/* CTAs — botões cheios estilo "link na bio" */}
-          <div className="mt-6 w-full max-w-sm flex flex-col gap-2.5">
+          <div className="mt-6 w-full max-w-sm flex flex-col gap-2">
             <button
               onClick={openChat}
-              className="flex items-center justify-center gap-2 w-full h-13 rounded-full font-semibold text-[15px] transition-opacity hover:opacity-90 active:scale-[0.995]"
-              style={{ background: T.accent, color: T.accentInk, minHeight: 52 }}
+              className="flex items-center justify-center gap-2 w-full h-12 rounded-xl font-semibold text-[14px] transition-opacity hover:opacity-90 active:scale-[0.995]"
+              style={{ background: T.accent, color: T.accentInk }}
             >
-              <MessageSquare size={17} />
+              <MessageSquare size={16} />
               Falar com IA
             </button>
             <a
               href={captacaoUrl(catalog.businessSlug)}
-              className="flex items-center justify-center gap-2 w-full h-13 rounded-full font-semibold text-[15px]"
-              style={{ background: T.surface, color: T.ink, border: `1px solid ${T.line}`, minHeight: 52 }}
+              className="flex items-center justify-center gap-2 w-full h-12 rounded-xl font-semibold text-[14px]"
+              style={{ background: T.surface, color: T.ink, border: `1px solid ${T.line}` }}
             >
-              <Phone size={17} />
+              <Phone size={16} />
               Ligar agora
             </a>
           </div>
@@ -757,21 +757,21 @@ export function Catalogo() {
           <p className="mt-2 text-[13px] leading-relaxed max-w-xs mx-auto" style={{ color: T.inkSoft }}>
             A nossa assistente responde em segundos, 24h por dia, 7 dias por semana.
           </p>
-          <div className="mt-6 flex flex-col gap-2.5 w-full max-w-xs mx-auto">
+          <div className="mt-6 flex flex-col sm:flex-row gap-2 justify-center">
             <button
               onClick={openChat}
-              className="flex items-center justify-center gap-2 w-full rounded-full text-[14px] font-semibold transition-opacity hover:opacity-90"
-              style={{ background: T.accent, color: T.accentInk, minHeight: 48 }}
+              className="flex items-center justify-center gap-2 w-full sm:w-auto sm:px-6 h-11 rounded-xl text-[13.5px] font-semibold transition-opacity hover:opacity-90"
+              style={{ background: T.accent, color: T.accentInk }}
             >
-              <MessageSquare size={16} />
+              <MessageSquare size={15} />
               Falar com IA agora
             </button>
             <a
               href={captacaoUrl(catalog.businessSlug)}
-              className="flex items-center justify-center gap-2 w-full rounded-full text-[14px] font-semibold"
-              style={{ background: T.subtle, color: T.ink, border: `1px solid ${T.line}`, minHeight: 48 }}
+              className="flex items-center justify-center gap-2 w-full sm:w-auto sm:px-6 h-11 rounded-xl text-[13.5px] font-semibold"
+              style={{ background: T.subtle, color: T.ink, border: `1px solid ${T.line}` }}
             >
-              <Phone size={16} />
+              <Phone size={15} />
               Ligar agora
             </a>
           </div>
