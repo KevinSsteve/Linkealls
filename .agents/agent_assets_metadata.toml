@@ -1,0 +1,9 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "LLVL45X2_PPK5pb2eBMQh"
+uri = "file://downloads/Catalogo.tsx"
+type = "unspecified"
+title = "Catalogo.tsx"
+description = "Código completo da página pública do catálogo do negócio (design, layout e lógica do chat)."
