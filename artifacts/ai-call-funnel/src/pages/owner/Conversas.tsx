@@ -1,6 +1,6 @@
 /**
- * Conversas — lista estilo WhatsApp Business (tema claro) de todas as
- * conversas da IA com clientes.
+ * Conversas — design premium, fundo quente #F6F6F4, tipografia editorial.
+ * Toda a lógica é idêntica à versão anterior.
  */
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
@@ -15,6 +15,23 @@ import { useBusinessSlug } from "../../hooks/useBusinessSlug";
 import { OwnerNav } from "../../components/owner/OwnerNav";
 import { C } from "../../theme";
 
+// ─── Design tokens locais ────────────────────────────────────────────────────
+const D = {
+  bg:       "#F6F6F4",
+  surface:  "#FFFFFF",
+  ink:      "#14171A",
+  inkSoft:  "#6B7280",
+  inkFaint: "#9CA3AF",
+  line:     "#E7E7E3",
+  lineSoft: "#F0F0EC",
+  subtle:   "#F2F2EF",
+  green:    "#16A34A",
+  greenDk:  "#15803D",
+  greenLt:  "#DCFCE7",
+  rCard:    "20px",
+  rBtn:     "999px",
+} as const;
+
 // ─── State config ─────────────────────────────────────────────────────────────
 const STATE_LABELS: Record<LeadState, string> = {
   novo: "Novo", em_atendimento: "Em atendimento",
@@ -22,7 +39,7 @@ const STATE_LABELS: Record<LeadState, string> = {
 };
 const STATE_DOT: Record<LeadState, string> = {
   novo: "#29B6F6", em_atendimento: "#FFA726",
-  qualificado: C.green, entregue: "#26C6DA", perdido: "#EF5350",
+  qualificado: D.green, entregue: "#26C6DA", perdido: "#EF5350",
 };
 const STATE_PILL_BG: Record<LeadState, string> = {
   novo: "#E3F2FD", em_atendimento: "#FFF8E1",
@@ -34,7 +51,7 @@ const STATE_PILL_COLOR: Record<LeadState, string> = {
 };
 const STATE_ORDER: LeadState[] = ["novo","em_atendimento","qualificado","entregue","perdido"];
 
-// ─── Avatar palettes (light-friendly) ────────────────────────────────────────
+// ─── Avatar palettes ──────────────────────────────────────────────────────────
 const PALETTES = [
   { bg: "#F3E5F5", text: "#6A1B9A" },
   { bg: "#E3F2FD", text: "#0D47A1" },
@@ -45,7 +62,7 @@ const PALETTES = [
 ];
 function avatarPalette(name: string) {
   let h = 0; for (const c of name) h = h * 31 + c.charCodeAt(0);
-  return PALETTES[Math.abs(h) % PALETTES.length];
+  return PALETTES[Math.abs(h) % PALETTES.length]!;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -61,9 +78,9 @@ function getLeadPreview(lead: Lead) {
   if (lead.callTranscript) return "Chamada de voz concluída";
   const msgs = lead.chatMessages;
   if (!msgs.length) return "Sem mensagens";
-  const last = msgs[msgs.length - 1];
+  const last = msgs[msgs.length - 1]!;
   const t = last.text;
-  return (last.role === "user" ? "" : "") + (t.length > 52 ? t.slice(0, 52) + "…" : t);
+  return (t.length > 52 ? t.slice(0, 52) + "…" : t);
 }
 function scoreColor(score: number) {
   if (score >= 80) return "#2E7D32"; if (score >= 60) return "#00838F";
@@ -74,13 +91,13 @@ function parseTranscript(raw: string): Array<{ role: "user" | "ai"; text: string
   const parsed: Array<{ role: "user" | "ai"; text: string }> = [];
   for (const line of lines) {
     const m = line.match(/^(user|utilizador|cliente|ai|ia|assistente|bot):\s*(.*)/i);
-    if (m) parsed.push({ role: /user|utilizador|cliente/i.test(m[1]) ? "user" : "ai", text: m[2] });
+    if (m) parsed.push({ role: /user|utilizador|cliente/i.test(m[1]!) ? "user" : "ai", text: m[2]! });
     else return null;
   }
   return parsed.length ? parsed : null;
 }
 
-// ─── Conversation Row ────────────────────────────────────────────────────────
+// ─── Conversation Row ─────────────────────────────────────────────────────────
 function ConversationRow({ lead, isNew, onClick }: { lead: Lead; isNew: boolean; onClick: () => void }) {
   const name = getLeadName(lead);
   const initials = name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase();
@@ -90,32 +107,54 @@ function ConversationRow({ lead, isNew, onClick }: { lead: Lead; isNew: boolean;
   return (
     <button
       onClick={onClick}
-      className="w-full flex items-center gap-3 px-4 active:bg-gray-50 transition-colors text-left"
-      style={{ background: C.white }}
+      className="w-full flex items-center gap-3 px-4 active:bg-[#F0F0EC] transition-colors text-left"
+      style={{ background: D.surface }}
     >
       {/* Avatar */}
-      <div className="relative shrink-0 py-3">
-        <div className="w-[52px] h-[52px] rounded-full flex items-center justify-center text-[17px] font-bold"
-          style={{ background: pal.bg, color: pal.text }}>
-          {initials || <User size={20} />}
+      <div className="relative shrink-0 py-3.5">
+        <div
+          className="w-[50px] h-[50px] rounded-full flex items-center justify-center font-bold"
+          style={{ background: pal.bg, color: pal.text, fontSize: 16 }}
+        >
+          {initials || <User size={18} />}
         </div>
-        <span className="absolute bottom-3 right-0 w-3 h-3 rounded-full border-2 border-white"
-          style={{ background: STATE_DOT[lead.state] }} />
+        <span
+          className="absolute bottom-3.5 right-0 w-2.5 h-2.5 rounded-full border-2 border-white"
+          style={{ background: STATE_DOT[lead.state] }}
+        />
       </div>
 
       {/* Content */}
-      <div className="flex-1 min-w-0 py-3.5">
+      <div
+        className="flex-1 min-w-0 py-3.5"
+        style={{ borderBottom: `1px solid ${D.lineSoft}` }}
+      >
         <div className="flex items-baseline justify-between gap-2">
-          <span className="font-semibold text-[16px] truncate" style={{ color: "#0B141A" }}>{name}</span>
-          <span className="text-[12px] shrink-0" style={{ color: isNew ? C.green : C.text3 }}>
+          <span
+            className="font-semibold truncate"
+            style={{ color: D.ink, fontSize: 15 }}
+          >
+            {name}
+          </span>
+          <span
+            className="shrink-0"
+            style={{ color: isNew ? D.green : D.inkFaint, fontSize: 12 }}
+          >
             {formatTime(lead.updatedAt)}
           </span>
         </div>
         <div className="flex items-center justify-between gap-2 mt-0.5">
-          <span className="text-[14px] truncate flex-1" style={{ color: C.text2 }}>{preview}</span>
+          <span
+            className="truncate flex-1"
+            style={{ color: D.inkSoft, fontSize: 13.5 }}
+          >
+            {preview}
+          </span>
           {isNew && (
-            <span className="shrink-0 min-w-[20px] h-5 rounded-full flex items-center justify-center text-[11px] font-bold px-1.5"
-              style={{ background: C.green, color: "#fff" }}>
+            <span
+              className="shrink-0 min-w-[20px] h-5 rounded-full flex items-center justify-center font-bold px-1.5"
+              style={{ background: D.green, color: "#fff", fontSize: 11 }}
+            >
               1
             </span>
           )}
@@ -125,12 +164,7 @@ function ConversationRow({ lead, isNew, onClick }: { lead: Lead; isNew: boolean;
   );
 }
 
-// ─── Bubble ──────────────────────────────────────────────────────────────────
-/**
- * role "user"  → visitor/client message (right, light-green)
- * role "bot"   → AI automated reply (left, white)
- * role "agent" → business owner's manual reply (right, teal — distinguishable from visitor)
- */
+// ─── Bubble ───────────────────────────────────────────────────────────────────
 function Bubble({ role, text, ts }: { role: "user" | "bot" | "agent"; text: string; ts?: string }) {
   const isRight = role === "user" || role === "agent";
   const bg = role === "agent" ? "#B2DFDB" : role === "user" ? C.bubOut : C.bubIn;
@@ -170,8 +204,6 @@ function ConversationDetail({ lead: initialLead, onBack, onStateChange, api }: {
   const replyInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, []);
-
-  // Scroll to bottom whenever messages change
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [lead.chatMessages.length]);
@@ -186,7 +218,7 @@ function ConversationDetail({ lead: initialLead, onBack, onStateChange, api }: {
       setLead(updated);
       onStateChange(updated);
     } catch {
-      setReplyText(text); // restore on failure
+      setReplyText(text);
     } finally {
       setReplying(false);
       replyInputRef.current?.focus();
@@ -214,26 +246,35 @@ function ConversationDetail({ lead: initialLead, onBack, onStateChange, api }: {
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
-      {/* Header */}
-      <div className="flex items-center gap-3 px-3 shrink-0"
-        style={{ background: C.headerBg, height: 56 }}>
-        <button onClick={onBack} className="transition-colors p-1 -ml-1 active:scale-90"
-          style={{ color: "rgba(255,255,255,0.85)" }}>
+      {/* Header — identidade escura do chat */}
+      <div
+        className="flex items-center gap-3 px-3 shrink-0"
+        style={{ background: C.headerBg, height: 56 }}
+      >
+        <button
+          onClick={onBack}
+          className="transition-colors p-1 -ml-1 active:scale-90"
+          style={{ color: "rgba(255,255,255,0.85)" }}
+        >
           <ArrowLeft size={22} />
         </button>
-        <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
-          style={{ background: pal.bg, color: pal.text }}>
+        <div
+          className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+          style={{ background: pal.bg, color: pal.text }}
+        >
           {initials || <User size={14} />}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-semibold truncate text-[15px] text-white">{name}</p>
+          <p className="font-semibold truncate text-white" style={{ fontSize: 15 }}>{name}</p>
           <p className="text-[12px]" style={{ color: "rgba(255,255,255,0.75)" }}>
             {lead.qualificationData.phone ?? lead.qualificationData.interest ?? formatTime(lead.createdAt)}
           </p>
         </div>
         {lead.score !== null && (
-          <span className="text-[12px] font-bold px-2 py-1 rounded-full shrink-0"
-            style={{ background: "rgba(255,255,255,0.15)", color: "#fff" }}>
+          <span
+            className="font-bold px-2 py-1 rounded-full shrink-0"
+            style={{ background: "rgba(255,255,255,0.15)", color: "#fff", fontSize: 12 }}
+          >
             {lead.score}/100
           </span>
         )}
@@ -241,10 +282,11 @@ function ConversationDetail({ lead: initialLead, onBack, onStateChange, api }: {
 
       {/* Thread */}
       <div className="flex-1 overflow-y-auto px-3 py-4" style={{ background: C.chatBg }}>
-        {/* Date pill */}
         <div className="flex justify-center mb-4">
-          <span className="text-[11px] px-3 py-1 rounded-full"
-            style={{ background: "rgba(255,255,255,0.7)", color: C.text2 }}>
+          <span
+            className="px-3 py-1 rounded-full"
+            style={{ background: "rgba(255,255,255,0.7)", color: C.text2, fontSize: 11 }}
+          >
             {new Date(lead.createdAt).toLocaleDateString("pt-AO", { day: "2-digit", month: "long", year: "numeric" })}
           </span>
         </div>
@@ -255,96 +297,106 @@ function ConversationDetail({ lead: initialLead, onBack, onStateChange, api }: {
           <>
             <div className="flex items-center gap-3 my-5">
               <div className="flex-1 h-px" style={{ background: "rgba(0,0,0,0.1)" }} />
-              <span className="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-full"
-                style={{ background: "rgba(255,255,255,0.7)", color: C.text2 }}>
+              <span
+                className="flex items-center gap-1 px-2.5 py-1 rounded-full"
+                style={{ background: "rgba(255,255,255,0.7)", color: C.text2, fontSize: 11 }}
+              >
                 <Phone size={10} /> Chamada de voz
               </span>
               <div className="flex-1 h-px" style={{ background: "rgba(0,0,0,0.1)" }} />
             </div>
             {parsedTranscript
               ? parsedTranscript.map((l, i) => <Bubble key={i} role={l.role === "user" ? "user" : "bot"} text={l.text} />)
-              : <div className="rounded-xl px-4 py-3 text-[13px] leading-relaxed whitespace-pre-wrap"
-                  style={{ background: C.bubIn, color: C.text2, boxShadow: "0 1px 2px rgba(0,0,0,0.1)" }}>
+              : (
+                <div
+                  className="rounded-xl px-4 py-3 text-[13px] leading-relaxed whitespace-pre-wrap"
+                  style={{ background: C.bubIn, color: C.text2, boxShadow: "0 1px 2px rgba(0,0,0,0.1)" }}
+                >
                   {lead.callTranscript}
                 </div>
+              )
             }
           </>
         )}
         {lead.aiSummary && (
-          <div className="mt-4 rounded-xl p-3.5"
-            style={{ background: C.bubIn, border: `1px solid ${C.green}30`, boxShadow: "0 1px 2px rgba(0,0,0,0.08)" }}>
-            <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: C.green }}>Resumo</p>
-            <p className="text-[13px] leading-relaxed" style={{ color: C.text2 }}>{lead.aiSummary}</p>
+          <div
+            className="mt-4 rounded-xl p-3.5"
+            style={{ background: C.bubIn, border: `1px solid ${D.green}30`, boxShadow: "0 1px 2px rgba(0,0,0,0.08)" }}
+          >
+            <p className="font-bold uppercase tracking-widest mb-1.5" style={{ color: D.green, fontSize: 10 }}>Resumo</p>
+            <p className="leading-relaxed" style={{ color: C.text2, fontSize: 13 }}>{lead.aiSummary}</p>
           </div>
         )}
         <div ref={bottomRef} />
       </div>
 
       {/* Footer */}
-      <div className="shrink-0" style={{ background: C.white, borderTop: `1px solid ${C.border}` }}>
-        {/* Quick info chips */}
+      <div className="shrink-0" style={{ background: D.surface, borderTop: `1px solid ${D.line}` }}>
+        {/* Chips de info */}
         {(lead.qualificationData.phone || lead.qualificationData.budget || lead.qualificationData.timeline || lead.qualificationData.location) && (
-          <div className="flex flex-wrap gap-1.5 px-4 py-2.5" style={{ borderBottom: `1px solid ${C.border}` }}>
+          <div className="flex flex-wrap gap-1.5 px-4 py-2.5" style={{ borderBottom: `1px solid ${D.lineSoft}` }}>
             {lead.qualificationData.phone && (
-              <span className="flex items-center gap-1 text-[12px] rounded-full px-2.5 py-1"
-                style={{ background: C.bg, color: C.text2 }}>
-                <Phone size={11} style={{ color: C.green }} /> {lead.qualificationData.phone}
+              <span className="flex items-center gap-1 rounded-full px-2.5 py-1" style={{ background: D.subtle, color: D.inkSoft, fontSize: 12 }}>
+                <Phone size={11} style={{ color: D.green }} /> {lead.qualificationData.phone}
               </span>
             )}
             {lead.qualificationData.budget && (
-              <span className="flex items-center gap-1 text-[12px] rounded-full px-2.5 py-1"
-                style={{ background: C.bg, color: C.text2 }}>
-                <DollarSign size={11} style={{ color: C.green }} /> {lead.qualificationData.budget}
+              <span className="flex items-center gap-1 rounded-full px-2.5 py-1" style={{ background: D.subtle, color: D.inkSoft, fontSize: 12 }}>
+                <DollarSign size={11} style={{ color: D.green }} /> {lead.qualificationData.budget}
               </span>
             )}
             {lead.qualificationData.timeline && (
-              <span className="flex items-center gap-1 text-[12px] rounded-full px-2.5 py-1"
-                style={{ background: C.bg, color: C.text2 }}>
-                <Clock size={11} style={{ color: C.green }} /> {lead.qualificationData.timeline}
+              <span className="flex items-center gap-1 rounded-full px-2.5 py-1" style={{ background: D.subtle, color: D.inkSoft, fontSize: 12 }}>
+                <Clock size={11} style={{ color: D.green }} /> {lead.qualificationData.timeline}
               </span>
             )}
             {lead.qualificationData.location && (
-              <span className="flex items-center gap-1 text-[12px] rounded-full px-2.5 py-1"
-                style={{ background: C.bg, color: C.text2 }}>
-                <MapPin size={11} style={{ color: C.green }} /> {lead.qualificationData.location}
+              <span className="flex items-center gap-1 rounded-full px-2.5 py-1" style={{ background: D.subtle, color: D.inkSoft, fontSize: 12 }}>
+                <MapPin size={11} style={{ color: D.green }} /> {lead.qualificationData.location}
               </span>
             )}
           </div>
         )}
-        {/* State selector */}
-        <div className="flex gap-2 px-4 py-2.5 overflow-x-auto scrollbar-none" style={{ borderBottom: `1px solid ${C.border}` }}>
+
+        {/* Selector de estado */}
+        <div className="flex gap-1.5 px-4 py-2.5 overflow-x-auto scrollbar-none" style={{ borderBottom: `1px solid ${D.lineSoft}` }}>
           {STATE_ORDER.map((s) => (
             <button
               key={s}
               disabled={s === lead.state || updating}
               onClick={() => handleState(s)}
-              className="shrink-0 text-[11px] px-3 py-1.5 rounded-full font-medium transition-all disabled:opacity-40"
+              className="shrink-0 font-medium transition-all disabled:opacity-40"
               style={{
-                background: s === lead.state ? STATE_PILL_BG[s] : C.bg,
-                color: s === lead.state ? STATE_PILL_COLOR[s] : C.text3,
-                border: `1px solid ${s === lead.state ? STATE_DOT[s] + "40" : C.border}`,
+                fontSize: 11,
+                padding: "5px 12px",
+                borderRadius: D.rBtn,
+                background: s === lead.state ? STATE_PILL_BG[s] : D.subtle,
+                color: s === lead.state ? STATE_PILL_COLOR[s] : D.inkSoft,
+                border: `1px solid ${s === lead.state ? STATE_DOT[s] + "40" : D.line}`,
               }}
             >
               {STATE_LABELS[s]}
             </button>
           ))}
         </div>
+
         {/* WhatsApp CTA */}
         {waUrl && (
           <div className="px-4 py-2.5">
-            <a href={waUrl} target="_blank" rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 text-white font-semibold text-[14px] py-2.5 rounded-xl transition-colors"
-              style={{ background: "#25D366" }}>
+            <a
+              href={waUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 text-white font-semibold py-2.5 rounded-xl transition-colors"
+              style={{ background: "#25D366", fontSize: 14 }}
+            >
               <MessageCircle size={16} /> Continuar no WhatsApp <ExternalLink size={12} className="opacity-70" />
             </a>
           </div>
         )}
 
-        {/* ── Owner reply input — respond as agent ─────────────────────── */}
-        <div
-          className="flex items-center gap-2 px-3 py-2.5"
-          style={{ borderTop: `1px solid ${C.border}` }}
-        >
+        {/* Input de resposta do dono */}
+        <div className="flex items-center gap-2 px-3 py-2.5" style={{ borderTop: `1px solid ${D.lineSoft}` }}>
           <input
             ref={replyInputRef}
             type="text"
@@ -353,14 +405,26 @@ function ConversationDetail({ lead: initialLead, onBack, onStateChange, api }: {
             onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void handleOwnerReply(); } }}
             placeholder="Responder como dono…"
             disabled={replying}
-            className="flex-1 text-[14px] px-3.5 py-2.5 rounded-full outline-none disabled:opacity-50"
-            style={{ background: C.bg, color: C.text }}
+            className="flex-1 outline-none disabled:opacity-50"
+            style={{
+              background: D.subtle,
+              color: D.ink,
+              border: `1px solid ${D.line}`,
+              borderRadius: D.rBtn,
+              fontSize: 14,
+              padding: "10px 14px",
+            }}
           />
           <button
             onClick={() => void handleOwnerReply()}
             disabled={!replyText.trim() || replying}
-            className="w-10 h-10 rounded-full flex items-center justify-center text-white transition-all disabled:opacity-30 shrink-0"
-            style={{ background: C.green }}
+            className="flex items-center justify-center text-white transition-all disabled:opacity-30 shrink-0"
+            style={{
+              background: D.green,
+              borderRadius: D.rBtn,
+              width: 40,
+              height: 40,
+            }}
             aria-label="Enviar resposta"
           >
             <Send size={16} />
@@ -420,14 +484,14 @@ export function Conversas() {
   });
 
   if (!slug || !api) return (
-    <div className="flex items-center justify-center h-full text-sm" style={{ background: C.bg, color: C.text2 }}>
+    <div className="flex items-center justify-center h-full text-sm" style={{ background: D.bg, color: D.inkSoft }}>
       Negócio não encontrado
     </div>
   );
 
   if (selected) {
     return (
-      <div className="flex flex-col h-full" style={{ background: C.bg }}>
+      <div className="flex flex-col h-full" style={{ background: D.bg }}>
         <ConversationDetail
           lead={selected} api={api}
           onBack={() => setSelected(null)}
@@ -444,100 +508,131 @@ export function Conversas() {
   const qualifiedCount = leads.filter((l) => l.state === "qualificado").length;
 
   return (
-    <div className="flex flex-col h-full wa-page" style={{ background: C.bg }}>
-      {/* Header */}
-      <div className="shrink-0 px-4 pt-6 pb-2 flex items-center justify-between"
-        style={{ background: C.white }}>
-        <h1 className="text-[22px] font-bold tracking-tight" style={{ color: C.text }}>Conversas</h1>
-        <button onClick={() => void load()} className="p-1.5 rounded-full transition-colors"
-          style={{ color: C.text3 }} aria-label="Actualizar">
-          <RefreshCw size={20} strokeWidth={1.8} />
-        </button>
+    <div className="flex flex-col h-full" style={{ background: D.bg }}>
+
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      <div
+        className="shrink-0"
+        style={{ background: D.surface, borderBottom: `1px solid ${D.line}` }}
+      >
+        {/* Título */}
+        <div className="flex items-center justify-between px-5 pt-6 pb-3">
+          <h1
+            className="font-bold tracking-tight"
+            style={{ color: D.ink, fontSize: 26, letterSpacing: "-0.5px" }}
+          >
+            Conversas
+          </h1>
+          <button
+            onClick={() => void load()}
+            className="flex items-center justify-center rounded-full transition-colors active:bg-black/5"
+            style={{ width: 36, height: 36, color: D.inkFaint }}
+            aria-label="Actualizar"
+          >
+            <RefreshCw size={18} strokeWidth={1.8} />
+          </button>
+        </div>
+
+        {/* Barra de pesquisa */}
+        <div className="px-5 pb-3">
+          <div
+            className="flex items-center gap-2.5"
+            style={{
+              background: D.surface,
+              border: `1.5px solid ${D.line}`,
+              borderRadius: D.rBtn,
+              height: 44,
+              paddingLeft: 14,
+              paddingRight: 14,
+            }}
+          >
+            <Search size={15} style={{ color: D.inkFaint }} className="shrink-0" />
+            <input
+              type="text"
+              placeholder="Pesquisar..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="flex-1 bg-transparent outline-none"
+              style={{ color: D.ink, fontSize: 15 }}
+            />
+          </div>
+        </div>
+
+        {/* Filtros de estado */}
+        <div className="flex gap-1.5 px-5 pb-3 overflow-x-auto scrollbar-none">
+          {([["todos", "Todas"] as const, ...STATE_ORDER.map((s) => [s, STATE_LABELS[s]] as const)]).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setFilter(key as LeadState | "todos")}
+              className="shrink-0 font-medium transition-all"
+              style={{
+                fontSize: 12,
+                padding: "5px 13px",
+                borderRadius: D.rBtn,
+                background: filter === key ? D.green : D.subtle,
+                color: filter === key ? "#fff" : D.inkSoft,
+                border: `1px solid ${filter === key ? D.green : D.line}`,
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Notification toast */}
+      {/* Toast de notificação */}
       {notification && (
-        <div className="shrink-0 mx-4 mt-3 flex items-center gap-2 text-[13px] py-2.5 px-3.5 rounded-xl"
-          style={{ background: C.successBg, color: C.successText, border: `1px solid ${C.successBorder}` }}>
+        <div
+          className="shrink-0 mx-5 mt-3 flex items-center gap-2 rounded-xl px-3.5 py-2.5"
+          style={{ background: D.greenLt, color: D.greenDk, border: `1px solid ${D.green}30`, fontSize: 13 }}
+        >
           <Target size={14} className="shrink-0" /> {notification}
         </div>
       )}
 
-      {/* Search */}
-      <div className="shrink-0 px-4 py-2" style={{ background: C.white }}>
-        <div className="flex items-center gap-3 px-4 rounded-full"
-          style={{ background: C.bg, height: 44 }}>
-          <Search size={18} style={{ color: "#54656F" }} className="shrink-0" />
-          <input
-            type="text" placeholder="Pesquisar..." value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 bg-transparent text-[16px] outline-none"
-            style={{ color: C.text }}
-          />
-        </div>
-      </div>
-
-      {/* State filter chips */}
-      <div className="shrink-0 flex gap-2 px-4 py-2 overflow-x-auto scrollbar-none"
-        style={{ background: C.white }}>
-        {([["todos", "Todas"] as const, ...STATE_ORDER.map((s) => [s, STATE_LABELS[s]] as const)]).map(([key, label]) => (
-          <button
-            key={key}
-            onClick={() => setFilter(key as LeadState | "todos")}
-            className="shrink-0 text-[12px] px-3 py-1.5 rounded-full font-medium transition-all"
-            style={{
-              background: filter === key ? C.green : C.bg,
-              color: filter === key ? "#fff" : C.text2,
-            }}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
-      {/* Stats row */}
+      {/* Stats */}
       {leads.length > 0 && (
-        <div className="shrink-0 flex gap-4 px-5 py-2" style={{ background: C.bg }}>
-          <span className="text-[12px]" style={{ color: C.text3 }}>
+        <div className="shrink-0 flex gap-4 px-5 py-2">
+          <span style={{ color: D.inkFaint, fontSize: 12 }}>
             {leads.length} conversa{leads.length !== 1 ? "s" : ""}
           </span>
           {qualifiedCount > 0 && (
-            <span className="text-[12px] font-semibold" style={{ color: C.green }}>
+            <span className="font-semibold" style={{ color: D.green, fontSize: 12 }}>
               {qualifiedCount} qualificado{qualifiedCount !== 1 ? "s" : ""}
             </span>
           )}
         </div>
       )}
 
-      {/* List */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Lista */}
+      <div className="flex-1 overflow-y-auto mx-5 mb-2 overflow-hidden" style={{ background: D.surface, border: `1px solid ${D.line}`, borderRadius: D.rCard }}>
         {loading ? (
           <div className="py-2">
             {[1,2,3,4].map((i) => (
-              <div key={i} className="flex items-center gap-3 px-4 py-3 animate-pulse" style={{ background: C.white, borderBottom: `1px solid ${C.border}` }}>
-                <div className="w-12 h-12 rounded-full shrink-0" style={{ background: C.bg }} />
+              <div key={i} className="flex items-center gap-3 px-4 py-3 animate-pulse" style={{ borderBottom: `1px solid ${D.lineSoft}` }}>
+                <div className="w-12 h-12 rounded-full shrink-0" style={{ background: D.subtle }} />
                 <div className="flex-1">
-                  <div className="h-4 rounded mb-2" style={{ background: C.bg, width: "50%" }} />
-                  <div className="h-3 rounded" style={{ background: C.bg, width: "75%" }} />
+                  <div className="h-4 rounded mb-2" style={{ background: D.subtle, width: "50%" }} />
+                  <div className="h-3 rounded" style={{ background: D.subtle, width: "75%" }} />
                 </div>
               </div>
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full gap-4 px-8 text-center">
-            <div className="w-16 h-16 rounded-full flex items-center justify-center"
-              style={{ background: C.bg }}>
-              <MessageCircle size={28} style={{ color: C.text3 }} />
+          <div className="flex flex-col items-center justify-center h-full gap-4 px-8 text-center py-16">
+            <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: D.subtle }}>
+              <MessageCircle size={26} style={{ color: D.inkFaint }} />
             </div>
-            <p className="text-[15px] font-medium" style={{ color: C.text2 }}>
+            <p className="font-medium" style={{ color: D.inkSoft, fontSize: 15 }}>
               {search || filter !== "todos" ? "Nenhum resultado" : "Nenhuma conversa ainda"}
             </p>
           </div>
         ) : (
-          <div style={{ background: C.white }}>
+          <div>
             {filtered.map((l) => (
               <ConversationRow
-                key={l.id} lead={l}
+                key={l.id}
+                lead={l}
                 isNew={newIds.has(l.id)}
                 onClick={() => { setNewIds((prev) => { const s = new Set(prev); s.delete(l.id); return s; }); setSelected(l); }}
               />
@@ -546,17 +641,17 @@ export function Conversas() {
         )}
       </div>
 
-      {/* ── FAB — Assistente IA ──────────────────────────────────────────── */}
+      {/* FAB — Assistente IA */}
       <Link
         href={`/e/${slug}/dono/assistente`}
-        className="fixed right-4 wa-page"
+        className="fixed right-4"
         style={{
           bottom: "calc(68px + env(safe-area-inset-bottom, 0px))",
-          width: 56,
-          height: 56,
-          background: "#111B21",
+          width: 52,
+          height: 52,
+          background: D.ink,
           borderRadius: 16,
-          boxShadow: "0 4px 16px rgba(0,0,0,0.28), 0 1px 4px rgba(0,0,0,0.18)",
+          boxShadow: "0 4px 16px rgba(20,23,26,0.24), 0 1px 4px rgba(20,23,26,0.12)",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
@@ -564,7 +659,7 @@ export function Conversas() {
         }}
         aria-label="Abrir Assistente IA"
       >
-        <Zap size={24} className="text-white" strokeWidth={2} />
+        <Zap size={22} className="text-white" strokeWidth={2} />
       </Link>
 
       <OwnerNav />

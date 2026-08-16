@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import {
   getCatalogBySlug, businessApi,
-  type CatalogData, type Offering, type FaqItem, type ChatMessage,
+  type CatalogData, type Offering, type FaqItem,
 } from "../lib/api";
 import { BuyModal, parsePriceAoa } from "../components/BuyModal";
 
@@ -631,8 +631,6 @@ export function Catalogo() {
 
   const [catalog, setCatalog] = useState<CatalogData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [chatOpen, setChatOpen] = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState<string | null>(null);
   const [buyOffering, setBuyOffering] = useState<Offering | null>(null);
 
   useEffect(() => {
@@ -649,16 +647,6 @@ export function Catalogo() {
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [catalogSlug, businessSlug]);
-
-  const handleLearnMore = useCallback((offering: Offering) => {
-    setSelectedProduct(offering.name);
-    setChatOpen(true);
-  }, []);
-
-  const openChat = useCallback(() => {
-    setSelectedProduct(null);
-    setChatOpen(true);
-  }, []);
 
   // ── Loading ──
   if (loading) {
@@ -823,8 +811,8 @@ export function Catalogo() {
             className="flex flex-col w-full"
             style={{ maxWidth: 340, gap: 12, marginTop: 32 }}
           >
-            <button
-              onClick={openChat}
+            <a
+              href={captacaoUrl(catalog.businessSlug)}
               className="flex items-center justify-center gap-2 font-semibold transition-opacity hover:opacity-90 active:scale-[0.995]"
               style={{
                 background: T.accent,
@@ -836,7 +824,7 @@ export function Catalogo() {
             >
               <MessageSquare size={17} />
               Falar com IA
-            </button>
+            </a>
             <a
               href={captacaoUrl(catalog.businessSlug)}
               className="flex items-center justify-center gap-2 font-semibold"
@@ -863,7 +851,7 @@ export function Catalogo() {
             className="mx-auto"
             style={{ maxWidth: 680, padding: "64px 24px 0" }}
           >
-            <SectionLabel hint='Clica em "Saber mais" — a nossa IA responde em segundos.'>
+            <SectionLabel hint="Fala com o agente IA — responde em segundos.">
               Produtos &amp; Serviços
             </SectionLabel>
 
@@ -882,7 +870,7 @@ export function Catalogo() {
                   <ProductCard
                     key={i}
                     offering={offering}
-                    onLearnMore={() => handleLearnMore(offering)}
+                    onLearnMore={() => { window.location.href = captacaoUrl(catalog.businessSlug ?? ""); }}
                     onBuy={
                       catalog.businessSlug &&
                       offering.price &&
@@ -992,8 +980,8 @@ export function Catalogo() {
               className="flex flex-col w-full"
               style={{ maxWidth: 300, gap: 12, marginTop: 28 }}
             >
-              <button
-                onClick={openChat}
+              <a
+                href={captacaoUrl(catalog.businessSlug)}
                 className="flex items-center justify-center gap-2 font-semibold transition-opacity hover:opacity-90"
                 style={{
                   background: T.accent,
@@ -1005,7 +993,7 @@ export function Catalogo() {
               >
                 <MessageSquare size={16} />
                 Falar com IA agora
-              </button>
+              </a>
               <a
                 href={captacaoUrl(catalog.businessSlug)}
                 className="flex items-center justify-center gap-2 font-semibold"
@@ -1042,13 +1030,6 @@ export function Catalogo() {
         />
       )}
 
-      <CatalogChat
-        catalog={catalog}
-        open={chatOpen}
-        onOpen={openChat}
-        onClose={() => setChatOpen(false)}
-        initialProduct={selectedProduct}
-      />
     </div>
   );
 }
