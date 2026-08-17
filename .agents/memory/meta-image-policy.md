@@ -8,3 +8,9 @@ The Meta campaign image flow keeps a versioned policy baseline in the server and
 **Why:** Image review must remain available without a documentation fetch, and a campaign should not be paid or published when the creative is rejected or still needs review.
 
 **How to apply:** Preserve the stored policy version with each image analysis. Treat `approved` as the only publishable status, while allowing legacy campaigns without a stored review to retain their existing compatibility path.
+
+For image-upload campaigns, generate the ad headline/body in a separate multimodal call that receives only the uploaded image plus technical objective/destination. Do not let business profile or catalogue context enter the copy prompt.
+
+**Why:** Supplying brand context in the same request as the image caused the model to reuse the business description even when the uploaded image showed a different product.
+
+**How to apply:** Keep profile/catalog context for audience and campaign recommendations, but use the image-only copy result for the visible ad description and for the suggested-image prompt.

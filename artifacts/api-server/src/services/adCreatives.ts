@@ -47,6 +47,66 @@ interface CreativePlan {
   concept: string;
 }
 
+interface ImageBasedAdCopy {
+  headline: string;
+  body: string;
+  prompt: string;
+  callToAction: string;
+}
+
+async function generateImageBasedAdCopy(
+  buffer: Buffer,
+  mime: string,
+  objective: string,
+  destination: string | undefined,
+): Promise<ImageBasedAdCopy> {
+  const response = await managedGemini.models.generateContent({
+    model: TEXT_MODEL,
+    contents: [{
+      role: "user",
+      parts: [
+        {
+          text: `Cria a copy de um anúncio Meta EXCLUSIVAMENTE a partir da imagem anexada.
+
+Regras obrigatórias:
+- A imagem é a única fonte para identificar o produto, serviço, marca e contexto.
+- Não uses conhecimento externo, descrição de negócio, catálogo, sector ou nome de marca que não esteja visível na imagem.
+- Não descrevas material eléctrico, ferramentas, ABB ou qualquer outro produto que não apareça claramente na imagem.
+- Se houver texto ou marcas visíveis, podes usá-los apenas para descrever o que aparece, sem inventar autorização, preço, promoção ou benefício.
+- Escreve em português de Angola.
+- A headline deve ter no máximo 40 caracteres e o body no máximo 300 caracteres.
+- O prompt visual deve manter o produto reconhecível e não deve adicionar texto à imagem.
+- Objetivo técnico: ${objective}. Destino: ${destination ?? "catalog"}.
+- Usa uma CTA compatível com o destino, mas não inventes informações sobre o produto.`,
+        },
+        { inlineData: { data: buffer.toString("base64"), mimeType: mime } },
+      ],
+    }],
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          headline: { type: Type.STRING },
+          body: { type: Type.STRING },
+          prompt: { type: Type.STRING },
+          callToAction: { type: Type.STRING, enum: [...ALLOWED_CTAS] },
+        },
+        required: ["headline", "body", "prompt", "callToAction"],
+      },
+    },
+  });
+  const copy = JSON.parse(response.text ?? "{}") as Partial<ImageBasedAdCopy>;
+  return {
+    headline: String(copy.headline ?? "").trim().slice(0, 40),
+    body: String(copy.body ?? "").trim().slice(0, 300),
+    prompt: String(copy.prompt ?? "").trim().slice(0, 1000),
+    callToAction: ALLOWED_CTAS.includes(copy.callToAction as (typeof ALLOWED_CTAS)[number])
+      ? String(copy.callToAction)
+      : destination === "whatsapp" || destination === "linkealls_chat" ? "CONTACT_US" : "LEARN_MORE",
+  };
+}
+
 export interface CampaignImageRecommendations {
   audience: CampaignSetup["audience"];
   description: {
@@ -316,10 +376,22 @@ ${META_AD_POLICY_PROMPT}`,
     reviewedAt: new Date().toISOString(),
   } as NonNullable<CampaignSetup["imageAnalysis"]>;
 
+  let imageCopy: ImageBasedAdCopy = {
+    headline: "Produto em destaque",
+    body: imageAnalysis.summary.slice(0, 300),
+    prompt: "Create a clean, compliant Meta ad image based only on the visible product in this image. Keep it recognizable, with no added claims or text.",
+    callToAction: setup?.destination === "whatsapp" || setup?.destination === "linkealls_chat" ? "CONTACT_US" : "LEARN_MORE",
+  };
+  try {
+    imageCopy = await generateImageBasedAdCopy(buffer, mime, campaign.objective, setup?.destination);
+  } catch (error) {
+    logger.warn({ error, campaignId }, "Image-only ad copy generation failed; using visual analysis summary");
+  }
+
   let suggestedImagePath: string | null = null;
   try {
     const suggested = await generateImage(
-      `Create a compliant Meta ad image based on this product photo. Keep the product recognizable, use a clean commercial composition, natural Angolan context, no extra claims and no text over the image. ${String(raw.description?.prompt ?? "")}`,
+      `Create a compliant Meta ad image based on this product photo. Keep the product recognizable, use a clean commercial composition, natural Angolan context, no extra claims and no text over the image. ${imageCopy.prompt}`,
       { buffer, mime },
     );
     suggestedImagePath = await storage.uploadObjectEntity(suggested.buffer, suggested.mime);
@@ -339,12 +411,10 @@ ${META_AD_POLICY_PROMPT}`,
       excludedAudiences: String(rawAudience.excludedAudiences ?? ""),
     },
     description: {
-      headline: String(raw.description?.headline ?? "").slice(0, 40),
-      body: String(raw.description?.body ?? "").slice(0, 300),
-      prompt: String(raw.description?.prompt ?? "").slice(0, 1000),
-      callToAction: ALLOWED_CTAS.includes(raw.description?.callToAction as (typeof ALLOWED_CTAS)[number])
-        ? String(raw.description?.callToAction)
-        : setup?.destination === "whatsapp" || setup?.destination === "linkealls_chat" ? "CONTACT_US" : "LEARN_MORE",
+      headline: imageCopy.headline,
+      body: imageCopy.body,
+      prompt: imageCopy.prompt,
+      callToAction: imageCopy.callToAction,
     },
     budget: {
       recommendedBudgetAoa,

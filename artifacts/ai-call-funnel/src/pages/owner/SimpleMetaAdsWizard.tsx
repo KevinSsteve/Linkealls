@@ -7,6 +7,7 @@ import {
   ImagePlus,
   Loader2,
   MessageCircle,
+  MoveHorizontal,
   PackageOpen,
   Pencil,
   Rocket,
@@ -166,7 +167,9 @@ function SimpleMetaAdsWizard({ api, campaign, onUpdate, onExit }: {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [analysing, setAnalysing] = useState(false);
+  const [showSwipeHint, setShowSwipeHint] = useState(false);
   const imageInput = useRef<HTMLInputElement>(null);
+  const carouselRef = useRef<HTMLDivElement>(null);
 
   const paid = campaign.paymentStatus === "pago";
   const paymentPending = campaign.paymentStatus === "pendente";
@@ -195,6 +198,22 @@ function SimpleMetaAdsWizard({ api, campaign, onUpdate, onExit }: {
   useEffect(() => {
     api.getAdsQuote(budget).then(setQuote).catch(() => {});
   }, [api, budget]);
+
+  useEffect(() => {
+    if (!setup.creative.suggestedMediaPath || !carouselRef.current) return;
+    setShowSwipeHint(true);
+    const frame = window.requestAnimationFrame(() => {
+      const carousel = carouselRef.current;
+      if (carousel) {
+        carousel.scrollTo({ left: carousel.clientWidth + 10, behavior: "smooth" });
+      }
+    });
+    const timeout = window.setTimeout(() => setShowSwipeHint(false), 8_000);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timeout);
+    };
+  }, [setup.creative.suggestedMediaPath]);
 
   const run = async (key: string, action: () => Promise<{ campaign: Campaign }>) => {
     setBusy(key); setError(null);
@@ -480,9 +499,9 @@ function SimpleMetaAdsWizard({ api, campaign, onUpdate, onExit }: {
             {currentImage ? (
               <div style={{ marginBottom: 14 }}>
                 <div style={{
-                  display: "flex", gap: 10, overflowX: "auto", scrollSnapType: "x mandatory",
+                  position: "relative", display: "flex", gap: 10, overflowX: "auto", scrollSnapType: "x mandatory",
                   overscrollBehaviorX: "contain", scrollbarWidth: "none", borderRadius: 18,
-                }}>
+                }} ref={carouselRef}>
                   {([
                     { variant: "original" as const, path: setup.creative.originalMediaPath ?? setup.creative.mediaPath, label: "Imagem carregada" },
                     ...(setup.creative.suggestedMediaPath
@@ -501,11 +520,28 @@ function SimpleMetaAdsWizard({ api, campaign, onUpdate, onExit }: {
                       </button>
                     </div>
                   ))}
+                  {showSwipeHint && (
+                    <div style={{
+                      position: "absolute", top: 12, right: 12, zIndex: 2,
+                      display: "flex", alignItems: "center", gap: 5,
+                      padding: "8px 11px", borderRadius: 18,
+                      background: GREEN, color: "#FFF", fontSize: 12, fontWeight: 800,
+                      boxShadow: "0 4px 12px rgba(22,163,74,.28)",
+                      pointerEvents: "none",
+                    }}>
+                      <MoveHorizontal size={15} /> Desliza →
+                    </div>
+                  )}
                 </div>
                 {setup.creative.suggestedMediaPath && (
-                  <p style={{ color: MUTED, fontSize: 12, textAlign: "center", marginTop: 7 }}>
-                    Desliza para comparar as duas imagens
-                  </p>
+                  <div style={{
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 7,
+                    color: showSwipeHint ? INK : MUTED, fontSize: 12, fontWeight: showSwipeHint ? 800 : 600,
+                    marginTop: 8, transition: "color .2s ease",
+                  }}>
+                    <MoveHorizontal size={16} style={{ color: showSwipeHint ? GREEN : MUTED }} />
+                    {showSwipeHint ? "Desliza agora para ver a imagem sugerida" : "Desliza para comparar as duas imagens"}
+                  </div>
                 )}
                 <button type="button" onClick={() => imageInput.current?.click()} disabled={busy !== null || analysing}
                   style={{ width: "100%", height: 42, marginTop: 7, border: `1px solid ${BORDER}`, borderRadius: 21, background: "#FFF", color: INK, fontSize: 13, fontWeight: 700 }}>
