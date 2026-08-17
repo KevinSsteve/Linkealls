@@ -14,7 +14,7 @@ import { ChatBubble, type BubbleRole } from "../components/ChatBubble";
 import { ChatInput } from "../components/ChatInput";
 import { IncomingCallModal } from "../components/IncomingCallModal";
 import { CallScreen } from "../components/CallScreen";
-import { useGeminiLive } from "../hooks/useGeminiLive";
+import { useGeminiLive, type ProductCard } from "../hooks/useGeminiLive";
 import { businessApi, type LeadOrigin, type ChatMessage } from "../lib/api";
 import { useBusinessSlug } from "../hooks/useBusinessSlug";
 import { recordVisit } from "../lib/visitedBusinesses";
@@ -59,6 +59,76 @@ function readInitialMessage(): string {
   } catch {
     return "Quero saber mais sobre isso";
   }
+}
+
+function CaptacaoProductOverlay({
+  products,
+  onSelect,
+}: {
+  products: ProductCard[];
+  onSelect: (product: ProductCard) => void;
+}) {
+  return (
+    <div
+      className="absolute inset-x-0 bottom-0 z-30 rounded-t-2xl px-4 pt-4 pb-5"
+      style={{
+        background: "#FFFFFF",
+        boxShadow: "0 -4px 24px rgba(0,0,0,0.18)",
+        maxHeight: "58%",
+        overflowY: "auto",
+      }}
+    >
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <p className="text-[15px] font-bold" style={{ color: "#111B21" }}>
+            Produtos disponíveis
+          </p>
+          <p className="text-[12px] mt-0.5" style={{ color: "#8696A0" }}>
+            Escolhe um produto para saber mais
+          </p>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        {products.map((product, index) => (
+          <button
+            key={`${product.name}-${index}`}
+            onClick={() => onSelect(product)}
+            className="overflow-hidden rounded-2xl text-left transition-transform active:scale-[0.98]"
+            style={{
+              background: "#F7F8F8",
+              border: "1px solid #E9EDEF",
+            }}
+          >
+            <div className="h-24 flex items-center justify-center" style={{ background: "#F0F2F5" }}>
+              {product.imageUrl ? (
+                <img
+                  src={product.imageUrl}
+                  alt={product.name}
+                  className="h-full w-full object-cover"
+                  onError={(event) => { event.currentTarget.style.display = "none"; }}
+                />
+              ) : (
+                <span className="text-2xl">🛍️</span>
+              )}
+            </div>
+            <div className="p-2.5">
+              <p className="text-[13px] font-semibold leading-tight line-clamp-2" style={{ color: "#111B21" }}>
+                {product.name}
+              </p>
+              {product.price && (
+                <p className="mt-1 text-[12px] font-bold" style={{ color: "#16A34A" }}>
+                  {product.price}
+                </p>
+              )}
+              <span className="mt-2 block rounded-xl py-1.5 text-center text-[11px] font-semibold" style={{ background: "#25D366", color: "#FFFFFF" }}>
+                Quero saber mais
+              </span>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export function Captacao() {
@@ -149,13 +219,24 @@ export function Captacao() {
         )}
 
         {stage === "call_active" ? (
-          <CallScreen
-            isAiSpeaking={gemini.isAiSpeaking}
-            isUserSpeaking={gemini.isUserSpeaking}
-            onEnd={handleEndCall}
-            onMinimize={handleEndCall}
-            elapsedSeconds={callElapsed}
-          />
+          <div className="relative flex-1 min-h-0 overflow-hidden">
+            <CallScreen
+              isAiSpeaking={gemini.isAiSpeaking}
+              isUserSpeaking={gemini.isUserSpeaking}
+              onEnd={handleEndCall}
+              onMinimize={handleEndCall}
+              elapsedSeconds={callElapsed}
+            />
+            {gemini.shownProducts && gemini.shownProducts.length > 0 && (
+              <CaptacaoProductOverlay
+                products={gemini.shownProducts}
+                onSelect={(product) => {
+                  gemini.sendText(`Quero saber mais sobre o ${product.name}`);
+                  gemini.clearProducts();
+                }}
+              />
+            )}
+          </div>
         ) : (
           <>
             <div className="flex-1 overflow-y-auto chat-bg px-3 py-3 min-h-0">

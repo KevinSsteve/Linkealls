@@ -231,9 +231,26 @@ export async function createGeminiLiveSession(
             if (fc.name === "send_text_message") {
               // ── Handle inline: send text to client, auto-respond so model continues ──
               const text = (fc.args?.["text"] as string) ?? "";
-              if (text) {
-                logger.info({ textLen: text.length }, "send_text_message called");
-                callbacks.onAgentMessage?.(text);
+               if (text) {
+                 logger.info({ textLen: text.length }, "send_text_message called");
+                 // Keep each WhatsApp-style bubble short instead of rendering
+                 // one wall of text when the model sends a long message.
+                 const chunks = text
+                   .replace(/\n{2,}/g, "\n")
+                   .split(/(?<=[.!?])\s+/)
+                   .reduce<string[]>((out, sentence) => {
+                     const current = out[out.length - 1];
+                     if (current && `${current} ${sentence}`.length <= 220) {
+                       out[out.length - 1] = `${current} ${sentence}`;
+                     } else {
+                       out.push(sentence);
+                     }
+                     return out;
+                   }, [])
+                   .slice(0, 3);
+                 for (const chunk of chunks) {
+                   if (chunk.trim()) callbacks.onAgentMessage?.(chunk.trim());
+                 }
               }
               // Immediately respond so Gemini is unblocked and keeps speaking
               dispatchToolResponse(callId, fc.name, { status: "sent" });

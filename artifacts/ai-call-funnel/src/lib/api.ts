@@ -622,7 +622,7 @@ export function businessApi(slug: string) {
       return `${API_BASE}/b/${encodeURIComponent(slug)}/leads/events${t ? `?token=${encodeURIComponent(t)}` : ""}`;
     },
     sendLeadChat: (leadId: string, message: string) =>
-      bRequest<{ reply: string }>(`/leads/${leadId}/chat`, {
+      bRequest<{ reply: string; products?: Offering[] }>(`/leads/${leadId}/chat`, {
         method: "POST", body: JSON.stringify({ message }),
       }),
     ownerReplyToLead: (leadId: string, message: string) =>

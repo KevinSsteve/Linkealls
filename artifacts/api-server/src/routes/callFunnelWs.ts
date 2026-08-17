@@ -41,6 +41,24 @@ export interface ProductCard {
   imageUrl?: string;
 }
 
+function productRequestIntent(text: string): boolean {
+  return /\b(produto|produtos|serviço|serviços|preço|preços|quanto|menu|catálogo|catalogo|comprar|compra|quero|mostra|mostrar|tem|disponível|disponivel)\b/i.test(text);
+}
+
+function productsForRequest(text: string, offerings: Offering[]): ProductCard[] {
+  const query = text.toLocaleLowerCase("pt-AO");
+  const matched = offerings.filter((o) => {
+    const haystack = `${o.name} ${o.description}`.toLocaleLowerCase("pt-AO");
+    return haystack.split(/\s+/).some((word) => word.length > 3 && query.includes(word));
+  });
+  return (matched.length > 0 ? matched : offerings).slice(0, 12).map((o) => ({
+    name: o.name,
+    price: o.price,
+    description: o.description,
+    imageUrl: o.imageUrl,
+  }));
+}
+
 type ServerMessage =
   | { type: "ready" }
   | { type: "audio"; data: string }
@@ -117,6 +135,11 @@ export function setupCallFunnelWebSocket(server: Server): void {
           onInputTranscript: (text) => {
             transcriptLines.push(`Cliente: ${text}`);
             if (!closed) sendToClient({ type: "user_transcript", text });
+            // Safety net: Gemini may answer by voice without emitting the
+            // function call. Still show the relevant catalog cards.
+            if (!closed && productRequestIntent(text) && sessionOfferings.length > 0) {
+              sendToClient({ type: "show_products", products: productsForRequest(text, sessionOfferings) });
+            }
           },
           onToolCall: (call, sendResponse: (result: Record<string, unknown>) => void) => {
             if (call.name === "show_product_catalog") {

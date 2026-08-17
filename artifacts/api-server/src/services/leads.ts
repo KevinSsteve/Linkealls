@@ -310,7 +310,10 @@ export async function chatWithLead(
   leadId: string,
   userMessage: string,
   businessId?: number,
-): Promise<{ reply: string }> {
+): Promise<{
+  reply: string;
+  products: Array<{ name: string; price: string; description: string; imageUrl?: string }>;
+}> {
   const apiKey = process.env["GEMINI_API_KEY"];
   if (!apiKey) throw new Error("GEMINI_API_KEY não configurado");
 
@@ -337,7 +340,8 @@ PRODUTOS/SERVIÇOS:
 ${offeringsText}
 ${faqText ? `\nPERGUNTAS FREQUENTES:\n${faqText}\n` : ""}
 REGRAS:
-- Responde de forma natural, útil e concisa (máximo 3 parágrafos curtos).
+- Responde de forma natural, útil e muito curta: no máximo 2 frases e 3 linhas.
+- Não repitas a descrição do negócio nem faças introduções longas. Responde directamente ao que o cliente perguntou.
 - NÃO uses formatação markdown (sem asteriscos, sem #, sem bullets).
 - Quando fizer sentido, sugere ligar de volta ao cliente.
 - Escreve em Português de Angola (tratamento informal mas respeitoso).
@@ -361,8 +365,36 @@ REGRAS:
     config: { systemInstruction },
   });
 
-  const reply = (response.text ?? "").trim() ||
+  const rawReply = (response.text ?? "").trim() ||
     "Desculpa, não consegui processar a tua mensagem. Tenta outra vez.";
+  // Keep the WhatsApp-like chat compact even when the model ignores the limit.
+  const reply = rawReply
+    .replace(/\*\*/g, "")
+    .replace(/^[-*#]\s*/gm, "")
+    .replace(/\n{2,}/g, "\n")
+    .split(/(?<=[.!?])\s+/)
+    .slice(0, 2)
+    .join(" ")
+    .trim()
+    .slice(0, 360)
+    .trim();
+
+  const productIntent = /\b(produto|produtos|serviço|serviços|preço|preços|quanto|menu|catálogo|catalogo|comprar|compra|quero|mostra|mostrar|tem|disponível|disponivel)\b/i.test(userMessage);
+  const normalizedQuery = userMessage.toLocaleLowerCase("pt-AO");
+  const matchedOfferings = productIntent
+    ? (profile.offerings ?? []).filter((o) => {
+        const haystack = `${o.name} ${o.description}`.toLocaleLowerCase("pt-AO");
+        return haystack.split(/\s+/).some((word) => word.length > 3 && normalizedQuery.includes(word));
+      })
+    : [];
+  const products = productIntent
+    ? (matchedOfferings.length > 0 ? matchedOfferings : (profile.offerings ?? [])).slice(0, 12).map((o) => ({
+        name: o.name,
+        price: o.price,
+        description: o.description,
+        imageUrl: o.imageUrl,
+      }))
+    : [];
 
   // Persist both messages in the lead's chatMessages
   const ts = new Date().toISOString();
@@ -376,7 +408,7 @@ REGRAS:
     .set({ chatMessages: updated, updatedAt: new Date() })
     .where(eq(leadsTable.id, leadId));
 
-  return { reply };
+  return { reply, products };
 }
 
 // ─── Owner manual reply (agent message, no AI) ───────────────────────────────

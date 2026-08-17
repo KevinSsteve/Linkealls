@@ -433,6 +433,9 @@ export function Chat() {
 
   // ── Buy modal (non-call path — visitor initiates buy from product shelf) ─
   const [buyModalOffering, setBuyModalOffering] = useState<ModalOffering | null>(null);
+  // Product cards returned by the text-chat endpoint (the voice hook owns
+  // shownProducts separately).
+  const [chatProducts, setChatProducts] = useState<ProductCard[] | null>(null);
 
   const chatMsgsRef = useRef<ChatMessage[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -524,8 +527,9 @@ export function Chat() {
       if (isB2BMode) {
         // B2B mode: get AI text reply directly — no voice call trigger
         try {
-          const { reply } = await businessApi(businessSlug ?? "").sendLeadChat(newLeadId!, text);
+          const { reply, products } = await businessApi(businessSlug ?? "").sendLeadChat(newLeadId!, text);
           addMessage("bot", reply);
+          setChatProducts(products?.length ? products : null);
         } catch {
           addMessage("bot", "Desculpa, não consegui responder neste momento. Tenta de novo.");
         }
@@ -556,8 +560,9 @@ export function Chat() {
       setIsBusy(true);
       setStage("typing");
       try {
-        const { reply } = await businessApi(businessSlug ?? "").sendLeadChat(currentLeadId, text);
+        const { reply, products } = await businessApi(businessSlug ?? "").sendLeadChat(currentLeadId, text);
         addMessage("bot", reply);
+        setChatProducts(products?.length ? products : null);
       } catch {
         addMessage("bot", "Desculpa, não consegui responder neste momento. Tenta de novo.");
       } finally {
@@ -628,6 +633,7 @@ export function Chat() {
     (product: ProductCard) => {
       gemini.sendText(`Quero saber mais sobre o ${product.name}`);
       gemini.clearProducts();
+      setChatProducts(null);
       // If minimised, expand call so the user can hear the response
       if (isCallMinimized) setIsCallMinimized(false);
     },
@@ -652,6 +658,7 @@ export function Chat() {
           imageUrl: product.imageUrl,
         });
         gemini.clearProducts();
+        setChatProducts(null);
       }
     },
     [stage, gemini, isCallMinimized],
@@ -855,6 +862,16 @@ export function Chat() {
                 onSelect={handleProductSelect}
                 onBuy={handleProductBuy}
                 onClose={gemini.clearProducts}
+              />
+            )}
+
+            {/* Product cards from the normal text chat (outside a call too). */}
+            {!isCallActive && chatProducts && chatProducts.length > 0 && (
+              <InlineProductShelf
+                products={chatProducts}
+                onSelect={handleProductSelect}
+                onBuy={handleProductBuy}
+                onClose={() => setChatProducts(null)}
               />
             )}
 

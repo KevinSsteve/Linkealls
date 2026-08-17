@@ -391,8 +391,8 @@ export function createBusinessScopedRouter(): Router {
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "Mensagem inválida" }); return; }
     try {
-      const { reply } = await chatWithLead(id, parsed.data.message, bid(res));
-      res.json({ reply });
+      const { reply, products } = await chatWithLead(id, parsed.data.message, bid(res));
+      res.json({ reply, products });
     } catch (err) {
       logger.error({ err, id }, "POST /leads/:id/chat failed");
       res.status(500).json({ error: "Erro ao processar mensagem" });
