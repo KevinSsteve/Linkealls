@@ -30,6 +30,9 @@ export type CampaignDestination =
   | "catalog"
   | "product";
 
+export type CampaignImageVariant = "original" | "suggested";
+export type CampaignPolicyStatus = "approved" | "needs_review" | "rejected";
+
 /** Payment state of the campaign budget (paid in Kz by the owner). */
 export type CampaignPaymentStatus = "nao_pago" | "pendente" | "pago" | "falhado";
 /** State of the AI-generated ad creative. */
@@ -68,6 +71,15 @@ export interface CampaignSetup {
   destination?: CampaignDestination;
   /** Required when the owner chooses a direct product link. */
   destinationUrl?: string | null;
+  imageAnalysis?: {
+    summary: string;
+    detectedText: string[];
+    detectedObjects: string[];
+    policyStatus: CampaignPolicyStatus;
+    policyIssues: string[];
+    policyVersion: string;
+    reviewedAt: string;
+  } | null;
   /** Short explanation shown with the AI's automatic recommendation. */
   aiRecommendation?: {
     audienceReason: string;
@@ -93,6 +105,9 @@ export interface CampaignSetup {
     referenceImagePath: string | null;
     mediaPath: string | null;
     mediaMimeType: string | null;
+    originalMediaPath?: string | null;
+    suggestedMediaPath?: string | null;
+    selectedVariant?: CampaignImageVariant;
     prompt: string;
     headline: string;
     body: string;
@@ -226,6 +241,15 @@ const objectPathSchema = z.string().regex(/^\/objects\/[A-Za-z0-9/_-]+$/, "Camin
 export const campaignSetupSchema = z.object({
   destination: z.enum(["whatsapp", "download_app", "linkealls_chat", "catalog", "product"]).optional().default("catalog"),
   destinationUrl: z.string().trim().max(500).nullable().optional().default(null),
+  imageAnalysis: z.object({
+    summary: z.string().max(1000),
+    detectedText: z.array(z.string().max(200)).max(30),
+    detectedObjects: z.array(z.string().max(160)).max(30),
+    policyStatus: z.enum(["approved", "needs_review", "rejected"]),
+    policyIssues: z.array(z.string().max(300)).max(20),
+    policyVersion: z.string().max(80),
+    reviewedAt: z.string().datetime(),
+  }).nullable().optional().default(null),
   aiRecommendation: z.object({
     audienceReason: z.string().max(600),
     budgetReason: z.string().max(600),
@@ -251,6 +275,9 @@ export const campaignSetupSchema = z.object({
     referenceImagePath: objectPathSchema.nullable(),
     mediaPath: objectPathSchema.nullable(),
     mediaMimeType: z.string().max(80).nullable(),
+    originalMediaPath: objectPathSchema.nullable().optional().default(null),
+    suggestedMediaPath: objectPathSchema.nullable().optional().default(null),
+    selectedVariant: z.enum(["original", "suggested"]).optional().default("original"),
     prompt: z.string().trim().max(1000),
     headline: z.string().trim().max(40),
     body: z.string().trim().max(300),

@@ -254,6 +254,8 @@ export type CampaignPlatform = "google" | "instagram" | "facebook" | "tiktok" | 
 export type CampaignStatus = "rascunho" | "ativa" | "pausada" | "encerrada";
 export type CampaignObjective = "awareness" | "traffic" | "engagement" | "lead_generation" | "leads" | "sales";
 export type CampaignDestination = "whatsapp" | "download_app" | "linkealls_chat" | "catalog" | "product";
+export type CampaignImageVariant = "original" | "suggested";
+export type CampaignPolicyStatus = "approved" | "needs_review" | "rejected";
 
 export interface CampaignCopy {
   headline: string;
@@ -306,6 +308,15 @@ export interface AdCreative {
 export interface CampaignSetup {
   destination?: CampaignDestination;
   destinationUrl?: string | null;
+  imageAnalysis?: {
+    summary: string;
+    detectedText: string[];
+    detectedObjects: string[];
+    policyStatus: CampaignPolicyStatus;
+    policyIssues: string[];
+    policyVersion: string;
+    reviewedAt: string;
+  } | null;
   aiRecommendation?: {
     audienceReason: string;
     budgetReason: string;
@@ -328,6 +339,9 @@ export interface CampaignSetup {
     referenceImagePath: string | null;
     mediaPath: string | null;
     mediaMimeType: string | null;
+    originalMediaPath?: string | null;
+    suggestedMediaPath?: string | null;
+    selectedVariant?: CampaignImageVariant;
     prompt: string;
     headline: string;
     body: string;
@@ -712,9 +726,11 @@ export function businessApi(slug: string) {
     analyzeCampaignImage: (id: string) =>
       bRequest<{ recommendations: {
         audience: CampaignSetup["audience"];
-        description: { headline: string; body: string; prompt: string };
+        description: { headline: string; body: string; prompt: string; callToAction: string };
         budget: { recommendedBudgetAoa: number; expectedReach: string; expectedReturn: string; budgetReason: string };
         audienceReason: string;
+        imageAnalysis: NonNullable<CampaignSetup["imageAnalysis"]>;
+        suggestedImagePath: string | null;
       } }>(`/campaigns/${id}/ai-recommendations`, { method: "POST" }),
     getCampaignMetrics: (id: string) =>
       bRequest<{ metrics: CampaignMetrics }>(`/campaigns/${id}/metrics`),

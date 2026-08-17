@@ -22,7 +22,8 @@ import {
 import { ai as managedGemini } from "@workspace/integrations-gemini-ai";
 import { ObjectStorageService } from "../lib/objectStorage.js";
 import { logger } from "../lib/logger.js";
-import { searchMetaTargeting } from "./zernio.js";
+import { IS_ZERNIO_SIMULATION, searchMetaTargeting } from "./zernio.js";
+import { META_AD_POLICY_PROMPT, META_AD_POLICY_VERSION } from "./metaAdPolicies.js";
 
 const TEXT_MODEL = process.env["GEMINI_TEXT_MODEL"] ?? "gemini-3-flash-preview";
 const IMAGE_MODEL = "gemini-2.5-flash-image";
@@ -52,6 +53,7 @@ export interface CampaignImageRecommendations {
     headline: string;
     body: string;
     prompt: string;
+    callToAction: string;
   };
   budget: {
     recommendedBudgetAoa: number;
@@ -60,6 +62,8 @@ export interface CampaignImageRecommendations {
     budgetReason: string;
   };
   audienceReason: string;
+  imageAnalysis: NonNullable<CampaignSetup["imageAnalysis"]>;
+  suggestedImagePath: string | null;
 }
 
 async function planCreative(
@@ -123,7 +127,7 @@ export async function analyzeCampaignImage(
 
   const setup = campaign.campaignSetup as CampaignSetup | null;
   const imagePath = setup?.creative.source === "upload"
-    ? setup.creative.mediaPath
+    ? setup.creative.originalMediaPath ?? setup.creative.mediaPath
     : setup?.creative.referenceImagePath;
   if (!imagePath) throw new Error("Adiciona uma imagem antes de pedir recomendações");
 
@@ -165,7 +169,11 @@ Regras:
 - Escolhe um público amplo, realista e fácil de activar no Meta.
 - O orçamento é total da campanha, em Kz, no mínimo 5.000 Kz.
 - expectedReturn deve ser uma expectativa prudente (ex.: mais conversas, visitas ou pedidos), não uma garantia.
-- Cria uma headline até 40 caracteres e uma descrição até 300 caracteres.`,
+ - Cria uma headline até 40 caracteres e uma descrição até 300 caracteres.
+ - Extrai o texto visível e os objectos/produtos identificados na imagem.
+ - Faz a verificação de conformidade segundo a política abaixo.
+
+${META_AD_POLICY_PROMPT}`,
         },
         { inlineData: { data: buffer.toString("base64"), mimeType: mime } },
       ],
@@ -194,8 +202,20 @@ Regras:
               headline: { type: Type.STRING },
               body: { type: Type.STRING },
               prompt: { type: Type.STRING },
+              callToAction: { type: Type.STRING, enum: [...ALLOWED_CTAS] },
             },
-            required: ["headline", "body", "prompt"],
+            required: ["headline", "body", "prompt", "callToAction"],
+          },
+          imageAnalysis: {
+            type: Type.OBJECT,
+            properties: {
+              summary: { type: Type.STRING },
+              detectedText: { type: Type.ARRAY, items: { type: Type.STRING } },
+              detectedObjects: { type: Type.ARRAY, items: { type: Type.STRING } },
+              policyStatus: { type: Type.STRING, enum: ["approved", "needs_review", "rejected"] },
+              policyIssues: { type: Type.ARRAY, items: { type: Type.STRING } },
+            },
+            required: ["summary", "detectedText", "detectedObjects", "policyStatus", "policyIssues"],
           },
           budget: {
             type: Type.OBJECT,
@@ -208,7 +228,7 @@ Regras:
             required: ["recommendedBudgetAoa", "expectedReach", "expectedReturn", "budgetReason"],
           },
         },
-        required: ["audience", "description", "budget"],
+        required: ["audience", "description", "budget", "imageAnalysis"],
       },
     },
   });
@@ -223,12 +243,19 @@ Regras:
       excludedAudiences?: string;
       audienceReason?: string;
     };
-    description?: { headline?: string; body?: string; prompt?: string };
+    description?: { headline?: string; body?: string; prompt?: string; callToAction?: string };
     budget?: {
       recommendedBudgetAoa?: number;
       expectedReach?: string;
       expectedReturn?: string;
       budgetReason?: string;
+    };
+    imageAnalysis?: {
+      summary?: string;
+      detectedText?: string[];
+      detectedObjects?: string[];
+      policyStatus?: "approved" | "needs_review" | "rejected";
+      policyIssues?: string[];
     };
   };
   const rawAudience = raw.audience ?? {};
@@ -243,6 +270,9 @@ Regras:
     }
   } catch (error) {
     logger.warn({ error, campaignId }, "AI audience city lookup failed");
+  }
+  if (!locationId && IS_ZERNIO_SIMULATION) {
+    locationId = `simulation-city-${locationName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
   }
 
   const interestNames = Array.isArray(rawAudience.interests)
@@ -264,6 +294,38 @@ Regras:
     10_000_000,
     Math.max(5_000, Math.round(Number(raw.budget?.recommendedBudgetAoa ?? 15_000) / 500) * 500),
   );
+  const policyStatus =
+    raw.imageAnalysis?.policyStatus === "approved" ||
+    raw.imageAnalysis?.policyStatus === "needs_review" ||
+    raw.imageAnalysis?.policyStatus === "rejected"
+      ? raw.imageAnalysis.policyStatus
+      : "needs_review";
+  const imageAnalysis = {
+    summary: String(raw.imageAnalysis?.summary ?? "A imagem foi analisada para preparar o anúncio.").slice(0, 1000),
+    detectedText: Array.isArray(raw.imageAnalysis?.detectedText)
+      ? raw.imageAnalysis.detectedText.map((item) => String(item).slice(0, 200)).slice(0, 30)
+      : [],
+    detectedObjects: Array.isArray(raw.imageAnalysis?.detectedObjects)
+      ? raw.imageAnalysis.detectedObjects.map((item) => String(item).slice(0, 160)).slice(0, 30)
+      : [],
+    policyStatus,
+    policyIssues: Array.isArray(raw.imageAnalysis?.policyIssues)
+      ? raw.imageAnalysis.policyIssues.map((item) => String(item).slice(0, 300)).slice(0, 20)
+      : [],
+    policyVersion: META_AD_POLICY_VERSION,
+    reviewedAt: new Date().toISOString(),
+  } as NonNullable<CampaignSetup["imageAnalysis"]>;
+
+  let suggestedImagePath: string | null = null;
+  try {
+    const suggested = await generateImage(
+      `Create a compliant Meta ad image based on this product photo. Keep the product recognizable, use a clean commercial composition, natural Angolan context, no extra claims and no text over the image. ${String(raw.description?.prompt ?? "")}`,
+      { buffer, mime },
+    );
+    suggestedImagePath = await storage.uploadObjectEntity(suggested.buffer, suggested.mime);
+  } catch (error) {
+    logger.warn({ error, campaignId }, "Suggested ad image generation failed; keeping original image");
+  }
 
   return {
     audience: {
@@ -280,6 +342,9 @@ Regras:
       headline: String(raw.description?.headline ?? "").slice(0, 40),
       body: String(raw.description?.body ?? "").slice(0, 300),
       prompt: String(raw.description?.prompt ?? "").slice(0, 1000),
+      callToAction: ALLOWED_CTAS.includes(raw.description?.callToAction as (typeof ALLOWED_CTAS)[number])
+        ? String(raw.description?.callToAction)
+        : setup?.destination === "whatsapp" || setup?.destination === "linkealls_chat" ? "CONTACT_US" : "LEARN_MORE",
     },
     budget: {
       recommendedBudgetAoa,
@@ -287,7 +352,9 @@ Regras:
       expectedReturn: String(raw.budget?.expectedReturn ?? "Mais pessoas a conhecer e contactar o negócio.").slice(0, 300),
       budgetReason: String(raw.budget?.budgetReason ?? "Orçamento inicial recomendado pela IA para testar o anúncio.").slice(0, 600),
     },
-    audienceReason: String(rawAudience.audienceReason ?? "Público recomendado pela IA com base na imagem e no negócio.").slice(0, 600),
+    audienceReason: String(rawAudience.audienceReason ?? "Público recomendado pela análise da imagem e do negócio.").slice(0, 600),
+    imageAnalysis,
+    suggestedImagePath,
   };
 }
 

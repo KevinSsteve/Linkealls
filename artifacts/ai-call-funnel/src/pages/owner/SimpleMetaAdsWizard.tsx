@@ -18,6 +18,7 @@ import {
   businessApi,
   type Campaign,
   type CampaignDestination,
+  type CampaignImageVariant,
   type CampaignSetup,
   type AdsQuote,
   uploadPrivateImage,
@@ -53,6 +54,7 @@ function setupFor(campaign: Campaign): CampaignSetup {
   return {
     destination: destinationFor(campaign),
     destinationUrl: existing?.destinationUrl ?? null,
+    imageAnalysis: existing?.imageAnalysis ?? null,
     aiRecommendation: existing?.aiRecommendation ?? null,
     audience: {
       location: existing?.audience?.location ?? "Luanda",
@@ -69,6 +71,9 @@ function setupFor(campaign: Campaign): CampaignSetup {
       referenceImagePath: existing?.creative?.referenceImagePath ?? null,
       mediaPath: existing?.creative?.mediaPath ?? null,
       mediaMimeType: existing?.creative?.mediaMimeType ?? null,
+      originalMediaPath: existing?.creative?.originalMediaPath ?? existing?.creative?.mediaPath ?? null,
+      suggestedMediaPath: existing?.creative?.suggestedMediaPath ?? null,
+      selectedVariant: existing?.creative?.selectedVariant ?? "original",
       prompt: existing?.creative?.prompt ?? "",
       headline: existing?.creative?.headline ?? "",
       body: existing?.creative?.body ?? "",
@@ -89,27 +94,19 @@ function destinationLabel(value: CampaignDestination | undefined): string {
 function StepHeader({ step }: { step: number }) {
   const labels = ["Objectivo", "Imagem e descrição", "Pré-visualização", "Pagamento"];
   return (
-    <div style={{ padding: "14px 20px 12px", background: "#FFF", borderBottom: SEP }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+    <div style={{ padding: "12px 20px 11px", background: "#FFF", borderBottom: SEP }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 4 }}>
         {labels.map((label, index) => (
-          <div key={label} style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0, flex: index < labels.length - 1 ? 1 : undefined }}>
-            <div style={{
-              width: 25, height: 25, borderRadius: "50%", flexShrink: 0,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              background: index <= step ? INK : "#F1F3F5",
-              color: index <= step ? "#FFF" : MUTED,
-              fontSize: 12, fontWeight: 700,
-            }}>
-              {index < step ? <Check size={13} /> : index + 1}
-            </div>
-            <span style={{
-              minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-              color: index === step ? INK : MUTED, fontSize: 11, fontWeight: index === step ? 700 : 500,
-            }}>{label}</span>
-            {index < labels.length - 1 && <div style={{ height: 1, flex: 1, background: index < step ? INK : BORDER }} />}
-          </div>
+          <div key={label} style={{
+            height: 4, borderRadius: 4,
+            background: index <= step ? INK : "#E9EDF1",
+            transition: "background .2s ease",
+          }} aria-label={label} />
         ))}
       </div>
+      <p style={{ color: INK, fontSize: 12, fontWeight: 700, marginTop: 8 }}>
+        {labels[Math.min(step, labels.length - 1)]}
+      </p>
     </div>
   );
 }
@@ -158,6 +155,9 @@ function SimpleMetaAdsWizard({ api, campaign, onUpdate, onExit }: {
   const [setup, setSetup] = useState<CampaignSetup>(() => setupFor(campaign));
   const [destination, setDestination] = useState<CampaignDestination>(() => destinationFor(campaign));
   const [destinationUrl, setDestinationUrl] = useState(() => setupFor(campaign).destinationUrl ?? "");
+  const [activeVariant, setActiveVariant] = useState<CampaignImageVariant>(
+    () => setupFor(campaign).creative.selectedVariant ?? "original",
+  );
   const [budget, setBudget] = useState(campaign.budget || 15_000);
   const [durationDays, setDurationDays] = useState(campaign.durationDays || 30);
   const [quote, setQuote] = useState<AdsQuote | null>(null);
@@ -186,6 +186,7 @@ function SimpleMetaAdsWizard({ api, campaign, onUpdate, onExit }: {
     setSetup(next);
     setDestination(next.destination ?? destinationFor(campaign));
     setDestinationUrl(next.destinationUrl ?? "");
+    setActiveVariant(next.creative.selectedVariant ?? "original");
     if (campaign.budget > 0) setBudget(campaign.budget);
     setDurationDays(campaign.durationDays || 30);
     if (campaign.paymentStatus !== "nao_pago") setStep(3);
@@ -244,11 +245,15 @@ function SimpleMetaAdsWizard({ api, campaign, onUpdate, onExit }: {
         ...setup,
         destination,
         destinationUrl: destination === "product" ? destinationUrl.trim() : null,
+        imageAnalysis: null,
         creative: {
           ...setup.creative,
           source: "upload",
           mediaPath: path,
           mediaMimeType: file.type,
+          originalMediaPath: path,
+          suggestedMediaPath: null,
+          selectedVariant: "original",
         },
       };
       setSetup(withImage);
@@ -260,6 +265,7 @@ function SimpleMetaAdsWizard({ api, campaign, onUpdate, onExit }: {
         const enriched: CampaignSetup = {
           ...withImage,
           audience: recommendations.audience,
+          imageAnalysis: recommendations.imageAnalysis,
           aiRecommendation: {
             audienceReason: recommendations.audienceReason,
             budgetReason: recommendations.budget.budgetReason,
@@ -272,6 +278,9 @@ function SimpleMetaAdsWizard({ api, campaign, onUpdate, onExit }: {
             headline: recommendations.description.headline,
             body: recommendations.description.body,
             prompt: recommendations.description.prompt,
+            callToAction: recommendations.description.callToAction as CampaignSetup["creative"]["callToAction"],
+            suggestedMediaPath: recommendations.suggestedImagePath,
+            selectedVariant: "original",
           },
         };
         setSetup(enriched);
@@ -279,7 +288,7 @@ function SimpleMetaAdsWizard({ api, campaign, onUpdate, onExit }: {
         onUpdate(savedWithRecommendations.campaign);
         setBudget(recommendations.budget.recommendedBudgetAoa);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "A imagem foi carregada, mas a IA não conseguiu analisá-la.");
+      setError(err instanceof Error ? err.message : "A imagem foi carregada, mas não foi possível concluir a análise.");
       } finally {
         setAnalysing(false);
       }
@@ -290,9 +299,39 @@ function SimpleMetaAdsWizard({ api, campaign, onUpdate, onExit }: {
     }
   };
 
+  const selectImageVariant = async (variant: CampaignImageVariant) => {
+    const path = variant === "suggested"
+      ? setup.creative.suggestedMediaPath
+      : setup.creative.originalMediaPath ?? setup.creative.mediaPath;
+    if (!path || path === setup.creative.mediaPath) {
+      setActiveVariant(variant);
+      return;
+    }
+    const nextSetup: CampaignSetup = {
+      ...setup,
+      creative: {
+        ...setup.creative,
+        mediaPath: path,
+        selectedVariant: variant,
+      },
+    };
+    setActiveVariant(variant);
+    setSetup(nextSetup);
+    try {
+      const saved = await api.updateCampaignSetup(campaign.id, nextSetup);
+      onUpdate(saved.campaign);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível seleccionar esta imagem.");
+    }
+  };
+
   const saveDescriptionAndContinue = async () => {
     if (!setup.creative.mediaPath && !setup.creative.referenceImagePath) {
       setError("Adiciona uma imagem para continuar.");
+      return;
+    }
+    if (setup.imageAnalysis?.policyStatus !== "approved") {
+      setError("A imagem precisa de uma verificação concluída antes de continuar.");
       return;
     }
     await run("description", async () => {
@@ -312,7 +351,7 @@ function SimpleMetaAdsWizard({ api, campaign, onUpdate, onExit }: {
       return;
     }
     if (!setup.audience.locationId) {
-      setError("A IA ainda não encontrou uma localização Meta válida para este público. Troca a imagem ou tenta novamente.");
+      setError("Ainda não foi possível confirmar uma localização Meta válida para este público. Tenta novamente.");
       return;
     }
     await run("preview", async () => {
@@ -331,11 +370,16 @@ function SimpleMetaAdsWizard({ api, campaign, onUpdate, onExit }: {
     });
   };
 
-  const currentImage = creativeReady && campaign.creativeJson
-    ? campaign.creativeJson.mediaUrl
-    : imagePath
-      ? storageUrl(imagePath)
+  const currentImage = imagePath
+    ? storageUrl(imagePath)
+    : creativeReady && campaign.creativeJson
+      ? campaign.creativeJson.mediaUrl
       : null;
+  const originalImagePath = setup.creative.originalMediaPath ?? setup.creative.mediaPath;
+  const originalImageSrc = originalImagePath ? storageUrl(originalImagePath) : currentImage;
+  const suggestedImageSrc = setup.creative.suggestedMediaPath
+    ? storageUrl(setup.creative.suggestedMediaPath)
+    : null;
 
   return (
     <div style={{ height: "100%", minHeight: 0, overflowY: "auto", background: "#FFF", WebkitOverflowScrolling: "touch" }}>
@@ -363,7 +407,7 @@ function SimpleMetaAdsWizard({ api, campaign, onUpdate, onExit }: {
       <div style={{ padding: "0 18px 36px" }}>
         {step === 0 && (
           <div style={{ paddingTop: 24 }}>
-            <p style={{ color: GREEN, fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em" }}>Passo 1 de 4</p>
+            <p style={{ color: GREEN, fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em" }}>Objectivo</p>
             <h1 style={{ color: INK, fontSize: 27, lineHeight: 1.15, margin: "8px 0 8px", fontWeight: 800 }}>O que queres que aconteça?</h1>
             <p style={{ color: MUTED, fontSize: 14, lineHeight: 1.5, marginBottom: 20 }}>Escolhe uma coisa. A Linkealls trata do resto.</p>
 
@@ -429,17 +473,43 @@ function SimpleMetaAdsWizard({ api, campaign, onUpdate, onExit }: {
 
         {step === 1 && (
           <div style={{ paddingTop: 24 }}>
-            <p style={{ color: GREEN, fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em" }}>Passo 2 de 4</p>
             <h1 style={{ color: INK, fontSize: 27, lineHeight: 1.15, margin: "8px 0 8px", fontWeight: 800 }}>Mostra-nos a tua imagem</h1>
-            <p style={{ color: MUTED, fontSize: 14, lineHeight: 1.5, marginBottom: 18 }}>A IA vê a imagem, entende o negócio e sugere o texto, o público e o orçamento.</p>
+            <p style={{ color: MUTED, fontSize: 14, lineHeight: 1.5, marginBottom: 18 }}>A imagem ajuda-nos a preparar o texto, o público e o orçamento da campanha.</p>
             <input ref={imageInput} type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
               onChange={(event) => { void handleImage(event.target.files?.[0]); event.currentTarget.value = ""; }} />
             {currentImage ? (
-              <div style={{ position: "relative", borderRadius: 18, overflow: "hidden", background: "#F3F4F6", marginBottom: 14 }}>
-                <img src={currentImage} alt="Imagem da campanha" style={{ display: "block", width: "100%", aspectRatio: "1 / 1", objectFit: "cover" }} />
+              <div style={{ marginBottom: 14 }}>
+                <div style={{
+                  display: "flex", gap: 10, overflowX: "auto", scrollSnapType: "x mandatory",
+                  overscrollBehaviorX: "contain", scrollbarWidth: "none", borderRadius: 18,
+                }}>
+                  {([
+                    { variant: "original" as const, path: setup.creative.originalMediaPath ?? setup.creative.mediaPath, label: "Imagem carregada" },
+                    ...(setup.creative.suggestedMediaPath
+                      ? [{ variant: "suggested" as const, path: setup.creative.suggestedMediaPath, label: "Sugestão de anúncio" }]
+                      : []),
+                  ]).map((slide) => (
+                    <div key={slide.variant} style={{ minWidth: "100%", position: "relative", scrollSnapAlign: "start", borderRadius: 18, overflow: "hidden", background: "#F3F4F6" }}>
+                      <img src={slide.variant === "suggested" ? suggestedImageSrc ?? currentImage ?? "" : originalImageSrc ?? ""} alt={slide.label} style={{ display: "block", width: "100%", aspectRatio: "1 / 1", objectFit: "cover" }} />
+                      <div style={{ position: "absolute", top: 11, left: 11, padding: "6px 10px", borderRadius: 16, background: "rgba(17,24,39,.78)", color: "#FFF", fontSize: 12, fontWeight: 700 }}>
+                        {slide.label}
+                      </div>
+                      <button type="button" onClick={() => void selectImageVariant(slide.variant)} disabled={busy !== null || analysing}
+                        style={{ position: "absolute", right: 11, bottom: 11, border: 0, borderRadius: 20, background: activeVariant === slide.variant ? GREEN : "rgba(17,24,39,.86)", color: "#FFF", padding: "8px 13px", fontSize: 12, fontWeight: 700 }}>
+                        {activeVariant === slide.variant ? <Check size={13} style={{ verticalAlign: "middle", marginRight: 5 }} /> : <Pencil size={13} style={{ verticalAlign: "middle", marginRight: 5 }} />}
+                        {activeVariant === slide.variant ? "Seleccionada" : "Usar esta"}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                {setup.creative.suggestedMediaPath && (
+                  <p style={{ color: MUTED, fontSize: 12, textAlign: "center", marginTop: 7 }}>
+                    Desliza para comparar as duas imagens
+                  </p>
+                )}
                 <button type="button" onClick={() => imageInput.current?.click()} disabled={busy !== null || analysing}
-                  style={{ position: "absolute", right: 12, bottom: 12, border: 0, borderRadius: 20, background: "rgba(17,24,39,.86)", color: "#FFF", padding: "8px 13px", fontSize: 12, fontWeight: 700 }}>
-                  <Pencil size={13} style={{ verticalAlign: "middle", marginRight: 5 }} /> Trocar imagem
+                  style={{ width: "100%", height: 42, marginTop: 7, border: `1px solid ${BORDER}`, borderRadius: 21, background: "#FFF", color: INK, fontSize: 13, fontWeight: 700 }}>
+                  <Pencil size={14} style={{ verticalAlign: "middle", marginRight: 5 }} /> Trocar imagem
                 </button>
               </div>
             ) : (
@@ -452,39 +522,64 @@ function SimpleMetaAdsWizard({ api, campaign, onUpdate, onExit }: {
             )}
             {analysing && (
               <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "12px 14px", borderRadius: 12, background: "#F0FDF4", color: "#166534", fontSize: 13, marginBottom: 14 }}>
-                <Loader2 size={16} className="animate-spin" /> A Linkealls está a entender a imagem…
+                <Loader2 size={16} className="animate-spin" /> A preparar a tua campanha…
+              </div>
+            )}
+            {setup.imageAnalysis && (
+              <div style={{
+                padding: "13px 14px", borderRadius: 14, marginBottom: 14,
+                background: setup.imageAnalysis.policyStatus === "approved" ? "#F0FDF4" : "#FFF7ED",
+                border: `1px solid ${setup.imageAnalysis.policyStatus === "approved" ? "#BBF7D0" : "#FED7AA"}`,
+                color: setup.imageAnalysis.policyStatus === "approved" ? "#166534" : "#9A3412",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 800 }}>
+                  {setup.imageAnalysis.policyStatus === "approved" ? <Check size={16} /> : <AlertCircle size={16} />}
+                  {setup.imageAnalysis.policyStatus === "approved" ? "Imagem pronta para o anúncio" : "Imagem precisa de atenção"}
+                </div>
+                <p style={{ fontSize: 12, lineHeight: 1.45, marginTop: 6 }}>{setup.imageAnalysis.summary}</p>
+                {setup.imageAnalysis.detectedObjects.length > 0 && (
+                  <p style={{ fontSize: 12, lineHeight: 1.45, marginTop: 5 }}><strong>Identificado:</strong> {setup.imageAnalysis.detectedObjects.join(", ")}</p>
+                )}
+                {setup.imageAnalysis.detectedText.length > 0 && (
+                  <p style={{ fontSize: 12, lineHeight: 1.45, marginTop: 5 }}><strong>Texto na imagem:</strong> {setup.imageAnalysis.detectedText.join(" · ")}</p>
+                )}
+                {setup.imageAnalysis.policyIssues.length > 0 && (
+                  <ul style={{ fontSize: 12, lineHeight: 1.45, margin: "6px 0 0 17px" }}>
+                    {setup.imageAnalysis.policyIssues.map((issue) => <li key={issue}>{issue}</li>)}
+                  </ul>
+                )}
               </div>
             )}
             <label style={{ display: "block", color: INK, fontSize: 14, fontWeight: 750, margin: "18px 0 8px" }}>Descrição do anúncio</label>
             <input value={setup.creative.headline} maxLength={40}
               onChange={(event) => setSetup((current) => ({ ...current, creative: { ...current.creative, headline: event.target.value } }))}
-              placeholder="Título sugerido pela IA" disabled={analysing}
+              placeholder="Título sugerido" disabled={analysing}
               style={{ width: "100%", height: 46, boxSizing: "border-box", border: `1px solid ${BORDER}`, borderRadius: 12, padding: "0 13px", fontSize: 14, color: INK, outline: "none", marginBottom: 8 }} />
             <textarea value={setup.creative.body} maxLength={300}
               onChange={(event) => setSetup((current) => ({ ...current, creative: { ...current.creative, body: event.target.value } }))}
-              placeholder="Texto sugerido pela IA" rows={4} disabled={analysing}
+              placeholder="Texto sugerido" rows={4} disabled={analysing}
               style={{ width: "100%", boxSizing: "border-box", border: `1px solid ${BORDER}`, borderRadius: 12, padding: "12px 13px", fontSize: 14, color: INK, outline: "none", resize: "vertical" }} />
             <div style={{ marginTop: 20 }}>
-              <PrimaryButton label="Ver pré-visualização" onClick={() => void saveDescriptionAndContinue()} loading={busy === "description"} disabled={busy !== null || analysing || !imagePath} />
+              <PrimaryButton label="Ver pré-visualização" onClick={() => void saveDescriptionAndContinue()} loading={busy === "description"} disabled={busy !== null || analysing || !imagePath || setup.imageAnalysis?.policyStatus !== "approved"} />
             </div>
           </div>
         )}
 
         {step === 2 && (
           <div style={{ paddingTop: 24 }}>
-            <p style={{ color: GREEN, fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em" }}>Passo 3 de 4</p>
+            <p style={{ color: GREEN, fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em" }}>Pré-visualização</p>
             <h1 style={{ color: INK, fontSize: 27, lineHeight: 1.15, margin: "8px 0 8px", fontWeight: 800 }}>Está tudo bem assim?</h1>
-            <p style={{ color: MUTED, fontSize: 14, lineHeight: 1.5, marginBottom: 18 }}>A IA preparou uma campanha simples para começar.</p>
+            <p style={{ color: MUTED, fontSize: 14, lineHeight: 1.5, marginBottom: 18 }}>A campanha foi preparada para começares com uma configuração simples.</p>
             {currentImage && <img src={currentImage} alt="Pré-visualização do anúncio" style={{ display: "block", width: "100%", aspectRatio: "1 / 1", objectFit: "cover", borderRadius: 18, marginBottom: 13 }} />}
             <div style={{ padding: "14px 15px", border: `1px solid ${BORDER}`, borderRadius: 15, marginBottom: 11 }}>
               <p style={{ color: INK, fontWeight: 750, fontSize: 16 }}>{setup.creative.headline || "O teu anúncio"}</p>
-              <p style={{ color: MUTED, fontSize: 13, lineHeight: 1.5, marginTop: 5 }}>{setup.creative.body || "A IA vai sugerir uma descrição."}</p>
+              <p style={{ color: MUTED, fontSize: 13, lineHeight: 1.5, marginTop: 5 }}>{setup.creative.body || "Adiciona uma descrição para o anúncio."}</p>
               <p style={{ color: GREEN, fontSize: 12, fontWeight: 700, marginTop: 10 }}>{selectedDestination.label}</p>
             </div>
             <div style={{ padding: "14px 15px", borderRadius: 15, background: "#F8FAFC", border: `1px solid ${BORDER}`, marginBottom: 11 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7 }}>
                 <Sparkles size={16} style={{ color: GREEN }} />
-                <p style={{ color: INK, fontSize: 14, fontWeight: 750 }}>Público escolhido pela IA</p>
+                <p style={{ color: INK, fontSize: 14, fontWeight: 750 }}>Público recomendado</p>
               </div>
               <p style={{ color: INK, fontSize: 13 }}>{setup.audience.location} · {setup.audience.ageMin}–{setup.audience.ageMax}+ anos · {setup.audience.gender === "all" ? "Todos" : setup.audience.gender === "female" ? "Mulheres" : "Homens"}</p>
               {setup.audience.interests && <p style={{ color: MUTED, fontSize: 12, lineHeight: 1.45, marginTop: 4 }}>Interesses: {setup.audience.interests}</p>}
@@ -515,7 +610,7 @@ function SimpleMetaAdsWizard({ api, campaign, onUpdate, onExit }: {
 
         {step === 3 && (
           <div style={{ paddingTop: 24 }}>
-            <p style={{ color: GREEN, fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em" }}>Passo 4 de 4</p>
+            <p style={{ color: GREEN, fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: ".08em" }}>Pagamento</p>
             <h1 style={{ color: INK, fontSize: 27, lineHeight: 1.15, margin: "8px 0 8px", fontWeight: 800 }}>{paid ? "Campanha paga" : "Vamos lançar?"}</h1>
             <p style={{ color: MUTED, fontSize: 14, lineHeight: 1.5, marginBottom: 18 }}>{paid ? "O pagamento foi registado. Publica quando quiseres." : "Confirma o valor e escolhe como pagar em Kwanzas."}</p>
             <div style={{ padding: "14px 15px", border: `1px solid ${BORDER}`, borderRadius: 15, marginBottom: 15 }}>

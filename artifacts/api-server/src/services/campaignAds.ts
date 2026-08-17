@@ -121,6 +121,17 @@ function assertPayable(campaign: Campaign): void {
     if (campaign.creativeStatus !== "pronto" || !campaign.creativeJson) {
       throw new PaymentError("Revê e aprova o criativo antes de pagar");
     }
+    if (
+      !campaign.creativeJson.headline.trim() ||
+      !campaign.creativeJson.body.trim() ||
+      !campaign.creativeJson.mediaUrl.trim() ||
+      !campaign.creativeJson.callToAction.trim()
+    ) {
+      throw new PaymentError("Completa o texto, a imagem e a acção do anúncio antes de pagar");
+    }
+    if (setup.imageAnalysis && setup.imageAnalysis.policyStatus !== "approved") {
+      throw new PaymentError("A imagem ainda não foi aprovada para publicidade Meta");
+    }
     if (setup.creative.source === "gemini" && !hasManagedGemini && !process.env["GEMINI_API_KEY"]) {
       throw new PaymentError(
         "Publicação indisponível: geração de imagens Gemini não está configurada — contacta o suporte antes de pagar",
@@ -382,6 +393,10 @@ export async function publishCampaign(campaignId: string, businessId: number): P
   if (campaign.creativeStatus !== "pronto" || !campaign.creativeJson) {
     throw new PaymentError("Gera e aprova o criativo antes de publicar");
   }
+  const setup = campaign.campaignSetup as CampaignSetup | null;
+  if (setup?.imageAnalysis && setup.imageAnalysis.policyStatus !== "approved") {
+    throw new PaymentError("A imagem ainda não está aprovada para publicidade Meta");
+  }
   if (!["nao_publicada", "erro", "rejeitada"].includes(campaign.publishStatus)) {
     throw new PaymentError("Esta campanha já foi publicada");
   }
@@ -403,7 +418,6 @@ export async function publishCampaign(campaignId: string, businessId: number): P
   if (!base && !zernio.IS_ZERNIO_SIMULATION) {
     throw new PaymentError("PUBLIC_BASE_URL não configurado — necessário para publicar anúncios reais", 500);
   }
-  const setup = campaign.campaignSetup as CampaignSetup | null;
   const destination = setup?.destination ?? "catalog";
   const tracking = `utm_source=${campaign.platform}&utm_medium=paid&utm_campaign=${campaign.utmSlug}&linkealls_destination=${destination}`;
   const destPath = profile.catalogSlug ? `/c/${profile.catalogSlug}` : `/e/${profile.slug}`;
