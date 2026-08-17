@@ -5,6 +5,8 @@ import { ChatBubble, type BubbleRole } from "../components/ChatBubble";
 import { ChatInput } from "../components/ChatInput";
 import { IncomingCallModal } from "../components/IncomingCallModal";
 import { CallScreen } from "../components/CallScreen";
+import { InlineCheckout } from "../components/InlineCheckout";
+import { BuyModal, parsePriceAoa } from "../components/BuyModal";
 import { useGeminiLive, type ProductCard, type AgentMessage } from "../hooks/useGeminiLive";
 import { businessApi, type ChatMessage } from "../lib/api";
 import { useBusinessSlug } from "../hooks/useBusinessSlug";
@@ -17,6 +19,7 @@ import {
   MessageSquare,
   Phone,
   ChevronUp,
+  ShoppingCart,
 } from "lucide-react";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -29,6 +32,14 @@ interface Message {
 }
 
 type Stage = "chat" | "typing" | "call_incoming" | "call_active" | "call_ended";
+
+/** A product the visitor is explicitly trying to buy via the BuyModal (non-call path). */
+interface ModalOffering {
+  name: string;
+  price: string;
+  description: string;
+  imageUrl?: string;
+}
 
 function formatTime(s: number) {
   const m = String(Math.floor(s / 60)).padStart(2, "0");
@@ -208,8 +219,17 @@ function AgentMessageOverlay({
 
 // ─── Product card ──────────────────────────────────────────────────────────
 
-function ProductCardItem({ product, onSelect }: { product: ProductCard; onSelect: () => void }) {
+function ProductCardItem({
+  product,
+  onSelect,
+  onBuy,
+}: {
+  product: ProductCard;
+  onSelect: () => void;
+  onBuy?: () => void;
+}) {
   const [imgError, setImgError] = useState(false);
+  const canBuy = !!onBuy && !!product.price && parsePriceAoa(product.price) !== null;
 
   return (
     <div
@@ -253,13 +273,26 @@ function ProductCardItem({ product, onSelect }: { product: ProductCard; onSelect
             {product.description}
           </p>
         )}
-        <div className="mt-auto pt-1.5">
+        <div className="mt-auto pt-1.5 flex flex-col gap-1.5">
+          {canBuy && (
+            <button
+              onClick={onBuy}
+              className="w-full py-1.5 rounded-xl text-[12px] font-semibold transition-colors flex items-center justify-center gap-1"
+              style={{ background: "#25D366", color: "#FFFFFF" }}
+            >
+              <ShoppingCart size={11} />
+              Comprar
+            </button>
+          )}
           <button
             onClick={onSelect}
-            className="w-full py-2 rounded-xl text-[12px] font-semibold transition-colors"
-            style={{ background: "#25D366", color: "#FFFFFF" }}
+            className="w-full py-1.5 rounded-xl text-[12px] font-semibold transition-colors"
+            style={{
+              background: canBuy ? "#F0F2F5" : "#25D366",
+              color: canBuy ? "#667781" : "#FFFFFF",
+            }}
           >
-            Selecionar
+            {canBuy ? "Perguntar" : "Selecionar"}
           </button>
         </div>
       </div>
@@ -272,10 +305,12 @@ function ProductCardItem({ product, onSelect }: { product: ProductCard; onSelect
 function ProductVitrine({
   products,
   onSelect,
+  onBuy,
   onClose,
 }: {
   products: ProductCard[];
   onSelect: (p: ProductCard) => void;
+  onBuy: (p: ProductCard) => void;
   onClose: () => void;
 }) {
   return (
@@ -312,7 +347,12 @@ function ProductVitrine({
 
       <div className="flex gap-3 overflow-x-auto px-4 pb-5 scrollbar-none flex-shrink-0">
         {products.map((p, i) => (
-          <ProductCardItem key={i} product={p} onSelect={() => onSelect(p)} />
+          <ProductCardItem
+            key={i}
+            product={p}
+            onSelect={() => onSelect(p)}
+            onBuy={() => onBuy(p)}
+          />
         ))}
       </div>
     </div>
@@ -324,10 +364,12 @@ function ProductVitrine({
 function InlineProductShelf({
   products,
   onSelect,
+  onBuy,
   onClose,
 }: {
   products: ProductCard[];
   onSelect: (p: ProductCard) => void;
+  onBuy: (p: ProductCard) => void;
   onClose: () => void;
 }) {
   return (
@@ -341,7 +383,7 @@ function InlineProductShelf({
     >
       <div className="flex items-center justify-between px-3 py-2.5">
         <p className="text-[13px] font-semibold" style={{ color: "#111B21" }}>
-          Produtos sugeridos pelo assistente 🤖
+          Produtos disponíveis
         </p>
         <button onClick={onClose}>
           <X size={14} style={{ color: "#8696A0" }} />
@@ -349,7 +391,12 @@ function InlineProductShelf({
       </div>
       <div className="flex gap-3 overflow-x-auto px-3 pb-3 scrollbar-none">
         {products.map((p, i) => (
-          <ProductCardItem key={i} product={p} onSelect={() => onSelect(p)} />
+          <ProductCardItem
+            key={i}
+            product={p}
+            onSelect={() => onSelect(p)}
+            onBuy={() => onBuy(p)}
+          />
         ))}
       </div>
     </div>
@@ -383,6 +430,9 @@ export function Chat() {
 
   // ── Dismissed agent messages (per-id set) ───────────────────────────────
   const [dismissedAgentMsgIds, setDismissedAgentMsgIds] = useState<Set<string>>(new Set());
+
+  // ── Buy modal (non-call path — visitor initiates buy from product shelf) ─
+  const [buyModalOffering, setBuyModalOffering] = useState<ModalOffering | null>(null);
 
   const chatMsgsRef = useRef<ChatMessage[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -573,15 +623,46 @@ export function Chat() {
     setIsCallMinimized(false);
   }, []);
 
-  // ── Product selection ────────────────────────────────────────────────────
+  // ── Product selection (chat / inquiry) ──────────────────────────────────
   const handleProductSelect = useCallback(
     (product: ProductCard) => {
-      gemini.sendText(`Quero o ${product.name}`);
+      gemini.sendText(`Quero saber mais sobre o ${product.name}`);
       gemini.clearProducts();
       // If minimised, expand call so the user can hear the response
       if (isCallMinimized) setIsCallMinimized(false);
     },
     [gemini, isCallMinimized],
+  );
+
+  // ── Product buy (opens BuyModal for non-call path, or tells agent to checkout during call) ──
+  const handleProductBuy = useCallback(
+    (product: ProductCard) => {
+      const isCallActive = stage === "call_active";
+      if (isCallActive) {
+        // During a live call: tell the agent the visitor wants to buy — agent will call initiate_checkout
+        gemini.sendText(`Quero comprar o ${product.name}`);
+        gemini.clearProducts();
+        if (isCallMinimized) setIsCallMinimized(false);
+      } else {
+        // Outside a call: open the BuyModal directly
+        setBuyModalOffering({
+          name: product.name,
+          price: product.price,
+          description: product.description,
+          imageUrl: product.imageUrl,
+        });
+        gemini.clearProducts();
+      }
+    },
+    [stage, gemini, isCallMinimized],
+  );
+
+  // ── Payment result from InlineCheckout ──────────────────────────────────
+  const handlePaymentResult = useCallback(
+    (orderId: string, status: string, offeringName: string) => {
+      gemini.sendPaymentResult(orderId, status, offeringName);
+    },
+    [gemini],
   );
 
   // ── Header phone button ──────────────────────────────────────────────────
@@ -630,6 +711,21 @@ export function Chat() {
   // ── RENDER ───────────────────────────────────────────────────────────────
   if (!businessSlug) return <Redirect to="/" />;
 
+  // Derive Offering shape from the modal offering so BuyModal accepts it
+  const buyModalOfferingAsOffering = buyModalOffering
+    ? {
+        name: buyModalOffering.name,
+        price: buyModalOffering.price,
+        description: buyModalOffering.description,
+        imageUrl: buyModalOffering.imageUrl,
+        id: 0,
+        slug: "",
+        order: 0,
+        featured: false,
+        catalogEnabled: false,
+      }
+    : null;
+
   return (
     <ChatLayout
       onBack={() => window.history.back()}
@@ -637,6 +733,15 @@ export function Chat() {
       businessSlug={businessSlug}
       businessName={businessName ?? undefined}
     >
+      {/* BuyModal — opened when visitor clicks "Comprar" outside of a call */}
+      {buyModalOfferingAsOffering && (
+        <BuyModal
+          businessSlug={businessSlug}
+          offering={buyModalOfferingAsOffering}
+          onClose={() => setBuyModalOffering(null)}
+        />
+      )}
+
       <div className="flex flex-col h-full overflow-hidden">
         {/* ── Incoming call overlay ── */}
         {stage === "call_incoming" && (
@@ -678,11 +783,26 @@ export function Chat() {
               onDismissAll={dismissAllAgentMessages}
             />
 
-            {/* Product vitrine — bottom overlay */}
-            {gemini.shownProducts && gemini.shownProducts.length > 0 && (
+            {/* Inline checkout overlay — shown when agent initiates payment during the call */}
+            {businessSlug && gemini.activeCheckout && (
+              <div className="absolute inset-x-0 bottom-0 z-40 flex flex-col justify-end pb-20 px-0">
+                <InlineCheckout
+                  businessSlug={businessSlug}
+                  checkout={gemini.activeCheckout}
+                  onDone={(orderId, status, offeringName) => {
+                    handlePaymentResult(orderId, status, offeringName);
+                  }}
+                  onDismiss={gemini.clearCheckout}
+                />
+              </div>
+            )}
+
+            {/* Product vitrine — bottom overlay (hidden when checkout is active) */}
+            {!gemini.activeCheckout && gemini.shownProducts && gemini.shownProducts.length > 0 && (
               <ProductVitrine
                 products={gemini.shownProducts}
                 onSelect={handleProductSelect}
+                onBuy={handleProductBuy}
                 onClose={gemini.clearProducts}
               />
             )}
@@ -733,7 +853,20 @@ export function Chat() {
               <InlineProductShelf
                 products={gemini.shownProducts}
                 onSelect={handleProductSelect}
+                onBuy={handleProductBuy}
                 onClose={gemini.clearProducts}
+              />
+            )}
+
+            {/* Inline checkout panel (shown when the AI agent initiates a payment during a call) */}
+            {businessSlug && gemini.activeCheckout && (
+              <InlineCheckout
+                businessSlug={businessSlug}
+                checkout={gemini.activeCheckout}
+                onDone={(orderId, status, offeringName) => {
+                  handlePaymentResult(orderId, status, offeringName);
+                }}
+                onDismiss={gemini.clearCheckout}
               />
             )}
 

@@ -5,6 +5,14 @@ export interface ProductCard {
   imageUrl?: string;
 }
 
+export interface CheckoutInfo {
+  orderId: string;
+  offeringName: string;
+  amount: number;
+  simulated: boolean;
+  merchantTransactionId: string;
+}
+
 export type ServerMessage =
   | { type: "ready" }
   | { type: "audio"; data: string }
@@ -14,6 +22,7 @@ export type ServerMessage =
   | { type: "user_transcript"; text: string }
   | { type: "show_products"; products: ProductCard[] }
   | { type: "agent_message"; text: string }
+  | ({ type: "checkout" } & CheckoutInfo)
   | { type: "closed" }
   | { type: "error"; message: string };
 
@@ -27,6 +36,8 @@ export interface CallFunnelServiceCallbacks {
   onShowProducts?: (products: ProductCard[]) => void;
   /** Called when the AI sends a text message to display in the chat during a call. */
   onAgentMessage?: (text: string) => void;
+  /** Called when the AI initiates a product checkout. */
+  onCheckout?: (info: CheckoutInfo) => void;
   onError: (message: string) => void;
   onClose: () => void;
 }
@@ -76,6 +87,7 @@ export class CallFunnelService {
           case "user_transcript": this.callbacks.onUserTranscript?.(msg.text); break;
           case "show_products":   this.callbacks.onShowProducts?.(msg.products); break;
           case "agent_message":   this.callbacks.onAgentMessage?.(msg.text); break;
+          case "checkout":        this.callbacks.onCheckout?.({ orderId: msg.orderId, offeringName: msg.offeringName, amount: msg.amount, simulated: msg.simulated, merchantTransactionId: msg.merchantTransactionId }); break;
           case "error":           this.callbacks.onError(msg.message); break;
           case "closed":          this.callbacks.onClose(); break;
         }
@@ -102,6 +114,12 @@ export class CallFunnelService {
   sendText(text: string): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify({ type: "user_text", text }));
+    }
+  }
+
+  sendPaymentResult(orderId: string, status: string, offeringName?: string): void {
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({ type: "payment_result", orderId, status, offeringName }));
     }
   }
 

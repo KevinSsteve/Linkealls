@@ -49,6 +49,52 @@ export interface GeminiLiveCallbacks {
   onClose: () => void;
 }
 
+/** initiate_checkout — creates an order and opens the payment panel for the client. */
+const initiateCheckoutDecl = {
+  name: "initiate_checkout",
+  description:
+    "Cria uma encomenda para o produto que o cliente quer comprar e abre o ecrã de pagamento Multicaixa Express no telemóvel do cliente. Usa APENAS quando o cliente confirmar claramente que quer comprar e fornecer o número de telefone. Não uses sem confirmação explícita.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      product_name: {
+        type: Type.STRING,
+        description: "Nome exacto do produto ou serviço, tal como aparece no catálogo",
+      },
+      quantity: {
+        type: Type.INTEGER,
+        description: "Quantidade a comprar (1 a 99)",
+      },
+      phone: {
+        type: Type.STRING,
+        description: "Número de telemóvel angolano do cliente, formato 9XXXXXXXX (sem espaços, sem +244)",
+      },
+      buyer_name: {
+        type: Type.STRING,
+        description: "Nome do cliente (opcional)",
+      },
+    },
+    required: ["product_name", "quantity", "phone"],
+  },
+};
+
+/** check_order_status — queries the current payment status of an order. */
+const checkOrderStatusDecl = {
+  name: "check_order_status",
+  description:
+    "Verifica o estado actual do pagamento de uma encomenda. Usa para saber se o cliente já pagou, se o pagamento falhou ou ainda está pendente.",
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      order_id: {
+        type: Type.STRING,
+        description: "ID da encomenda retornado pelo initiate_checkout",
+      },
+    },
+    required: ["order_id"],
+  },
+};
+
 /** show_product_catalog — displays visual product cards on the client. */
 const showProductCatalogDecl = {
   name: "show_product_catalog",
@@ -157,7 +203,7 @@ export async function createGeminiLiveSession(
         triggerTokens: "25600",
         slidingWindow: { targetTokens: "12800" },
       },
-      tools: [{ functionDeclarations: [showProductCatalogDecl, sendTextMessageDecl] }],
+      tools: [{ functionDeclarations: [showProductCatalogDecl, sendTextMessageDecl, initiateCheckoutDecl, checkOrderStatusDecl] }],
       systemInstruction: config.systemPrompt,
     },
     callbacks: {

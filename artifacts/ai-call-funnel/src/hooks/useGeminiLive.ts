@@ -1,10 +1,10 @@
 import { useState, useCallback, useRef, useEffect } from "react";
-import { CallFunnelService, type ProductCard } from "../services/callFunnelService";
+import { CallFunnelService, type ProductCard, type CheckoutInfo } from "../services/callFunnelService";
 import { startAudioCapture, type AudioCapture } from "../lib/audioCapture";
 import { AudioPlayer } from "../lib/audioPlayer";
 
 export type CallState = "idle" | "connecting" | "active" | "error" | "ended";
-export type { ProductCard };
+export type { ProductCard, CheckoutInfo };
 
 export interface AgentMessage {
   id: string;
@@ -18,11 +18,14 @@ export interface GeminiLiveState {
   errorMessage: string | null;
   shownProducts: ProductCard[] | null;
   agentMessages: AgentMessage[];
+  activeCheckout: CheckoutInfo | null;
   connect: () => void;
   disconnect: () => void;
   sendText: (text: string) => void;
   clearProducts: () => void;
   clearAgentMessages: () => void;
+  clearCheckout: () => void;
+  sendPaymentResult: (orderId: string, status: string, offeringName?: string) => void;
 }
 
 const VAD_THRESHOLD = 0.012;
@@ -37,6 +40,7 @@ export function useGeminiLive(leadId?: string | null, businessSlug?: string): Ge
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [shownProducts, setShownProducts] = useState<ProductCard[] | null>(null);
   const [agentMessages, setAgentMessages] = useState<AgentMessage[]>([]);
+  const [activeCheckout, setActiveCheckout] = useState<CheckoutInfo | null>(null);
 
   const serviceRef = useRef<CallFunnelService | null>(null);
   const playerRef = useRef<AudioPlayer | null>(null);
@@ -63,6 +67,7 @@ export function useGeminiLive(leadId?: string | null, businessSlug?: string): Ge
     setIsUserSpeaking(false);
     setShownProducts(null);
     setAgentMessages([]);
+    setActiveCheckout(null);
   }, []);
 
   const connect = useCallback(() => {
@@ -115,6 +120,10 @@ export function useGeminiLive(leadId?: string | null, businessSlug?: string): Ge
 
       onAgentMessage: (text) => {
         setAgentMessages((prev) => [...prev, { id: makeAgentMsgId(), text }]);
+      },
+
+      onCheckout: (info) => {
+        setActiveCheckout(info);
       },
 
       onError: (message) => {
@@ -175,6 +184,14 @@ export function useGeminiLive(leadId?: string | null, businessSlug?: string): Ge
     setAgentMessages([]);
   }, []);
 
+  const clearCheckout = useCallback(() => {
+    setActiveCheckout(null);
+  }, []);
+
+  const sendPaymentResult = useCallback((orderId: string, status: string, offeringName?: string) => {
+    serviceRef.current?.sendPaymentResult(orderId, status, offeringName);
+  }, []);
+
   useEffect(() => () => cleanup(), [cleanup]);
 
   return {
@@ -184,10 +201,13 @@ export function useGeminiLive(leadId?: string | null, businessSlug?: string): Ge
     errorMessage,
     shownProducts,
     agentMessages,
+    activeCheckout,
     connect,
     disconnect,
     sendText,
     clearProducts,
     clearAgentMessages,
+    clearCheckout,
+    sendPaymentResult,
   };
 }
