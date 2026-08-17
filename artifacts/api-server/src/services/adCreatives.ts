@@ -22,6 +22,7 @@ import {
 import { ai as managedGemini } from "@workspace/integrations-gemini-ai";
 import { ObjectStorageService } from "../lib/objectStorage.js";
 import { logger } from "../lib/logger.js";
+import { searchMetaTargeting } from "./zernio.js";
 
 const TEXT_MODEL = process.env["GEMINI_TEXT_MODEL"] ?? "gemini-3-flash-preview";
 const IMAGE_MODEL = "gemini-2.5-flash-image";
@@ -43,6 +44,22 @@ interface CreativePlan {
   callToAction: string;
   visualPrompt: string;
   concept: string;
+}
+
+export interface CampaignImageRecommendations {
+  audience: CampaignSetup["audience"];
+  description: {
+    headline: string;
+    body: string;
+    prompt: string;
+  };
+  budget: {
+    recommendedBudgetAoa: number;
+    expectedReach: string;
+    expectedReturn: string;
+    budgetReason: string;
+  };
+  audienceReason: string;
 }
 
 async function planCreative(
@@ -90,6 +107,188 @@ async function planCreative(
     plan.callToAction = "LEARN_MORE";
   }
   return plan;
+}
+
+export async function analyzeCampaignImage(
+  campaignId: string,
+  businessId: number,
+): Promise<CampaignImageRecommendations> {
+  const campaign = await db
+    .select()
+    .from(campaignsTable)
+    .where(and(eq(campaignsTable.id, campaignId), eq(campaignsTable.businessId, businessId)))
+    .limit(1)
+    .then((rows) => rows[0]);
+  if (!campaign) throw new Error("Campanha não encontrada");
+
+  const setup = campaign.campaignSetup as CampaignSetup | null;
+  const imagePath = setup?.creative.source === "upload"
+    ? setup.creative.mediaPath
+    : setup?.creative.referenceImagePath;
+  if (!imagePath) throw new Error("Adiciona uma imagem antes de pedir recomendações");
+
+  const profile = await db
+    .select({
+      name: businessProfilesTable.name,
+      sector: businessProfilesTable.sector,
+      description: businessProfilesTable.description,
+      offerings: businessProfilesTable.offerings,
+    })
+    .from(businessProfilesTable)
+    .where(eq(businessProfilesTable.id, businessId))
+    .limit(1)
+    .then((rows) => rows[0]);
+  if (!profile) throw new Error("Negócio não encontrado");
+
+  const storage = new ObjectStorageService();
+  const file = await storage.getObjectEntityFile(imagePath);
+  const [buffer] = await file.download();
+  const [metadata] = await file.getMetadata();
+  const mime = setup?.creative.mediaMimeType ?? String(metadata.contentType ?? "image/png");
+
+  const response = await managedGemini.models.generateContent({
+    model: TEXT_MODEL,
+    contents: [{
+      role: "user",
+      parts: [
+        {
+          text: `Analisa esta imagem de anúncio para a Linkealls e recomenda a campanha mais simples e eficaz para Angola.
+Negócio: ${profile.name} (${profile.sector ?? "geral"})
+Descrição do negócio: ${profile.description ?? "não disponível"}
+Produtos/serviços: ${profile.offerings.slice(0, 20).map((item) => item.name).join(", ") || "não disponíveis"}
+Campanha: ${campaign.name}
+Objetivo escolhido: ${campaign.objective}
+
+Regras:
+- Responde em português de Angola.
+- Não inventes uma promessa de vendas garantidas.
+- Escolhe um público amplo, realista e fácil de activar no Meta.
+- O orçamento é total da campanha, em Kz, no mínimo 5.000 Kz.
+- expectedReturn deve ser uma expectativa prudente (ex.: mais conversas, visitas ou pedidos), não uma garantia.
+- Cria uma headline até 40 caracteres e uma descrição até 300 caracteres.`,
+        },
+        { inlineData: { data: buffer.toString("base64"), mimeType: mime } },
+      ],
+    }],
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          audience: {
+            type: Type.OBJECT,
+            properties: {
+              location: { type: Type.STRING },
+              ageMin: { type: Type.INTEGER },
+              ageMax: { type: Type.INTEGER },
+              gender: { type: Type.STRING, enum: ["all", "female", "male"] },
+              interests: { type: Type.ARRAY, items: { type: Type.STRING } },
+              excludedAudiences: { type: Type.STRING },
+              audienceReason: { type: Type.STRING },
+            },
+            required: ["location", "ageMin", "ageMax", "gender", "interests", "excludedAudiences", "audienceReason"],
+          },
+          description: {
+            type: Type.OBJECT,
+            properties: {
+              headline: { type: Type.STRING },
+              body: { type: Type.STRING },
+              prompt: { type: Type.STRING },
+            },
+            required: ["headline", "body", "prompt"],
+          },
+          budget: {
+            type: Type.OBJECT,
+            properties: {
+              recommendedBudgetAoa: { type: Type.INTEGER },
+              expectedReach: { type: Type.STRING },
+              expectedReturn: { type: Type.STRING },
+              budgetReason: { type: Type.STRING },
+            },
+            required: ["recommendedBudgetAoa", "expectedReach", "expectedReturn", "budgetReason"],
+          },
+        },
+        required: ["audience", "description", "budget"],
+      },
+    },
+  });
+
+  const raw = JSON.parse(response.text ?? "{}") as {
+    audience?: {
+      location?: string;
+      ageMin?: number;
+      ageMax?: number;
+      gender?: "all" | "female" | "male";
+      interests?: string[];
+      excludedAudiences?: string;
+      audienceReason?: string;
+    };
+    description?: { headline?: string; body?: string; prompt?: string };
+    budget?: {
+      recommendedBudgetAoa?: number;
+      expectedReach?: string;
+      expectedReturn?: string;
+      budgetReason?: string;
+    };
+  };
+  const rawAudience = raw.audience ?? {};
+  const locationName = String(rawAudience.location ?? setup?.audience.location ?? "Luanda").trim() || "Luanda";
+  let location = locationName;
+  let locationId = setup?.audience.locationId ?? null;
+  try {
+    const matches = await searchMetaTargeting("city", locationName);
+    if (matches[0]) {
+      location = matches[0].name;
+      locationId = matches[0].id;
+    }
+  } catch (error) {
+    logger.warn({ error, campaignId }, "AI audience city lookup failed");
+  }
+
+  const interestNames = Array.isArray(rawAudience.interests)
+    ? rawAudience.interests.map((item) => String(item).trim()).filter(Boolean).slice(0, 8)
+    : [];
+  const resolvedInterests = await Promise.all(interestNames.map(async (name) => {
+    try {
+      const matches = await searchMetaTargeting("interest", name);
+      return matches[0] ? { name: matches[0].name, id: matches[0].id } : null;
+    } catch (error) {
+      logger.warn({ error, campaignId, interest: name }, "AI audience interest lookup failed");
+      return null;
+    }
+  }));
+  const interests = resolvedInterests.filter((item): item is { name: string; id: string } => item !== null);
+  const ageMin = Math.min(65, Math.max(18, Math.round(rawAudience.ageMin ?? 18)));
+  const ageMax = Math.max(ageMin, Math.min(65, Math.round(rawAudience.ageMax ?? 55)));
+  const recommendedBudgetAoa = Math.min(
+    10_000_000,
+    Math.max(5_000, Math.round(Number(raw.budget?.recommendedBudgetAoa ?? 15_000) / 500) * 500),
+  );
+
+  return {
+    audience: {
+      location,
+      locationId,
+      ageMin,
+      ageMax,
+      gender: rawAudience.gender === "female" || rawAudience.gender === "male" ? rawAudience.gender : "all",
+      interests: interests.map((item) => item.name).join(", "),
+      interestIds: interests.map((item) => item.id),
+      excludedAudiences: String(rawAudience.excludedAudiences ?? ""),
+    },
+    description: {
+      headline: String(raw.description?.headline ?? "").slice(0, 40),
+      body: String(raw.description?.body ?? "").slice(0, 300),
+      prompt: String(raw.description?.prompt ?? "").slice(0, 1000),
+    },
+    budget: {
+      recommendedBudgetAoa,
+      expectedReach: String(raw.budget?.expectedReach ?? "A IA vai estimar o alcance depois da publicação.").slice(0, 160),
+      expectedReturn: String(raw.budget?.expectedReturn ?? "Mais pessoas a conhecer e contactar o negócio.").slice(0, 300),
+      budgetReason: String(raw.budget?.budgetReason ?? "Orçamento inicial recomendado pela IA para testar o anúncio.").slice(0, 600),
+    },
+    audienceReason: String(rawAudience.audienceReason ?? "Público recomendado pela IA com base na imagem e no negócio.").slice(0, 600),
+  };
 }
 
 async function generateImage(

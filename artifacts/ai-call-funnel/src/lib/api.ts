@@ -252,7 +252,8 @@ export interface AssistantMessage {
 
 export type CampaignPlatform = "google" | "instagram" | "facebook" | "tiktok" | "meta";
 export type CampaignStatus = "rascunho" | "ativa" | "pausada" | "encerrada";
-export type CampaignObjective = "awareness" | "traffic" | "leads" | "sales";
+export type CampaignObjective = "awareness" | "traffic" | "engagement" | "lead_generation" | "leads" | "sales";
+export type CampaignDestination = "whatsapp" | "download_app" | "linkealls_chat" | "catalog" | "product";
 
 export interface CampaignCopy {
   headline: string;
@@ -303,6 +304,15 @@ export interface AdCreative {
 }
 
 export interface CampaignSetup {
+  destination?: CampaignDestination;
+  destinationUrl?: string | null;
+  aiRecommendation?: {
+    audienceReason: string;
+    budgetReason: string;
+    expectedReach: string;
+    expectedReturn: string;
+    recommendedBudgetAoa: number;
+  } | null;
   audience: {
     location: string;
     locationId: string | null;
@@ -699,6 +709,13 @@ export function businessApi(slug: string) {
       ),
     generateCampaignKit: (id: string) =>
       bRequest<{ campaign: Campaign }>(`/campaigns/${id}/generate`, { method: "POST" }),
+    analyzeCampaignImage: (id: string) =>
+      bRequest<{ recommendations: {
+        audience: CampaignSetup["audience"];
+        description: { headline: string; body: string; prompt: string };
+        budget: { recommendedBudgetAoa: number; expectedReach: string; expectedReturn: string; budgetReason: string };
+        audienceReason: string;
+      } }>(`/campaigns/${id}/ai-recommendations`, { method: "POST" }),
     getCampaignMetrics: (id: string) =>
       bRequest<{ metrics: CampaignMetrics }>(`/campaigns/${id}/metrics`),
     getCampaignOptimizations: (id: string) =>

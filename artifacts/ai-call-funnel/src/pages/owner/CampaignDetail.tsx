@@ -23,6 +23,7 @@ import {
 } from "../../lib/api";
 import { useBusinessSlug } from "../../hooks/useBusinessSlug";
 import { AppHeader, AppIconButton } from "../../components/app/AppHeader";
+import { SimpleMetaAdsWizard } from "./SimpleMetaAdsWizard";
 
 // ─── Colours ─────────────────────────────────────────────────────────────────
 const C = {
@@ -522,6 +523,8 @@ const PencilIcon = () => (
 function defaultCampaignSetup(campaign: Campaign): CampaignSetup {
   const existing = campaign.campaignSetup;
   return {
+    destination: existing?.destination ?? "catalog",
+    aiRecommendation: existing?.aiRecommendation ?? null,
     audience: {
       location: existing?.audience?.location ?? "Luanda",
       locationId: existing?.audience?.locationId ?? null,
@@ -1719,7 +1722,7 @@ export function CampaignDetail() {
         {/* Publish tab */}
         {tab === "publicar" && api && (
           campaign.platform === "meta"
-             ? <MetaAdsWizard
+             ? <SimpleMetaAdsWizard
                  api={api}
                  campaign={campaign}
                  onUpdate={setCampaign}

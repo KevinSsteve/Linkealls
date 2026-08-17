@@ -62,7 +62,7 @@ import {
   controlCampaignAd,
   CAMPAIGN_MIN_BUDGET_AOA,
 } from "../services/campaignAds.js";
-import { startCreativeGeneration } from "../services/adCreatives.js";
+import { analyzeCampaignImage, startCreativeGeneration } from "../services/adCreatives.js";
 import { effectiveAoaPerUsd, aoaToWholeUsd } from "../services/fx.js";
 import { IS_ZERNIO_SIMULATION, searchMetaTargeting } from "../services/zernio.js";
 import { PaymentError } from "../services/payments.js";
@@ -593,6 +593,19 @@ export function createBusinessScopedRouter(): Router {
     } catch (err) {
       logger.error({ err }, "POST /campaigns/:id/generate failed");
       res.status(500).json({ error: err instanceof Error ? err.message : "Erro ao gerar kit" });
+    }
+  });
+
+  router.post("/campaigns/:id/ai-recommendations", requireOwner, async (req, res) => {
+    const id = String(req.params["id"] ?? "");
+    try {
+      const recommendations = await analyzeCampaignImage(id, bid(res));
+      res.json({ recommendations });
+    } catch (err) {
+      logger.error({ err }, "POST /campaigns/:id/ai-recommendations failed");
+      res.status(502).json({
+        error: err instanceof Error ? err.message : "Não foi possível analisar a imagem",
+      });
     }
   });
 

@@ -46,7 +46,18 @@ export async function createCampaign(
   data: { name: string; platform: CampaignPlatform; objective: string; budget: number },
   businessId?: number,
 ): Promise<Campaign> {
-  const utmSlug = slugify(data.name);
+  const baseSlug = slugify(data.name) || "campanha";
+  let utmSlug = baseSlug;
+  let suffix = 2;
+  while (true) {
+    const existing = await db
+      .select({ id: campaignsTable.id })
+      .from(campaignsTable)
+      .where(eq(campaignsTable.utmSlug, utmSlug))
+      .limit(1);
+    if (existing.length === 0) break;
+    utmSlug = `${baseSlug}-${suffix++}`;
+  }
   const inserted = await db
     .insert(campaignsTable)
     .values({ ...data, utmSlug, ...(businessId !== undefined ? { businessId } : {}) })

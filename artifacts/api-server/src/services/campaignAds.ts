@@ -388,7 +388,11 @@ export async function publishCampaign(campaignId: string, businessId: number): P
   if (!campaign.budgetUsd) throw new PaymentError("Orçamento USD em falta — contacta o suporte");
 
   const profileRows = await db
-    .select({ catalogSlug: businessProfilesTable.catalogSlug, slug: businessProfilesTable.slug })
+    .select({
+      catalogSlug: businessProfilesTable.catalogSlug,
+      slug: businessProfilesTable.slug,
+      phone: businessProfilesTable.phone,
+    })
     .from(businessProfilesTable)
     .where(eq(businessProfilesTable.id, businessId))
     .limit(1);
@@ -399,8 +403,18 @@ export async function publishCampaign(campaignId: string, businessId: number): P
   if (!base && !zernio.IS_ZERNIO_SIMULATION) {
     throw new PaymentError("PUBLIC_BASE_URL não configurado — necessário para publicar anúncios reais", 500);
   }
+  const setup = campaign.campaignSetup as CampaignSetup | null;
+  const destination = setup?.destination ?? "catalog";
+  const tracking = `utm_source=${campaign.platform}&utm_medium=paid&utm_campaign=${campaign.utmSlug}&linkealls_destination=${destination}`;
   const destPath = profile.catalogSlug ? `/c/${profile.catalogSlug}` : `/e/${profile.slug}`;
-  const linkUrl = `${base}${destPath}?utm_source=${campaign.platform}&utm_medium=paid&utm_campaign=${campaign.utmSlug}`;
+  const businessUrl = `${base}${destPath}?${tracking}`;
+  const phone = (profile.phone ?? "").replace(/\D/g, "").replace(/^00/, "").replace(/^0/, "244");
+  const directProductUrl = setup?.destinationUrl?.trim();
+  const linkUrl = destination === "product" && /^https?:\/\/\S+$/i.test(directProductUrl ?? "")
+    ? directProductUrl!
+    : destination === "whatsapp" && phone.length >= 9
+    ? `https://wa.me/${phone}?text=${encodeURIComponent(`Olá! Vi o anúncio da campanha ${campaign.name} e quero saber mais.`)}`
+    : businessUrl;
   const mediaUrl = `${base}${campaign.creativeJson.mediaUrl}`;
   const channel: zernio.ZernioChannel = campaign.platform === "tiktok" ? "tiktok" : "meta";
 
@@ -428,7 +442,7 @@ export async function publishCampaign(campaignId: string, businessId: number): P
       mediaType: campaign.creativeJson.mediaType,
       linkUrl,
       objective: campaign.objective,
-      audience: (campaign.campaignSetup as CampaignSetup | null)?.audience,
+      audience: setup?.audience,
       idempotencyKey: `linkealls-pub-${campaign.id}`,
     });
     const publishStatus = result.reviewStatus && result.reviewStatus !== "APPROVED" ? "em_revisao" : "ativa";

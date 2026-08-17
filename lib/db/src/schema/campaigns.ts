@@ -23,6 +23,13 @@ export type CampaignObjective =
   | "leads"
   | "sales";
 
+export type CampaignDestination =
+  | "whatsapp"
+  | "download_app"
+  | "linkealls_chat"
+  | "catalog"
+  | "product";
+
 /** Payment state of the campaign budget (paid in Kz by the owner). */
 export type CampaignPaymentStatus = "nao_pago" | "pendente" | "pago" | "falhado";
 /** State of the AI-generated ad creative. */
@@ -57,6 +64,18 @@ export interface AdCreative {
 
 /** Configuration collected by the progressive Meta Ads wizard. */
 export interface CampaignSetup {
+  /** Where a click/conversation should take the person. */
+  destination?: CampaignDestination;
+  /** Required when the owner chooses a direct product link. */
+  destinationUrl?: string | null;
+  /** Short explanation shown with the AI's automatic recommendation. */
+  aiRecommendation?: {
+    audienceReason: string;
+    budgetReason: string;
+    expectedReach: string;
+    expectedReturn: string;
+    recommendedBudgetAoa: number;
+  } | null;
   audience: {
     location: string;
     /** Opaque Meta geo key returned by the targeting search. */
@@ -205,6 +224,15 @@ export const updateCampaignSchema = z.object({
 const objectPathSchema = z.string().regex(/^\/objects\/[A-Za-z0-9/_-]+$/, "Caminho de object storage inválido");
 
 export const campaignSetupSchema = z.object({
+  destination: z.enum(["whatsapp", "download_app", "linkealls_chat", "catalog", "product"]).optional().default("catalog"),
+  destinationUrl: z.string().trim().max(500).nullable().optional().default(null),
+  aiRecommendation: z.object({
+    audienceReason: z.string().max(600),
+    budgetReason: z.string().max(600),
+    expectedReach: z.string().max(160),
+    expectedReturn: z.string().max(300),
+    recommendedBudgetAoa: z.number().int().min(5000).max(10_000_000),
+  }).nullable().optional().default(null),
   audience: z.object({
     location: z.string().trim().min(1).max(120),
     locationId: z.string().trim().max(200).nullable().optional().default(null),
