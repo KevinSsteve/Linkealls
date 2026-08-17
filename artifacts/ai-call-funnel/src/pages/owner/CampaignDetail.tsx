@@ -47,6 +47,18 @@ const STATUS_NEXT: Record<Campaign["status"], Campaign["status"] | null> = {
   rascunho: "ativa", ativa: "pausada", pausada: "ativa", encerrada: null,
 };
 
+function readableCreativeError(error: string | null | undefined): string {
+  if (!error) return "Não foi possível gerar o criativo.";
+  if (/RESOURCE_EXHAUSTED|quota|free.?tier|generate_content_free_tier|429/i.test(error)) {
+    return "O Gemini está sem quota para gerar imagens nesta conta. Ativa faturação/quota no projeto Google ou usa uma imagem da tua galeria.";
+  }
+  if (/PERMISSION_DENIED|forbidden|unauthenticated/i.test(error)) {
+    return "A chave Gemini não tem acesso ao modelo de imagem configurado.";
+  }
+  if (error.length > 320) return "O Gemini não conseguiu gerar o criativo. Tenta novamente mais tarde ou usa uma imagem da tua galeria.";
+  return error;
+}
+
 // ─── Copy button ──────────────────────────────────────────────────────────────
 function CopyBtn({ text, label = "Copiar" }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false);
@@ -831,7 +843,7 @@ function MetaAdsWizard({ api, campaign, onUpdate, onExit }: {
                   {campaign.creativeStatus === "a_gerar" ? (
                     <><Loader2 size={24} className="animate-spin" style={{ color: "#16A34A" }} /><span style={{ fontSize: 14, color: "#6B7280" }}>A criar a imagem…</span></>
                   ) : campaign.creativeStatus === "erro" ? (
-                    <><AlertCircle size={24} style={{ color: "#C62828" }} /><span style={{ fontSize: 13, color: "#C62828" }}>{campaign.creativeError ?? "Erro ao gerar imagem"}</span></>
+                    <><AlertCircle size={24} style={{ color: "#C62828", flexShrink: 0 }} /><span style={{ fontSize: 13, color: "#C62828", lineHeight: 1.45, overflowWrap: "anywhere" }}>{readableCreativeError(campaign.creativeError)}</span></>
                   ) : (
                     <><Sparkles size={24} style={{ color: "#16A34A" }} /><span style={{ fontSize: 15, fontWeight: 600, color: "#111" }}>Pré-visualização</span><span style={{ fontSize: 13, color: "#6B7280" }}>aparecerá aqui após geração</span></>
                   )}
@@ -1305,7 +1317,7 @@ function LegacyPublishFlow({ api, campaign, onUpdate }: {
               </div>
             )}
             {campaign.creativeStatus === "erro" && (
-              <p className="text-[12px]" style={{ color: "#C62828" }}>{campaign.creativeError ?? "Erro ao gerar"}</p>
+              <p className="text-[12px] leading-relaxed" style={{ color: "#C62828", overflowWrap: "anywhere" }}>{readableCreativeError(campaign.creativeError)}</p>
             )}
             {creativeReady && campaign.creativeJson && (
               <div className="space-y-2">

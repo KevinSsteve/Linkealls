@@ -23,7 +23,12 @@ import { ObjectStorageService } from "../lib/objectStorage.js";
 import { logger } from "../lib/logger.js";
 
 const TEXT_MODEL = process.env["GEMINI_TEXT_MODEL"] ?? "gemini-3-flash-preview";
-const IMAGE_MODEL = process.env["GEMINI_IMAGE_MODEL"] ?? "gemini-2.5-flash-image";
+const configuredImageModel = process.env["GEMINI_IMAGE_MODEL"]?.trim();
+// Older deployments used the preview alias. Keep accepting it, but send the
+// currently supported Gemini image model name to the SDK.
+const IMAGE_MODEL = configuredImageModel === "gemini-2.5-flash-preview-image"
+  ? "gemini-2.5-flash-image"
+  : configuredImageModel || "gemini-2.5-flash-image";
 const VIDEO_MODEL = process.env["GEMINI_VIDEO_MODEL"] ?? "veo-3.0-fast-generate-001";
 
 /** Meta/Zernio CTA enum values we allow the model to choose from. */
@@ -140,6 +145,23 @@ async function generateVideo(prompt: string): Promise<{ buffer: Buffer; mime: st
   const dl = await fetch(`${video.uri}${sep}key=${apiKey}`);
   if (!dl.ok) throw new Error(`Falha ao descarregar o vídeo gerado (${dl.status})`);
   return { buffer: Buffer.from(await dl.arrayBuffer()), mime: "video/mp4" };
+}
+
+function userFacingCreativeError(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  if (/RESOURCE_EXHAUSTED|quota|free.?tier|429/i.test(message)) {
+    return `O Gemini não tem quota disponível para gerar imagens neste momento (modelo ${IMAGE_MODEL}). A chave atual está sem quota de imagem no Free Tier; ativa faturação/quota no projeto Google ou configura outro provedor de imagens.`;
+  }
+  if (/PERMISSION_DENIED|forbidden|unauthenticated/i.test(message)) {
+    return "O Gemini recusou o pedido. Verifica se a chave tem acesso ao modelo de imagem e se pertence ao projeto correcto.";
+  }
+  if (/NOT_FOUND|not found|model.*(invalid|does not exist)/i.test(message)) {
+    return `O modelo de imagem ${IMAGE_MODEL} não está disponível para esta chave Gemini. Configura um modelo de imagem suportado.`;
+  }
+  if (/SAFETY|blocked|safety ratings/i.test(message)) {
+    return "O Gemini bloqueou o criativo pelos filtros de segurança. Tenta remover conteúdo sensível do catálogo ou da descrição.";
+  }
+  return "Não foi possível gerar o criativo com o Gemini. Tenta novamente mais tarde ou usa uma imagem da tua galeria.";
 }
 
 /**
@@ -274,7 +296,7 @@ async function runCreativeGeneration(campaign: Campaign): Promise<void> {
       .where(eq(campaignsTable.id, campaign.id));
     logger.info({ campaignId: campaign.id, channel }, "ad creative generated");
   } catch (err) {
-    logger.error({ err, campaignId: campaign.id }, "ad creative generation failed");
-    await fail(err instanceof Error ? err.message : "Erro ao gerar o criativo");
+    logger.error({ err, campaignId: campaign.id, imageModel: IMAGE_MODEL }, "ad creative generation failed");
+    await fail(userFacingCreativeError(err));
   }
 }
