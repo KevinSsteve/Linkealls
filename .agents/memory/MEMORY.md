@@ -9,3 +9,4 @@
 - [Zernio real ads decisions](zernio-ads.md) — payment fails closed unless NODE_ENV=development; all publish prerequisites checked before any charge; immutable payment attempts; whole-USD funding.
 - [Zernio Meta contract](zernio-meta-contract.md) — Meta goals use ODAX names; targeting is flat; city and interest inputs need Zernio ID lookups.
 - [Web Push Setup](web-push-setup.md) — VAPID env secrets, pushSubscriptions jsonb in business_profiles, daily cron at WAT 08:00, Uint8Array cast quirk.
+- [Meta targeting selections](meta-targeting-selections.md) — persist opaque Meta IDs beside labels, then re-resolve/validate them server-side before publishing.

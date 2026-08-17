@@ -46,6 +46,8 @@ import {
   getCampaign,
   createCampaign,
   duplicateCampaign,
+  deleteCampaign,
+  CampaignDeleteError,
   updateCampaign,
   CampaignLockedError,
   updateCampaignSetup,
@@ -62,7 +64,7 @@ import {
 } from "../services/campaignAds.js";
 import { startCreativeGeneration } from "../services/adCreatives.js";
 import { effectiveAoaPerUsd, aoaToWholeUsd } from "../services/fx.js";
-import { IS_ZERNIO_SIMULATION } from "../services/zernio.js";
+import { IS_ZERNIO_SIMULATION, searchMetaTargeting } from "../services/zernio.js";
 import { PaymentError } from "../services/payments.js";
 import { aoPhoneSchema } from "@workspace/db";
 import {
@@ -481,6 +483,30 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
+  // These routes must precede /campaigns/:id so "targeting" is not treated as
+  // a campaign UUID. The Meta account remains server-side.
+  router.get("/campaigns/targeting/locations", requireOwner, async (req, res) => {
+    const query = typeof req.query["q"] === "string" ? req.query["q"].slice(0, 80) : "";
+    try {
+      const results = await searchMetaTargeting("city", query);
+      res.json({ results });
+    } catch (err) {
+      logger.warn({ err }, "GET Meta location suggestions failed");
+      res.status(503).json({ error: "Não foi possível consultar localizações Meta" });
+    }
+  });
+
+  router.get("/campaigns/targeting/interests", requireOwner, async (req, res) => {
+    const query = typeof req.query["q"] === "string" ? req.query["q"].slice(0, 80) : "";
+    try {
+      const results = await searchMetaTargeting("interest", query);
+      res.json({ results });
+    } catch (err) {
+      logger.warn({ err }, "GET Meta interest suggestions failed");
+      res.status(503).json({ error: "Não foi possível consultar interesses Meta" });
+    }
+  });
+
   router.get("/campaigns/:id", requireOwner, async (req, res) => {
     const id = String(req.params["id"] ?? "");
     try {
@@ -526,6 +552,25 @@ export function createBusinessScopedRouter(): Router {
       }
       logger.error({ err }, "PATCH /campaigns/:id/setup failed");
       res.status(500).json({ error: "Erro ao guardar a configuração da campanha" });
+    }
+  });
+
+  router.delete("/campaigns/:id", requireOwner, async (req, res) => {
+    const id = String(req.params["id"] ?? "");
+    try {
+      const deleted = await deleteCampaign(id, bid(res));
+      if (!deleted) {
+        res.status(404).json({ error: "Campanha não encontrada" });
+        return;
+      }
+      res.json({ deleted: true });
+    } catch (err) {
+      if (err instanceof CampaignDeleteError) {
+        res.status(err.statusCode).json({ error: err.message });
+        return;
+      }
+      logger.error({ err }, "DELETE /campaigns/:id failed");
+      res.status(500).json({ error: "Erro ao eliminar campanha" });
     }
   });
 

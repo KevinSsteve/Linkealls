@@ -97,6 +97,69 @@ type TargetingLookup = {
   results?: Array<{ key?: string; id?: string | number; name?: string }>;
 };
 
+export interface MetaTargetingSuggestion {
+  id: string;
+  name: string;
+  key?: string;
+  type: "city" | "interest";
+}
+
+/**
+ * Read-only targeting suggestions for the owner wizard. The account id is
+ * resolved on the server so callers cannot choose a different Meta account.
+ */
+export async function searchMetaTargeting(
+  type: "city" | "interest",
+  query: string,
+): Promise<MetaTargetingSuggestion[]> {
+  const q = query.trim();
+  if (q.length < 2) return [];
+
+  if (IS_ZERNIO_SIMULATION) {
+    return [];
+  }
+
+  const account = houseAccount("meta");
+  if (!account) throw new ZernioError("Conta Meta ainda não configurada", 503);
+
+  if (type === "city") {
+    const params = new URLSearchParams({
+      accountId: account.accountId,
+      dimension: "geo",
+      type: "city",
+      q,
+      countryCode: "AO",
+    });
+    const lookup = await zernioFetch<TargetingLookup>(
+      "GET",
+      `/v1/ads/targeting/search?${params.toString()}`,
+    );
+    return (lookup.results ?? [])
+      .filter((item) => item.key && item.name)
+      .slice(0, 12)
+      .map((item) => ({
+        id: String(item.key),
+        key: String(item.key),
+        name: String(item.name),
+        type: "city" as const,
+      }));
+  }
+
+  const params = new URLSearchParams({ platform: "metaads", q });
+  const lookup = await zernioFetch<TargetingLookup>(
+    "GET",
+    `/v1/ads/interests?${params.toString()}`,
+  );
+  return (lookup.results ?? [])
+    .filter((item) => item.id !== undefined && item.name)
+    .slice(0, 12)
+    .map((item) => ({
+      id: String(item.id),
+      name: String(item.name),
+      type: "interest" as const,
+    }));
+}
+
 async function buildMetaTargeting(
   accountId: string,
   audience: CampaignSetup["audience"] | undefined,
@@ -122,7 +185,9 @@ async function buildMetaTargeting(
         countryCode: "AO",
       });
       const lookup = await zernioFetch<TargetingLookup>("GET", `/v1/ads/targeting/search?${query.toString()}`);
-      const cityKey = lookup.results?.[0]?.key;
+      const cityKey =
+        lookup.results?.find((item) => item.key === audience.locationId)?.key ??
+        lookup.results?.[0]?.key;
       if (cityKey) {
         delete targeting.countries;
         targeting.cities = [{ key: cityKey }];
@@ -138,12 +203,15 @@ async function buildMetaTargeting(
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
+  const interestIds = audience.interestIds ?? [];
   if (interestNames.length) {
     const interests = (await Promise.all(interestNames.map(async (name) => {
       try {
         const query = new URLSearchParams({ platform: "metaads", q: name });
         const lookup = await zernioFetch<TargetingLookup>("GET", `/v1/ads/interests?${query.toString()}`);
-        const match = lookup.results?.[0];
+         const match =
+           lookup.results?.find((item) => String(item.id) === interestIds[interestNames.indexOf(name)]) ??
+           lookup.results?.[0];
         return match?.id !== undefined
           ? { id: String(match.id), name: match.name ?? name }
           : null;

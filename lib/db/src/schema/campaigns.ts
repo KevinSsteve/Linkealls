@@ -59,10 +59,14 @@ export interface AdCreative {
 export interface CampaignSetup {
   audience: {
     location: string;
+    /** Opaque Meta geo key returned by the targeting search. */
+    locationId: string | null;
     ageMin: number;
     ageMax: number;
     gender: "all" | "female" | "male";
     interests: string;
+    /** Opaque Meta interest ids matching the selected interest names. */
+    interestIds: string[];
     excludedAudiences: string;
   };
   creative: {
@@ -203,10 +207,12 @@ const objectPathSchema = z.string().regex(/^\/objects\/[A-Za-z0-9/_-]+$/, "Camin
 export const campaignSetupSchema = z.object({
   audience: z.object({
     location: z.string().trim().min(1).max(120),
+    locationId: z.string().trim().max(200).nullable().optional().default(null),
     ageMin: z.number().int().min(13).max(65),
     ageMax: z.number().int().min(13).max(65),
     gender: z.enum(["all", "female", "male"]),
     interests: z.string().trim().max(500),
+    interestIds: z.array(z.string().trim().min(1).max(80)).max(25).optional().default([]),
     excludedAudiences: z.string().trim().max(500),
   }).refine((value) => value.ageMax >= value.ageMin, {
     message: "A idade máxima deve ser igual ou superior à mínima",

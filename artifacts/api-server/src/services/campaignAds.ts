@@ -106,7 +106,12 @@ function assertPayable(campaign: Campaign): void {
     if (!["awareness", "traffic", "engagement", "lead_generation"].includes(campaign.objective)) {
       throw new PaymentError("Escolhe um objetivo Meta compatível antes de pagar");
     }
-    if (!setup?.audience?.location || !setup.audience.ageMin || !setup.audience.ageMax) {
+    if (
+      !setup?.audience?.location ||
+      !setup.audience.locationId ||
+      !setup.audience.ageMin ||
+      !setup.audience.ageMax
+    ) {
       throw new PaymentError("Define o público da campanha antes de pagar");
     }
     if (campaign.creativeStatus !== "pronto" || !campaign.creativeJson) {

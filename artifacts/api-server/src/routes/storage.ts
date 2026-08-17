@@ -7,21 +7,37 @@ import { Router, type IRouter, type Request, type Response } from "express";
 import { ObjectNotFoundError, ObjectStorageService } from "../lib/objectStorage.js";
 import { logger } from "../lib/logger.js";
 import { z } from "zod";
+import { getUserByToken, requestToken } from "./userAuth.js";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
 
 const RequestUploadUrlBody = z.object({
-  name: z.string(),
-  size: z.number(),
-  contentType: z.string(),
+  name: z.string().trim().min(1).max(200),
+  size: z.number().int().positive().max(10 * 1024 * 1024),
+  contentType: z.enum(["image/png", "image/jpeg", "image/webp"]),
+  businessSlug: z.string().trim().min(1).max(80),
 });
+
+async function requireSession(req: Request, res: Response, next: () => void): Promise<void> {
+  try {
+    const user = await getUserByToken(requestToken(req));
+    if (!user) {
+      res.status(401).json({ error: "Sessão inválida — inicia sessão novamente" });
+      return;
+    }
+    next();
+  } catch (error) {
+    logger.error({ err: error }, "Storage authentication failed");
+    res.status(500).json({ error: "Erro interno" });
+  }
+}
 
 /**
  * POST /storage/uploads/request-url
  * Single-tenant: no auth gate — this API is only reachable by the owner UI.
  */
-router.post("/storage/uploads/request-url", async (req: Request, res: Response) => {
+router.post("/storage/uploads/request-url", requireSession, async (req: Request, res: Response) => {
   const parsed = RequestUploadUrlBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: "Missing or invalid fields: name, size, contentType required" });
@@ -30,6 +46,11 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
 
   try {
     const { name, size, contentType } = parsed.data;
+    const user = await getUserByToken(requestToken(req));
+    if (!user?.handle || user.handle !== parsed.data.businessSlug) {
+      res.status(403).json({ error: "Sem permissão para carregar ficheiros neste negócio" });
+      return;
+    }
     const uploadURL = await objectStorageService.getObjectEntityUploadURL();
     const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
     res.json({ uploadURL, objectPath, metadata: { name, size, contentType } });

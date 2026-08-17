@@ -10,6 +10,7 @@ import {
   ChevronDown, ChevronUp, Users, BadgeCheck, TrendingUp,
   DollarSign, Lightbulb, Play, Pause, CopyPlus,
   Wallet, Smartphone, Rocket, Eye, MousePointerClick, StopCircle,
+  MapPin, Search, X,
 } from "lucide-react";
 import { OwnerNav } from "../../components/owner/OwnerNav";
 import {
@@ -17,6 +18,7 @@ import {
   type CampaignMetrics, type CampaignPlatform,
   type AdsQuote, type CampaignPublishStatus,
   type CampaignSetup,
+  type MetaTargetingSuggestion,
   uploadPrivateImage,
 } from "../../lib/api";
 import { useBusinessSlug } from "../../hooks/useBusinessSlug";
@@ -261,24 +263,168 @@ function WAgeSlider({ ageMin, ageMax, onChange }: {
   const TMIN = 13; const TMAX = 65;
   const pMin = ((ageMin - TMIN) / (TMAX - TMIN)) * 100;
   const pMax = ((ageMax - TMIN) / (TMAX - TMIN)) * 100;
+  const [dragging, setDragging] = useState<"min" | "max" | null>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const valueFromPointer = (clientX: number) => {
+    const rect = trackRef.current?.getBoundingClientRect();
+    if (!rect || rect.width <= 0) return null;
+    return Math.round(TMIN + ((clientX - rect.left) / rect.width) * (TMAX - TMIN));
+  };
+  const setThumb = (thumb: "min" | "max", value: number) => {
+    const next = Math.min(TMAX, Math.max(TMIN, value));
+    if (thumb === "min") onChange(Math.min(next, ageMax), ageMax);
+    else onChange(ageMin, Math.max(next, ageMin));
+  };
+  const onThumbKeyDown = (thumb: "min" | "max", event: React.KeyboardEvent) => {
+    const current = thumb === "min" ? ageMin : ageMax;
+    if (event.key === "ArrowLeft" || event.key === "ArrowDown") {
+      event.preventDefault(); setThumb(thumb, current - 1);
+    } else if (event.key === "ArrowRight" || event.key === "ArrowUp") {
+      event.preventDefault(); setThumb(thumb, current + 1);
+    } else if (event.key === "Home") {
+      event.preventDefault(); setThumb(thumb, TMIN);
+    } else if (event.key === "End") {
+      event.preventDefault(); setThumb(thumb, TMAX);
+    }
+  };
+  const thumbProps = (thumb: "min" | "max", value: number) => ({
+    role: "slider",
+    tabIndex: 0,
+    "aria-label": thumb === "min" ? "Idade mínima" : "Idade máxima",
+    "aria-valuemin": TMIN,
+    "aria-valuemax": TMAX,
+    "aria-valuenow": value,
+    onKeyDown: (event: React.KeyboardEvent) => onThumbKeyDown(thumb, event),
+    onPointerDown: (event: React.PointerEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      event.currentTarget.setPointerCapture(event.pointerId);
+      setDragging(thumb);
+    },
+    onPointerMove: (event: React.PointerEvent<HTMLButtonElement>) => {
+      if (dragging !== thumb) return;
+      const next = valueFromPointer(event.clientX);
+      if (next !== null) setThumb(thumb, next);
+    },
+    onPointerUp: () => setDragging(null),
+    onPointerCancel: () => setDragging(null),
+  });
   return (
     <div style={{ padding: "16px 0", borderBottom: SEP }}>
       <p style={{ fontSize: 15, fontWeight: 600, color: "#111", marginBottom: 20 }}>Idade</p>
-      <div style={{ position: "relative", height: 44, display: "flex", alignItems: "center" }}>
+      <div ref={trackRef} style={{ position: "relative", height: 44, display: "flex", alignItems: "center", touchAction: "none" }}>
         <div style={{ position: "absolute", left: 0, right: 0, height: 3, background: "#E5E7EB", borderRadius: 2 }} />
         <div style={{ position: "absolute", height: 3, background: "#111", borderRadius: 2, left: `${pMin}%`, width: `${pMax - pMin}%` }} />
-        <input type="range" min={TMIN} max={TMAX} value={ageMin}
-          onChange={(e) => { const v = Number(e.target.value); if (v < ageMax) onChange(v, ageMax); }}
-          style={{ position: "absolute", width: "100%", opacity: 0, cursor: "pointer", zIndex: 2, margin: 0, height: "100%" }} />
-        <input type="range" min={TMIN} max={TMAX} value={ageMax}
-          onChange={(e) => { const v = Number(e.target.value); if (v > ageMin) onChange(ageMin, v); }}
-          style={{ position: "absolute", width: "100%", opacity: 0, cursor: "pointer", zIndex: 3, margin: 0, height: "100%" }} />
-        <div style={{ position: "absolute", width: 24, height: 24, borderRadius: "50%", background: "#111", left: `calc(${pMin}% - 12px)`, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
-        <div style={{ position: "absolute", width: 24, height: 24, borderRadius: "50%", background: "#111", left: `calc(${pMax}% - 12px)`, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+        <button type="button" {...thumbProps("min", ageMin)}
+          style={{ position: "absolute", width: 28, height: 28, borderRadius: "50%", background: "#111", border: "3px solid #FFF", boxShadow: "0 1px 3px rgba(0,0,0,0.25)", left: `calc(${pMin}% - 14px)`, top: "50%", transform: "translateY(-50%)", cursor: "grab", zIndex: dragging === "min" ? 6 : 4, padding: 0 }} />
+        <button type="button" {...thumbProps("max", ageMax)}
+          style={{ position: "absolute", width: 28, height: 28, borderRadius: "50%", background: "#111", border: "3px solid #FFF", boxShadow: "0 1px 3px rgba(0,0,0,0.25)", left: `calc(${pMax}% - 14px)`, top: "50%", transform: "translateY(-50%)", cursor: "grab", zIndex: dragging === "max" ? 6 : 5, padding: 0 }} />
       </div>
       <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
         <span style={{ fontSize: 14, fontWeight: 500, color: "#111" }}>{ageMin}</span>
         <span style={{ fontSize: 14, fontWeight: 500, color: "#111" }}>{ageMax}+</span>
+      </div>
+    </div>
+  );
+}
+
+function WTargetingSheet({
+  api, kind, selectedLocation, selectedInterests, onClose, onSelectLocation, onToggleInterest,
+}: {
+  api: ReturnType<typeof businessApi>;
+  kind: "location" | "interests";
+  selectedLocation: string;
+  selectedInterests: string[];
+  onClose: () => void;
+  onSelectLocation: (item: MetaTargetingSuggestion) => void;
+  onToggleInterest: (item: MetaTargetingSuggestion) => void;
+}) {
+  const [query, setQuery] = useState(kind === "location" ? selectedLocation : "");
+  const [results, setResults] = useState<MetaTargetingSuggestion[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const requestId = useRef(0);
+
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 2) {
+      setResults([]); setLoading(false); setError(null);
+      return;
+    }
+    const currentRequest = ++requestId.current;
+    const timer = window.setTimeout(() => {
+      setLoading(true); setError(null);
+      const search = kind === "location"
+        ? api.searchMetaLocations(q)
+        : api.searchMetaInterests(q);
+      search
+        .then(({ results: next }) => {
+          if (currentRequest === requestId.current) setResults(next);
+        })
+        .catch((err) => {
+          if (currentRequest === requestId.current) {
+            setResults([]);
+            setError(err instanceof Error ? err.message : "Não foi possível pesquisar");
+          }
+        })
+        .finally(() => {
+          if (currentRequest === requestId.current) setLoading(false);
+        });
+    }, 260);
+    return () => window.clearTimeout(timer);
+  }, [api, kind, query]);
+
+  return (
+    <div role="dialog" aria-modal="true" aria-label={kind === "location" ? "Escolher localização" : "Escolher interesses"}
+      onClick={onClose}
+      style={{ position: "fixed", inset: 0, zIndex: 20, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "flex-end" }}>
+      <div onClick={(event) => event.stopPropagation()}
+        style={{ width: "100%", maxHeight: "86svh", overflowY: "auto", background: "#FFF", borderRadius: "22px 22px 0 0", padding: "10px 20px 28px", boxSizing: "border-box" }}>
+        <div style={{ width: 38, height: 4, borderRadius: 4, background: "#D1D5DB", margin: "0 auto 16px" }} />
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+          <div>
+            <p style={{ fontSize: 18, fontWeight: 700, color: "#111" }}>
+              {kind === "location" ? "Localização" : "Interesses"}
+            </p>
+            <p style={{ fontSize: 13, color: "#6B7280", marginTop: 3 }}>
+              {kind === "location" ? "Escolhe uma cidade disponível no Meta" : "Escolhe um ou mais interesses do Meta"}
+            </p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Fechar" style={{ border: 0, background: "#F3F4F6", borderRadius: "50%", width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <X size={18} />
+          </button>
+        </div>
+        {kind === "interests" && selectedInterests.length > 0 && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
+            {selectedInterests.map((item) => (
+              <span key={item} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 9px", borderRadius: 16, background: "#F0FDF4", color: "#166534", fontSize: 12, fontWeight: 600 }}>
+                {item}
+                <button type="button" aria-label={`Remover ${item}`} onClick={() => onToggleInterest({ id: "", name: item, type: "interest" })} style={{ border: 0, background: "transparent", padding: 0, color: "#166534", display: "flex" }}>
+                  <X size={13} />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+        <div style={{ position: "relative", marginBottom: 12 }}>
+          <Search size={17} style={{ position: "absolute", left: 13, top: 12, color: "#9CA3AF" }} />
+          <input autoFocus value={query} onChange={(event) => setQuery(event.target.value)}
+            placeholder={kind === "location" ? "Pesquisar cidade" : "Pesquisar interesse"}
+            style={{ width: "100%", height: 42, borderRadius: 12, border: "1px solid #E5E7EB", background: "#F9FAFB", padding: "0 14px 0 40px", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
+        </div>
+        {loading && <div style={{ display: "flex", justifyContent: "center", padding: 20 }}><Loader2 size={20} className="animate-spin" style={{ color: "#16A34A" }} /></div>}
+        {!loading && error && <p style={{ color: "#C62828", fontSize: 13, padding: "12px 4px" }}>{error}</p>}
+        {!loading && !error && query.trim().length < 2 && <p style={{ color: "#9CA3AF", fontSize: 13, padding: "12px 4px" }}>Escreve pelo menos 2 letras para pesquisar.</p>}
+        {!loading && !error && query.trim().length >= 2 && results.length === 0 && <p style={{ color: "#6B7280", fontSize: 13, padding: "12px 4px" }}>Nenhum resultado encontrado.</p>}
+        {!loading && results.map((item) => {
+          const selected = kind === "interests" && selectedInterests.includes(item.name);
+          return (
+            <button type="button" key={`${item.type}-${item.id}`} onClick={() => kind === "location" ? onSelectLocation(item) : onToggleInterest(item)}
+              style={{ width: "100%", border: 0, borderBottom: "1px solid #F0F0F0", background: selected ? "#F0FDF4" : "#FFF", minHeight: 52, display: "flex", alignItems: "center", gap: 12, padding: "10px 4px", textAlign: "left", cursor: "pointer" }}>
+              {kind === "location" ? <MapPin size={18} style={{ color: "#16A34A", flexShrink: 0 }} /> : <span style={{ width: 18, height: 18, borderRadius: "50%", border: `1.5px solid ${selected ? "#16A34A" : "#D1D5DB"}`, background: selected ? "#16A34A" : "#FFF", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{selected && <Check size={12} color="#FFF" />}</span>}
+              <span style={{ flex: 1, color: "#111", fontSize: 14, fontWeight: selected ? 600 : 500 }}>{item.name}</span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -362,24 +508,27 @@ const PencilIcon = () => (
 );
 
 function defaultCampaignSetup(campaign: Campaign): CampaignSetup {
-  return campaign.campaignSetup ?? {
+  const existing = campaign.campaignSetup;
+  return {
     audience: {
-      location: "Luanda",
-      ageMin: 18,
-      ageMax: 55,
-      gender: "all",
-      interests: "",
-      excludedAudiences: "",
+      location: existing?.audience?.location ?? "Luanda",
+      locationId: existing?.audience?.locationId ?? null,
+      ageMin: existing?.audience?.ageMin ?? 18,
+      ageMax: existing?.audience?.ageMax ?? 55,
+      gender: existing?.audience?.gender ?? "all",
+      interests: existing?.audience?.interests ?? "",
+      interestIds: existing?.audience?.interestIds ?? [],
+      excludedAudiences: existing?.audience?.excludedAudiences ?? "",
     },
     creative: {
-      source: "gemini",
-      referenceImagePath: null,
-      mediaPath: null,
-      mediaMimeType: null,
-      prompt: "",
-      headline: "",
-      body: "",
-      callToAction: "LEARN_MORE",
+      source: existing?.creative?.source ?? "gemini",
+      referenceImagePath: existing?.creative?.referenceImagePath ?? null,
+      mediaPath: existing?.creative?.mediaPath ?? null,
+      mediaMimeType: existing?.creative?.mediaMimeType ?? null,
+      prompt: existing?.creative?.prompt ?? "",
+      headline: existing?.creative?.headline ?? "",
+      body: existing?.creative?.body ?? "",
+      callToAction: existing?.creative?.callToAction ?? "LEARN_MORE",
     },
   };
 }
@@ -395,7 +544,9 @@ function MetaAdsWizard({ api, campaign, onUpdate, onExit }: {
   onUpdate: (c: Campaign) => void;
   onExit: () => void;
 }) {
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(() => (
+    campaign.paymentStatus === "pago" || campaign.paymentStatus === "pendente" ? 4 : 0
+  ));
   const [setup, setSetup] = useState<CampaignSetup>(() => defaultCampaignSetup(campaign));
   const [objective, setObjective] = useState(campaign.objective);
   const [budget, setBudget] = useState(campaign.budget || 5000);
@@ -408,12 +559,14 @@ function MetaAdsWizard({ api, campaign, onUpdate, onExit }: {
   const [wizError, setWizError] = useState<string | null>(null);
   const [uploading, setUploading] = useState<"creative" | "reference" | null>(null);
   const [editField, setEditField] = useState<string | null>(null);
+  const [targetingEditor, setTargetingEditor] = useState<"location" | "interests" | null>(null);
   const creativeInput = useRef<HTMLInputElement>(null);
   const referenceInput = useRef<HTMLInputElement>(null);
 
   const paid = campaign.paymentStatus === "pago";
   const creativeReady = campaign.creativeStatus === "pronto" && !!campaign.creativeJson;
-  const published = !["nao_publicada", "erro", "rejeitada"].includes(campaign.publishStatus);
+  const published = ["em_revisao", "ativa", "pausada", "encerrada"].includes(campaign.publishStatus);
+  const paymentPending = campaign.paymentStatus === "pendente";
   const ps = PUBLISH_LABEL[campaign.publishStatus];
 
   useEffect(() => {
@@ -446,9 +599,17 @@ function MetaAdsWizard({ api, campaign, onUpdate, onExit }: {
   };
 
   const saveObjective = async (v: string) => {
-    setObjective(v); setWizError(null);
-    try { const { campaign: c } = await api.updateCampaignStatus(campaign.id, { objective: v }); onUpdate(c); }
-    catch (e) { setWizError(e instanceof Error ? e.message : "Não foi possível guardar o objetivo"); }
+    const previous = objective;
+    setObjective(v); setBusy("objective"); setWizError(null);
+    try {
+      const { campaign: c } = await api.updateCampaignStatus(campaign.id, { objective: v });
+      onUpdate(c);
+    } catch (e) {
+      setObjective(previous);
+      setWizError(e instanceof Error ? e.message : "Não foi possível guardar o objetivo");
+    } finally {
+      setBusy(null);
+    }
   };
 
   const saveSetup = async (nextStep: number) => {
@@ -474,7 +635,7 @@ function MetaAdsWizard({ api, campaign, onUpdate, onExit }: {
     if (!file) return;
     setUploading(kind); setWizError(null);
     try {
-      const path = await uploadPrivateImage(file);
+      const path = await uploadPrivateImage(file, api.slug);
       setSetup((s) => ({
         ...s,
         creative: {
@@ -502,6 +663,39 @@ function MetaAdsWizard({ api, campaign, onUpdate, onExit }: {
   const minAoa = quote?.minBudgetAoa ?? 5000;
   const maxAoa = Math.max(minAoa * 40, 1_000_000);
   const budgetUsd = quote ? (budget / quote.fxRateAoaPerUsd).toFixed(2) : null;
+  const selectedInterests = aud.interests.split(",").map((item) => item.trim()).filter(Boolean);
+  const selectLocation = (item: MetaTargetingSuggestion) => {
+    setSetup((s) => ({
+      ...s,
+      audience: { ...s.audience, location: item.name, locationId: item.id },
+    }));
+    setTargetingEditor(null);
+  };
+  const toggleInterest = (item: MetaTargetingSuggestion) => {
+    setSetup((s) => {
+      const names = s.audience.interests.split(",").map((name) => name.trim()).filter(Boolean);
+      const ids = s.audience.interestIds ?? [];
+      const index = names.findIndex((name) => name === item.name);
+      if (index >= 0) {
+        return {
+          ...s,
+          audience: {
+            ...s.audience,
+            interests: names.filter((_, i) => i !== index).join(", "),
+            interestIds: ids.filter((_, i) => i !== index),
+          },
+        };
+      }
+      return {
+        ...s,
+        audience: {
+          ...s.audience,
+          interests: [...names, item.name].join(", "),
+          interestIds: [...ids, item.id],
+        },
+      };
+    });
+  };
 
   return (
     <div style={{
@@ -690,38 +884,26 @@ function MetaAdsWizard({ api, campaign, onUpdate, onExit }: {
 
           {/* Location */}
           <div style={{ padding: "14px 0", borderBottom: SEP }}>
-            <div className="flex items-center justify-between" style={{ cursor: "pointer" }}
-              onClick={() => setEditField(editField === "location" ? null : "location")}>
+            <button type="button" className="flex items-center justify-between" style={{ width: "100%", cursor: "pointer", border: 0, background: "transparent", padding: 0, textAlign: "left" }}
+              onClick={() => setTargetingEditor("location")}>
               <div>
                 <p style={{ fontSize: 15, fontWeight: 600, color: "#111" }}>Localizações</p>
-                <p style={{ fontSize: 13, color: "#6B7280", marginTop: 3 }}>{aud.location || "Angola"}</p>
+                <p style={{ fontSize: 13, color: aud.locationId ? "#6B7280" : "#C62828", marginTop: 3 }}>{aud.locationId ? aud.location : "Seleciona uma cidade"}</p>
               </div>
               <PencilIcon />
-            </div>
-            {editField === "location" && (
-              <input value={aud.location}
-                onChange={(e) => setSetup((s) => ({ ...s, audience: { ...s.audience, location: e.target.value } }))}
-                placeholder="Ex: Luanda" autoFocus
-                style={{ marginTop: 10, width: "100%", borderRadius: 10, border: "1px solid #E5E7EB", padding: "11px 14px", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
-            )}
+            </button>
           </div>
 
           {/* Interests */}
           <div style={{ padding: "14px 0", borderBottom: SEP }}>
-            <div className="flex items-center justify-between" style={{ cursor: "pointer" }}
-              onClick={() => setEditField(editField === "interests" ? null : "interests")}>
+            <button type="button" className="flex items-center justify-between" style={{ width: "100%", cursor: "pointer", border: 0, background: "transparent", padding: 0, textAlign: "left" }}
+              onClick={() => setTargetingEditor("interests")}>
               <div>
                 <p style={{ fontSize: 15, fontWeight: 600, color: "#111" }}>Interesses</p>
-                <p style={{ fontSize: 13, color: "#6B7280", marginTop: 3 }}>{aud.interests || "Adicionar interesses"}</p>
+                <p style={{ fontSize: 13, color: "#6B7280", marginTop: 3 }}>{selectedInterests.length ? selectedInterests.join(", ") : "Adicionar interesses do Meta"}</p>
               </div>
               <PencilIcon />
-            </div>
-            {editField === "interests" && (
-              <input value={aud.interests}
-                onChange={(e) => setSetup((s) => ({ ...s, audience: { ...s.audience, interests: e.target.value } }))}
-                placeholder="Ex: tecnologia, automóveis, moda" autoFocus
-                style={{ marginTop: 10, width: "100%", borderRadius: 10, border: "1px solid #E5E7EB", padding: "11px 14px", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
-            )}
+            </button>
           </div>
 
           {/* Gender */}
@@ -754,7 +936,7 @@ function MetaAdsWizard({ api, campaign, onUpdate, onExit }: {
           <div style={{ height: 80 }} />
           <div style={{ position: "sticky", bottom: 0, background: "#FFF", paddingTop: 12, paddingBottom: 32 }}>
             <WPillCTA label="Guardar" onClick={() => void saveSetup(3)}
-              loading={busy === "save"} disabled={busy !== null || !aud.location.trim()} />
+              loading={busy === "save"} disabled={busy !== null || !aud.locationId} />
           </div>
         </div>
       )}
@@ -871,7 +1053,7 @@ function MetaAdsWizard({ api, campaign, onUpdate, onExit }: {
             </div>
           )}
 
-          {!paid && (
+          {!paid && !paymentPending && (
             <>
               <p style={{ fontSize: 15, fontWeight: 600, color: "#111", marginTop: 20, marginBottom: 12 }}>Forma de pagamento</p>
               <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
@@ -890,6 +1072,13 @@ function MetaAdsWizard({ api, campaign, onUpdate, onExit }: {
             </>
           )}
 
+          {paymentPending && (
+            <div style={{ marginTop: 16, padding: "14px 16px", borderRadius: 12, background: "#FFFBEB", border: "1px solid #FDE68A" }}>
+              <p style={{ fontSize: 15, fontWeight: 600, color: "#92400E" }}>Pagamento em confirmação</p>
+              <p style={{ fontSize: 13, color: "#B45309", marginTop: 4 }}>Estamos a aguardar a confirmação do Multicaixa Express. Não repitas o pagamento.</p>
+            </div>
+          )}
+
           {paid && published && (
             <div style={{ marginTop: 16, padding: "14px 16px", borderRadius: 12, background: "#F0FDF4", border: "1px solid #BBF7D0" }}>
               <p style={{ fontSize: 15, fontWeight: 600, color: "#15803D" }}>Campanha activa no Meta</p>
@@ -903,13 +1092,13 @@ function MetaAdsWizard({ api, campaign, onUpdate, onExit }: {
               <span style={{ fontSize: 13, color: "#6B7280" }}>Estimativa de impressões</span>
               <strong style={{ fontSize: 13, color: "#111" }}>10 mil – 20 mil / dia</strong>
             </div>
-            {!paid ? (
+            {!paid && !paymentPending ? (
               <WPillCTA
                 label={`Pagar e criar anúncio · ${campaign.budget.toLocaleString("pt-AO")} Kz`}
                 onClick={() => void run("pay", () => api.payCampaign(campaign.id, payMethod === "carteira" ? { method: "carteira" } : { method: "multicaixa", phone }))}
                 loading={busy === "pay"}
                 disabled={busy !== null || (payMethod === "multicaixa" && !/^9\d{8}$/.test(phone.replace(/\s/g, "")))} />
-            ) : !published ? (
+            ) : paymentPending ? null : !published ? (
               <WPillCTA label="Publicar no Meta"
                 onClick={() => void run("publish", () => api.publishCampaign(campaign.id))}
                 loading={busy === "publish"} disabled={busy !== null} />
@@ -919,6 +1108,17 @@ function MetaAdsWizard({ api, campaign, onUpdate, onExit }: {
             </p>
           </div>
         </div>
+      )}
+      {targetingEditor && (
+        <WTargetingSheet
+          api={api}
+          kind={targetingEditor}
+          selectedLocation={aud.location}
+          selectedInterests={selectedInterests}
+          onClose={() => setTargetingEditor(null)}
+          onSelectLocation={selectLocation}
+          onToggleInterest={toggleInterest}
+        />
       )}
     </div>
   );
@@ -988,7 +1188,7 @@ function LegacyPublishFlow({ api, campaign, onUpdate }: {
 
   const paid = campaign.paymentStatus === "pago";
   const creativeReady = campaign.creativeStatus === "pronto" && !!campaign.creativeJson;
-  const published = !["nao_publicada", "erro", "rejeitada"].includes(campaign.publishStatus);
+  const published = ["em_revisao", "ativa", "pausada", "encerrada"].includes(campaign.publishStatus);
   const ps = PUBLISH_LABEL[campaign.publishStatus];
   const isTikTok = campaign.platform === "tiktok";
   const unsupported = campaign.platform === "google";

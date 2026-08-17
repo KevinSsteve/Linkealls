@@ -90,6 +90,49 @@ export async function duplicateCampaign(id: string, businessId?: number): Promis
   return inserted[0]!;
 }
 
+export class CampaignDeleteError extends Error {
+  statusCode = 409;
+}
+
+/**
+ * Only an unpaid, unpublished draft can be removed. Once payment or delivery
+ * has started, keeping the audit row is safer than silently deleting spend
+ * history or breaking lead attribution.
+ */
+export async function deleteCampaign(id: string, businessId?: number): Promise<boolean> {
+  const scope =
+    businessId !== undefined
+      ? and(eq(campaignsTable.id, id), eq(campaignsTable.businessId, businessId))
+      : eq(campaignsTable.id, id);
+  const existing = await db
+    .select({
+      id: campaignsTable.id,
+      paymentStatus: campaignsTable.paymentStatus,
+      publishStatus: campaignsTable.publishStatus,
+      status: campaignsTable.status,
+    })
+    .from(campaignsTable)
+    .where(scope)
+    .limit(1);
+  const campaign = existing[0];
+  if (!campaign) return false;
+  if (
+    campaign.paymentStatus !== "nao_pago" ||
+    campaign.publishStatus !== "nao_publicada" ||
+    campaign.status !== "rascunho"
+  ) {
+    throw new CampaignDeleteError(
+      "Só podes eliminar rascunhos que ainda não foram pagos nem publicados",
+    );
+  }
+
+  const deleted = await db
+    .delete(campaignsTable)
+    .where(and(scope, eq(campaignsTable.paymentStatus, "nao_pago")))
+    .returning({ id: campaignsTable.id });
+  return deleted.length > 0;
+}
+
 export async function updateCampaign(
   id: string,
   patch: Partial<{

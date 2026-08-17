@@ -305,10 +305,12 @@ export interface AdCreative {
 export interface CampaignSetup {
   audience: {
     location: string;
+    locationId: string | null;
     ageMin: number;
     ageMax: number;
     gender: "all" | "female" | "male";
     interests: string;
+    interestIds: string[];
     excludedAudiences: string;
   };
   creative: {
@@ -362,14 +364,23 @@ export interface AdsQuote {
   simulated: boolean;
 }
 
-export async function uploadPrivateImage(file: File): Promise<string> {
-  if (!file.type.startsWith("image/")) throw new Error("Escolhe uma imagem válida");
+export interface MetaTargetingSuggestion {
+  id: string;
+  name: string;
+  key?: string;
+  type: "city" | "interest";
+}
+
+export async function uploadPrivateImage(file: File, businessSlug: string): Promise<string> {
+  if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+    throw new Error("Escolhe uma imagem PNG, JPG ou WebP");
+  }
   if (file.size > 10 * 1024 * 1024) throw new Error("A imagem deve ter no máximo 10 MB");
   const { uploadURL, objectPath } = await request<{ uploadURL: string; objectPath: string }>(
     "/storage/uploads/request-url",
     {
       method: "POST",
-      body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+      body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type, businessSlug }),
     },
   );
   const upload = await fetch(uploadURL, {
@@ -676,6 +687,16 @@ export function businessApi(slug: string) {
       bRequest<{ campaign: Campaign }>(`/campaigns/${id}/setup`, {
         method: "PATCH", body: JSON.stringify(setup),
       }),
+    deleteCampaign: (id: string) =>
+      bRequest<{ deleted: boolean }>(`/campaigns/${id}`, { method: "DELETE" }),
+    searchMetaLocations: (query: string) =>
+      bRequest<{ results: MetaTargetingSuggestion[] }>(
+        `/campaigns/targeting/locations?q=${encodeURIComponent(query)}`,
+      ),
+    searchMetaInterests: (query: string) =>
+      bRequest<{ results: MetaTargetingSuggestion[] }>(
+        `/campaigns/targeting/interests?q=${encodeURIComponent(query)}`,
+      ),
     generateCampaignKit: (id: string) =>
       bRequest<{ campaign: Campaign }>(`/campaigns/${id}/generate`, { method: "POST" }),
     getCampaignMetrics: (id: string) =>

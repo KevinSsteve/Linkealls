@@ -7,6 +7,7 @@ import { Link, useLocation } from "wouter";
 import {
   Plus, Megaphone, Globe, Instagram, Facebook,
   Layers2, Loader2, AlertCircle, ChevronRight, BarChart2,
+  MoreVertical, CopyPlus, Trash2, X,
 } from "lucide-react";
 import {
   businessApi, type Campaign, type CampaignPlatform, type LeadsAnalytics,
@@ -150,16 +151,20 @@ function AnalyticsView({ api }: { api: ReturnType<typeof businessApi> }) {
 }
 
 // ─── Campaign card ────────────────────────────────────────────────────────────
-function CampaignCard({ campaign, slug }: { campaign: Campaign; slug: string }) {
+function CampaignCard({ campaign, slug, onMenu }: {
+  campaign: Campaign;
+  slug: string;
+  onMenu: (campaign: Campaign) => void;
+}) {
   const pm = PLATFORM_META[campaign.platform];
   const sm = STATUS_META[campaign.status];
 
   return (
-    <Link href={`/e/${slug}/dono/campanhas/${campaign.id}`}>
-      <div
-        className="flex items-center gap-3 px-4 py-4 cursor-pointer active:bg-[#F0F0EC] transition-colors"
-        style={{ background: D.surface, borderBottom: `1px solid ${D.lineSoft}` }}
-      >
+    <div className="relative" style={{ background: D.surface, borderBottom: `1px solid ${D.lineSoft}` }}>
+      <Link href={`/e/${slug}/dono/campanhas/${campaign.id}`}>
+        <div
+          className="flex items-center gap-3 px-4 py-4 pr-14 cursor-pointer active:bg-[#F0F0EC] transition-colors"
+        >
         {/* Ícone da plataforma */}
         <div
           className="w-11 h-11 rounded-2xl flex items-center justify-center shrink-0"
@@ -200,8 +205,65 @@ function CampaignCard({ campaign, slug }: { campaign: Campaign; slug: string }) 
         </div>
 
         <ChevronRight size={15} style={{ color: D.inkFaint }} className="shrink-0" />
+        </div>
+      </Link>
+      <button type="button" aria-label={`Opções de ${campaign.name}`} onClick={() => onMenu(campaign)}
+        style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", width: 34, height: 34, border: 0, borderRadius: "50%", background: "transparent", color: D.inkSoft, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}>
+        <MoreVertical size={19} />
+      </button>
+    </div>
+  );
+}
+
+function CampaignActionsSheet({
+  campaign, onClose, onOpen, onDuplicate, onDelete, busy,
+}: {
+  campaign: Campaign;
+  onClose: () => void;
+  onOpen: () => void;
+  onDuplicate: () => void;
+  onDelete: () => void;
+  busy: "duplicate" | "delete" | null;
+}) {
+  const canDelete =
+    campaign.status === "rascunho" &&
+    campaign.paymentStatus === "nao_pago" &&
+    campaign.publishStatus === "nao_publicada";
+  return (
+    <div role="dialog" aria-modal="true" aria-label="Opções da campanha" onClick={onClose}
+      style={{ position: "fixed", inset: 0, zIndex: 30, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "flex-end" }}>
+      <div onClick={(event) => event.stopPropagation()}
+        style={{ width: "100%", background: "#FFF", borderRadius: "22px 22px 0 0", padding: "10px 20px 28px", boxSizing: "border-box" }}>
+        <div style={{ width: 38, height: 4, borderRadius: 4, background: "#D1D5DB", margin: "0 auto 16px" }} />
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
+          <div style={{ minWidth: 0 }}>
+            <p style={{ fontSize: 17, fontWeight: 700, color: "#111", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{campaign.name}</p>
+            <p style={{ fontSize: 13, color: "#6B7280", marginTop: 3 }}>Opções da campanha</p>
+          </div>
+          <button type="button" aria-label="Fechar" onClick={onClose} style={{ border: 0, background: "#F3F4F6", borderRadius: "50%", width: 34, height: 34, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <X size={18} />
+          </button>
+        </div>
+        <button type="button" onClick={onOpen}
+          style={{ width: "100%", minHeight: 50, display: "flex", alignItems: "center", gap: 12, border: 0, borderBottom: "1px solid #F0F0F0", background: "#FFF", color: "#111", fontSize: 15, fontWeight: 600, textAlign: "left" }}>
+          <ChevronRight size={19} style={{ color: "#6B7280" }} /> Abrir campanha
+        </button>
+        <button type="button" onClick={onDuplicate} disabled={busy !== null}
+          style={{ width: "100%", minHeight: 50, display: "flex", alignItems: "center", gap: 12, border: 0, borderBottom: "1px solid #F0F0F0", background: "#FFF", color: "#111", fontSize: 15, fontWeight: 600, textAlign: "left", opacity: busy === "duplicate" ? 0.6 : 1 }}>
+          {busy === "duplicate" ? <Loader2 size={19} className="animate-spin" style={{ color: "#6B7280" }} /> : <CopyPlus size={19} style={{ color: "#6B7280" }} />} Duplicar campanha
+        </button>
+        {canDelete ? (
+          <button type="button" onClick={onDelete} disabled={busy !== null}
+            style={{ width: "100%", minHeight: 50, display: "flex", alignItems: "center", gap: 12, border: 0, background: "#FFF", color: "#C62828", fontSize: 15, fontWeight: 600, textAlign: "left", opacity: busy === "delete" ? 0.6 : 1 }}>
+            {busy === "delete" ? <Loader2 size={19} className="animate-spin" /> : <Trash2 size={19} />} Eliminar rascunho
+          </button>
+        ) : (
+          <p style={{ color: "#9CA3AF", fontSize: 12, lineHeight: 1.5, padding: "12px 0 0 31px" }}>
+            Campanhas pagas ou publicadas não podem ser eliminadas. Usa o controlo do anúncio para as encerrar.
+          </p>
+        )}
       </div>
-    </Link>
+    </div>
   );
 }
 
@@ -214,6 +276,8 @@ export function Campaigns() {
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [tab, setTab] = useState<"campanhas" | "analise">("campanhas");
+  const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
+  const [actionBusy, setActionBusy] = useState<"duplicate" | "delete" | null>(null);
   const [, navigate] = useLocation();
 
   useEffect(() => {
@@ -240,6 +304,39 @@ export function Campaigns() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Não foi possível iniciar o anúncio");
       setCreating(false);
+    }
+  };
+
+  const handleDuplicate = async () => {
+    if (!api || !selectedCampaign || actionBusy) return;
+    setActionBusy("duplicate"); setError(null);
+    try {
+      const { campaign } = await api.duplicateCampaign(selectedCampaign.id);
+      setCampaigns((items) => [campaign, ...items]);
+      setSelectedCampaign(null);
+      navigate(`/e/${slug}/dono/campanhas/${campaign.id}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Não foi possível duplicar a campanha");
+    } finally {
+      setActionBusy(null);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!api || !selectedCampaign || actionBusy) return;
+    const confirmed = window.confirm(
+      `Eliminar o rascunho "${selectedCampaign.name}"? Esta ação não pode ser desfeita.`,
+    );
+    if (!confirmed) return;
+    setActionBusy("delete"); setError(null);
+    try {
+      await api.deleteCampaign(selectedCampaign.id);
+      setCampaigns((items) => items.filter((item) => item.id !== selectedCampaign.id));
+      setSelectedCampaign(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Não foi possível eliminar a campanha");
+    } finally {
+      setActionBusy(null);
     }
   };
 
@@ -353,7 +450,7 @@ export function Campaigns() {
                   borderRadius: D.rCard,
                 }}
               >
-                {campaigns.map((c) => <CampaignCard key={c.id} campaign={c} slug={slug} />)}
+                 {campaigns.map((c) => <CampaignCard key={c.id} campaign={c} slug={slug} onMenu={setSelectedCampaign} />)}
               </div>
             </>
           )}
@@ -361,6 +458,16 @@ export function Campaigns() {
       )}
 
       <OwnerNav />
+      {selectedCampaign && (
+        <CampaignActionsSheet
+          campaign={selectedCampaign}
+          busy={actionBusy}
+          onClose={() => { if (!actionBusy) setSelectedCampaign(null); }}
+          onOpen={() => { setSelectedCampaign(null); navigate(`/e/${slug}/dono/campanhas/${selectedCampaign.id}`); }}
+          onDuplicate={() => void handleDuplicate()}
+          onDelete={() => void handleDelete()}
+        />
+      )}
     </div>
   );
 }
