@@ -28,7 +28,7 @@ import { logger } from "../lib/logger.js";
 
 export const CAMPAIGN_MIN_BUDGET_AOA = 5_000;
 
-/** Simulated-payment bypasses are opt-in to explicit development only. */
+/** Development previews must never charge or publish real campaigns. */
 const IS_DEV_ENV = process.env["NODE_ENV"] === "development";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -69,6 +69,15 @@ function assertPayable(campaign: Campaign): void {
   if (!zernio.isChannelConfigured(channel)) {
     throw new PaymentError(
       `O canal Meta ainda não está configurado na plataforma — contacta o suporte antes de pagar`,
+      503,
+    );
+  }
+  // Shared secrets are available to development workflows too, but a preview
+  // must never be able to spend real money. Real campaigns go through the
+  // published production app only.
+  if (IS_DEV_ENV && !zernio.IS_ZERNIO_SIMULATION) {
+    throw new PaymentError(
+      "Pagamentos reais estão disponíveis apenas na aplicação publicada",
       503,
     );
   }
@@ -354,6 +363,12 @@ function publicBaseUrl(): string {
 
 export async function publishCampaign(campaignId: string, businessId: number): Promise<Campaign> {
   const campaign = await getOwnedCampaign(campaignId, businessId);
+  if (IS_DEV_ENV && !zernio.IS_ZERNIO_SIMULATION) {
+    throw new PaymentError(
+      "A publicação real está disponível apenas na aplicação publicada",
+      503,
+    );
+  }
   if (campaign.paymentStatus !== "pago") throw new PaymentError("Paga o orçamento antes de publicar");
   if (campaign.creativeStatus !== "pronto" || !campaign.creativeJson) {
     throw new PaymentError("Gera e aprova o criativo antes de publicar");
