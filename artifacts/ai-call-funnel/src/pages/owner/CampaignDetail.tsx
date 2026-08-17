@@ -173,21 +173,193 @@ function KitView({ kit }: { kit: CampaignKit }) {
   );
 }
 
-// ─── Meta Ads wizard (real ads via Zernio, paid in Kz) ─────────────────────────
-const META_OBJECTIVES = [
-  { value: "awareness", label: "Dar a conhecer", description: "Alcançar mais pessoas na tua zona." },
-  { value: "traffic", label: "Levar pessoas ao catálogo", description: "Gerar visitas para os teus produtos." },
-  { value: "lead_generation", label: "Receber contactos", description: "Encontrar pessoas interessadas no teu negócio." },
-  { value: "engagement", label: "Gerar envolvimento", description: "Aumentar interações com a tua marca." },
+// ─── Meta Ads Wizard — WhatsApp Business native design ───────────────────────
+const MW_OBJECTIVES = [
+  { value: "awareness",       label: "Dar a conhecer",      description: "Alcança mais pessoas na tua zona e aumenta o reconhecimento da tua marca." },
+  { value: "traffic",         label: "Visitas ao catálogo", description: "Leva pessoas diretamente para os teus produtos e serviços." },
+  { value: "lead_generation", label: "Receber mensagens",   description: "Responde a perguntas e interage com clientes em potencial." },
+  { value: "engagement",      label: "Gerar envolvimento",  description: "Aumenta as interações das pessoas com a tua marca." },
 ] as const;
 
-const CTA_LABELS: Record<CampaignSetup["creative"]["callToAction"], string> = {
-  SHOP_NOW: "Comprar agora",
-  LEARN_MORE: "Saber mais",
-  CONTACT_US: "Contactar",
-  ORDER_NOW: "Encomendar agora",
-  GET_OFFER: "Ver oferta",
-};
+// ─── Shared native-feel sub-components ───────────────────────────────────────
+const SEP = "1px solid #EBEBEB";
+
+function WRadio({ selected, onSelect, label, description, green }: {
+  selected: boolean; onSelect: () => void; label: string; description: string; green?: boolean;
+}) {
+  return (
+    <button type="button" onClick={onSelect}
+      className="w-full flex items-start gap-4 text-left"
+      style={{ padding: "16px 0", borderBottom: SEP }}>
+      <div style={{
+        width: 24, height: 24, borderRadius: "50%", flexShrink: 0, marginTop: 2,
+        border: `2px solid ${selected ? "#111" : "#C4C4C4"}`,
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}>
+        {selected && <div style={{ width: 11, height: 11, borderRadius: "50%", background: "#111" }} />}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p style={{ fontSize: 15, fontWeight: 600, color: "#111", lineHeight: 1.3 }}>{label}</p>
+        <p style={{ fontSize: 13, color: green ? "#16A34A" : "#6B7280", marginTop: 4, lineHeight: 1.5 }}>{description}</p>
+      </div>
+    </button>
+  );
+}
+
+function WSourceRow({ icon, label, description, selected, onClick }: {
+  icon: React.ReactNode; label: string; description: string; selected: boolean; onClick: () => void;
+}) {
+  return (
+    <button type="button" onClick={onClick}
+      className="w-full flex items-center gap-4 text-left"
+      style={{ padding: "14px 0", borderBottom: SEP }}>
+      <div style={{
+        width: 52, height: 52, borderRadius: 14, flexShrink: 0,
+        background: selected ? "#DCFCE7" : "#F5F5F5",
+        border: `2px solid ${selected ? "#A5D6A7" : "transparent"}`,
+        display: "flex", alignItems: "center", justifyContent: "center",
+      }}>
+        {icon}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p style={{ fontSize: 15, fontWeight: 600, color: "#111" }}>{label}</p>
+        <p style={{ fontSize: 13, color: "#6B7280", marginTop: 3 }}>{description}</p>
+      </div>
+    </button>
+  );
+}
+
+function WToggle({ on, onChange, label, description }: {
+  on: boolean; onChange: (v: boolean) => void; label: string; description: string;
+}) {
+  return (
+    <div className="flex items-start gap-4" style={{ padding: "16px 0", borderBottom: SEP }}>
+      <div className="flex-1 min-w-0">
+        <p style={{ fontSize: 15, fontWeight: 600, color: "#111" }}>{label}</p>
+        <p style={{ fontSize: 13, color: "#6B7280", marginTop: 4, lineHeight: 1.5 }}>{description}</p>
+      </div>
+      <button type="button" onClick={() => onChange(!on)}
+        style={{
+          width: 51, height: 31, borderRadius: 16, padding: 2, border: "none", cursor: "pointer",
+          background: on ? "#111" : "#D1D5DB", display: "flex", alignItems: "center",
+          transition: "background 0.2s", flexShrink: 0, marginTop: 2,
+        }}>
+        <div style={{
+          width: 27, height: 27, borderRadius: "50%", background: "#FFF",
+          transform: on ? "translateX(20px)" : "translateX(0)",
+          transition: "transform 0.2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
+        }} />
+      </button>
+    </div>
+  );
+}
+
+function WAgeSlider({ ageMin, ageMax, onChange }: {
+  ageMin: number; ageMax: number;
+  onChange: (mn: number, mx: number) => void;
+}) {
+  const TMIN = 13; const TMAX = 65;
+  const pMin = ((ageMin - TMIN) / (TMAX - TMIN)) * 100;
+  const pMax = ((ageMax - TMIN) / (TMAX - TMIN)) * 100;
+  return (
+    <div style={{ padding: "16px 0", borderBottom: SEP }}>
+      <p style={{ fontSize: 15, fontWeight: 600, color: "#111", marginBottom: 20 }}>Idade</p>
+      <div style={{ position: "relative", height: 44, display: "flex", alignItems: "center" }}>
+        <div style={{ position: "absolute", left: 0, right: 0, height: 3, background: "#E5E7EB", borderRadius: 2 }} />
+        <div style={{ position: "absolute", height: 3, background: "#111", borderRadius: 2, left: `${pMin}%`, width: `${pMax - pMin}%` }} />
+        <input type="range" min={TMIN} max={TMAX} value={ageMin}
+          onChange={(e) => { const v = Number(e.target.value); if (v < ageMax) onChange(v, ageMax); }}
+          style={{ position: "absolute", width: "100%", opacity: 0, cursor: "pointer", zIndex: 2, margin: 0, height: "100%" }} />
+        <input type="range" min={TMIN} max={TMAX} value={ageMax}
+          onChange={(e) => { const v = Number(e.target.value); if (v > ageMin) onChange(ageMin, v); }}
+          style={{ position: "absolute", width: "100%", opacity: 0, cursor: "pointer", zIndex: 3, margin: 0, height: "100%" }} />
+        <div style={{ position: "absolute", width: 24, height: 24, borderRadius: "50%", background: "#111", left: `calc(${pMin}% - 12px)`, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+        <div style={{ position: "absolute", width: 24, height: 24, borderRadius: "50%", background: "#111", left: `calc(${pMax}% - 12px)`, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
+        <span style={{ fontSize: 14, fontWeight: 500, color: "#111" }}>{ageMin}</span>
+        <span style={{ fontSize: 14, fontWeight: 500, color: "#111" }}>{ageMax}+</span>
+      </div>
+    </div>
+  );
+}
+
+function WBudgetSlider({ value, minAoa, maxAoa, onChange }: {
+  value: number; minAoa: number; maxAoa: number; onChange: (v: number) => void;
+}) {
+  const pct = Math.min(100, Math.max(0, ((value - minAoa) / (maxAoa - minAoa)) * 100));
+  return (
+    <div style={{ position: "relative", height: 44, display: "flex", alignItems: "center" }}>
+      <div style={{ position: "absolute", left: 0, right: 0, height: 3, background: "#E5E7EB", borderRadius: 2 }} />
+      <div style={{ position: "absolute", height: 3, background: "#111", borderRadius: 2, left: 0, width: `${pct}%` }} />
+      <input type="range" min={minAoa} max={maxAoa} step={500} value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        style={{ position: "absolute", width: "100%", opacity: 0, cursor: "pointer", margin: 0, height: "100%", zIndex: 2 }} />
+      <div style={{ position: "absolute", width: 24, height: 24, borderRadius: "50%", background: "#111", left: `calc(${pct}% - 12px)`, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }} />
+    </div>
+  );
+}
+
+function WPillCTA({ label, onClick, disabled, loading }: {
+  label: string; onClick: () => void; disabled?: boolean; loading?: boolean;
+}) {
+  return (
+    <button type="button" onClick={onClick} disabled={disabled || loading}
+      style={{
+        width: "100%", height: 52, borderRadius: 26,
+        background: (disabled || loading) ? "#9CA3AF" : "#111",
+        color: "#FFF", fontSize: 16, fontWeight: 600, border: "none",
+        display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+        cursor: (disabled || loading) ? "not-allowed" : "pointer",
+      }}>
+      {loading ? <Loader2 size={18} className="animate-spin" /> : label}
+    </button>
+  );
+}
+
+function ObjIllustration() {
+  return (
+    <div style={{ display: "flex", justifyContent: "center", padding: "24px 0 16px" }}>
+      <svg width="130" height="110" viewBox="0 0 130 110" fill="none">
+        <rect x="8" y="10" width="80" height="88" rx="10" fill="#E8F5E9" stroke="#C8E6C9" strokeWidth="1.5"/>
+        <rect x="20" y="26" width="56" height="4" rx="2" fill="#C8E6C9"/>
+        <rect x="20" y="36" width="40" height="4" rx="2" fill="#C8E6C9"/>
+        <rect x="20" y="46" width="50" height="4" rx="2" fill="#C8E6C9"/>
+        <path d="M40 62 L58 50 L58 76 L40 64 Z" fill="none" stroke="#1C1C1C" strokeWidth="2" strokeLinejoin="round"/>
+        <rect x="30" y="62" width="10" height="14" rx="2" fill="none" stroke="#1C1C1C" strokeWidth="2"/>
+        <path d="M40 76 L36 84" stroke="#1C1C1C" strokeWidth="2" strokeLinecap="round"/>
+        <path d="M62 54 Q67 63 62 72" stroke="#1C1C1C" strokeWidth="1.8" strokeLinecap="round" fill="none"/>
+        <circle cx="100" cy="80" r="24" fill="#16A34A"/>
+        <path d="M100 68 C93 68 87 74 87 81 C87 84 88.2 86.6 90 88.5 L88.3 94 L93.8 92.3 C95.6 93.2 97.7 93.8 100 93.8 C107 93.8 113 87.8 113 80.8 C113 73.8 107 68 100 68Z" fill="white"/>
+        <path d="M97 75 C96.5 74.5 95.5 74.5 95 75.5 C94.5 76.5 94.5 79 96.5 81 C98.5 83 101 84.2 103 84 C104 83.8 105.2 83 105 82 C104.8 81 104 80.6 103.4 80.4 C102.8 80.2 101.8 80.8 101 80 C100.2 79.2 99 77.4 98.2 76.4 C97.8 75.8 97 75 97 75Z" fill="#16A34A"/>
+      </svg>
+    </div>
+  );
+}
+
+function WReviewRow({ icon, label, detail, sub, onEdit }: {
+  icon: React.ReactNode; label: string; detail: string; sub?: string; onEdit?: () => void;
+}) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 0", borderBottom: SEP }}>
+      <div style={{ width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{icon}</div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{ fontSize: 15, fontWeight: 600, color: "#111" }}>{label}</p>
+        <p style={{ fontSize: 13, color: "#6B7280", marginTop: 2 }}>{detail}</p>
+        {sub && <p style={{ fontSize: 12, color: "#9CA3AF", marginTop: 2 }}>{sub}</p>}
+      </div>
+      {onEdit && (
+        <button type="button" onClick={onEdit} style={{ padding: 4, flexShrink: 0 }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#BDBDBD" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m18.5 2.5 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+        </button>
+      )}
+    </div>
+  );
+}
+
+const PencilIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#BDBDBD" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m18.5 2.5 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+);
 
 function defaultCampaignSetup(campaign: Campaign): CampaignSetup {
   return campaign.campaignSetup ?? {
@@ -225,14 +397,16 @@ function MetaAdsWizard({ api, campaign, onUpdate }: {
   const [step, setStep] = useState(0);
   const [setup, setSetup] = useState<CampaignSetup>(() => defaultCampaignSetup(campaign));
   const [objective, setObjective] = useState(campaign.objective);
-  const [budget, setBudget] = useState(campaign.budget ? String(campaign.budget) : "");
-  const [durationDays, setDurationDays] = useState(String(campaign.durationDays || 7));
+  const [budget, setBudget] = useState(campaign.budget || 5000);
+  const [durationDays, setDurationDays] = useState(campaign.durationDays || 7);
+  const [durationMode, setDurationMode] = useState<"open" | "fixed">("open");
   const [quote, setQuote] = useState<AdsQuote | null>(null);
   const [payMethod, setPayMethod] = useState<"carteira" | "multicaixa">("carteira");
   const [phone, setPhone] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [wizError, setWizError] = useState<string | null>(null);
   const [uploading, setUploading] = useState<"creative" | "reference" | null>(null);
+  const [editField, setEditField] = useState<string | null>(null);
   const creativeInput = useRef<HTMLInputElement>(null);
   const referenceInput = useRef<HTMLInputElement>(null);
 
@@ -242,328 +416,484 @@ function MetaAdsWizard({ api, campaign, onUpdate }: {
   const ps = PUBLISH_LABEL[campaign.publishStatus];
 
   useEffect(() => {
-    if (!campaign.budget) return;
-    api.getAdsQuote(campaign.budget).then(setQuote).catch(() => {});
-  }, [api, campaign.budget]);
-
-  useEffect(() => {
     if (campaign.campaignSetup) setSetup(campaign.campaignSetup);
     setObjective(campaign.objective);
-    setBudget(campaign.budget ? String(campaign.budget) : "");
-    setDurationDays(String(campaign.durationDays || 7));
+    if (campaign.budget) setBudget(campaign.budget);
+    setDurationDays(campaign.durationDays || 7);
   }, [campaign.campaignSetup, campaign.objective, campaign.budget, campaign.durationDays]);
+
+  useEffect(() => {
+    api.getAdsQuote(budget).then(setQuote).catch(() => {});
+  }, [api, budget]);
 
   const polling = campaign.creativeStatus === "a_gerar" ||
     campaign.paymentStatus === "pendente" ||
     campaign.publishStatus === "a_publicar";
   useEffect(() => {
     if (!polling) return;
-    const timer = setInterval(() => {
-      api.getCampaignById(campaign.id).then(({ campaign: next }) => onUpdate(next)).catch(() => {});
+    const t = setInterval(() => {
+      api.getCampaignById(campaign.id).then(({ campaign: c }) => onUpdate(c)).catch(() => {});
     }, 4000);
-    return () => clearInterval(timer);
+    return () => clearInterval(t);
   }, [api, campaign.id, onUpdate, polling]);
 
   const run = async (key: string, fn: () => Promise<{ campaign: Campaign }>) => {
-    setBusy(key);
-    setError(null);
-    try {
-      const { campaign: next } = await fn();
-      onUpdate(next);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro inesperado");
-    } finally {
-      setBusy(null);
-    }
+    setBusy(key); setWizError(null);
+    try { const { campaign: c } = await fn(); onUpdate(c); }
+    catch (e) { setWizError(e instanceof Error ? e.message : "Erro inesperado"); }
+    finally { setBusy(null); }
   };
 
-  const saveObjective = async (nextObjective: string) => {
-    setObjective(nextObjective);
-    setError(null);
-    try {
-      const { campaign: next } = await api.updateCampaignStatus(campaign.id, { objective: nextObjective });
-      onUpdate(next);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível guardar o objetivo");
-    }
+  const saveObjective = async (v: string) => {
+    setObjective(v); setWizError(null);
+    try { const { campaign: c } = await api.updateCampaignStatus(campaign.id, { objective: v }); onUpdate(c); }
+    catch (e) { setWizError(e instanceof Error ? e.message : "Não foi possível guardar o objetivo"); }
   };
 
   const saveSetup = async (nextStep: number) => {
-    setBusy("save");
-    setError(null);
-    try {
-      const { campaign: next } = await api.updateCampaignSetup(campaign.id, setup);
-      onUpdate(next);
-      setStep(nextStep);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível guardar esta etapa");
-    } finally {
-      setBusy(null);
-    }
+    await run("save", async () => {
+      const c = await api.updateCampaignSetup(campaign.id, setup);
+      setStep(nextStep); setEditField(null);
+      return c;
+    });
   };
 
   const saveBudget = async () => {
-    const amount = Number.parseInt(budget, 10);
-    const days = Math.min(90, Math.max(1, Number.parseInt(durationDays, 10) || 7));
-    if (!Number.isInteger(amount) || amount < (quote?.minBudgetAoa ?? 5000)) {
-      setError(`O orçamento mínimo é ${(quote?.minBudgetAoa ?? 5000).toLocaleString("pt-AO")} Kz.`);
-      return;
-    }
+    const minAoa = quote?.minBudgetAoa ?? 5000;
+    if (budget < minAoa) { setWizError(`Orçamento mínimo: ${minAoa.toLocaleString("pt-AO")} Kz`); return; }
     await run("budget", async () => {
-      const { campaign: next } = await api.updateCampaignStatus(campaign.id, { budget: amount, durationDays: days });
-      setQuote(await api.getAdsQuote(amount));
+      const c = await api.updateCampaignStatus(campaign.id, { budget, durationDays: durationMode === "fixed" ? durationDays : 30 });
+      setQuote(await api.getAdsQuote(budget));
       setStep(4);
-      return { campaign: next };
+      return c;
     });
   };
 
   const handleFile = async (file: File | undefined, kind: "creative" | "reference") => {
     if (!file) return;
-    setUploading(kind);
-    setError(null);
+    setUploading(kind); setWizError(null);
     try {
       const path = await uploadPrivateImage(file);
-      setSetup((current) => ({
-        ...current,
+      setSetup((s) => ({
+        ...s,
         creative: {
-          ...current.creative,
+          ...s.creative,
           ...(kind === "creative"
             ? { source: "upload" as const, mediaPath: path, mediaMimeType: file.type }
-            : { referenceImagePath: path, mediaMimeType: file.type }),
+            : { referenceImagePath: path }),
         },
       }));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível carregar a imagem");
-    } finally {
-      setUploading(null);
-    }
+    } catch (e) { setWizError(e instanceof Error ? e.message : "Não foi possível carregar a imagem"); }
+    finally { setUploading(null); }
   };
 
   const generate = async () => {
-    setBusy("generate");
-    setError(null);
-    try {
-      const { campaign: saved } = await api.updateCampaignSetup(campaign.id, setup);
-      onUpdate(saved);
-      const { campaign: started } = await api.generateCampaignCreative(campaign.id);
-      onUpdate(started);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível iniciar a geração");
-    } finally {
-      setBusy(null);
-    }
+    await run("generate", async () => {
+      const saved = await api.updateCampaignSetup(campaign.id, setup);
+      onUpdate(saved.campaign);
+      return api.generateCampaignCreative(campaign.id);
+    });
   };
 
-  const audience = setup.audience;
-  const creative = setup.creative;
-  const selectedObjective = META_OBJECTIVES.find((item) => item.value === objective);
+  const aud = setup.audience;
+  const cre = setup.creative;
+  const selObj = MW_OBJECTIVES.find((o) => o.value === objective);
+  const minAoa = quote?.minBudgetAoa ?? 5000;
+  const maxAoa = Math.max(minAoa * 40, 1_000_000);
+  const budgetUsd = quote ? (budget / quote.fxRateAoaPerUsd).toFixed(2) : null;
 
   return (
-    <div className="space-y-3 px-4 py-3">
-      <div className="rounded-2xl px-3.5 py-3 flex items-center justify-between"
-        style={{ background: ps.bg, border: `1px solid ${ps.color}22` }}>
-        <div>
-          <p className="text-[11px] uppercase tracking-wide font-semibold" style={{ color: ps.color }}>Meta Ads</p>
-          <p className="text-[15px] font-bold" style={{ color: ps.color }}>{published ? ps.label : `Passo ${step + 1} de 5`}</p>
-        </div>
-        {quote?.simulated && <span className="text-[10px] px-2 py-1 rounded-full font-semibold" style={{ background: "#FFF", color: "#E65100" }}>SIMULAÇÃO</span>}
+    <div style={{ background: "#FFF", minHeight: "100%" }}>
+      {/* Thin progress bar */}
+      <div style={{ height: 3, background: "#F0F0F0" }}>
+        <div style={{ height: 3, background: "#111", width: `${(step / 4) * 100}%`, transition: "width 0.35s ease" }} />
       </div>
 
-      {error && (
-        <div className="rounded-xl px-3.5 py-2.5 text-[12px] flex items-start gap-2" style={{ background: "#FFEBEE", color: "#C62828" }}>
-          <AlertCircle size={13} className="shrink-0 mt-0.5" /> {error}
+      {/* Error */}
+      {wizError && (
+        <div style={{ margin: "12px 24px 0", padding: "10px 14px", borderRadius: 10, background: "#FFEBEE", color: "#C62828", fontSize: 13, display: "flex", gap: 8, alignItems: "flex-start" }}>
+          <AlertCircle size={14} style={{ flexShrink: 0, marginTop: 1 }} /> {wizError}
         </div>
       )}
 
-      <div className="flex gap-1.5 px-1">
-        {[0, 1, 2, 3, 4].map((item) => (
-          <div key={item} className="h-1 flex-1 rounded-full" style={{ background: item <= step ? C.green : C.border }} />
-        ))}
-      </div>
-
+      {/* ── Step 0: Objective ── */}
       {step === 0 && (
-        <WizardCard title="Qual é o objetivo?" description="Escolhe o resultado mais importante para esta campanha.">
-          <div className="space-y-2">
-            {META_OBJECTIVES.map((item) => (
-              <button key={item.value} type="button" onClick={() => void saveObjective(item.value)}
-                className="w-full rounded-xl px-3 py-3 text-left"
-                style={{ background: objective === item.value ? "#E8F5E9" : C.bg, border: `1px solid ${objective === item.value ? "#A5D6A7" : C.border}` }}>
-                <p className="text-[13px] font-semibold" style={{ color: objective === item.value ? "#1B5E20" : C.text }}>{item.label}</p>
-                <p className="text-[11px] mt-0.5" style={{ color: C.text2 }}>{item.description}</p>
-              </button>
+        <div style={{ padding: "0 24px" }}>
+          <ObjIllustration />
+          <h2 style={{ fontSize: 24, fontWeight: 700, color: "#111", lineHeight: 1.25, marginBottom: 4 }}>
+            O que queres que as pessoas façam quando virem o teu anúncio?
+          </h2>
+          <div style={{ marginTop: 8 }}>
+            {MW_OBJECTIVES.map((o) => (
+              <WRadio key={o.value} selected={objective === o.value} onSelect={() => void saveObjective(o.value)}
+                label={o.label} description={o.description} />
             ))}
           </div>
-          <NextButton label="Escolher criativo" onClick={() => setStep(1)} disabled={!objective} />
-        </WizardCard>
+          <div style={{ position: "sticky", bottom: 0, background: "#FFF", paddingTop: 16, paddingBottom: 32 }}>
+            <WPillCTA label="Avançar" onClick={() => setStep(1)} disabled={!objective} />
+          </div>
+        </div>
       )}
 
+      {/* ── Step 1: Creative ── */}
       {step === 1 && (
-        <WizardCard title="Que imagem queres usar?" description="Podes carregar uma imagem tua ou pedir uma imagem nova à Gemini.">
-          <div className="grid grid-cols-2 gap-2">
-            {([
-              ["upload", "Imagem própria", "Usar uma foto do produto ou negócio", <ImagePlus size={17} />],
-              ["gemini", "Gerar com Gemini", "Criar uma imagem publicitária", <WandSparkles size={17} />],
-            ] as const).map(([source, label, description, icon]) => (
-              <button key={source} type="button" onClick={() => setSetup((current) => ({
-                ...current,
-                creative: {
-                  ...current.creative,
-                  source,
-                  ...(current.creative.source === source ? {} : { mediaPath: null, mediaMimeType: null }),
-                },
-              }))}
-                className="rounded-xl p-3 text-left"
-                style={{ background: creative.source === source ? "#E8F5E9" : C.bg, border: `1px solid ${creative.source === source ? "#A5D6A7" : C.border}` }}>
-                <span style={{ color: creative.source === source ? C.green : C.text2 }}>{icon}</span>
-                <p className="text-[12px] font-semibold mt-2" style={{ color: C.text }}>{label}</p>
-                <p className="text-[10px] mt-0.5 leading-relaxed" style={{ color: C.text2 }}>{description}</p>
-              </button>
-            ))}
+        <div style={{ padding: "0 24px" }}>
+          <div style={{ padding: "20px 0 4px" }}>
+            <h2 style={{ fontSize: 24, fontWeight: 700, color: "#111", marginBottom: 4 }}>Criativo</h2>
+            <p style={{ fontSize: 13, color: "#6B7280" }}>Criar anúncio a partir de</p>
           </div>
 
-          {creative.source === "upload" ? (
-            <>
+          <WSourceRow selected={cre.source === "upload"}
+            onClick={() => setSetup((s) => ({ ...s, creative: { ...s.creative, source: "upload" as const, ...(s.creative.source !== "upload" ? { mediaPath: null, mediaMimeType: null } : {}) } }))}
+            icon={<ImagePlus size={22} style={{ color: cre.source === "upload" ? "#16A34A" : "#6B7280" }} />}
+            label="Da tua galeria" description="Enviar uma foto ou vídeo do teu negócio" />
+          <WSourceRow selected={cre.source === "gemini"}
+            onClick={() => setSetup((s) => ({ ...s, creative: { ...s.creative, source: "gemini" as const, ...(s.creative.source !== "gemini" ? { mediaPath: null } : {}) } }))}
+            icon={<WandSparkles size={22} style={{ color: cre.source === "gemini" ? "#16A34A" : "#6B7280" }} />}
+            label="Gerar com Gemini IA" description="Criar uma imagem publicitária com inteligência artificial" />
+
+          {cre.source === "upload" && (
+            <div style={{ marginTop: 16 }}>
               <input ref={creativeInput} type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
-                onChange={(event) => { void handleFile(event.target.files?.[0], "creative"); event.currentTarget.value = ""; }} />
-              <button type="button" onClick={() => creativeInput.current?.click()} disabled={uploading !== null}
-                className="w-full rounded-xl py-3 text-[13px] font-semibold"
-                style={{ background: C.bg, color: C.green, border: `1px dashed ${C.green}` }}>
-                {uploading === "creative" ? <Loader2 size={15} className="animate-spin inline mr-2" /> : <ImagePlus size={15} className="inline mr-2" />}
-                {creative.mediaPath ? "Trocar imagem" : "Carregar imagem"}
+                onChange={(e) => { void handleFile(e.target.files?.[0], "creative"); e.currentTarget.value = ""; }} />
+              {cre.mediaPath ? (
+                <div style={{ position: "relative", borderRadius: 12, overflow: "hidden", marginBottom: 12 }}>
+                  <img src={objectStorageUrl(cre.mediaPath)} alt="Criativo" style={{ width: "100%", aspectRatio: "1/1", objectFit: "cover", display: "block" }} />
+                  <button onClick={() => creativeInput.current?.click()}
+                    style={{ position: "absolute", bottom: 12, right: 12, background: "rgba(0,0,0,0.65)", color: "#fff", border: "none", borderRadius: 20, padding: "6px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                    Trocar foto
+                  </button>
+                </div>
+              ) : (
+                <button type="button" onClick={() => creativeInput.current?.click()} disabled={uploading !== null}
+                  style={{ width: "100%", borderRadius: 12, border: "2px dashed #D1D5DB", background: "#FAFAFA", padding: "40px 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, cursor: "pointer", marginBottom: 12, boxSizing: "border-box" }}>
+                  {uploading === "creative" ? <Loader2 size={24} className="animate-spin" style={{ color: "#6B7280" }} /> : <ImagePlus size={24} style={{ color: "#6B7280" }} />}
+                  <span style={{ fontSize: 15, fontWeight: 600, color: "#111" }}>Adicionar foto</span>
+                  <span style={{ fontSize: 13, color: "#6B7280" }}>da tua galeria</span>
+                </button>
+              )}
+              <button type="button" onClick={() => setEditField(editField === "desc" ? null : "desc")}
+                style={{ width: "100%", borderRadius: 12, border: "1px solid #E5E7EB", background: "#F9FAFB", padding: "13px 16px", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", marginTop: 4, marginBottom: 8, boxSizing: "border-box" }}>
+                <span style={{ fontSize: 15, color: cre.headline ? "#111" : "#9CA3AF" }}>{cre.headline || "Adicionar descrição"}</span>
+                <PencilIcon />
               </button>
-              {creative.mediaPath && <img src={objectStorageUrl(creative.mediaPath)} alt="Pré-visualização" className="w-full rounded-xl object-cover" style={{ maxHeight: 260 }} />}
-              <input value={creative.headline} maxLength={40} onChange={(event) => setSetup((current) => ({ ...current, creative: { ...current.creative, headline: event.target.value } }))}
-                placeholder="Título do anúncio (máx. 40 caracteres)" className="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text }} />
-              <textarea value={creative.body} maxLength={300} onChange={(event) => setSetup((current) => ({ ...current, creative: { ...current.creative, body: event.target.value } }))}
-                placeholder="Texto curto do anúncio" rows={3} className="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none resize-none" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text }} />
-            </>
-          ) : (
-            <>
-              <input ref={referenceInput} type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
-                onChange={(event) => { void handleFile(event.target.files?.[0], "reference"); event.currentTarget.value = ""; }} />
-              <button type="button" onClick={() => referenceInput.current?.click()} disabled={uploading !== null}
-                className="w-full rounded-xl py-3 text-[13px] font-semibold"
-                style={{ background: C.bg, color: C.green, border: `1px dashed ${C.green}` }}>
-                {uploading === "reference" ? <Loader2 size={15} className="animate-spin inline mr-2" /> : <ImagePlus size={15} className="inline mr-2" />}
-                {creative.referenceImagePath ? "Trocar imagem de referência" : "Adicionar referência (opcional)"}
-              </button>
-              {creative.referenceImagePath && <img src={objectStorageUrl(creative.referenceImagePath)} alt="Imagem de referência" className="w-full rounded-xl object-cover" style={{ maxHeight: 180 }} />}
-              <textarea value={creative.prompt} onChange={(event) => setSetup((current) => ({ ...current, creative: { ...current.creative, prompt: event.target.value } }))}
-                placeholder="Descreve o estilo, ambiente ou mensagem que queres ver na imagem (opcional)" rows={3} className="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none resize-none" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text }} />
-              <button type="button" onClick={() => void generate()} disabled={busy !== null || campaign.creativeStatus === "a_gerar"}
-                className="w-full rounded-full py-2.5 text-[13px] font-semibold flex items-center justify-center gap-2"
-                style={{ background: C.green, color: "#fff", opacity: busy ? 0.7 : 1 }}>
-                {busy === "generate" || campaign.creativeStatus === "a_gerar" ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                {campaign.creativeStatus === "a_gerar" ? "A criar a imagem…" : creativeReady ? "Gerar outra imagem" : "Gerar imagem com Gemini"}
-              </button>
-              {creativeReady && campaign.creativeJson && (
-                <div className="space-y-2">
-                  <img src={campaign.creativeJson.mediaUrl} alt="Criativo Meta" className="w-full rounded-xl" />
-                  <p className="text-[13px] font-semibold" style={{ color: C.text }}>{campaign.creativeJson.headline}</p>
-                  <p className="text-[12px]" style={{ color: C.text2 }}>{campaign.creativeJson.body}</p>
+              {editField === "desc" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 8 }}>
+                  <input value={cre.headline} maxLength={40}
+                    onChange={(e) => setSetup((s) => ({ ...s, creative: { ...s.creative, headline: e.target.value } }))}
+                    placeholder="Título (máx. 40 caracteres)"
+                    style={{ width: "100%", borderRadius: 10, border: "1px solid #E5E7EB", padding: "11px 14px", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
+                  <textarea value={cre.body} maxLength={300}
+                    onChange={(e) => setSetup((s) => ({ ...s, creative: { ...s.creative, body: e.target.value } }))}
+                    placeholder="Texto do anúncio" rows={3}
+                    style={{ width: "100%", borderRadius: 10, border: "1px solid #E5E7EB", padding: "11px 14px", fontSize: 14, outline: "none", resize: "none", boxSizing: "border-box" }} />
                 </div>
               )}
-              {campaign.creativeStatus === "erro" && <p className="text-[12px]" style={{ color: "#C62828" }}>{campaign.creativeError ?? "Erro ao gerar imagem"}</p>}
-            </>
+            </div>
           )}
 
-          <div className="flex gap-2">
-            <BackButton onClick={() => setStep(0)} />
-            <NextButton className="flex-1" label="Definir público" onClick={() => void saveSetup(2)}
-              disabled={busy !== null || (creative.source === "upload" && (!creative.mediaPath || !creative.headline.trim() || !creative.body.trim())) || (creative.source === "gemini" && !creativeReady)} />
+          {cre.source === "gemini" && (
+            <div style={{ marginTop: 16 }}>
+              <input ref={referenceInput} type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
+                onChange={(e) => { void handleFile(e.target.files?.[0], "reference"); e.currentTarget.value = ""; }} />
+              {creativeReady && campaign.creativeJson ? (
+                <div style={{ borderRadius: 12, overflow: "hidden", marginBottom: 12 }}>
+                  <img src={campaign.creativeJson.mediaUrl} alt="Criativo" style={{ width: "100%", aspectRatio: "1/1", objectFit: "cover", display: "block" }} />
+                  <div style={{ padding: "12px 16px", background: "#F9FAFB", borderTop: "1px solid #EBEBEB" }}>
+                    <p style={{ fontSize: 14, fontWeight: 600, color: "#111" }}>{campaign.creativeJson.headline}</p>
+                    <p style={{ fontSize: 13, color: "#6B7280", marginTop: 4 }}>{campaign.creativeJson.body}</p>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ borderRadius: 12, border: "2px dashed #D1D5DB", background: "#FAFAFA", padding: "32px 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                  {campaign.creativeStatus === "a_gerar" ? (
+                    <><Loader2 size={24} className="animate-spin" style={{ color: "#16A34A" }} /><span style={{ fontSize: 14, color: "#6B7280" }}>A criar a imagem…</span></>
+                  ) : campaign.creativeStatus === "erro" ? (
+                    <><AlertCircle size={24} style={{ color: "#C62828" }} /><span style={{ fontSize: 13, color: "#C62828" }}>{campaign.creativeError ?? "Erro ao gerar imagem"}</span></>
+                  ) : (
+                    <><Sparkles size={24} style={{ color: "#16A34A" }} /><span style={{ fontSize: 15, fontWeight: 600, color: "#111" }}>Pré-visualização</span><span style={{ fontSize: 13, color: "#6B7280" }}>aparecerá aqui após geração</span></>
+                  )}
+                </div>
+              )}
+              <button type="button" onClick={() => referenceInput.current?.click()} disabled={uploading !== null}
+                style={{ width: "100%", borderRadius: 10, border: "1px solid #E5E7EB", background: "#F9FAFB", padding: "11px 16px", display: "flex", alignItems: "center", gap: 10, cursor: "pointer", marginBottom: 10, boxSizing: "border-box" }}>
+                <ImagePlus size={18} style={{ color: "#6B7280", flexShrink: 0 }} />
+                <span style={{ fontSize: 14, color: "#6B7280" }}>{cre.referenceImagePath ? "Trocar imagem de referência" : "Adicionar referência (opcional)"}</span>
+              </button>
+              {cre.referenceImagePath && (
+                <img src={objectStorageUrl(cre.referenceImagePath)} alt="Referência"
+                  style={{ width: "100%", maxHeight: 140, objectFit: "cover", borderRadius: 10, marginBottom: 10 }} />
+              )}
+              <textarea value={cre.prompt}
+                onChange={(e) => setSetup((s) => ({ ...s, creative: { ...s.creative, prompt: e.target.value } }))}
+                placeholder="Descreve o estilo ou mensagem que queres (opcional)"
+                rows={3} style={{ width: "100%", borderRadius: 10, border: "1px solid #E5E7EB", padding: "11px 14px", fontSize: 14, outline: "none", resize: "none", boxSizing: "border-box", marginBottom: 10 }} />
+              <button type="button" onClick={() => void generate()} disabled={busy !== null || campaign.creativeStatus === "a_gerar"}
+                style={{ width: "100%", borderRadius: 24, background: "#16A34A", color: "#fff", height: 46, fontSize: 15, fontWeight: 600, border: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, cursor: "pointer", opacity: busy ? 0.7 : 1, marginBottom: 6 }}>
+                {busy === "generate" || campaign.creativeStatus === "a_gerar" ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+                {campaign.creativeStatus === "a_gerar" ? "A criar…" : creativeReady ? "Gerar nova imagem" : "Gerar imagem com Gemini"}
+              </button>
+            </div>
+          )}
+
+          <div style={{ position: "sticky", bottom: 0, background: "#FFF", paddingTop: 16, paddingBottom: 32 }}>
+            <WPillCTA label="Avançar" onClick={() => void saveSetup(2)}
+              loading={busy === "save"}
+              disabled={busy !== null || (cre.source === "upload" && !cre.mediaPath) || (cre.source === "gemini" && !creativeReady)} />
           </div>
-        </WizardCard>
+        </div>
       )}
 
+      {/* ── Step 2: Audience ── */}
       {step === 2 && (
-        <WizardCard title="Quem queres alcançar?" description="Começa simples. O Meta pode otimizar a entrega dentro deste público.">
-          <label className="field-label">Localização</label>
-          <input value={audience.location} onChange={(event) => setSetup((current) => ({ ...current, audience: { ...current.audience, location: event.target.value } }))}
-            placeholder="Ex: Luanda" className="wizard-input" />
-          <div className="grid grid-cols-2 gap-2">
-            <div><label className="field-label">Idade mínima</label><input type="number" min={13} max={65} value={audience.ageMin} onChange={(event) => setSetup((current) => ({ ...current, audience: { ...current.audience, ageMin: Number(event.target.value) } }))} className="wizard-input" /></div>
-            <div><label className="field-label">Idade máxima</label><input type="number" min={13} max={65} value={audience.ageMax} onChange={(event) => setSetup((current) => ({ ...current, audience: { ...current.audience, ageMax: Number(event.target.value) } }))} className="wizard-input" /></div>
+        <div style={{ padding: "0 24px" }}>
+          <div style={{ paddingTop: 24 }}>
+            <h2 style={{ fontSize: 24, fontWeight: 700, color: "#111", lineHeight: 1.25, marginBottom: 4 }}>
+              Escolhe para quem o anúncio será exibido
+            </h2>
+            <p style={{ fontSize: 14, color: "#6B7280", marginBottom: 8, lineHeight: 1.5 }}>
+              O Meta pode otimizar automaticamente a entrega para melhores resultados.
+            </p>
           </div>
-          <label className="field-label">Género</label>
-          <select value={audience.gender} onChange={(event) => setSetup((current) => ({ ...current, audience: { ...current.audience, gender: event.target.value as CampaignSetup["audience"]["gender"] } }))} className="wizard-input">
-            <option value="all">Todas as pessoas</option><option value="female">Mulheres</option><option value="male">Homens</option>
-          </select>
-          <label className="field-label">Interesses (separados por vírgulas)</label>
-          <input value={audience.interests} onChange={(event) => setSetup((current) => ({ ...current, audience: { ...current.audience, interests: event.target.value } }))}
-            placeholder="Ex: casa, tecnologia, empreendedorismo" className="wizard-input" />
-          <label className="field-label">Excluir (opcional)</label>
-          <input value={audience.excludedAudiences} onChange={(event) => setSetup((current) => ({ ...current, audience: { ...current.audience, excludedAudiences: event.target.value } }))}
-            placeholder="Ex: clientes actuais" className="wizard-input" />
-          <div className="flex gap-2"><BackButton onClick={() => setStep(1)} /><NextButton className="flex-1" label="Definir orçamento" onClick={() => void saveSetup(3)} disabled={busy !== null || !audience.location.trim() || audience.ageMax < audience.ageMin} /></div>
-        </WizardCard>
+
+          <WToggle on label="Público Advantage+"
+            description="Encontra e adapta automaticamente o público para ajudar a melhorar o desempenho do anúncio."
+            onChange={() => {}} />
+
+          {/* Location */}
+          <div style={{ padding: "14px 0", borderBottom: SEP }}>
+            <div className="flex items-center justify-between" style={{ cursor: "pointer" }}
+              onClick={() => setEditField(editField === "location" ? null : "location")}>
+              <div>
+                <p style={{ fontSize: 15, fontWeight: 600, color: "#111" }}>Localizações</p>
+                <p style={{ fontSize: 13, color: "#6B7280", marginTop: 3 }}>{aud.location || "Angola"}</p>
+              </div>
+              <PencilIcon />
+            </div>
+            {editField === "location" && (
+              <input value={aud.location}
+                onChange={(e) => setSetup((s) => ({ ...s, audience: { ...s.audience, location: e.target.value } }))}
+                placeholder="Ex: Luanda" autoFocus
+                style={{ marginTop: 10, width: "100%", borderRadius: 10, border: "1px solid #E5E7EB", padding: "11px 14px", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
+            )}
+          </div>
+
+          {/* Interests */}
+          <div style={{ padding: "14px 0", borderBottom: SEP }}>
+            <div className="flex items-center justify-between" style={{ cursor: "pointer" }}
+              onClick={() => setEditField(editField === "interests" ? null : "interests")}>
+              <div>
+                <p style={{ fontSize: 15, fontWeight: 600, color: "#111" }}>Interesses</p>
+                <p style={{ fontSize: 13, color: "#6B7280", marginTop: 3 }}>{aud.interests || "Adicionar interesses"}</p>
+              </div>
+              <PencilIcon />
+            </div>
+            {editField === "interests" && (
+              <input value={aud.interests}
+                onChange={(e) => setSetup((s) => ({ ...s, audience: { ...s.audience, interests: e.target.value } }))}
+                placeholder="Ex: tecnologia, automóveis, moda" autoFocus
+                style={{ marginTop: 10, width: "100%", borderRadius: 10, border: "1px solid #E5E7EB", padding: "11px 14px", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
+            )}
+          </div>
+
+          {/* Gender */}
+          <div style={{ padding: "16px 0", borderBottom: SEP }}>
+            <p style={{ fontSize: 15, fontWeight: 600, color: "#111", marginBottom: 12 }}>Género</p>
+            <div style={{ display: "flex", gap: 8 }}>
+              {([ ["all", "Todos"], ["female", "Mulheres"], ["male", "Homens"] ] as const).map(([v, l]) => (
+                <button key={v} type="button"
+                  onClick={() => setSetup((s) => ({ ...s, audience: { ...s.audience, gender: v } }))}
+                  style={{ flex: 1, height: 38, borderRadius: 20, border: `1.5px solid ${aud.gender === v ? "#111" : "#E5E7EB"}`, background: aud.gender === v ? "#111" : "#FFF", color: aud.gender === v ? "#FFF" : "#6B7280", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                  {l}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Age slider */}
+          <WAgeSlider ageMin={aud.ageMin} ageMax={aud.ageMax}
+            onChange={(mn, mx) => setSetup((s) => ({ ...s, audience: { ...s.audience, ageMin: mn, ageMax: mx } }))} />
+
+          {aud.ageMin < 21 && (
+            <div style={{ marginTop: 12, padding: "12px 16px", borderRadius: 10, border: "1px solid #E5E7EB", background: "#F9FAFB", display: "flex", gap: 10 }}>
+              <AlertCircle size={16} style={{ color: "#6B7280", flexShrink: 0, marginTop: 1 }} />
+              <p style={{ fontSize: 13, color: "#6B7280", lineHeight: 1.5 }}>
+                Selecionar idades abaixo de 21 anos pode limitar as opções disponíveis.
+              </p>
+            </div>
+          )}
+
+          <div style={{ height: 80 }} />
+          <div style={{ position: "sticky", bottom: 0, background: "#FFF", paddingTop: 12, paddingBottom: 32 }}>
+            <WPillCTA label="Guardar" onClick={() => void saveSetup(3)}
+              loading={busy === "save"} disabled={busy !== null || !aud.location.trim()} />
+          </div>
+        </div>
       )}
 
+      {/* ── Step 3: Budget ── */}
       {step === 3 && (
-        <WizardCard title="Quanto queres investir?" description="O orçamento é total para toda a duração da campanha.">
-          <label className="field-label">Orçamento total (Kz)</label>
-          <input value={budget} onChange={(event) => setBudget(event.target.value.replace(/\D/g, ""))} inputMode="numeric" placeholder="Ex: 50000" className="wizard-input text-[18px] font-semibold" />
-          <label className="field-label">Duração (dias)</label>
-          <input value={durationDays} onChange={(event) => setDurationDays(event.target.value.replace(/\D/g, ""))} inputMode="numeric" placeholder="7" className="wizard-input" />
-          {budget && quote && Number(budget) > 0 && <p className="text-[12px]" style={{ color: C.text2 }}>≈ <b style={{ color: C.text }}>${quote.budgetUsd.toFixed(2)}</b> para anúncios Meta · câmbio {quote.fxRateAoaPerUsd.toLocaleString("pt-AO")} Kz/USD</p>}
-          <div className="flex gap-2"><BackButton onClick={() => setStep(2)} /><NextButton className="flex-1" label="Rever campanha" onClick={() => void saveBudget()} disabled={busy !== null || !budget} /></div>
-        </WizardCard>
+        <div style={{ padding: "0 24px" }}>
+          <div style={{ paddingTop: 24 }}>
+            <h2 style={{ fontSize: 24, fontWeight: 700, color: "#111", lineHeight: 1.25, marginBottom: 4 }}>
+              Qual é o orçamento para o anúncio?
+            </h2>
+            <p style={{ fontSize: 14, color: "#6B7280", lineHeight: 1.5, marginBottom: 24 }}>
+              O orçamento e a duração afetam o alcance do anúncio.
+            </p>
+          </div>
+
+          {/* Big centered budget value */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, marginBottom: 20 }}>
+            <span style={{ fontSize: 40, fontWeight: 700, color: "#111", letterSpacing: -1 }}>
+              {budget.toLocaleString("pt-AO")} <span style={{ fontSize: 20 }}>Kz</span>
+            </span>
+          </div>
+
+          {/* Slider */}
+          <WBudgetSlider value={budget} minAoa={minAoa} maxAoa={maxAoa} onChange={setBudget} />
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8, marginBottom: 16 }}>
+            <span style={{ fontSize: 13, color: "#9CA3AF" }}>{minAoa.toLocaleString("pt-AO")} Kz</span>
+            <span style={{ fontSize: 13, color: "#9CA3AF" }}>{maxAoa.toLocaleString("pt-AO")} Kz</span>
+          </div>
+
+          {budgetUsd && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20, padding: "10px 14px", background: "#F0FDF4", borderRadius: 10 }}>
+              <Check size={15} style={{ color: "#16A34A", flexShrink: 0 }} />
+              <p style={{ fontSize: 13, color: "#374151" }}>
+                ≈ <strong>${budgetUsd}</strong> · câmbio {quote?.fxRateAoaPerUsd.toLocaleString("pt-AO")} Kz/USD
+              </p>
+            </div>
+          )}
+
+          {/* Duration */}
+          <p style={{ fontSize: 15, fontWeight: 600, color: "#111", marginBottom: 4 }}>Duração</p>
+          <WRadio selected={durationMode === "open"} onSelect={() => setDurationMode("open")}
+            label="Veicular até eu pausar"
+            description="Recomendado" green />
+          <WRadio selected={durationMode === "fixed"} onSelect={() => setDurationMode("fixed")}
+            label="Veicular por um tempo definido"
+            description="Define um período específico para o anúncio." />
+          {durationMode === "fixed" && (
+            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 0" }}>
+              <span style={{ fontSize: 14, color: "#6B7280" }}>Duração:</span>
+              <input type="number" min={1} max={90} value={durationDays}
+                onChange={(e) => setDurationDays(Math.min(90, Math.max(1, Number(e.target.value) || 7)))}
+                style={{ width: 80, borderRadius: 10, border: "1px solid #E5E7EB", padding: "10px 14px", fontSize: 15, fontWeight: 600, textAlign: "center", outline: "none" }} />
+              <span style={{ fontSize: 14, color: "#6B7280" }}>dias</span>
+            </div>
+          )}
+
+          <div style={{ height: 80 }} />
+          <div style={{ position: "sticky", bottom: 0, background: "#FFF", paddingTop: 12, paddingBottom: 32 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
+              <span style={{ fontSize: 13, color: "#6B7280" }}>Orçamento total</span>
+              <strong style={{ fontSize: 13, color: "#111" }}>{budget.toLocaleString("pt-AO")} Kz</strong>
+            </div>
+            <WPillCTA label="Avançar" onClick={() => void saveBudget()} loading={busy === "budget"} disabled={busy !== null} />
+          </div>
+        </div>
       )}
 
+      {/* ── Step 4: Review & Pay ── */}
       {step === 4 && (
-        <WizardCard title="Está tudo pronto?" description="Revisa antes de pagar. O anúncio só é enviado ao Meta depois da tua confirmação.">
-          <ReviewRow label="Objetivo" value={selectedObjective?.label ?? objective} />
-          <ReviewRow label="Criativo" value={creative.source === "gemini" ? "Imagem criada pela Gemini" : "Imagem própria carregada"} />
-          <ReviewRow label="Público" value={`${audience.location} · ${audience.ageMin}-${audience.ageMax} anos`} />
-          <ReviewRow label="Investimento" value={`${campaign.budget.toLocaleString("pt-AO")} Kz · ${campaign.durationDays} dias`} />
-          {!paid ? (
+        <div style={{ padding: "0 24px" }}>
+          <div style={{ paddingTop: 24 }}>
+            <h2 style={{ fontSize: 24, fontWeight: 700, color: "#111", lineHeight: 1.25, marginBottom: 4 }}>
+              {paid ? (published ? "Anúncio publicado! 🎉" : "Anúncio pronto para publicar") : "O teu anúncio está pronto"}
+            </h2>
+            <p style={{ fontSize: 14, color: "#6B7280", lineHeight: 1.5, marginBottom: 4 }}>
+              {paid ? "Confirma o estado do teu anúncio no Meta." : "Confirma os detalhes e escolhe a forma de pagamento."}
+            </p>
+          </div>
+
+          <WReviewRow
+            icon={<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="1.5"><path d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>}
+            label={selObj?.label ?? "Objetivo"} detail="Meta Ads"
+            onEdit={!paid ? () => setStep(0) : undefined} />
+
+          <WReviewRow
+            icon={
+              <div style={{ width: 36, height: 36, borderRadius: 6, overflow: "hidden", background: "#F3F4F6", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {creativeReady && campaign.creativeJson
+                  ? <img src={campaign.creativeJson.mediaUrl} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="" />
+                  : <ImagePlus size={16} style={{ color: "#9CA3AF" }} />}
+              </div>
+            }
+            label="Pré-visualização" detail={cre.source === "gemini" ? "Imagem gerada pela Gemini" : "Imagem própria"}
+            onEdit={!paid ? () => setStep(1) : undefined} />
+
+          <WReviewRow
+            icon={<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="1.5"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>}
+            label="Público"
+            detail={`${aud.location || "Angola"} · ${aud.ageMin}–${aud.ageMax}+ anos · ${aud.gender === "all" ? "Todos" : aud.gender === "female" ? "Mulheres" : "Homens"}`}
+            sub="Público Advantage+: ativado"
+            onEdit={!paid ? () => setStep(2) : undefined} />
+
+          <WReviewRow
+            icon={<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="1.5"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>}
+            label={`${campaign.budget.toLocaleString("pt-AO")} Kz${durationMode === "fixed" ? ` · ${campaign.durationDays} dias` : " · sem fim definido"}`}
+            detail="Orçamento total"
+            onEdit={!paid ? () => setStep(3) : undefined} />
+
+          {quote?.simulated && (
+            <div style={{ margin: "12px 0", padding: "12px 16px", borderRadius: 10, background: "#FFFBEB", border: "1px solid #FDE68A", display: "flex", gap: 10 }}>
+              <AlertCircle size={16} style={{ color: "#D97706", flexShrink: 0, marginTop: 1 }} />
+              <p style={{ fontSize: 13, color: "#92400E", lineHeight: 1.5 }}>Modo de teste: nenhum anúncio real será publicado no Meta.</p>
+            </div>
+          )}
+
+          {!paid && (
             <>
-              {quote?.simulated && <div className="rounded-xl px-3 py-2 text-[12px]" style={{ background: "#FFF8E1", color: "#E65100", border: "1px solid #FFE082" }}>Modo de teste: nenhum anúncio real será publicado.</div>}
-              <div className="flex gap-2">
-                {([["carteira", "Carteira", <Wallet key="wallet" size={13} />], ["multicaixa", "Multicaixa", <Smartphone key="phone" size={13} />]] as const).map(([method, label, icon]) => (
-                  <button key={method} onClick={() => setPayMethod(method)} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2 text-[12px] font-semibold"
-                    style={{ background: payMethod === method ? "#E8F5E9" : C.bg, color: payMethod === method ? "#1B5E20" : C.text2, border: `1px solid ${payMethod === method ? "#A5D6A7" : C.border}` }}>{icon}{label}</button>
+              <p style={{ fontSize: 15, fontWeight: 600, color: "#111", marginTop: 20, marginBottom: 12 }}>Forma de pagamento</p>
+              <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
+                {([ ["carteira", "Carteira Linkealls", <Wallet key="w" size={18} />], ["multicaixa", "Multicaixa Express", <Smartphone key="m" size={18} />] ] as const).map(([m, l, icon]) => (
+                  <button key={m} type="button" onClick={() => setPayMethod(m)}
+                    style={{ flex: 1, padding: "14px 8px", borderRadius: 14, border: `1.5px solid ${payMethod === m ? "#111" : "#E5E7EB"}`, background: payMethod === m ? "#111" : "#FFF", color: payMethod === m ? "#FFF" : "#6B7280", fontSize: 13, fontWeight: 600, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                    {icon}{l}
+                  </button>
                 ))}
               </div>
-              {payMethod === "multicaixa" && <input value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="Telemóvel (9XXXXXXXX)" inputMode="tel" className="wizard-input" />}
-              <button onClick={() => void run("pay", () => api.payCampaign(campaign.id, payMethod === "carteira" ? { method: "carteira" } : { method: "multicaixa", phone }))} disabled={busy !== null || (payMethod === "multicaixa" && !/^9\d{8}$/.test(phone.replace(/\s/g, "")))}
-                className="w-full flex items-center justify-center gap-2 rounded-full py-2.5 text-[13px] font-semibold" style={{ background: C.green, color: "#fff", opacity: busy ? 0.7 : 1 }}>
-                {busy === "pay" ? <Loader2 size={14} className="animate-spin" /> : <DollarSign size={14} />} Pagar {campaign.budget.toLocaleString("pt-AO")} Kz
-              </button>
+              {payMethod === "multicaixa" && (
+                <input value={phone} onChange={(e) => setPhone(e.target.value)}
+                  placeholder="Nº Telemóvel (9XXXXXXXX)" inputMode="tel"
+                  style={{ width: "100%", borderRadius: 10, border: "1px solid #E5E7EB", padding: "13px 16px", fontSize: 15, outline: "none", marginBottom: 4, boxSizing: "border-box" }} />
+              )}
             </>
-          ) : published ? (
-            <div className="rounded-xl px-3 py-2.5 text-[13px]" style={{ background: "#E8F5E9", color: "#1B5E20" }}>Campanha enviada para o Meta. Estado actual: {ps.label}.</div>
-          ) : (
-            <button onClick={() => void run("publish", () => api.publishCampaign(campaign.id))} disabled={busy !== null}
-              className="w-full flex items-center justify-center gap-2 rounded-full py-2.5 text-[13px] font-semibold" style={{ background: "#111827", color: "#fff", opacity: busy ? 0.7 : 1 }}>
-              {busy === "publish" ? <Loader2 size={14} className="animate-spin" /> : <Rocket size={14} />} Publicar no Meta
-            </button>
           )}
-          {!paid && <BackButton onClick={() => setStep(3)} label="Voltar e editar" />}
-        </WizardCard>
+
+          {paid && published && (
+            <div style={{ marginTop: 16, padding: "14px 16px", borderRadius: 12, background: "#F0FDF4", border: "1px solid #BBF7D0" }}>
+              <p style={{ fontSize: 15, fontWeight: 600, color: "#15803D" }}>Campanha activa no Meta</p>
+              <p style={{ fontSize: 13, color: "#16A34A", marginTop: 4 }}>Estado: {ps.label}</p>
+            </div>
+          )}
+
+          <div style={{ height: 100 }} />
+          <div style={{ position: "sticky", bottom: 0, background: "#FFF", paddingTop: 12, paddingBottom: 32 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
+              <span style={{ fontSize: 13, color: "#6B7280" }}>Estimativa de impressões</span>
+              <strong style={{ fontSize: 13, color: "#111" }}>10 mil – 20 mil / dia</strong>
+            </div>
+            {!paid ? (
+              <WPillCTA
+                label={`Pagar e criar anúncio · ${campaign.budget.toLocaleString("pt-AO")} Kz`}
+                onClick={() => void run("pay", () => api.payCampaign(campaign.id, payMethod === "carteira" ? { method: "carteira" } : { method: "multicaixa", phone }))}
+                loading={busy === "pay"}
+                disabled={busy !== null || (payMethod === "multicaixa" && !/^9\d{8}$/.test(phone.replace(/\s/g, "")))} />
+            ) : !published ? (
+              <WPillCTA label="Publicar no Meta"
+                onClick={() => void run("publish", () => api.publishCampaign(campaign.id))}
+                loading={busy === "publish"} disabled={busy !== null} />
+            ) : null}
+            <p style={{ fontSize: 12, color: "#9CA3AF", textAlign: "center", marginTop: 12, lineHeight: 1.5 }}>
+              Ao criar este anúncio, concordas com os Termos e Condições da Meta.
+            </p>
+          </div>
+        </div>
       )}
     </div>
   );
-}
-
-function WizardCard({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-2xl p-4 space-y-3" style={{ background: C.white, border: `1px solid ${C.border}` }}>
-      <div><p className="text-[16px] font-bold" style={{ color: C.text }}>{title}</p><p className="text-[12px] mt-1 leading-relaxed" style={{ color: C.text2 }}>{description}</p></div>
-      {children}
-    </div>
-  );
-}
-
-function ReviewRow({ label, value }: { label: string; value: string }) {
-  return <div className="flex items-center justify-between gap-3 py-2.5 border-b last:border-b-0" style={{ borderColor: C.border }}><span className="text-[11px] uppercase tracking-wide" style={{ color: C.text3 }}>{label}</span><span className="text-[13px] font-semibold text-right" style={{ color: C.text }}>{value}</span></div>;
-}
-
-function NextButton({ label, onClick, disabled, className = "" }: { label: string; onClick: () => void; disabled?: boolean; className?: string }) {
-  return <button onClick={onClick} disabled={disabled} className={`rounded-full py-2.5 text-[13px] font-semibold ${className}`} style={{ background: C.green, color: "#fff", opacity: disabled ? 0.45 : 1 }}>{label}<ChevronDown size={14} className="inline ml-1 -rotate-90" /></button>;
-}
-
-function BackButton({ onClick, label = "Voltar" }: { onClick: () => void; label?: string }) {
-  return <button onClick={onClick} className="rounded-full py-2.5 px-4 text-[13px] font-semibold" style={{ background: C.bg, color: C.text2, border: `1px solid ${C.border}` }}>{label}</button>;
 }
 
 // ─── Legacy publish flow (TikTok/Facebook/Instagram history) ──────────────────
