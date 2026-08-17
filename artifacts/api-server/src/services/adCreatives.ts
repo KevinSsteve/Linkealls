@@ -9,7 +9,7 @@
  * Media is stored in private object storage and served via
  * /api/storage/objects/... .
  */
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Modality, Type } from "@google/genai";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   db,
@@ -19,16 +19,12 @@ import {
   type AdCreative,
   type CampaignSetup,
 } from "@workspace/db";
+import { ai as managedGemini } from "@workspace/integrations-gemini-ai";
 import { ObjectStorageService } from "../lib/objectStorage.js";
 import { logger } from "../lib/logger.js";
 
 const TEXT_MODEL = process.env["GEMINI_TEXT_MODEL"] ?? "gemini-3-flash-preview";
-const configuredImageModel = process.env["GEMINI_IMAGE_MODEL"]?.trim();
-// Older deployments used the preview alias. Keep accepting it, but send the
-// currently supported Gemini image model name to the SDK.
-const IMAGE_MODEL = configuredImageModel === "gemini-2.5-flash-preview-image"
-  ? "gemini-2.5-flash-image"
-  : configuredImageModel || "gemini-2.5-flash-image";
+const IMAGE_MODEL = "gemini-2.5-flash-image";
 const VIDEO_MODEL = process.env["GEMINI_VIDEO_MODEL"] ?? "veo-3.0-fast-generate-001";
 
 /** Meta/Zernio CTA enum values we allow the model to choose from. */
@@ -54,13 +50,12 @@ async function planCreative(
   profile: { name: string; sector: string | null; description: string | null; offerings: Array<{ name: string; description: string; price: string; featured?: boolean }> },
   channel: "meta" | "tiktok",
 ): Promise<CreativePlan> {
-  const ai = getAi();
   const catalog = profile.offerings
     .slice(0, 30)
     .map((o) => `- ${o.name} | ${o.price} | ${o.featured ? "DESTAQUE | " : ""}${o.description}`.slice(0, 300))
     .join("\n");
 
-  const res = await ai.models.generateContent({
+  const res = await managedGemini.models.generateContent({
     model: TEXT_MODEL,
     contents: [
       `És um criativo publicitário sénior em Luanda, Angola. Cria o anúncio para a campanha abaixo.`,
@@ -101,7 +96,6 @@ async function generateImage(
   prompt: string,
   reference?: { buffer: Buffer; mime: string },
 ): Promise<{ buffer: Buffer; mime: string }> {
-  const ai = getAi();
   const contents = reference
     ? [{
         role: "user" as const,
@@ -111,9 +105,12 @@ async function generateImage(
         ],
       }]
     : `Professional advertising photo, square 1:1. ${prompt}`;
-  const res = await ai.models.generateContent({
+  const res = await managedGemini.models.generateContent({
     model: IMAGE_MODEL,
     contents,
+    config: {
+      responseModalities: [Modality.TEXT, Modality.IMAGE],
+    },
   });
   const parts = res.candidates?.[0]?.content?.parts ?? [];
   for (const part of parts) {
@@ -150,7 +147,7 @@ async function generateVideo(prompt: string): Promise<{ buffer: Buffer; mime: st
 function userFacingCreativeError(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
   if (/RESOURCE_EXHAUSTED|quota|free.?tier|429/i.test(message)) {
-    return `O Gemini não tem quota disponível para gerar imagens neste momento (modelo ${IMAGE_MODEL}). A chave atual está sem quota de imagem no Free Tier; ativa faturação/quota no projeto Google ou configura outro provedor de imagens.`;
+    return `A integração Gemini da Replit não tem créditos/quota disponíveis para gerar imagens neste momento (modelo ${IMAGE_MODEL}). Verifica os créditos da Replit ou usa uma imagem da tua galeria.`;
   }
   if (/PERMISSION_DENIED|forbidden|unauthenticated/i.test(message)) {
     return "O Gemini recusou o pedido. Verifica se a chave tem acesso ao modelo de imagem e se pertence ao projeto correcto.";

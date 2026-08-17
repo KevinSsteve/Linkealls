@@ -10,3 +10,4 @@
 - [Zernio Meta contract](zernio-meta-contract.md) — Meta goals use ODAX names; targeting is flat; city and interest inputs need Zernio ID lookups.
 - [Web Push Setup](web-push-setup.md) — VAPID env secrets, pushSubscriptions jsonb in business_profiles, daily cron at WAT 08:00, Uint8Array cast quirk.
 - [Meta targeting selections](meta-targeting-selections.md) — persist opaque Meta IDs beside labels, then re-resolve/validate them server-side before publishing.
+- [Managed Gemini credits](gemini-managed-integration.md) — Meta creative text/image generation uses Replit-managed Gemini credits; direct Google key remains only for legacy Veo video.

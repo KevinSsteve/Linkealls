@@ -30,6 +30,10 @@ export const CAMPAIGN_MIN_BUDGET_AOA = 5_000;
 
 /** Development previews must never charge or publish real campaigns. */
 const IS_DEV_ENV = process.env["NODE_ENV"] === "development";
+const hasManagedGemini = Boolean(
+  process.env["AI_INTEGRATIONS_GEMINI_BASE_URL"] &&
+  process.env["AI_INTEGRATIONS_GEMINI_API_KEY"],
+);
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -117,7 +121,7 @@ function assertPayable(campaign: Campaign): void {
     if (campaign.creativeStatus !== "pronto" || !campaign.creativeJson) {
       throw new PaymentError("Revê e aprova o criativo antes de pagar");
     }
-    if (setup.creative.source === "gemini" && !process.env["GEMINI_API_KEY"]) {
+    if (setup.creative.source === "gemini" && !hasManagedGemini && !process.env["GEMINI_API_KEY"]) {
       throw new PaymentError(
         "Publicação indisponível: geração de imagens Gemini não está configurada — contacta o suporte antes de pagar",
         503,
