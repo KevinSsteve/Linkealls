@@ -1,0 +1,1208 @@
+# REDESIGN COMPLETO — EDITAR PERFIL + PRODUTOS & SERVIÇOS
+
+Quero que redesenhes profundamente a experiência de **Editar perfil**.
+
+Não trates isto como um simples formulário que precisa de CSS melhor.
+
+Quero que transformes esta área numa experiência de edição **extremamente simples, intuitiva, elegante e profissional**, semelhante ao nível de qualidade esperado de um produto SaaS moderno.
+
+O objetivo é que um proprietário de negócio consiga:
+
+* editar as informações da empresa
+* adicionar produtos
+* editar produtos
+* adicionar diferenciais
+* adicionar perguntas frequentes
+* configurar catálogo
+* configurar links
+* configurar notificações
+* testar o assistente IA
+
+sem sentir que está a preencher um formulário complexo.
+
+---
+
+# 1. PRINCÍPIO CENTRAL
+
+A experiência deve seguir:
+
+> **"Edita o teu negócio uma coisa de cada vez, sem confusão."**
+
+O utilizador não deve precisar entender a estrutura interna da aplicação.
+
+Ele deve simplesmente pensar:
+
+**"Quero alterar esta informação."**
+
+ou
+
+**"Quero adicionar este produto."**
+
+e conseguir fazê-lo rapidamente.
+
+---
+
+# 2. PROBLEMAS VISUAIS ATUAIS QUE PRECISAM SER CORRIGIDOS
+
+Nas telas atuais existem vários problemas evidentes.
+
+### Corrigir obrigatoriamente:
+
+* excesso de caixas cinzentas
+* campos visualmente pesados
+* bordas em excesso
+* cards dentro de cards
+* falta de hierarquia
+* elementos muito próximos uns dos outros
+* textos cortados horizontalmente
+* conteúdo ultrapassando containers
+* ícones de eliminar mal posicionados
+* ações competindo visualmente com o conteúdo
+* botão "Guardar perfil" cobrindo conteúdo
+* bottom navigation competindo com o botão de guardar
+* campos com alturas inconsistentes
+* produtos com edição visualmente confusa
+* demasiadas informações apresentadas simultaneamente
+* ausência de separação clara entre edição e configuração
+* headers inconsistentes
+* títulos e labels com pesos/tamanhos pouco equilibrados.
+
+---
+
+# 3. NÃO TENTAR RESOLVER COM MAIS PADDING
+
+Muito importante:
+
+Não quero simplesmente aumentar padding ou espaçamento.
+
+O problema é principalmente **arquitetural e hierárquico**.
+
+Se uma seção contém demasiada informação, considera:
+
+* collapsible sections
+* progressive disclosure
+* edição inline
+* telas secundárias
+* bottom sheets
+* modais
+* páginas dedicadas
+* cards mais simples.
+
+A interface deve mostrar apenas o que o utilizador precisa naquele momento.
+
+---
+
+# 4. NOVA ARQUITETURA DO EDITOR
+
+Quero que o "Editar perfil" seja organizado como um conjunto de blocos claros.
+
+Estrutura recomendada:
+
+## EDITAR PERFIL
+
+### Identidade
+
+* Nome do negócio
+* Setor
+* Descrição
+* Público-alvo
+* Tom de voz
+
+### Contacto & localização
+
+* Endereço
+* Horário
+* Contactos
+* Website
+* Redes sociais
+
+### Produtos & serviços
+
+* Produtos existentes
+* Adicionar produto
+* Editar produto
+* Reordenar produtos
+
+### Diferenciais
+
+* Diferenciais existentes
+* Adicionar diferencial
+
+### Perguntas frequentes
+
+* FAQs existentes
+* Adicionar pergunta
+
+### Qualificação de leads
+
+* Perguntas/regras usadas pelo assistente IA
+
+### Catálogo
+
+* Estado
+* Link
+* Configurações
+
+### Automação
+
+* Notificações
+* Assistente IA
+* Testar chamada
+* Reanalisar site
+
+---
+
+# 5. CADA SEÇÃO DEVE TER UMA HIERARQUIA CLARA
+
+Em vez de dezenas de elementos visualmente iguais, cada seção deve ter:
+
+**Título**
+
+pequena descrição opcional
+
+**conteúdo**
+
+**ação principal**
+
+Exemplo:
+
+### Produtos & serviços
+
+Adiciona os produtos que o teu negócio vende.
+
+`+ Adicionar produto`
+
+Depois os produtos.
+
+Não colocar "Adicionar" perdido no mesmo nível visual do título sem contexto.
+
+---
+
+# 6. SECTION COMPONENT
+
+Criar um componente global:
+
+`<EditorSection />`
+
+Ele deve controlar:
+
+* título
+* descrição
+* ação principal
+* conteúdo
+* espaçamento
+* estados.
+
+Todas as seções do editor devem usar o mesmo componente.
+
+Exemplo:
+
+```text
+Produtos & serviços                 + Adicionar
+
+Adiciona os produtos que vendes.
+
+[Produto]
+[Produto]
+[Produto]
+```
+
+Depois:
+
+```text
+Diferenciais                        + Adicionar
+
+[Item]
+[Item]
+```
+
+A estrutura visual deve ser consistente.
+
+---
+
+# 7. NÃO USAR "CARD DENTRO DE CARD"
+
+Este é um dos problemas mais importantes das telas atuais.
+
+Atualmente há:
+
+container
+→ card
+→ input
+→ outro card
+→ outro input
+
+Isso cria uma aparência pesada.
+
+Reduz drasticamente o número de containers visuais.
+
+Usa:
+
+* background da página
+* seção
+* campo
+
+e apenas quando necessário:
+
+* card para conteúdo realmente agrupado.
+
+Não colocar uma borda ao redor de cada pequeno elemento.
+
+---
+
+# 8. DESIGN DOS INPUTS
+
+Os inputs atuais parecem grandes caixas cinzentas empilhadas.
+
+Quero uma abordagem mais refinada.
+
+Cada campo deve seguir:
+
+```text
+NOME DO NEGÓCIO *
+[ Electro Panga                         ]
+```
+
+Label:
+
+* pequena
+* clara
+* sem excesso de letter spacing
+* visualmente secundária
+
+Input:
+
+* fundo subtil
+* border subtil
+* radius consistente
+* altura consistente
+* padding confortável
+* texto principal escuro
+* placeholder claramente diferente do valor.
+
+---
+
+# 9. TEXTAREA
+
+Para descrições longas:
+
+Não usar uma caixa gigantesca por defeito.
+
+A altura deve adaptar-se ao conteúdo dentro de limites razoáveis.
+
+Exemplo:
+
+```text
+DESCRIÇÃO
+
+┌───────────────────────────────┐
+│ A Electro Panga é uma loja... │
+│ comercialização de material...│
+│ componentes de automação...   │
+└───────────────────────────────┘
+```
+
+Permitir expansão natural.
+
+Não cortar texto.
+
+Não permitir overflow horizontal.
+
+---
+
+# 10. ZERO OVERFLOW HORIZONTAL
+
+Isto é obrigatório.
+
+Nas telas atuais existem textos como:
+
+"Material Elétrico, Automação e Ferramentas"
+
+e nomes de produtos que ultrapassam o container.
+
+Corrigir todos os casos.
+
+Regras:
+
+* `overflow-wrap`
+* `word-break` apropriado
+* ellipsis apenas quando realmente necessário
+* multiline quando o conteúdo for editável
+* containers flexíveis
+* `min-width: 0` em flex children.
+
+Nenhum texto deve sair da área do componente.
+
+---
+
+# 11. PRODUTOS & SERVIÇOS — REDESIGN COMPLETO
+
+Esta é uma das áreas mais importantes.
+
+Atualmente o produto aparece como um enorme bloco com:
+
+* drag handle
+* destaque
+* delete
+* imagem
+* remover imagem
+* alterar foto
+* informação do ficheiro
+* nome
+* preço
+* descrição
+
+Tudo ao mesmo tempo.
+
+Isso é visualmente pesado.
+
+Quero separar **lista de produtos** de **edição do produto**.
+
+---
+
+# 12. LISTA DE PRODUTOS
+
+Na seção principal mostrar apenas uma representação simples:
+
+```text
+PRODUTOS & SERVIÇOS                       + Adicionar
+
+┌─────────────────────────────────────┐
+│ [foto]  Disjuntor 4P 80A            │
+│         244 329 Kz                   │
+│                              ›       │
+└─────────────────────────────────────┘
+
+┌─────────────────────────────────────┐
+│ [foto]  Arrancador Suave 15KW       │
+│         1 Kz                         │
+│                              ›       │
+└─────────────────────────────────────┘
+```
+
+Muito mais limpo.
+
+Ao tocar no produto:
+
+abrir a experiência de **Editar produto**.
+
+---
+
+# 13. EDITAR PRODUTO
+
+Criar uma tela dedicada:
+
+## Editar produto
+
+### Foto
+
+[ imagem ]
+
+`Alterar foto`
+
+### Nome do produto
+
+[input]
+
+### Preço
+
+[input]
+
+### Descrição
+
+[textarea]
+
+### Produto em destaque
+
+[toggle]
+
+### Eliminar produto
+
+[ação destrutiva]
+
+No final:
+
+`Guardar alterações`
+
+Não mostrar todas essas ações simultaneamente na lista.
+
+---
+
+# 14. ADICIONAR PRODUTO
+
+Quero que "Adicionar produto" seja uma experiência extremamente simples.
+
+Ao tocar:
+
+## Adicionar produto
+
+### 1. Foto
+
+Área grande e limpa:
+
+```text
+        ┌──────────────┐
+        │              │
+        │   + Foto     │
+        │              │
+        └──────────────┘
+```
+
+Mostrar:
+
+"JPG ou PNG · máximo 5 MB"
+
+### 2. Nome
+
+`Nome do produto`
+
+### 3. Preço
+
+`Preço`
+
+### 4. Descrição
+
+`Descrição`
+
+### 5. Destaque
+
+`Mostrar este produto em destaque`
+
+Depois:
+
+**Adicionar produto**
+
+Não colocar drag handle, delete, alterar foto e outros controles antes do produto existir.
+
+---
+
+# 15. FOTO DO PRODUTO
+
+A experiência de imagem precisa ser muito mais clara.
+
+Estado vazio:
+
+```text
++ Adicionar foto
+JPG ou PNG · máximo 5 MB
+```
+
+Estado preenchido:
+
+```text
+[ IMAGEM ]
+
+Alterar foto
+Remover
+```
+
+O botão vermelho com "X" flutuando sobre a imagem atualmente parece ambíguo.
+
+Não utilizar um X vermelho sobreposto sem contexto.
+
+Se for remover imagem:
+
+usar ação claramente identificada ou um pequeno `IconButton` com tooltip/accessible label.
+
+---
+
+# 16. DRAG & DROP / REORDENAÇÃO
+
+Se os produtos puderem ser reordenados:
+
+não mostrar permanentemente elementos de drag em todos os produtos.
+
+Use:
+
+* long press
+* modo "Reordenar"
+* drag handle apenas durante reordenação
+
+Exemplo:
+
+`⋮⋮ Reordenar`
+
+Ao ativar:
+
+```text
+☷ Produto A
+☷ Produto B
+☷ Produto C
+
+Concluído
+```
+
+Isso reduz ruído visual.
+
+---
+
+# 17. DIFERENCIAIS
+
+Atualmente:
+
+```text
+Diferenciais          + Adicionar
+
+[texto] [lixeira]
+[texto] [lixeira]
+[texto] [lixeira]
+```
+
+Simplificar.
+
+Cada item pode ser:
+
+```text
+✓ Envio e recolha em loja grátis em Luanda       [•••]
+```
+
+Ao tocar:
+
+editar inline ou abrir pequeno editor.
+
+A ação de eliminar deve ficar escondida até necessário.
+
+Não mostrar ícones de lixo enormes em todos os itens.
+
+---
+
+# 18. PERGUNTAS FREQUENTES
+
+Mesma lógica.
+
+Mostrar:
+
+```text
+Perguntas frequentes                         + Adicionar
+
+Qual é o tempo de entrega das encomendas?
+O envio poderá demorar entre 2 a 15 dias úteis...
+
+A Electro Panga faz envios para fora de Luanda?
+Neste momento, a empresa realiza envios apenas...
+```
+
+Usar accordion quando apropriado.
+
+Pergunta visível.
+
+Resposta pode expandir.
+
+Isto reduz muito a altura da página.
+
+---
+
+# 19. QUALIFICAÇÃO DE LEADS
+
+A área de perguntas de qualificação também deve seguir o mesmo padrão.
+
+Não mostrar enormes campos simultaneamente.
+
+Usar uma lista simples:
+
+```text
+Qualificação de leads
+
+Perguntas utilizadas pelo assistente IA
+
+1. Identificar se a necessidade é para reposição
+2. Verificar valor estimado da compra
+3. Avaliar interesse em serviços técnicos
+4. Validar preferência por marcas
+
++ Adicionar pergunta
+```
+
+Ao tocar → editar.
+
+---
+
+# 20. CATÁLOGO PÚBLICO
+
+A seção de catálogo deve ser tratada como uma configuração importante, não apenas mais um card.
+
+Visual:
+
+```text
+Catálogo público
+
+● Ativo
+5 produtos publicados
+
+Link do catálogo
+
+[ https://... ] [copiar]
+
+Link personalizado
+
+[ /c/nome-do-negocio ]
+
+✓ Disponível
+```
+
+Separar claramente:
+
+**Estado**
+
+**Link**
+
+**Personalização**
+
+Não misturar tudo numa caixa visualmente confusa.
+
+---
+
+# 21. NOTIFICAÇÕES
+
+Usar um padrão de configuração moderno:
+
+```text
+Notificações no telemóvel
+
+Recebe um alerta quando chegar um lead
+qualificado e um resumo diário às 08h00.
+
+                         [ ON ]
+```
+
+O toggle deve ser um componente global.
+
+Não usar um círculo solto ou indicador ambíguo.
+
+---
+
+# 22. TESTAR A CHAMADA
+
+Transformar em uma ação claramente identificável:
+
+```text
+Testar a chamada
+
+Simula o que um lead vai ouvir com
+o perfil atual.
+
+[ ☎ Testar agora ]
+```
+
+Não misturar o botão com o título.
+
+---
+
+# 23. REANALISAR O SITE
+
+Mesma estrutura:
+
+```text
+Reanalisar o site
+
+Substitui o perfil pelo resultado
+de uma nova análise do site.
+
+[ https://electropanga.com/ ]
+
+[ Reanalisar ]
+```
+
+O input e botão devem caber corretamente no mobile.
+
+Nunca deixar o botão cortar o input ou ultrapassar o container.
+
+---
+
+# 24. GUARDAR PERFIL
+
+O botão atual:
+
+`Guardar perfil`
+
+está permanentemente sobre o conteúdo e também compete com a bottom navigation.
+
+Isso precisa ser redesenhado.
+
+### Recomendo:
+
+um sticky action bar acima da bottom navigation.
+
+Quando existem alterações não guardadas:
+
+```text
+┌─────────────────────────────────┐
+│ Alterações por guardar          │
+│                    Guardar      │
+└─────────────────────────────────┘
+```
+
+Ou um botão único:
+
+`Guardar alterações`
+
+Mas deve existir **espaço reservado real no layout**.
+
+Nunca deixar o botão simplesmente sobrepor conteúdo.
+
+---
+
+# 25. ESTADO SEM ALTERAÇÕES
+
+Se não houver alterações:
+
+o botão de guardar deve ficar:
+
+* desativado
+* ou desaparecer dependendo da arquitetura.
+
+Se houver alterações:
+
+mostrar claramente:
+
+**Alterações não guardadas**
+
+Isso reduz ansiedade e torna o comportamento previsível.
+
+---
+
+# 26. NAVEGAÇÃO
+
+"Voltar ao perfil" não deve parecer um título de seção.
+
+Deve ser uma ação de navegação:
+
+`← Voltar ao perfil`
+
+com:
+
+* tamanho menor que o título
+* cor primária
+* espaçamento consistente.
+
+O header deve continuar:
+
+**Editar perfil**
+
+---
+
+# 27. EDITOR EM SEÇÕES
+
+Considera permitir expansão/recolhimento:
+
+```text
+IDENTIDADE
+Nome
+Setor
+Descrição
+Público-alvo
+Tom de voz
+
+⌃
+```
+
+ou:
+
+```text
+Identidade                         ›
+
+Nome
+Setor
+Descrição
+```
+
+A escolha deve ser baseada no que gerar melhor UX.
+
+Não quero que o utilizador tenha de percorrer uma página gigantesca para editar uma informação pequena.
+
+---
+
+# 28. MOBILE FIRST
+
+Esta interface precisa ser desenhada primeiro para mobile.
+
+Testar pelo menos:
+
+* 320px
+* 360px
+* 375px
+* 390px
+* 414px
+
+Especialmente:
+
+* nomes longos
+* preços
+* URLs
+* descrições
+* botões
+* imagens
+* headers
+* bottom navigation
+* sticky save bar.
+
+---
+
+# 29. DESIGN SYSTEM
+
+Criar ou reutilizar um Design System global.
+
+Definir tokens:
+
+### Spacing
+
+4 / 8 / 12 / 16 / 20 / 24 / 32 / 40
+
+### Radius
+
+small / medium / large / pill
+
+### Typography
+
+display / title / heading / body / caption / label
+
+### Colors
+
+* primary
+* primary-hover
+* primary-pressed
+* text
+* text-secondary
+* text-muted
+* border
+* surface
+* background
+* success
+* danger
+* warning
+
+### Components
+
+Criar componentes reutilizáveis para:
+
+* PageHeader
+* EditorSection
+* FormField
+* TextInput
+* TextArea
+* Select
+* Toggle
+* PrimaryButton
+* SecondaryButton
+* IconButton
+* ProductListItem
+* ProductEditor
+* ImageUploader
+* FAQItem
+* DifferentiatorItem
+* BusinessSettingItem
+* SaveBar
+* BottomNavigation
+* Badge
+* StatusIndicator
+* EmptyState
+* ConfirmationDialog.
+
+---
+
+# 30. MESMA FUNÇÃO = MESMO COMPONENTE
+
+Esta regra é ABSOLUTA.
+
+Se existe:
+
+`Adicionar`
+
+numa seção e:
+
+`Adicionar produto`
+
+noutra,
+
+ambos devem derivar do mesmo sistema de botão.
+
+Se existe:
+
+`Guardar perfil`
+
+e:
+
+`Guardar alterações`
+
+devem utilizar o mesmo `PrimaryButton`.
+
+Se existe:
+
+`Eliminar produto`
+
+e:
+
+`Eliminar diferencial`
+
+devem utilizar o mesmo padrão destrutivo.
+
+Se existe:
+
+`Alterar foto`
+
+em vários lugares:
+
+**mesmo componente.**
+
+Se existe:
+
+`+ Adicionar`
+
+em várias seções:
+
+**mesmo componente.**
+
+Se existe um botão de enviar mensagem na área de Conversas:
+
+**usar o mesmo sistema de botões e IconButton do resto da aplicação.**
+
+Não quero componentes visualmente "parecidos".
+
+Quero **componentes compartilhados de verdade**.
+
+---
+
+# 31. ACESSIBILIDADE
+
+Todos os elementos interativos devem ter:
+
+* área de toque mínima de aproximadamente 44px
+* accessible labels
+* estados focus
+* contraste adequado
+* feedback de toque
+* sem depender apenas de cor.
+
+Ícones de ação devem possuir labels acessíveis.
+
+---
+
+# 32. MICROINTERAÇÕES
+
+Adicionar apenas microinterações úteis:
+
+* expansão suave de seção
+* feedback ao guardar
+* loading ao adicionar produto
+* confirmação ao eliminar
+* sucesso após guardar
+* feedback ao copiar link
+* imagem carregando
+* estado de erro.
+
+Não adicionar animações decorativas.
+
+---
+
+# 33. GUARDAR SEM PERDER DADOS
+
+Ao tentar sair com alterações não guardadas:
+
+mostrar confirmação:
+
+```text
+Alterações não guardadas
+
+Tens alterações que ainda não foram guardadas.
+
+[Continuar a editar]
+[Guardar alterações]
+[Sair sem guardar]
+```
+
+Isso é muito importante para uma experiência profissional.
+
+---
+
+# 34. FEEDBACK DE SUCESSO
+
+Depois de guardar:
+
+mostrar feedback discreto:
+
+**Perfil atualizado**
+
+ou:
+
+**Alterações guardadas**
+
+Não usar um alert intrusivo.
+
+---
+
+# 35. ADICIONAR PRODUTO — EXPERIÊNCIA IDEAL
+
+O fluxo final deve parecer aproximadamente:
+
+```text
+Produtos & serviços
+
+3 produtos
+
+                    + Adicionar
+
+
+[foto]  Disjuntor 4P 80A
+        244 329 Kz
+        ›
+
+[foto]  Arrancador Suave 15KW
+        1 Kz
+        ›
+
+
+                + Adicionar produto
+```
+
+Ao tocar em Adicionar:
+
+```text
+Adicionar produto
+
+Foto
+[ + Adicionar foto ]
+
+Nome
+[________________]
+
+Preço
+[________________]
+
+Descrição
+[________________]
+
+
+                 Adicionar produto
+```
+
+Simples.
+
+Sem elementos desnecessários.
+
+---
+
+# 36. OBJETIVO DE TEMPO
+
+O utilizador deve conseguir:
+
+### editar nome
+
+em poucos segundos.
+
+### editar preço
+
+em poucos segundos.
+
+### adicionar produto
+
+sem precisar entender a aplicação.
+
+### adicionar FAQ
+
+sem navegar por várias telas desnecessárias.
+
+### alterar informação
+
+sem perder o contexto.
+
+---
+
+# 37. PRINCÍPIO DE "ZERO SURPRESAS"
+
+Cada ação deve fazer exatamente o que o utilizador espera.
+
+"Adicionar produto" → cria produto.
+
+"Editar" → abre edição.
+
+"Eliminar" → pede confirmação quando apropriado.
+
+"Guardar" → guarda.
+
+"Voltar" → volta.
+
+"Reanalisar site" → inicia análise.
+
+Não misturar ações.
+
+---
+
+# 38. REVISÃO VISUAL FINAL
+
+Depois da implementação, faz uma revisão como um **Senior Product Designer + Mobile UX Designer**.
+
+Não aceites simplesmente:
+
+"Está funcional."
+
+Pergunta:
+
+* Isto é realmente fácil?
+* Há elementos demais?
+* O utilizador sabe o que fazer?
+* O botão principal está claro?
+* Há alguma coisa competindo pela atenção?
+* Há algum texto cortado?
+* Há alguma ação ambígua?
+* Existem cards desnecessários?
+* Existe alguma inconsistência?
+* A experiência parece premium?
+* A edição parece rápida?
+* O utilizador consegue entender tudo sem treinamento?
+
+---
+
+# 39. NÃO ALTERAR A LÓGICA DE NEGÓCIO
+
+Não quebrar:
+
+* dados existentes
+* APIs
+* autenticação
+* catálogo
+* IA
+* produtos
+* leads
+* perfil
+* links
+* configurações.
+
+Refatora a arquitetura de componentes quando necessário, mas preserva o comportamento funcional.
+
+---
+
+# 40. RESULTADO QUE QUERO
+
+Não quero uma página que simplesmente pareça mais bonita.
+
+Quero uma experiência de produto que transmita:
+
+**"Isto foi pensado para o dono de um negócio."**
+
+O utilizador não deve sentir que está a preencher um enorme formulário.
+
+Deve sentir que está simplesmente:
+
+**a configurar o seu negócio.**
+
+A experiência deve ser:
+
+**simples
+rápida
+clara
+consistente
+premium
+mobile-first
+sem fricção.**
+
+E principalmente:
+
+> **Editar informação e adicionar produtos devem parecer partes do MESMO sistema de edição, com a mesma linguagem visual e interação.**
+
+Não crie uma UI nova isolada apenas para esta página.
+
+**Integre tudo no Design System global da aplicação.**
+
+Antes de terminar, percorre todas as páginas da aplicação e verifica se qualquer componente equivalente possui outro design. Se encontrar diferenças, refatora para o componente compartilhado.
+
+**Não pare quando "funcionar". Continue refinando até a interface parecer um produto comercial maduro.**
