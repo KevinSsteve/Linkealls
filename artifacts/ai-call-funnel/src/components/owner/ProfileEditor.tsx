@@ -7,10 +7,10 @@ import { businessApi, checkSlugAvailability } from "../../lib/api";
 import type { BusinessProfile, ProfileDraft, Offering, FaqItem } from "../../lib/api";
 
 const inputCls =
-  "w-full bg-[#F3F4F6] border border-[#E5E7EB] rounded-xl px-4 py-3 text-[15px] text-[#111827] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#16A34A] transition-colors";
-const labelCls = "block text-[11px] font-semibold text-[#9CA3AF] mb-1.5 uppercase tracking-wider";
+  "w-full min-h-[44px] bg-[var(--subtle)] border border-[var(--border)] rounded-[var(--radius-md)] px-4 py-3 text-[15px] text-[var(--ink)] placeholder:text-[var(--ink-faint)] focus:outline-none focus:border-[var(--green)] focus:shadow-[var(--focus-ring)] transition-colors";
+const labelCls = "block text-[11px] font-semibold text-[var(--ink-soft)] mb-1.5 uppercase tracking-wider";
 const sectionCls =
-  "bg-white border border-[#E5E7EB] rounded-2xl p-4 space-y-4";
+  "bg-white border border-[var(--border)] rounded-[var(--radius-lg)] p-4 space-y-4";
 
 interface Props {
   profile: BusinessProfile;

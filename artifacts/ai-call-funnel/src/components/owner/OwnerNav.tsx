@@ -16,12 +16,11 @@ export function OwnerNav() {
 
   return (
     <nav
-      className="flex-shrink-0 flex items-stretch"
+      className="app-bottom-nav flex-shrink-0 flex items-stretch"
       style={{
-        background: "#FFFFFF",
-        borderTop: "1px solid #E5E7EB",
-        paddingBottom: "env(safe-area-inset-bottom, 0px)",
+        background: "var(--surface)",
       }}
+      aria-label="Navegação principal"
     >
       {TABS.map(({ sub, icon: Icon, label, exact }) => {
         const path = `${base}${sub}`;
@@ -32,22 +31,17 @@ export function OwnerNav() {
           <Link
             key={path}
             href={path}
-            className="flex-1 flex flex-col items-center justify-center gap-1.5 py-2.5 transition-colors select-none active:opacity-70"
+            className={`app-bottom-nav-item flex-1 flex flex-col items-center justify-center gap-1 transition-colors select-none active:opacity-70${active ? " is-active" : ""}`}
             aria-label={label}
+            aria-current={active ? "page" : undefined}
+            data-testid={`link-owner-nav-${label.toLowerCase()}`}
           >
             <Icon
-              size={23}
+              size={21}
               strokeWidth={active ? 2.25 : 1.75}
-              style={{ color: active ? "#16A34A" : "#9CA3AF" }}
             />
             <span
-              style={{
-                fontSize: 11.5,
-                lineHeight: 1,
-                color: active ? "#16A34A" : "#9CA3AF",
-                fontWeight: active ? 600 : 400,
-                letterSpacing: "0.01em",
-              }}
+              className="app-bottom-nav-label"
             >
               {label}
             </span>

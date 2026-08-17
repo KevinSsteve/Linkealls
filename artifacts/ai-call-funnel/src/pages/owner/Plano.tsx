@@ -9,6 +9,7 @@ import { OwnerNav } from "../../components/owner/OwnerNav";
 import { useBusinessSlug } from "../../hooks/useBusinessSlug";
 import { businessApi, simulatePayment, type SubscriptionInfo, type Subscription } from "../../lib/api";
 import { C } from "../../theme";
+import { AppHeader, AppIconButton } from "../../components/app/AppHeader";
 
 function fmtKz(v: string | number): string {
   const n = typeof v === "string" ? Number(v) : v;
@@ -106,20 +107,14 @@ export function Plano() {
   return (
     <div className="flex flex-col h-full" style={{ background: "#F8F9FA" }}>
       {/* Header */}
-      <div
-        className="shrink-0 flex items-center justify-between"
-        style={{ background: "#FFFFFF", borderBottom: "1px solid #E5E7EB", padding: "16px 16px 12px" }}
-      >
-        <h1 style={{ color: "#111111", fontSize: 22, fontWeight: 700, letterSpacing: "-0.3px" }}>Plano</h1>
-        <button
-          onClick={() => void load()}
-          className="flex items-center justify-center rounded-full transition-opacity active:opacity-60"
-          style={{ width: 36, height: 36, color: "#9CA3AF" }}
-          aria-label="Actualizar"
-        >
-          <RefreshCw size={18} strokeWidth={1.75} />
-        </button>
-      </div>
+      <AppHeader
+        title="Plano"
+        actions={
+          <AppIconButton label="Actualizar" onClick={() => void load()}>
+            <RefreshCw size={18} strokeWidth={1.75} />
+          </AppIconButton>
+        }
+      />
 
       <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
         {loading && (

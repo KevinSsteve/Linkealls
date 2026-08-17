@@ -17,6 +17,7 @@ import {
   type AdsQuote, type CampaignPublishStatus,
 } from "../../lib/api";
 import { useBusinessSlug } from "../../hooks/useBusinessSlug";
+import { AppHeader, AppIconButton } from "../../components/app/AppHeader";
 
 // ─── Colours ─────────────────────────────────────────────────────────────────
 const C = {
@@ -636,39 +637,39 @@ export function CampaignDetail() {
   return (
     <div className="flex flex-col h-full" style={{ background: C.bg }}>
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-2.5 shrink-0"
-        style={{ background: C.white, borderBottom: `1px solid ${C.border}` }}>
-        <Link href={`/e/${slug}/dono/campanhas`} className="p-1 -ml-1" style={{ color: C.text3 }}>
-          <ArrowLeft size={22} />
-        </Link>
+      <AppHeader
+        title={campaign.name}
+        subtitle={pm.label}
+        onBack={() => window.history.back()}
+        leading={
         <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
           style={{ background: pm.bg, color: pm.color }}>
           {pm.icon}
         </div>
-        <div className="flex-1 min-w-0">
-          <p className="font-semibold text-[15px] truncate" style={{ color: C.text }}>{campaign.name}</p>
-          <p className="text-[12px]" style={{ color: pm.color }}>{pm.label}</p>
-        </div>
-        <button onClick={handleDuplicate} disabled={duplicating}
-          className="w-8 h-8 rounded-xl flex items-center justify-center transition-all active:scale-90"
-          style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text2 }}
-          title="Duplicar campanha">
-          {duplicating ? <Loader2 size={14} className="animate-spin" /> : <CopyPlus size={14} />}
-        </button>
-        {nextStatus && (
-          <button onClick={handleStatusToggle} disabled={changingStatus}
-            className="text-[11px] font-semibold px-2.5 py-1.5 rounded-full flex items-center gap-1 transition-all"
-            style={{
-              background: nextStatus === "ativa" ? "#E8F5E9" : "#FFF8E1",
-              color: nextStatus === "ativa" ? "#1B5E20" : "#E65100",
-              border: `1px solid ${nextStatus === "ativa" ? "#A5D6A7" : "#FFE082"}`,
-            }}>
-            {changingStatus ? <Loader2 size={10} className="animate-spin" /> :
-              nextStatus === "ativa" ? <Play size={10} /> : <Pause size={10} />}
-            {nextStatus === "ativa" ? "Ativar" : "Pausar"}
-          </button>
-        )}
-      </div>
+        }
+        actions={
+          <>
+            <AppIconButton label="Duplicar campanha" onClick={handleDuplicate} disabled={duplicating}>
+              {duplicating ? <Loader2 size={16} className="animate-spin" /> : <CopyPlus size={16} />}
+            </AppIconButton>
+            {nextStatus && (
+              <button
+                onClick={handleStatusToggle}
+                disabled={changingStatus}
+                className="app-status-badge"
+                style={{
+                  color: nextStatus === "ativa" ? "#15803D" : "#B45309",
+                  background: nextStatus === "ativa" ? "#DCFCE7" : "#FFFBEB",
+                }}
+              >
+                {changingStatus ? <Loader2 size={11} className="animate-spin" /> :
+                  nextStatus === "ativa" ? <Play size={10} /> : <Pause size={10} />}
+                <span className="ml-1">{nextStatus === "ativa" ? "Ativar" : "Pausar"}</span>
+              </button>
+            )}
+          </>
+        }
+      />
 
       {/* Error */}
       {error && (

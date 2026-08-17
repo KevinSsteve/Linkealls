@@ -8,6 +8,8 @@ import { businessApi, type Lead, type LeadState } from "../../lib/api";
 import { useBusinessSlug } from "../../hooks/useBusinessSlug";
 import { OwnerNav } from "../../components/owner/OwnerNav";
 import { C } from "../../theme";
+import { AppHeader, AppIconButton } from "../../components/app/AppHeader";
+import { StatusBadge } from "../../components/app/StatusBadge";
 
 // ─── State config ─────────────────────────────────────────────────────────────
 const STATE_LABELS: Record<LeadState, string> = {
@@ -156,24 +158,22 @@ function LeadDetail({ lead: initialLead, onBack, onStateChange, api }: {
   return (
     <div className="flex flex-col flex-1 min-h-0">
       {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-2.5 shrink-0"
-        style={{ background: C.white, borderBottom: `1px solid ${C.border}` }}>
-        <button onClick={onBack} className="p-1 -ml-1" style={{ color: C.text3 }}>
-          <ArrowLeft size={22} />
-        </button>
+      <AppHeader
+        title={name}
+        subtitle={formatDate(lead.createdAt)}
+        onBack={onBack}
+        leading={
         <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
           style={{ background: pal.bg, color: pal.text }}>
           {initials || <User size={14} />}
         </div>
-        <div className="flex-1 min-w-0">
-          <p className="font-semibold text-[15px] truncate" style={{ color: C.text }}>{name}</p>
-          <p className="text-[12px]" style={{ color: C.text2 }}>{formatDate(lead.createdAt)}</p>
-        </div>
-        <span className="text-[11px] font-medium px-2.5 py-1 rounded-full shrink-0"
-          style={{ background: STATE_PILL_BG[lead.state], color: STATE_PILL_COLOR[lead.state] }}>
-          {STATE_LABELS[lead.state]}
-        </span>
-      </div>
+        }
+        actions={
+          <StatusBadge tone={lead.state === "qualificado" ? "success" : lead.state === "perdido" ? "error" : "neutral"}>
+            {STATE_LABELS[lead.state]}
+          </StatusBadge>
+        }
+      />
 
       <div className="flex-1 overflow-y-auto" style={{ background: C.bg }}>
         {/* Score + WhatsApp */}

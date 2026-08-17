@@ -5,13 +5,14 @@
  */
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
-  ArrowLeft, Zap, Trash2, BarChart2, AlertCircle,
+  Zap, Trash2, BarChart2, AlertCircle,
   CheckCircle2, XCircle, Copy, Check, Loader2, Bell, Send,
 } from "lucide-react";
 import { businessApi, type AssistantMessage } from "../../lib/api";
 import { useBusinessSlug } from "../../hooks/useBusinessSlug";
 import { OwnerNav } from "../../components/owner/OwnerNav";
 import { C } from "../../theme";
+import { AppHeader, AppIconButton } from "../../components/app/AppHeader";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function formatTime(iso: string) {
@@ -261,27 +262,26 @@ export function Assistant() {
 
   return (
     <div className="flex flex-col h-full wa-page" style={{ background: C.bg }}>
-      {/* ── Header — WA Business dark green ─────────────────────────────── */}
-      <div className="flex items-center gap-3 px-4 shrink-0"
-        style={{ background: "#075E54", height: 56, paddingTop: "env(safe-area-inset-top)" }}>
-        {/* Avatar */}
-        <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
-          style={{ background: "#16A34A" }}>
-          <Zap size={18} className="text-white" strokeWidth={2} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="font-semibold text-[15px] text-white leading-tight">Assistente Vivo</p>
-          <p className="text-[12px] leading-tight" style={{ color: "rgba(255,255,255,0.75)" }}>● online · Powered by Gemini</p>
-        </div>
-        <div className="flex items-center gap-4" style={{ color: "rgba(255,255,255,0.85)" }}>
-          <button onClick={handleDailySummary} title="Resumo diário" className="transition-colors active:scale-90">
-            <BarChart2 size={20} strokeWidth={1.8} />
-          </button>
-          <button onClick={handleClear} title="Limpar histórico" className="transition-colors active:scale-90">
-            <Trash2 size={20} strokeWidth={1.8} />
-          </button>
-        </div>
-      </div>
+      <AppHeader
+        variant="dark"
+        title="Assistente Vivo"
+        subtitle="● online · Powered by Gemini"
+        leading={
+          <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "#16A34A" }}>
+            <Zap size={17} className="text-white" strokeWidth={2} />
+          </div>
+        }
+        actions={
+          <>
+            <AppIconButton label="Resumo diário" onClick={handleDailySummary}>
+              <BarChart2 size={18} strokeWidth={1.8} />
+            </AppIconButton>
+            <AppIconButton label="Limpar histórico" onClick={handleClear}>
+              <Trash2 size={18} strokeWidth={1.8} />
+            </AppIconButton>
+          </>
+        }
+      />
 
       {/* ── Error toast ───────────────────────────────────────────────────── */}
       {error && (

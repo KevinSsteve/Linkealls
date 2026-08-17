@@ -9,6 +9,8 @@ import { ShoppingBag, RefreshCw, Search, ChevronRight } from "lucide-react";
 import { OwnerNav } from "../../components/owner/OwnerNav";
 import { WaSkeletonList } from "../../components/wa/WaSkeletonList";
 import { WaEmptyState } from "../../components/wa/WaEmptyState";
+import { AppHeader, AppIconButton } from "../../components/app/AppHeader";
+import { SearchBar } from "../../components/app/SearchBar";
 
 // ─── Design tokens locais ────────────────────────────────────────────────────
 const D = {
@@ -219,57 +221,17 @@ export function Mercado() {
         className="shrink-0"
         style={{ background: D.surface, borderBottom: `1px solid ${D.line}` }}
       >
-        {/* Title row */}
-        <div className="flex items-center justify-between px-5 pt-6 pb-3">
-          <h1
-            className="font-bold tracking-tight"
-            style={{ color: D.ink, fontSize: 26, letterSpacing: "-0.5px" }}
-          >
-            Mercado
-          </h1>
-          <button
-            onClick={() => void load()}
-            className="flex items-center justify-center rounded-full transition-colors active:bg-black/5"
-            style={{ width: 36, height: 36, color: D.inkFaint }}
-            aria-label="Actualizar"
-          >
-            <RefreshCw size={18} strokeWidth={1.8} />
-          </button>
-        </div>
+        <AppHeader
+          title="Mercado"
+          actions={
+            <AppIconButton label="Actualizar" onClick={() => void load()}>
+              <RefreshCw size={18} strokeWidth={1.8} />
+            </AppIconButton>
+          }
+        />
 
-        {/* Barra de pesquisa — com borda */}
-        <div className="px-5 pb-4">
-          <div
-            className="flex items-center gap-2.5"
-            style={{
-              background: D.surface,
-              border: `1.5px solid ${D.line}`,
-              borderRadius: D.rBtn,
-              height: 44,
-              paddingLeft: 14,
-              paddingRight: 14,
-            }}
-          >
-            <Search size={15} className="shrink-0" style={{ color: D.inkFaint }} />
-            <input
-              type="text"
-              placeholder="Pesquisar..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="flex-1 bg-transparent outline-none"
-              style={{ color: D.ink, fontSize: 15 }}
-            />
-            {query && (
-              <button
-                onClick={() => setQuery("")}
-                className="shrink-0"
-                style={{ color: D.inkFaint, fontSize: 18, lineHeight: 1 }}
-                aria-label="Limpar"
-              >
-                ×
-              </button>
-            )}
-          </div>
+        <div style={{ padding: "0 var(--page-padding-mobile) 16px" }}>
+          <SearchBar value={query} onChange={setQuery} />
         </div>
       </div>
 

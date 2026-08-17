@@ -9,6 +9,8 @@ import { WaEmptyState } from "../../components/wa/WaEmptyState";
 import { useBusinessSlug } from "../../hooks/useBusinessSlug";
 import { businessApi, type Order } from "../../lib/api";
 import { C } from "../../theme";
+import { AppHeader, AppIconButton } from "../../components/app/AppHeader";
+import { StatCard } from "../../components/app/StatCard";
 
 const D = {
   bg:       "#F8F9FA",
@@ -101,41 +103,19 @@ export function Vendas() {
 
       {/* Header */}
       <div className="shrink-0" style={{ background: D.surface, borderBottom: `1px solid ${D.border}` }}>
-        <div
-          className="flex items-center justify-between"
-          style={{ padding: `16px ${D.px}px 12px` }}
-        >
-          <h1 style={{ color: D.ink, fontSize: 22, fontWeight: 700, letterSpacing: "-0.3px" }}>Vendas</h1>
-          <button
-            onClick={() => void load()}
-            className="flex items-center justify-center rounded-full transition-opacity active:opacity-60"
-            style={{ width: 36, height: 36, color: D.inkFaint }}
-            aria-label="Actualizar"
-          >
+        <AppHeader
+          title="Vendas"
+          actions={
+            <AppIconButton label="Actualizar" onClick={() => void load()}>
             <RefreshCw size={18} strokeWidth={1.75} />
-          </button>
-        </div>
+            </AppIconButton>
+          }
+        />
 
         {/* Summary cards */}
         <div className="flex gap-3" style={{ padding: `0 ${D.px}px 16px` }}>
-          <div
-            className="flex-1 rounded-2xl"
-            style={{ background: "#F0FDF4", border: `1px solid #BBF7D0`, padding: "12px 14px" }}
-          >
-            <p style={{ color: D.inkSoft, fontSize: 12, fontWeight: 500 }}>Total vendido</p>
-            <p style={{ color: D.greenDk, fontSize: 20, fontWeight: 700, marginTop: 2 }} className="tabular-nums">
-              {fmtKz(paidTotal)}
-            </p>
-          </div>
-          <div
-            className="flex-1 rounded-2xl"
-            style={{ background: D.borderS, border: `1px solid ${D.border}`, padding: "12px 14px" }}
-          >
-            <p style={{ color: D.inkSoft, fontSize: 12, fontWeight: 500 }}>Vendas pagas</p>
-            <p style={{ color: D.ink, fontSize: 20, fontWeight: 700, marginTop: 2 }} className="tabular-nums">
-              {paidCount}
-            </p>
-          </div>
+          <StatCard label="Total vendido" value={fmtKz(paidTotal)} tone="success" />
+          <StatCard label="Vendas pagas" value={paidCount} />
         </div>
       </div>
 

@@ -15,7 +15,7 @@ export function WaSectionCard({ children, className = "", style }: WaSectionCard
   return (
     <div
       className={`bg-white rounded-2xl p-4 space-y-4 ${className}`}
-      style={{ border: "1px solid #E9EDEF", ...style }}
+      style={{ border: "1px solid var(--border)", ...style }}
     >
       {children}
     </div>
@@ -25,7 +25,7 @@ export function WaSectionCard({ children, className = "", style }: WaSectionCard
 /** Section title inside a WaSectionCard */
 export function WaSectionTitle({ children }: { children: ReactNode }) {
   return (
-    <h3 className="text-[16px] font-bold" style={{ color: "#111B21" }}>
+    <h3 className="text-[16px] font-bold" style={{ color: "var(--ink)" }}>
       {children}
     </h3>
   );
@@ -36,7 +36,7 @@ export function WaFieldLabel({ children }: { children: ReactNode }) {
   return (
     <label
       className="block text-[12px] font-semibold uppercase tracking-wide mb-1.5"
-      style={{ color: "#8696A0" }}
+      style={{ color: "var(--ink-faint)" }}
     >
       {children}
     </label>

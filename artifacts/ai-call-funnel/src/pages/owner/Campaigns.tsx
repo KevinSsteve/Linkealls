@@ -15,6 +15,7 @@ import { useBusinessSlug } from "../../hooks/useBusinessSlug";
 import { OwnerNav } from "../../components/owner/OwnerNav";
 import { WaSkeletonList, WaSkeletonCard } from "../../components/wa/WaSkeletonList";
 import { WaEmptyState } from "../../components/wa/WaEmptyState";
+import { AppHeader, AppIconButton } from "../../components/app/AppHeader";
 
 // ─── Design tokens locais ────────────────────────────────────────────────────
 const D = {
@@ -406,27 +407,14 @@ export function Campaigns() {
         className="shrink-0"
         style={{ background: D.surface, borderBottom: `1px solid ${D.line}` }}
       >
-        <div className="flex items-center gap-3 px-5 pt-6 pb-3">
-          <h1
-            className="flex-1 font-bold tracking-tight"
-            style={{ color: D.ink, fontSize: 26, letterSpacing: "-0.5px" }}
-          >
-            Campanhas
-          </h1>
-          <button
-            onClick={() => setShowModal(true)}
-            className="flex items-center justify-center shrink-0 transition-all active:scale-90"
-            style={{
-              width: 36,
-              height: 36,
-              background: D.green,
-              color: "#fff",
-              borderRadius: D.rBtn,
-            }}
-          >
-            <Plus size={17} />
-          </button>
-        </div>
+        <AppHeader
+          title="Campanhas"
+          actions={
+            <AppIconButton label="Criar campanha" onClick={() => setShowModal(true)}>
+              <Plus size={18} strokeWidth={1.9} />
+            </AppIconButton>
+          }
+        />
 
         {/* Tabs */}
         <div className="flex" style={{ borderTop: `1px solid ${D.lineSoft}` }}>

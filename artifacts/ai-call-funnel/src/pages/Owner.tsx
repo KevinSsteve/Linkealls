@@ -5,7 +5,6 @@ import {
   Zap, Grid3x3, Megaphone, Users, ChevronRight, X, Store,
   MessageSquare, Phone, RefreshCw, Edit2, Share2, MoreVertical,
   MapPin, Clock, Mail, Image, ShoppingCart, Wallet, Crown,
-  ExternalLink,
 } from "lucide-react";
 import { OwnerNav } from "../components/owner/OwnerNav";
 import {
@@ -17,6 +16,8 @@ import {
 import { useBusinessSlug } from "../hooks/useBusinessSlug";
 import { ProfileEditor } from "../components/owner/ProfileEditor";
 import { WaSkeletonList } from "../components/wa/WaSkeletonList";
+import { AppHeader, AppIconButton } from "../components/app/AppHeader";
+import { ViewField } from "../components/app/ViewField";
 
 type View = "loading" | "start" | "analyzing" | "editor";
 const POLL_MS = 2500;
@@ -175,41 +176,15 @@ function InfoField({
   onAdd?: () => void;
   last?: boolean;
 }) {
-  const isEmpty = !value?.trim();
   return (
-    <div>
-      <div
-        className="px-5"
-        style={{ paddingTop: 14, paddingBottom: 14 }}
-      >
-        <p style={{ color: D.inkFaint, fontSize: 12, fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 4 }}>
-          {label}
-        </p>
-        {isEmpty ? (
-          <button
-            onClick={onAdd}
-            className="text-left"
-            style={{ color: D.inkFaint, fontSize: 15 }}
-          >
-            {placeholder}
-          </button>
-        ) : link ? (
-          <a
-            href={value!.startsWith("http") ? value! : `https://${value}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5"
-            style={{ color: D.green, fontSize: 15, fontWeight: 500 }}
-          >
-            {value!.replace(/^https?:\/\//, "")}
-            <ExternalLink size={13} strokeWidth={1.75} />
-          </a>
-        ) : (
-          <p style={{ color: D.ink, fontSize: 15, lineHeight: 1.55 }}>{value}</p>
-        )}
-      </div>
-      {!last && <Divider />}
-    </div>
+    <ViewField
+      label={label}
+      value={value}
+      onAdd={onAdd}
+      emptyActionLabel={placeholder}
+      className={last ? "app-view-field-last" : ""}
+      href={link && value ? (value.startsWith("http") ? value : `https://${value}`) : undefined}
+    />
   );
 }
 
@@ -611,27 +586,16 @@ export function Owner() {
   return (
     <div className="h-full flex flex-col" style={{ background: D.bg }}>
 
-      {/* ── Header ────────────────────────────────────────────────────────── */}
-      <header
-        className="flex items-center justify-between shrink-0"
-        style={{
-          background: D.surface,
-          borderBottom: `1px solid ${D.border}`,
-          paddingLeft: 20,
-          paddingRight: 20,
-          paddingTop: 16,
-          paddingBottom: 16,
-        }}
-      >
-        <h1 style={{ color: D.ink, fontSize: 20, fontWeight: 700, letterSpacing: "-0.2px" }}>
-          {editing ? "Editar perfil" : "Perfil do negócio"}
-        </h1>
-        {!editing && (
-          <Link href={`/e/${slug}`} aria-label="Ver página pública">
-            <Store size={20} strokeWidth={1.75} style={{ color: D.inkFaint }} />
-          </Link>
-        )}
-      </header>
+      <AppHeader
+        title={editing ? "Editar perfil" : "Perfil do negócio"}
+        actions={
+          !editing ? (
+            <Link href={`/e/${slug}`} className="app-icon-button" aria-label="Ver página pública" data-testid="link-public-profile">
+              <Store size={19} strokeWidth={1.75} />
+            </Link>
+          ) : undefined
+        }
+      />
 
       {/* ── Alerts ────────────────────────────────────────────────────────── */}
       {(error || notice) && (
@@ -860,7 +824,7 @@ export function Owner() {
 
         {/* ── Editor ──────────────────────────────────────────────────────── */}
         {view === "editor" && profile && editing && (
-          <div style={{ padding: "16px 20px" }}>
+          <div className="app-page-content">
             <ProfileEditor
               key={editorKey}
               profile={profile}

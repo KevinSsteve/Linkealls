@@ -1,0 +1,1112 @@
+Quero que você faça agora uma **AUDITORIA COMPLETA DE UI/UX + ENGENHARIA DE DESIGN** em toda a aplicação mobile.
+
+As telas anexadas mostram que as melhorias anteriores foram aplicadas apenas parcialmente. Portanto, **não faça mais um pequeno ajuste visual página por página**.
+
+Quero que você revise o sistema inteiro e corrija os princípios de design que estão causando esses problemas.
+
+O objetivo é transformar a aplicação em um produto mobile **premium, consistente, profissional e com comportamento de app real**, e não apenas uma página web responsiva.
+
+---
+
+# 1. PRIMEIRO: NÃO CORRIJA APENAS AS TELAS ANEXADAS
+
+As telas anexadas são exemplos dos problemas.
+
+Faça uma auditoria de:
+
+* Perfil
+* Conversas
+* Campanhas
+* Mercado
+* Catálogo
+* Perfil público/negócio
+* criação/edição de campanhas
+* criação/edição de produtos
+* configurações
+* assistente IA
+* formulários
+* modais
+* bottom sheets
+* menus
+* estados vazios
+* estados de loading
+* estados de erro
+* placeholders
+* navegação
+* componentes compartilhados
+
+E qualquer outra tela existente no projeto.
+
+**Se o mesmo problema existir em outras páginas, corrija globalmente.**
+
+Não quero uma solução específica para uma screenshot.
+
+Quero um **Design System consistente aplicado à aplicação inteira**.
+
+---
+
+# 2. PROBLEMA CRÍTICO: VIEW MODE VS EDIT MODE
+
+Este é um dos problemas conceituais mais importantes.
+
+A aplicação atualmente mistura visualização com edição.
+
+Por exemplo, na página de perfil do negócio, a descrição aparece ocupando a largura inteira e visualmente parece um campo aberto para edição.
+
+Isso é incorreto.
+
+### REGRA:
+
+Quando o utilizador está apenas visualizando o negócio:
+
+**NÃO mostrar inputs, textareas ou aparência de formulário.**
+
+Mostrar conteúdo como conteúdo.
+
+Exemplo:
+
+DESCRIÇÃO
+
+A Electro Panga é uma loja especializada na comercialização de material elétrico...
+
+Isso deve parecer um texto de perfil.
+
+Não deve parecer:
+
+[ A Electro Panga é uma loja... ]
+
+como se fosse um textarea.
+
+---
+
+# 3. SEPARAR EXPLICITAMENTE OS ESTADOS
+
+Todo componente que pode ser editado deve ter estados claramente separados:
+
+### VIEW
+
+Modo de visualização.
+
+Exemplo:
+
+Descrição
+
+A Electro Panga é uma loja especializada...
+
+### EDIT
+
+Modo de edição.
+
+Exemplo:
+
+Descrição
+
+┌──────────────────────────┐
+│ A Electro Panga...       │
+│                          │
+└──────────────────────────┘
+
+Cancelar     Guardar
+
+Nunca misturar os dois estados.
+
+---
+
+# 4. INFORMAÇÃO NÃO É INPUT
+
+Aplicar esta regra em toda a aplicação.
+
+Se o utilizador não está editando algo:
+
+NÃO usar:
+
+* input
+* textarea
+* placeholder
+* borda de formulário
+* cursor de edição
+* aparência de campo vazio
+
+Usar:
+
+* texto
+* label
+* ícone
+* divider
+* botão de ação
+
+---
+
+# 5. PLACEHOLDER NÃO DEVE SER USADO COMO CONTEÚDO
+
+Este é outro problema importante.
+
+Textos como:
+
+"Adicionar endereço..."
+"Adicionar horário..."
+"Adicionar contacto..."
+"Adicionar e-mail..."
+"Pesquisar..."
+
+têm significados diferentes.
+
+"Pesquisar..." pode ser placeholder porque está dentro de um campo de pesquisa.
+
+Mas:
+
+"Adicionar endereço..."
+
+não deve parecer um placeholder gigante de formulário quando estamos no modo de visualização.
+
+Em VIEW MODE usar:
+
+Endereço
+
+Não adicionado
+
+Adicionar endereço →
+
+ou:
+
+Endereço
+
+Adicionar
+
+com aparência de estado vazio + ação.
+
+Quando clicado, aí sim abrir o editor.
+
+---
+
+# 6. ESTADOS VAZIOS
+
+Criar uma linguagem visual consistente para dados ainda não configurados.
+
+Exemplo:
+
+ENDEREÇO
+
+Ainda não adicionado
+
+Adicionar endereço
+
+Não transformar o estado vazio em um input gigante.
+
+Aplicar a mesma lógica para:
+
+* telefone
+* email
+* website
+* horário
+* descrição
+* catálogo
+* campanhas
+* conversas
+* etc.
+
+---
+
+# 7. CONCEITO DE CONTAINER
+
+Atualmente existem muitos elementos que parecem:
+
+CARD DENTRO DE CARD DENTRO DE CARD.
+
+Isso cria aparência de dashboard genérico.
+
+Estabelecer uma regra:
+
+### Usar CARD somente quando existir uma razão semântica.
+
+Cards podem representar:
+
+* entidade independente
+* produto
+* campanha
+* estatística
+* ação importante
+* conteúdo agrupado
+
+Não usar card simplesmente porque "precisamos colocar um container".
+
+Informações relacionadas podem simplesmente existir em uma superfície contínua com divisores.
+
+---
+
+# 8. CONCEITO DE SECTION
+
+Uma seção deve ser visualmente reconhecível.
+
+Estrutura:
+
+SECTION TITLE
+
+conteúdo
+
+divider
+
+SECTION TITLE
+
+conteúdo
+
+Não colocar uma borda arredondada em cada pequeno bloco.
+
+---
+
+# 9. MARGENS DAS BORDAS — CORRIGIR GLOBALMENTE
+
+Este problema ainda não foi resolvido.
+
+Na screenshot existem elementos literalmente encostando na borda da tela.
+
+Isso precisa ser corrigido em **todas as páginas**.
+
+Criar um token global:
+
+--page-padding-mobile
+
+Usar aproximadamente:
+
+16 px em telas pequenas
+
+20 px em telas médias
+
+24 px quando houver espaço suficiente
+
+Mas atenção:
+
+não quero simplesmente colocar `padding: 16px` em tudo.
+
+Existem componentes que devem ser edge-to-edge.
+
+Portanto estabelecer regras.
+
+### Conteúdo principal
+
+16–24 px de margem.
+
+### Listas
+
+Podem ser full width, mas o conteúdo interno deve respeitar o gutter.
+
+### Dividers
+
+Podem ser full width.
+
+### Bottom navigation
+
+Full width.
+
+### Cards
+
+Não devem ficar colados ao viewport.
+
+### Search
+
+Respeitar gutter.
+
+### Títulos
+
+Respeitar exatamente o mesmo gutter do conteúdo.
+
+---
+
+# 10. CRIAR UM GRID/GUTTER GLOBAL
+
+Quero que exista uma linha vertical imaginária consistente.
+
+Exemplo:
+
+| 16px | CONTEÚDO | 16px |
+
+O título deve começar no mesmo ponto.
+
+A search bar deve começar no mesmo ponto.
+
+As seções devem começar no mesmo ponto.
+
+Os cards devem começar no mesmo ponto.
+
+Os textos devem respeitar o mesmo sistema.
+
+Não quero:
+
+Título → 0 px
+
+Search → 2 px
+
+Card → 8 px
+
+Texto → 16 px
+
+Isso cria uma sensação de produto mal acabado.
+
+---
+
+# 11. EXCEÇÕES EDGE-TO-EDGE
+
+Alguns elementos podem ocupar a largura inteira:
+
+* listas
+* dividers
+* bottom navigation
+* tabs
+* barras de progresso
+* imagens específicas
+* headers específicos
+
+Mas o conteúdo interno deve continuar alinhado ao grid.
+
+---
+
+# 12. BOTTOM NAVIGATION
+
+Revisar completamente o footer/bottom navigation.
+
+A barra inferior atual ainda parece pesada e ocupa demasiado espaço visual.
+
+Quero uma bottom navigation com qualidade de aplicativo nativo.
+
+Ela deve:
+
+* ocupar apenas o espaço necessário
+* respeitar safe area
+* ter altura consistente
+* ter ícones de tamanho consistente
+* ter labels pequenos
+* ter estado ativo elegante
+* não parecer uma grande barra de dashboard
+
+Estrutura:
+
+ícone
+
+label
+
+Não exagerar no background verde.
+
+O item ativo pode usar:
+
+verde no ícone
+verde no texto
+
+e, se necessário, um pequeno background suave.
+
+Não utilizar uma enorme cápsula verde.
+
+---
+
+# 13. SAFE AREA
+
+Garantir:
+
+`env(safe-area-inset-bottom)`
+
+na bottom navigation.
+
+Também considerar:
+
+`env(safe-area-inset-top)`
+
+quando aplicável.
+
+Testar em:
+
+* Android com navigation bar
+* Android com gesture navigation
+* iPhone com notch
+* iPhone com Dynamic Island
+
+---
+
+# 14. HEADER
+
+O header de cada página deve seguir um sistema consistente.
+
+Não quero que:
+
+Perfil tenha um header.
+
+Mercado tenha outro.
+
+Campanhas tenha outro.
+
+Conversas tenha outro.
+
+Criar um componente compartilhado:
+
+AppHeader
+
+com variantes.
+
+Exemplo:
+
+Título                     ação
+
+Mercado                    refresh
+
+Campanhas                  +
+
+Conversas                  refresh
+
+Perfil                     ação
+
+Manter consistência de:
+
+* altura
+* padding
+* tipografia
+* ícones
+* alinhamento
+
+---
+
+# 15. TÍTULOS
+
+Os títulos atuais são muito grandes em algumas páginas.
+
+Exemplo:
+
+"Mercado"
+"Campanhas"
+
+Devem ter presença, mas não dominar a tela.
+
+Criar uma escala consistente.
+
+Algo próximo de:
+
+24–28 px
+
+font-weight 700
+
+Mas ajustar visualmente de acordo com o viewport.
+
+---
+
+# 16. SEARCH BAR
+
+A search bar atual parece grande demais e excessivamente arredondada.
+
+Criar um componente global:
+
+SearchBar
+
+Com:
+
+* altura ~44–48 px
+* ícone 20–22 px
+* padding horizontal 14–16 px
+* radius 12–14 px
+* border sutil
+* background muito leve
+
+Não usar uma cápsula gigante.
+
+---
+
+# 17. FILTROS / CHIPS
+
+Revisar todos os filtros.
+
+Exemplo:
+
+Todas
+Novo
+Em atendimento
+Qualificado
+
+Eles não devem parecer quatro botões gigantes.
+
+Usar chips compactos.
+
+Estados:
+
+default
+selected
+disabled
+
+O selected deve ser claramente identificável.
+
+---
+
+# 18. LISTAS
+
+Criar um padrão global de ListItem.
+
+Uma lista deve ter:
+
+leading element
+content
+trailing action
+
+Exemplo:
+
+[avatar] Nome
+descrição
+
+```
+                          >
+```
+
+Todos os itens devem ter:
+
+* altura consistente
+* padding consistente
+* alinhamento vertical
+* divider sutil
+* touch target adequado
+
+---
+
+# 19. CONVERSAS
+
+A tela Conversas deve parecer uma inbox.
+
+Não um conjunto de cards.
+
+Cada conversa:
+
+Avatar 52–56 px
+
+Nome
+última mensagem/atividade
+timestamp
+status
+
+Dividers sutis.
+
+Evitar espaços vazios absurdos.
+
+---
+
+# 20. MERCADO
+
+Revisar a seção:
+
+COM IA ACTIVA
+
+Os círculos atuais estão muito grandes e parecem elementos isolados.
+
+Transformar isso em uma seção horizontal de perfis/negócios com:
+
+avatar
+nome
+status
+
+Tudo deve ter uma relação visual clara.
+
+Não deixar texto truncado de forma feia como:
+
+"Electro Pa..."
+
+sem uma razão.
+
+Se o nome precisar ser truncado:
+
+usar ellipsis corretamente.
+
+---
+
+# 21. CAMPANHAS
+
+As estatísticas:
+
+2 Total
+1 Ativas
+2 Com kit
+
+atualmente parecem três cards enormes.
+
+Criar um componente de statistics compacto e elegante.
+
+As métricas devem ser visualmente importantes, mas não dominar a tela.
+
+Depois:
+
+Campanha
+status
+canal
+budget
+kit
+ação
+
+deve ser uma lista limpa.
+
+---
+
+# 22. PERFIL
+
+A página de perfil precisa ser tratada como um verdadeiro **Business Profile**, e não como formulário.
+
+Estrutura recomendada:
+
+HEADER
+
+Identidade do negócio
+
+Ações
+
+CATÁLOGO
+
+Produtos
+
+Ver tudo
+
+O TEU NEGÓCIO
+
+Catálogo
+Assistente IA
+Campanhas
+
+INFORMAÇÕES
+
+Descrição
+Contacto
+Endereço
+Horário
+Website
+
+etc.
+
+Cada bloco deve ter função semântica clara.
+
+---
+
+# 23. CATÁLOGO
+
+Na tela anexada, os produtos aparecem como uma lista.
+
+Isso pode funcionar, mas revisar:
+
+* tamanho das thumbnails
+* alinhamento
+* truncamento de nomes
+* preço
+* espaçamento
+* divider
+* CTA "Ver catálogo completo"
+
+O preço deve ter destaque sem ficar exagerado.
+
+---
+
+# 24. PLACEHOLDERS DE IMAGENS
+
+Revisar todos os placeholders e imagens falsas.
+
+Se não existir imagem:
+
+usar um placeholder visual consistente.
+
+Não usar imagens aleatórias que possam confundir o utilizador.
+
+Criar:
+
+ProductImage
+BusinessAvatar
+CampaignImage
+EmptyImage
+
+com estados:
+
+loading
+loaded
+missing
+error
+
+---
+
+# 25. COMPONENTES REUTILIZÁVEIS
+
+Não corrigir cada tela manualmente.
+
+Criar/normalizar componentes globais:
+
+AppHeader
+PageContainer
+Section
+SectionHeader
+SearchBar
+FilterChips
+Avatar
+BusinessAvatar
+ListItem
+StatCard
+EmptyState
+ImagePlaceholder
+StatusBadge
+IconButton
+PrimaryButton
+SecondaryButton
+BottomNavigation
+Divider
+Modal
+BottomSheet
+FormField
+ViewField
+
+Assim, quando o design mudar, todas as páginas permanecem consistentes.
+
+---
+
+# 26. DESIGN TOKENS
+
+Criar tokens globais para:
+
+spacing
+radius
+typography
+colors
+borders
+shadows
+icon sizes
+component heights
+page gutters
+
+Exemplo conceitual:
+
+spacing-1
+spacing-2
+spacing-3
+spacing-4
+spacing-5
+spacing-6
+
+page-padding-mobile
+
+page-padding-tablet
+
+radius-sm
+radius-md
+radius-lg
+
+etc.
+
+Não espalhar valores arbitrários pelo CSS.
+
+---
+
+# 27. ESTADOS DOS COMPONENTES
+
+Todos os componentes interativos precisam considerar:
+
+default
+pressed
+hover
+focus
+disabled
+loading
+empty
+error
+success
+selected
+editing
+
+Não construir apenas o estado "bonito".
+
+---
+
+# 28. MODAIS E BOTTOM SHEETS
+
+Revisar todos.
+
+Devem parecer componentes nativos do aplicativo.
+
+Usar:
+
+* radius superior apropriado
+* drag indicator quando necessário
+* padding correto
+* hierarchy
+* actions claras
+
+Não utilizar modal de desktop simplesmente reduzido para mobile.
+
+---
+
+# 29. FORMULÁRIOS
+
+Quando realmente estivermos em EDIT MODE:
+
+Os inputs devem ter:
+
+label
+input
+helper text quando necessário
+error state
+focus state
+
+Exemplo:
+
+Descrição
+
+[ textarea ]
+
+Não usar placeholder como label.
+
+Preferir:
+
+Label persistente.
+
+---
+
+# 30. NAVEGAÇÃO
+
+Revisar a arquitetura visual da navegação.
+
+O utilizador deve saber:
+
+onde está
+onde pode ir
+qual ação está ativa
+qual página pertence a qual seção
+
+Bottom navigation:
+
+Perfil
+Conversas
+Campanhas
+Mercado
+
+deve permanecer consistente em todas as telas principais.
+
+---
+
+# 31. DENSIDADE
+
+Não quero simplesmente aumentar espaços para deixar "premium".
+
+Premium não significa:
+
+muito espaço vazio.
+
+Premium significa:
+
+**espaço correto.**
+
+Revisar cada tela procurando:
+
+* elementos colados
+* elementos excessivamente afastados
+* títulos sem relação com conteúdo
+* componentes grandes demais
+* componentes pequenos demais
+
+---
+
+# 32. RESPONSIVIDADE
+
+Testar no mínimo:
+
+360 × 800
+375 × 812
+390 × 844
+412 × 915
+
+Garantir:
+
+* sem overflow horizontal
+* sem texto cortado
+* sem elementos encostados nas bordas
+* sem bottom navigation cobrindo conteúdo
+* sem botões fora da tela
+* sem títulos quebrados de forma estranha
+* sem cards ultrapassando viewport
+
+---
+
+# 33. REGRA DE TRUNCAMENTO
+
+Nunca permitir que nomes longos destruam o layout.
+
+Usar:
+
+ellipsis
+
+quando necessário.
+
+Exemplo:
+
+Electro Panga Material Elétrico...
+
+Mas o usuário deve conseguir acessar o conteúdo completo ao abrir o item.
+
+---
+
+# 34. ACESSIBILIDADE E TOUCH TARGET
+
+Todos os elementos clicáveis devem possuir aproximadamente:
+
+44 × 44 px
+
+como área mínima de toque.
+
+Não reduzir botões simplesmente para deixar a interface "minimalista".
+
+---
+
+# 35. AUDITORIA VISUAL FINAL
+
+Depois da implementação, percorra TODA a aplicação como se fosse um designer de produto.
+
+Para cada tela pergunte:
+
+1. O conteúdo está alinhado?
+2. Existe espaço suficiente nas bordas?
+3. Existe algum elemento encostado na tela?
+4. Estou vendo um formulário onde deveria existir apenas informação?
+5. Existe algum card desnecessário?
+6. Existe algum placeholder sendo usado incorretamente?
+7. Os títulos possuem hierarquia?
+8. Os ícones têm o mesmo estilo?
+9. Os elementos têm alturas consistentes?
+10. A bottom navigation está correta?
+11. O usuário sabe o que pode clicar?
+12. O estado atual está claro?
+13. Os componentes parecem pertencer ao mesmo produto?
+14. Existe espaço vazio excessivo?
+15. Existe conteúdo comprimido demais?
+16. Existe algum overflow?
+17. A interface parece um app mobile real?
+
+---
+
+# 36. NÃO FAZER
+
+Não quero:
+
+* simplesmente adicionar padding aleatório
+* simplesmente aumentar border-radius
+* simplesmente trocar cores
+* colocar cards em tudo
+* colocar sombras em tudo
+* transformar tudo em pills
+* aumentar o tamanho dos títulos
+* usar placeholders como conteúdo
+* transformar informações em inputs
+* criar uma solução diferente para cada página
+* corrigir somente as screenshots anexadas
+
+---
+
+# 37. RESULTADO ESPERADO
+
+Quero que, depois desta revisão, a aplicação tenha uma linguagem visual única.
+
+A sensação deve ser:
+
+**"Este é um aplicativo profissional de gestão de negócios."**
+
+e não:
+
+**"Este é um website responsivo feito com vários cards."**
+
+O nível de acabamento deve se aproximar de produtos como:
+
+* WhatsApp Business
+* Linear
+* Stripe
+* Notion
+* Apple
+
+Sem copiar nenhum deles.
+
+A referência é a qualidade de engenharia de produto e design, não a aparência específica.
+
+---
+
+# 38. IMPORTANTE: PRESERVAR FUNCIONALIDADE
+
+Não quebrar:
+
+* APIs
+* banco de dados
+* autenticação
+* navegação
+* campanhas
+* catálogo
+* IA
+* conversas
+* estados existentes
+* ações
+* integrações
+
+Primeiro entender a arquitetura atual.
+
+Depois refatorar visualmente.
+
+Se um componente já existe e pode ser reutilizado, reutilizá-lo.
+
+Se vários componentes fazem essencialmente a mesma coisa com CSS diferente, consolidá-los.
+
+---
+
+# 39. ORDEM DE EXECUÇÃO
+
+Faça nesta ordem:
+
+### FASE 1
+
+Auditar a aplicação inteira.
+
+### FASE 2
+
+Criar/consolidar Design Tokens.
+
+### FASE 3
+
+Criar componentes base reutilizáveis.
+
+### FASE 4
+
+Corrigir layout global e gutters.
+
+### FASE 5
+
+Corrigir headers e bottom navigation.
+
+### FASE 6
+
+Corrigir estados VIEW vs EDIT.
+
+### FASE 7
+
+Corrigir listas, cards e sections.
+
+### FASE 8
+
+Corrigir placeholders e empty states.
+
+### FASE 9
+
+Corrigir páginas individuais.
+
+### FASE 10
+
+Testar todos os viewports mobile.
+
+### FASE 11
+
+Fazer uma revisão final de consistência.
+
+---
+
+# 40. CRITÉRIO DE ACEITAÇÃO
+
+Não considere a tarefa concluída apenas porque:
+
+"não existem erros no console"
+
+ou
+
+"a aplicação funciona".
+
+A tarefa só está concluída quando a interface também estiver visualmente consistente.
+
+Quero uma revisão de **engenharia de design**, não apenas uma correção de CSS.
+
+O objetivo final é:
+
+**funcionalidade existente + arquitetura visual consistente + estados corretos + espaçamento correto + excelente experiência mobile + aparência premium.**

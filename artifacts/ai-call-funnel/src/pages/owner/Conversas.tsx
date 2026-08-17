@@ -5,7 +5,7 @@
  */
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
-  ArrowLeft, User, Phone, Search, ExternalLink,
+  ArrowLeft, User, Phone, ExternalLink,
   DollarSign, Clock, MapPin, MessageCircle, RefreshCw, Zap, Send, Target,
 } from "lucide-react";
 import { Link } from "wouter";
@@ -15,6 +15,9 @@ import {
 import { useBusinessSlug } from "../../hooks/useBusinessSlug";
 import { OwnerNav } from "../../components/owner/OwnerNav";
 import { C } from "../../theme";
+import { AppHeader, AppIconButton } from "../../components/app/AppHeader";
+import { SearchBar } from "../../components/app/SearchBar";
+import { FilterChips } from "../../components/app/FilterChips";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const D = {
@@ -519,83 +522,28 @@ export function Conversas() {
         className="shrink-0"
         style={{ background: D.surface, borderBottom: `1px solid ${D.border}` }}
       >
-        {/* Title row */}
-        <div
-          className="flex items-center justify-between"
-          style={{ padding: "16px 20px 12px" }}
-        >
-          <h1 style={{ color: D.ink, fontSize: 22, fontWeight: 700, letterSpacing: "-0.3px" }}>
-            Conversas
-          </h1>
-          <button
-            onClick={() => void load()}
-            className="flex items-center justify-center rounded-full transition-opacity active:opacity-60"
-            style={{ width: 36, height: 36, color: D.inkFaint }}
-            aria-label="Actualizar"
-          >
-            <RefreshCw size={18} strokeWidth={1.75} />
-          </button>
+        <AppHeader
+          title="Conversas"
+          actions={
+            <AppIconButton label="Actualizar" onClick={() => void load()}>
+              <RefreshCw size={18} strokeWidth={1.75} />
+            </AppIconButton>
+          }
+        />
+
+        <div style={{ padding: "0 var(--page-padding-mobile) 10px" }}>
+          <SearchBar value={search} onChange={setSearch} />
         </div>
 
-        {/* Search bar — radius 12px per brief */}
-        <div style={{ paddingLeft: 16, paddingRight: 16, paddingBottom: 10 }}>
-          <div
-            className="flex items-center gap-2"
-            style={{
-              background: D.subtle,
-              border: `1px solid ${D.border}`,
-              borderRadius: 12,
-              height: 44,
-              paddingLeft: 12,
-              paddingRight: 12,
-            }}
-          >
-            <Search size={16} style={{ color: D.inkFaint }} strokeWidth={1.75} className="shrink-0" />
-            <input
-              type="text"
-              placeholder="Pesquisar..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="flex-1 bg-transparent outline-none"
-              style={{ color: D.ink, fontSize: 15 }}
-            />
-            {search && (
-              <button
-                onClick={() => setSearch("")}
-                style={{ color: D.inkFaint, fontSize: 18, lineHeight: 1 }}
-                aria-label="Limpar"
-              >×</button>
-            )}
-          </div>
-        </div>
-
-        {/* Filter chips — compact, radius 8px */}
-        <div
-          className="flex gap-1.5 overflow-x-auto"
-          style={{ padding: "2px 16px 10px", scrollbarWidth: "none" }}
-        >
-          {(["todos", ...STATE_ORDER] as const).map((key) => {
-            const label = key === "todos" ? "Todas" : STATE_LABELS[key];
-            const active = filter === key;
-            return (
-              <button
-                key={key}
-                onClick={() => setFilter(key as LeadState | "todos")}
-                className="shrink-0 transition-all"
-                style={{
-                  fontSize: 12.5,
-                  fontWeight: active ? 600 : 400,
-                  padding: "5px 12px",
-                  borderRadius: 8,
-                  background: active ? D.ink : D.subtle,
-                  color: active ? "#FFFFFF" : D.inkSoft,
-                  border: `1px solid ${active ? D.ink : D.border}`,
-                }}
-              >
-                {label}
-              </button>
-            );
-          })}
+        <div style={{ padding: "2px var(--page-padding-mobile) 10px" }}>
+          <FilterChips
+            value={filter}
+            onChange={(key) => setFilter(key as LeadState | "todos")}
+            options={(["todos", ...STATE_ORDER] as const).map((key) => ({
+              value: key,
+              label: key === "todos" ? "Todas" : STATE_LABELS[key],
+            }))}
+          />
         </div>
       </div>
 

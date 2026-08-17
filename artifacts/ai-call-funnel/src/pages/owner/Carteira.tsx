@@ -13,6 +13,7 @@ import { WaEmptyState } from "../../components/wa/WaEmptyState";
 import { useBusinessSlug } from "../../hooks/useBusinessSlug";
 import { businessApi, type WalletData, type WalletLedgerEntry, type Payout } from "../../lib/api";
 import { C } from "../../theme";
+import { AppHeader, AppIconButton } from "../../components/app/AppHeader";
 
 function fmtKz(v: string | number): string {
   const n = typeof v === "string" ? Number(v) : v;
@@ -173,17 +174,14 @@ export function Carteira() {
     <div className="flex flex-col h-full" style={{ background: "#F8F9FA" }}>
       {/* Header */}
       <div className="shrink-0" style={{ background: "#FFFFFF", borderBottom: "1px solid #E5E7EB" }}>
-        <div className="flex items-center justify-between" style={{ padding: "16px 16px 12px" }}>
-          <h1 style={{ color: "#111111", fontSize: 22, fontWeight: 700, letterSpacing: "-0.3px" }}>Carteira</h1>
-          <button
-            onClick={() => void load()}
-            className="flex items-center justify-center rounded-full transition-opacity active:opacity-60"
-            style={{ width: 36, height: 36, color: "#9CA3AF" }}
-            aria-label="Actualizar"
-          >
-            <RefreshCw size={18} strokeWidth={1.75} />
-          </button>
-        </div>
+        <AppHeader
+          title="Carteira"
+          actions={
+            <AppIconButton label="Actualizar" onClick={() => void load()}>
+              <RefreshCw size={18} strokeWidth={1.75} />
+            </AppIconButton>
+          }
+        />
 
         {/* Balance card */}
         <div style={{ padding: "0 16px 16px" }}>

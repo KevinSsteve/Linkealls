@@ -7,8 +7,8 @@
  */
 export const C = {
   // ── App backgrounds ────────────────────────────────────────────────────────
-  bg:            "#F9FAFB",   // cool light gray — app shell background
-  appBg:         "#F9FAFB",
+  bg:            "#F8F9FA",   // shared app shell background
+  appBg:         "#F8F9FA",
   white:         "#FFFFFF",   // surface / card background
   surface:       "#FFFFFF",
 
@@ -23,9 +23,12 @@ export const C = {
   headerBg:      "#166534",
 
   // ── Text ───────────────────────────────────────────────────────────────────
-  text:          "#111827",   // cool near-black — primary text
+  text:          "#111111",   // shared primary text
   text2:         "#6B7280",   // gray-500 — secondary / supporting
   text3:         "#9CA3AF",   // gray-400 — muted / placeholders
+  ink:           "#111111",
+  inkSoft:       "#6B7280",
+  inkFaint:      "#9CA3AF",
 
   // ── Chat (intentionally WhatsApp-style — this IS a chat product) ──────────
   chatBg:        "#E5DDD5",
@@ -37,7 +40,17 @@ export const C = {
 
   // ── UI chrome ───────────────────────────────────────────────────────────────
   border:        "#E5E7EB",   // gray-200 — subtle dividers
+  borderSoft:    "#F3F4F6",
+  subtle:        "#F3F4F6",
   inputBg:       "#F3F4F6",   // gray-100 — input fields
+
+  // ── Layout ─────────────────────────────────────────────────────────────────
+  gutter:        16,
+  gutterWide:    20,
+  controlHeight: 44,
+  radiusSm:      8,
+  radiusMd:      12,
+  radiusLg:      16,
 
   // ── Feedback ────────────────────────────────────────────────────────────────
   successBg:     "#F0FDF4",
