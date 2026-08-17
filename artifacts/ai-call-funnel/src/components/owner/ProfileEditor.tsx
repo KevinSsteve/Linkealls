@@ -28,6 +28,7 @@ import { useNotifications } from "../../hooks/useNotifications";
 import { useBusinessSlug } from "../../hooks/useBusinessSlug";
 import { businessApi, checkSlugAvailability } from "../../lib/api";
 import type { BusinessProfile, FaqItem, Offering, ProfileDraft } from "../../lib/api";
+import { Link } from "wouter";
 
 interface Props {
   profile: BusinessProfile;
@@ -186,6 +187,146 @@ function EditorIntro({ onBack }: { onBack?: () => void }) {
           Voltar ao perfil
         </button>
       )}
+    </div>
+  );
+}
+
+function ProfileInfoRow({
+  label,
+  value,
+  emptyActionLabel,
+  onEmptyAction,
+  link = false,
+}: {
+  label: string;
+  value?: string | null;
+  emptyActionLabel: string;
+  onEmptyAction: () => void;
+  link?: boolean;
+}) {
+  return (
+    <div className="border-b border-gray-100 py-5 last:border-b-0">
+      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-gray-400">{label}</p>
+      <div className="flex min-w-0 items-center justify-between gap-4">
+        {value ? (
+          link ? (
+            <a
+              href={value.startsWith("http") ? value : `https://${value}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="min-w-0 break-all text-base leading-6 text-green-700"
+            >
+              {value}
+            </a>
+          ) : (
+            <p className="min-w-0 break-words text-base leading-6 text-gray-700">{value}</p>
+          )
+        ) : (
+          <>
+            <p className="min-w-0 text-base leading-6 text-gray-400">Não adicionado</p>
+            <button
+              type="button"
+              onClick={onEmptyAction}
+              className="shrink-0 rounded-lg py-1 text-right text-sm font-medium text-green-700"
+              data-testid={`button-add-${label.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`}
+            >
+              {emptyActionLabel}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ProfileSummaryView({
+  address,
+  hours,
+  phone,
+  email,
+  siteUrl,
+  offerings,
+  slug,
+  onEdit,
+}: {
+  address: string;
+  hours: string;
+  phone: string;
+  email: string;
+  siteUrl: string;
+  offerings: Offering[];
+  slug: string | null;
+  onEdit: () => void;
+}) {
+  return (
+    <div className="min-h-full bg-white px-5 pb-24">
+      <section className="mb-8" aria-labelledby="profile-information-title">
+        <div className="mb-1 flex items-center justify-between gap-4">
+          <h2 id="profile-information-title" className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-400">
+            Informações
+          </h2>
+          <button
+            type="button"
+            onClick={onEdit}
+            className="rounded-lg py-1 text-sm font-medium text-green-700"
+            data-testid="button-edit-business-information"
+          >
+            Editar
+          </button>
+        </div>
+        <div>
+          <ProfileInfoRow label="Endereço" value={address} emptyActionLabel="Adicionar endereço" onEmptyAction={onEdit} />
+          <ProfileInfoRow label="Horário" value={hours} emptyActionLabel="Adicionar horário" onEmptyAction={onEdit} />
+          <ProfileInfoRow label="Contacto" value={phone} emptyActionLabel="Adicionar contacto" onEmptyAction={onEdit} />
+          <ProfileInfoRow label="E-mail" value={email} emptyActionLabel="Adicionar e-mail" onEmptyAction={onEdit} />
+          <ProfileInfoRow label="Website" value={siteUrl} emptyActionLabel="Adicionar website" onEmptyAction={onEdit} link />
+        </div>
+      </section>
+
+      <section className="mt-6" aria-labelledby="profile-catalog-title">
+        <div className="flex items-center justify-between gap-4">
+          <h2 id="profile-catalog-title" className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gray-400">
+            Catálogo
+          </h2>
+          {slug && (
+            <Link href={`/e/${slug}/catalogo`} className="text-sm font-medium text-green-700" data-testid="link-view-all-catalog">
+              Ver tudo
+            </Link>
+          )}
+        </div>
+        {offerings.length > 0 ? (
+          <div className="mt-6 space-y-4">
+            {offerings.map((offering, index) => (
+              <div key={`${offering.name}-${index}`} className="flex min-w-0 items-center gap-4">
+                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-gray-100">
+                  {offering.imageUrl ? (
+                    <img src={offering.imageUrl} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-gray-400">
+                      <ImagePlus size={20} />
+                    </div>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="line-clamp-1 text-sm font-medium text-gray-800">{offering.name || "Produto sem nome"}</p>
+                  <p className="mt-1 text-base font-bold text-green-700">{offering.price || "Preço por definir"}</p>
+                </div>
+              </div>
+            ))}
+            {slug && (
+              <Link
+                href={`/e/${slug}/catalogo`}
+                className="flex items-center justify-center py-4 text-sm font-medium text-green-700"
+                data-testid="link-view-full-catalog"
+              >
+                Ver catálogo completo <span aria-hidden="true">&nbsp;→</span>
+              </Link>
+            )}
+          </div>
+        ) : (
+          <p className="py-6 text-sm text-gray-400">Ainda não tens produtos no catálogo.</p>
+        )}
+      </section>
     </div>
   );
 }
@@ -705,6 +846,7 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
   const [email, setEmail] = useState(profile.email ?? "");
   const [openIdentity, setOpenIdentity] = useState(true);
   const [openContact, setOpenContact] = useState(false);
+  const [formOpen, setFormOpen] = useState(Boolean(draft));
   const [focusedProduct, setFocusedProduct] = useState<{ mode: "add" | "edit"; index: number; offering: Offering } | null>(null);
   const listScrollTop = useRef<number | null>(null);
 
@@ -799,9 +941,24 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
     );
   }
 
+  if (!formOpen) {
+    return (
+      <ProfileSummaryView
+        address={address}
+        hours={hours}
+        phone={phone}
+        email={email}
+        siteUrl={siteUrl}
+        offerings={offerings}
+        slug={slug}
+        onEdit={() => setFormOpen(true)}
+      />
+    );
+  }
+
   return (
     <div className={`min-w-0 overflow-x-hidden bg-[var(--bg)] ${dirty ? "pb-24" : ""}`}>
-      <EditorIntro onBack={onBack} />
+      <EditorIntro onBack={() => setFormOpen(false)} />
 
       <EditorSection id="identity" title="Identidade" description="A base que o assistente usa para apresentar o teu negócio." open={openIdentity} onToggle={() => setOpenIdentity((value) => !value)}>
         <div className="space-y-4">

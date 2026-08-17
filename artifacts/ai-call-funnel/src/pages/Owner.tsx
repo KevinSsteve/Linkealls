@@ -4,7 +4,7 @@ import {
   Globe, Sparkles, Loader2, AlertCircle, CheckCircle2,
   Zap, Grid3x3, Megaphone, Users, ChevronRight, X, Store,
   MessageSquare, Phone, RefreshCw, Edit2, Share2, MoreVertical,
-  MapPin, Clock, Mail, Image, ShoppingCart, Wallet, Crown,
+  MapPin, Clock, Mail, Image, ShoppingCart, Wallet, Crown, Home,
 } from "lucide-react";
 import { OwnerNav } from "../components/owner/OwnerNav";
 import {
@@ -495,13 +495,24 @@ export function Owner() {
 
       {!productFocus && (
         <AppHeader
-          title={editing ? "Editar perfil" : "Perfil do negócio"}
+          title="Perfil do negócio"
+          className={editing ? "mb-6" : ""}
           actions={
-            !editing ? (
+            editing ? (
+              <button
+                type="button"
+                onClick={() => setEditing(false)}
+                className="app-icon-button"
+                aria-label="Voltar ao perfil"
+                data-testid="button-profile-home"
+              >
+                <Home size={21} strokeWidth={1.75} />
+              </button>
+            ) : (
               <Link href={`/e/${slug}`} className="app-icon-button" aria-label="Ver página pública" data-testid="link-public-profile">
-                <Store size={19} strokeWidth={1.75} />
+                <Home size={21} strokeWidth={1.75} />
               </Link>
-            ) : undefined
+            )
           }
         />
       )}
