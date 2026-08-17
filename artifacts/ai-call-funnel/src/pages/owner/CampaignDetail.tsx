@@ -389,10 +389,11 @@ function objectStorageUrl(path: string): string {
   return `${base}api/storage${path}`;
 }
 
-function MetaAdsWizard({ api, campaign, onUpdate }: {
+function MetaAdsWizard({ api, campaign, onUpdate, onExit }: {
   api: ReturnType<typeof businessApi>;
   campaign: Campaign;
   onUpdate: (c: Campaign) => void;
+  onExit: () => void;
 }) {
   const [step, setStep] = useState(0);
   const [setup, setSetup] = useState<CampaignSetup>(() => defaultCampaignSetup(campaign));
@@ -503,10 +504,37 @@ function MetaAdsWizard({ api, campaign, onUpdate }: {
   const budgetUsd = quote ? (budget / quote.fxRateAoaPerUsd).toFixed(2) : null;
 
   return (
-    <div style={{ background: "#FFF", minHeight: "100%" }}>
+    <div style={{
+      background: "#FFF",
+      height: "100%",
+      minHeight: 0,
+      overflowY: "auto",
+      WebkitOverflowScrolling: "touch",
+    }}>
+      <div style={{
+        position: "sticky",
+        top: 0,
+        zIndex: 3,
+        height: 64,
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        padding: "0 20px",
+        background: "#FFF",
+        borderBottom: SEP,
+      }}>
+        <button type="button" onClick={onExit} aria-label="Voltar às campanhas"
+          style={{ width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", border: "none", background: "transparent", color: "#111", padding: 0 }}>
+          <ArrowLeft size={24} strokeWidth={1.8} />
+        </button>
+        <h1 style={{ flex: 1, fontSize: 22, fontWeight: 500, color: "#111", lineHeight: 1 }}>
+          Criar anúncio
+        </h1>
+      </div>
+
       {/* Thin progress bar */}
       <div style={{ height: 3, background: "#F0F0F0" }}>
-        <div style={{ height: 3, background: "#111", width: `${(step / 4) * 100}%`, transition: "width 0.35s ease" }} />
+        <div style={{ height: 3, background: "#111", width: `${((step + 1) / 5) * 100}%`, transition: "width 0.35s ease" }} />
       </div>
 
       {/* Error */}
@@ -1364,67 +1392,72 @@ export function CampaignDetail() {
 
   const pm = PLATFORM_META[campaign.platform];
   const nextStatus = STATUS_NEXT[campaign.status];
+  const isMetaWizard = campaign.platform === "meta" && tab === "publicar";
 
   return (
     <div className="flex flex-col h-full" style={{ background: C.bg }}>
-      {/* Header */}
-      <AppHeader
-        title={campaign.name}
-        subtitle={pm.label}
-        onBack={() => window.history.back()}
-        leading={
-        <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
-          style={{ background: pm.bg, color: pm.color }}>
-          {pm.icon}
-        </div>
-        }
-        actions={
-          <>
-            <AppIconButton label="Duplicar campanha" onClick={handleDuplicate} disabled={duplicating}>
-              {duplicating ? <Loader2 size={16} className="animate-spin" /> : <CopyPlus size={16} />}
-            </AppIconButton>
-            {nextStatus && (
-              <button
-                onClick={handleStatusToggle}
-                disabled={changingStatus}
-                className="app-status-badge"
-                style={{
-                  color: nextStatus === "ativa" ? "#15803D" : "#B45309",
-                  background: nextStatus === "ativa" ? "#DCFCE7" : "#FFFBEB",
-                }}
-              >
-                {changingStatus ? <Loader2 size={11} className="animate-spin" /> :
-                  nextStatus === "ativa" ? <Play size={10} /> : <Pause size={10} />}
-                <span className="ml-1">{nextStatus === "ativa" ? "Ativar" : "Pausar"}</span>
-              </button>
-            )}
-          </>
-        }
-      />
+      {!isMetaWizard && (
+        <>
+          {/* Header */}
+          <AppHeader
+            title={campaign.name}
+            subtitle={pm.label}
+            onBack={() => window.history.back()}
+            leading={
+            <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+              style={{ background: pm.bg, color: pm.color }}>
+              {pm.icon}
+            </div>
+            }
+            actions={
+              <>
+                <AppIconButton label="Duplicar campanha" onClick={handleDuplicate} disabled={duplicating}>
+                  {duplicating ? <Loader2 size={16} className="animate-spin" /> : <CopyPlus size={16} />}
+                </AppIconButton>
+                {nextStatus && (
+                  <button
+                    onClick={handleStatusToggle}
+                    disabled={changingStatus}
+                    className="app-status-badge"
+                    style={{
+                      color: nextStatus === "ativa" ? "#15803D" : "#B45309",
+                      background: nextStatus === "ativa" ? "#DCFCE7" : "#FFFBEB",
+                    }}
+                  >
+                    {changingStatus ? <Loader2 size={11} className="animate-spin" /> :
+                      nextStatus === "ativa" ? <Play size={10} /> : <Pause size={10} />}
+                    <span className="ml-1">{nextStatus === "ativa" ? "Ativar" : "Pausar"}</span>
+                  </button>
+                )}
+              </>
+            }
+          />
 
-      {/* Error */}
-      {error && (
-        <div className="mx-4 mt-3 flex items-center gap-2 text-[13px] rounded-xl px-3.5 py-2.5 shrink-0"
-          style={{ background: "#FFEBEE", color: "#C62828", border: "1px solid #FFCDD2" }}>
-          <AlertCircle size={13} className="shrink-0" /> {error}
-        </div>
+          {/* Error */}
+          {error && (
+            <div className="mx-4 mt-3 flex items-center gap-2 text-[13px] rounded-xl px-3.5 py-2.5 shrink-0"
+              style={{ background: "#FFEBEE", color: "#C62828", border: "1px solid #FFCDD2" }}>
+              <AlertCircle size={13} className="shrink-0" /> {error}
+            </div>
+          )}
+
+          {/* Tabs */}
+          <div className="flex shrink-0" style={{ background: C.white, borderBottom: `1px solid ${C.border}` }}>
+            {([["kit", "🎯 Kit IA"], ["publicar", "🚀 Publicar"], ["metricas", "📊 Métricas"]] as const).map(([key, label]) => (
+              <button key={key} onClick={() => setTab(key)}
+                className="flex-1 py-2.5 text-[13px] font-semibold"
+                style={{
+                  color: tab === key ? C.green : C.text3,
+                  borderBottom: tab === key ? `2px solid ${C.green}` : "2px solid transparent",
+                }}>
+                {label}
+              </button>
+            ))}
+          </div>
+        </>
       )}
 
-      {/* Tabs */}
-      <div className="flex shrink-0" style={{ background: C.white, borderBottom: `1px solid ${C.border}` }}>
-        {([["kit", "🎯 Kit IA"], ["publicar", "🚀 Publicar"], ["metricas", "📊 Métricas"]] as const).map(([key, label]) => (
-          <button key={key} onClick={() => setTab(key)}
-            className="flex-1 py-2.5 text-[13px] font-semibold"
-            style={{
-              color: tab === key ? C.green : C.text3,
-              borderBottom: tab === key ? `2px solid ${C.green}` : "2px solid transparent",
-            }}>
-            {label}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex-1 overflow-y-auto">
+      <div className={isMetaWizard ? "flex-1 min-h-0" : "flex-1 overflow-y-auto"}>
         {/* Kit tab */}
         {tab === "kit" && (
           <>
@@ -1474,7 +1507,12 @@ export function CampaignDetail() {
         {/* Publish tab */}
         {tab === "publicar" && api && (
           campaign.platform === "meta"
-            ? <MetaAdsWizard api={api} campaign={campaign} onUpdate={setCampaign} />
+             ? <MetaAdsWizard
+                 api={api}
+                 campaign={campaign}
+                 onUpdate={setCampaign}
+                 onExit={() => navigate(`/e/${slug}/dono/campanhas`)}
+               />
             : <LegacyPublishFlow api={api} campaign={campaign} onUpdate={setCampaign} />
         )}
 
@@ -1519,7 +1557,7 @@ export function CampaignDetail() {
         )}
       </div>
 
-      <OwnerNav />
+      {!isMetaWizard && <OwnerNav />}
     </div>
   );
 }

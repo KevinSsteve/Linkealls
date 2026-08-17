@@ -2,7 +2,7 @@
  * Campanhas — design premium, fundo quente #F6F6F4, tipografia editorial.
  * Toda a lógica é idêntica à versão anterior.
  */
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import {
   Plus, Megaphone, Globe, Instagram, Facebook,
@@ -49,142 +49,6 @@ const STATUS_META: Record<Campaign["status"], { label: string; bg: string; color
   pausada:   { label: "Pausada",   bg: "#FFF8E1",   color: "#E65100" },
   encerrada: { label: "Encerrada", bg: "#FFEBEE",   color: "#C62828" },
 };
-
-const OBJECTIVES = [
-  { value: "awareness", label: "Dar a conhecer", description: "Alcançar mais pessoas na tua zona." },
-  { value: "traffic", label: "Levar pessoas ao catálogo", description: "Gerar visitas para os teus produtos." },
-  { value: "lead_generation", label: "Receber contactos", description: "Encontrar pessoas interessadas no teu negócio." },
-  { value: "engagement", label: "Gerar envolvimento", description: "Aumentar interações com a tua marca." },
-] as const;
-
-// ─── Create modal ─────────────────────────────────────────────────────────────
-function CreateModal({ api, onClose, onCreate }: {
-  api: ReturnType<typeof businessApi>;
-  onClose: () => void;
-  onCreate: (c: Campaign) => void;
-}) {
-  const [name, setName] = useState("");
-  const platform: CampaignPlatform = "meta";
-  const [objective, setObjective] = useState("lead_generation");
-  const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-  const handleCreate = async () => {
-    if (!name.trim() || !objective) { setErr("Preenche o nome e escolhe o objetivo."); return; }
-    setSaving(true); setErr(null);
-    try {
-      const { campaign } = await api.createCampaign({
-        name: name.trim(), platform, objective: objective.trim(),
-         budget: 0,
-         durationDays: 7,
-      });
-      onCreate(campaign);
-    } catch (e) {
-      setErr(e instanceof Error ? e.message : "Erro ao criar campanha");
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ background: "rgba(20,23,26,0.48)", padding: "20px 16px" }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <div
-        className="w-full max-w-[440px] overflow-y-auto"
-        style={{
-          background: D.surface,
-          borderRadius: D.rCard,
-          padding: "24px 20px",
-          maxHeight: "calc(100svh - 40px)",
-          boxShadow: "0 24px 64px rgba(20,23,26,0.20)",
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header modal */}
-        <div className="flex items-center justify-between mb-5">
-          <p className="font-bold" style={{ color: D.ink, fontSize: 17 }}>Nova campanha</p>
-          <button
-            onClick={onClose}
-            className="flex items-center justify-center rounded-full"
-            style={{ width: 30, height: 30, background: D.subtle, color: D.inkSoft, fontSize: 18 }}
-          >
-            ×
-          </button>
-        </div>
-
-        {err && (
-          <div
-            className="flex items-center gap-2 text-[13px] rounded-xl px-3.5 py-2.5 mb-4"
-            style={{ background: "#FFEBEE", color: "#C62828", border: "1px solid #FFCDD2" }}
-          >
-            <AlertCircle size={13} /> {err}
-          </div>
-        )}
-
-         {/* Canal */}
-        <div className="mb-4">
-          <label className="block font-semibold mb-2" style={{ color: D.inkSoft, fontSize: 11.5, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-             Canal de anúncios
-          </label>
-           <div className="flex items-center gap-2 rounded-xl px-3 py-3"
-             style={{ background: PLATFORM_META.meta.bg, border: "1.5px solid #B8D1FF", color: PLATFORM_META.meta.color }}>
-             {PLATFORM_META.meta.icon}
-             <div>
-               <p className="text-[13px] font-semibold">Meta Ads</p>
-               <p className="text-[11px]" style={{ color: D.inkSoft }}>Facebook e Instagram num só anúncio</p>
-             </div>
-           </div>
-        </div>
-
-        {/* Nome */}
-        <div className="mb-4">
-          <label className="block font-semibold mb-1.5" style={{ color: D.inkSoft, fontSize: 11.5, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-            Nome
-          </label>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-             placeholder="Ex: Campanha de captação de leads"
-            className="w-full px-3.5 py-2.5 text-[14px] outline-none"
-            style={{ background: D.subtle, border: `1.5px solid ${D.line}`, borderRadius: D.rInput, color: D.ink }}
-          />
-        </div>
-
-         {/* Objetivo */}
-        <div className="mb-4">
-          <label className="block font-semibold mb-1.5" style={{ color: D.inkSoft, fontSize: 11.5, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-            Objetivo
-          </label>
-           <div className="space-y-2">
-             {OBJECTIVES.map((item) => (
-               <button key={item.value} type="button" onClick={() => setObjective(item.value)}
-                 className="w-full text-left rounded-xl px-3 py-2.5 transition-colors"
-                 style={{
-                   background: objective === item.value ? "#E8F5E9" : D.subtle,
-                   border: `1.5px solid ${objective === item.value ? "#A5D6A7" : D.line}`,
-                 }}>
-                 <p className="text-[13px] font-semibold" style={{ color: objective === item.value ? "#1B5E20" : D.ink }}>{item.label}</p>
-                 <p className="text-[11px] mt-0.5" style={{ color: D.inkSoft }}>{item.description}</p>
-               </button>
-             ))}
-           </div>
-        </div>
-
-        <button
-          onClick={handleCreate}
-          disabled={saving}
-          className="w-full flex items-center justify-center gap-2 font-bold transition-opacity disabled:opacity-60"
-          style={{ background: D.green, color: "#fff", borderRadius: D.rBtn, minHeight: 50, fontSize: 15 }}
-        >
-          {saving ? <Loader2 size={16} className="animate-spin" /> : <Plus size={16} />}
-          {saving ? "A criar…" : "Criar campanha"}
-        </button>
-      </div>
-    </div>
-  );
-}
 
 // ─── Analytics ────────────────────────────────────────────────────────────────
 function AnalyticsView({ api }: { api: ReturnType<typeof businessApi> }) {
@@ -348,7 +212,7 @@ export function Campaigns() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showModal, setShowModal] = useState(false);
+  const [creating, setCreating] = useState(false);
   const [tab, setTab] = useState<"campanhas" | "analise">("campanhas");
   const [, navigate] = useLocation();
 
@@ -360,10 +224,24 @@ export function Campaigns() {
       .finally(() => setLoading(false));
   }, [api]);
 
-  const handleCreate = useCallback((campaign: Campaign) => {
-    setShowModal(false);
-    navigate(`/e/${slug}/dono/campanhas/${campaign.id}`);
-  }, [navigate, slug]);
+  const handleCreate = async () => {
+    if (!api || creating) return;
+    setCreating(true);
+    setError(null);
+    try {
+      const { campaign } = await api.createCampaign({
+        name: "Nova campanha Meta",
+        platform: "meta",
+        objective: "lead_generation",
+        budget: 0,
+        durationDays: 7,
+      });
+      navigate(`/e/${slug}/dono/campanhas/${campaign.id}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Não foi possível iniciar o anúncio");
+      setCreating(false);
+    }
+  };
 
   if (!slug || !api) return null;
 
@@ -378,8 +256,8 @@ export function Campaigns() {
         <AppHeader
           title="Campanhas"
           actions={
-            <AppIconButton label="Criar campanha" onClick={() => setShowModal(true)}>
-              <Plus size={18} strokeWidth={1.9} />
+            <AppIconButton label="Criar campanha" onClick={() => void handleCreate()} disabled={creating}>
+              {creating ? <Loader2 size={18} className="animate-spin" /> : <Plus size={18} strokeWidth={1.9} />}
             </AppIconButton>
           }
         />
@@ -433,11 +311,12 @@ export function Campaigns() {
               subtitle="Cria a tua primeira campanha e a IA gera o kit completo."
               action={
                 <button
-                  onClick={() => setShowModal(true)}
+                  onClick={() => void handleCreate()}
+                  disabled={creating}
                   className="flex items-center gap-2 font-semibold rounded-full px-5 py-2.5"
-                  style={{ background: D.green, color: "#fff", fontSize: 14 }}
+                  style={{ background: D.green, color: "#fff", fontSize: 14, opacity: creating ? 0.65 : 1 }}
                 >
-                  <Plus size={15} /> Criar campanha
+                  {creating ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />} Criar campanha
                 </button>
               }
             />
@@ -481,7 +360,6 @@ export function Campaigns() {
         </>
       )}
 
-      {showModal && <CreateModal api={api} onClose={() => setShowModal(false)} onCreate={handleCreate} />}
       <OwnerNav />
     </div>
   );
