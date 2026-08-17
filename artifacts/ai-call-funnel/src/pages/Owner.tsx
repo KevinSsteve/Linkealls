@@ -387,6 +387,7 @@ export function Owner() {
   const [reanalyzing, setReanalyzing] = useState(false);
   const [editorKey, setEditorKey] = useState(0);
   const [promoVisible, setPromoVisible] = useState(true);
+  const [productFocus, setProductFocus] = useState(false);
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -492,16 +493,18 @@ export function Owner() {
   return (
     <div className="h-full flex flex-col" style={{ background: D.bg }}>
 
-      <AppHeader
-        title={editing ? "Editar perfil" : "Perfil do negócio"}
-        actions={
-          !editing ? (
-            <Link href={`/e/${slug}`} className="app-icon-button" aria-label="Ver página pública" data-testid="link-public-profile">
-              <Store size={19} strokeWidth={1.75} />
-            </Link>
-          ) : undefined
-        }
-      />
+      {!productFocus && (
+        <AppHeader
+          title={editing ? "Editar perfil" : "Perfil do negócio"}
+          actions={
+            !editing ? (
+              <Link href={`/e/${slug}`} className="app-icon-button" aria-label="Ver página pública" data-testid="link-public-profile">
+                <Store size={19} strokeWidth={1.75} />
+              </Link>
+            ) : undefined
+          }
+        />
+      )}
 
       {/* ── Alerts ────────────────────────────────────────────────────────── */}
       {(error || notice) && (
@@ -730,7 +733,7 @@ export function Owner() {
 
         {/* ── Editor ──────────────────────────────────────────────────────── */}
         {view === "editor" && profile && editing && (
-          <div className="app-page-content">
+          <div className={productFocus ? "min-h-0 flex-1" : "app-page-content"}>
             <ProfileEditor
               key={editorKey}
               profile={profile}
@@ -740,13 +743,14 @@ export function Owner() {
               onSave={handleSave}
               onReanalyze={handleReanalyze}
               onBack={() => setEditing(false)}
+              onFocusModeChange={setProductFocus}
             />
           </div>
         )}
 
       </main>
 
-      <OwnerNav />
+      {!editing && <OwnerNav />}
     </div>
   );
 }

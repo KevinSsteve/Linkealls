@@ -14,6 +14,7 @@ import {
   ImagePlus,
   Link as LinkIcon,
   Loader2,
+  MoreHorizontal,
   Phone,
   Plus,
   RefreshCw,
@@ -21,6 +22,7 @@ import {
   Star,
   Trash2,
 } from "lucide-react";
+import { AppHeader } from "../../components/app/AppHeader";
 import { EditorSection } from "../../components/app/EditorSection";
 import { useNotifications } from "../../hooks/useNotifications";
 import { useBusinessSlug } from "../../hooks/useBusinessSlug";
@@ -35,10 +37,11 @@ interface Props {
   onSave: (fields: ProfileDraft & { websiteUrl?: string | null }) => void;
   onReanalyze: (url: string) => void;
   onBack?: () => void;
+  onFocusModeChange?: (focused: boolean) => void;
 }
 
 const inputClass =
-  "w-full min-h-[44px] min-w-0 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--subtle)] px-3.5 py-2.5 text-[15px] leading-6 text-[var(--ink)] placeholder:text-[var(--ink-faint)] focus:border-[var(--green)] focus:outline-none focus:ring-0 focus:shadow-[var(--focus-ring)] transition-colors";
+  "w-full min-h-[44px] min-w-0 rounded-[var(--radius-md)] border border-[var(--border-soft)] bg-[var(--surface)] px-3.5 py-2.5 text-[15px] leading-6 text-[var(--ink)] placeholder:text-[var(--ink-faint)] focus:border-[var(--green)] focus:outline-none focus:ring-0 focus:shadow-[var(--focus-ring)] transition-colors";
 const labelClass =
   "mb-1.5 block text-[11px] font-semibold leading-4 text-[var(--ink-soft)]";
 
@@ -183,9 +186,6 @@ function EditorIntro({ onBack }: { onBack?: () => void }) {
           Voltar ao perfil
         </button>
       )}
-      <p className="mt-2 max-w-[30rem] text-[13px] leading-relaxed text-[var(--ink-soft)]">
-        Atualiza o teu negócio por partes. As alterações ficam prontas para guardar no fim.
-      </p>
     </div>
   );
 }
@@ -272,6 +272,8 @@ function CatalogSection({ profile, businessSlug }: { profile: BusinessProfile; b
       id="catalog"
       title="Catálogo público"
       description="Define onde os clientes podem ver os teus produtos."
+      collapsible
+      defaultOpen={false}
       status={<span className={`app-status-badge ${enabled && isReady ? "is-success" : "is-neutral"}`}>{!isReady ? "Incompleto" : enabled ? "Activo" : "Inactivo"}</span>}
     >
       <div className="space-y-5">
@@ -372,6 +374,8 @@ function NotificationsSection({ slug }: { slug: string }) {
       id="notifications"
       title="Notificações no telemóvel"
       description={denied ? "Activa as notificações nas definições do browser para receber alertas." : subscribed ? "Receberás um alerta quando chegar um lead qualificado e o resumo diário às 08h00." : "Recebe um alerta quando chegar um lead qualificado e um resumo diário às 08h00."}
+      collapsible
+      defaultOpen={false}
       action={denied ? <BellOff size={19} className="mt-1 text-[var(--ink-faint)]" /> : <Toggle enabled={subscribed} onChange={subscribed ? unsubscribe : subscribe} disabled={loading} label={subscribed ? "Desactivar notificações" : "Activar notificações"} testId="toggle-notifications" />}
     >
       <div className="flex items-center gap-2 text-[12px] text-[var(--ink-soft)]">
@@ -404,6 +408,7 @@ async function uploadToGcs(file: File, uploadURL: string) {
 function ImageUploader({ offering, onChange }: { offering: Offering; onChange: (offering: Offering) => void }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const pick = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
@@ -424,17 +429,29 @@ function ImageUploader({ offering, onChange }: { offering: Offering; onChange: (
   }, [offering, onChange]);
 
   return (
-    <div className="flex items-center gap-4">
-      <div className="relative flex h-[88px] w-[88px] shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius-lg)] bg-[var(--subtle)]">
+    <div className="flex items-center gap-3">
+      <div className="relative flex h-[72px] w-[72px] shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius-md)] bg-[var(--subtle)]">
         {offering.imageUrl ? <img src={offering.imageUrl} alt={offering.name || "Produto"} className="h-full w-full object-cover" data-testid="img-product-editor" /> : <ImagePlus size={24} className="text-[var(--ink-faint)]" />}
         {uploading && <div className="absolute inset-0 flex items-center justify-center bg-white/80"><Loader2 size={19} className="animate-spin text-[var(--green)]" /></div>}
       </div>
-      <div className="min-w-0">
-        <button type="button" onClick={() => inputRef.current?.click()} disabled={uploading} className="inline-flex min-h-[44px] items-center gap-2 rounded-[var(--radius-md)] px-2 text-[14px] font-semibold text-[var(--green-dark)] hover:bg-[var(--green-light)] disabled:opacity-50" data-testid="button-product-photo">
-          <Camera size={16} /> {offering.imageUrl ? "Alterar foto" : "Adicionar foto"}
-        </button>
-        {offering.imageUrl && <button type="button" onClick={() => onChange({ ...offering, imageUrl: undefined })} className="ml-2 min-h-[44px] px-2 text-[13px] text-[var(--ink-soft)] underline-offset-2 hover:underline" data-testid="button-remove-product-photo">Remover</button>}
-        <p className="break-words text-[12px] leading-5 text-[var(--ink-faint)]">JPG ou PNG · máximo 5 MB</p>
+      <div className="relative min-w-0">
+        <div className="flex items-center gap-1">
+          <button type="button" onClick={() => inputRef.current?.click()} disabled={uploading} className="inline-flex min-h-[40px] items-center gap-2 rounded-[var(--radius-md)] px-2 text-[14px] font-semibold text-[var(--green-dark)] hover:bg-[var(--green-light)] disabled:opacity-50" data-testid="button-product-photo">
+            <Camera size={16} /> {offering.imageUrl ? "Alterar foto" : "Adicionar foto"}
+          </button>
+          {offering.imageUrl && (
+            <button type="button" onClick={() => setMenuOpen((value) => !value)} className="app-icon-button h-10 w-10" aria-label="Mais acções da foto" aria-expanded={menuOpen} data-testid="button-product-photo-menu">
+              <MoreHorizontal size={17} />
+            </button>
+          )}
+        </div>
+        {menuOpen && offering.imageUrl && (
+          <div className="absolute left-0 top-11 z-10 min-w-[150px] rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--surface)] p-1 shadow-[var(--shadow-soft)]" data-testid="menu-product-photo-actions">
+            <button type="button" onClick={() => { onChange({ ...offering, imageUrl: undefined }); setMenuOpen(false); }} className="flex min-h-[40px] w-full items-center px-3 text-left text-[13px] font-semibold text-[#B91C1C] hover:bg-[#FEF2F2]" data-testid="button-remove-product-photo">
+              Remover foto
+            </button>
+          </div>
+        )}
         {error && <p className="mt-1 break-words text-[12px] text-[#DC2626]" data-testid="error-product-photo">{error}</p>}
       </div>
       <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={pick} data-testid="input-product-photo" />
@@ -442,67 +459,81 @@ function ImageUploader({ offering, onChange }: { offering: Offering; onChange: (
   );
 }
 
-function ProductEditor({
+function ProductFocusEditor({
+  mode,
   offering,
   index,
   featuredCount,
-  onChange,
-  onRemove,
-  onClose,
+  onCommit,
+  onDelete,
+  onCancel,
 }: {
+  mode: "add" | "edit";
   offering: Offering;
   index: number;
   featuredCount: number;
-  onChange: (offering: Offering) => void;
-  onRemove: () => void;
-  onClose: () => void;
+  onCommit: (offering: Offering) => void;
+  onDelete: () => void;
+  onCancel: () => void;
 }) {
+  const [draft, setDraft] = useState<Offering>(offering);
   const canFeature = offering.featured || featuredCount < 3;
+  const update = (patch: Partial<Offering>) => setDraft((current) => ({ ...current, ...patch }));
   const remove = () => {
-    if (window.confirm("Eliminar este produto?")) onRemove();
+    if (window.confirm("Eliminar produto?\n\nEste produto será removido do teu catálogo.")) onDelete();
   };
 
   return (
-    <div className="mt-3 space-y-4 border-t border-[var(--border-soft)] pt-4" data-testid={`product-editor-${index}`}>
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-[13px] font-semibold text-[var(--ink-soft)]">Editar produto</p>
-        <button type="button" onClick={onClose} className="inline-flex min-h-[44px] items-center gap-1.5 rounded-[var(--radius-md)] px-2 text-[13px] font-semibold text-[var(--green-dark)] hover:bg-[var(--green-light)]" data-testid={`button-close-product-editor-${index}`}>
-          Fechar <ChevronDown size={15} className="rotate-180" />
-        </button>
-      </div>
-      <ImageUploader offering={offering} onChange={onChange} />
-      <Field label="Nome do produto" value={offering.name} onChange={(name) => onChange({ ...offering, name })} placeholder="Ex.: Disjuntor 4P 80A" testId={`input-product-name-${index}`} />
-      <Field label="Preço" value={offering.price} onChange={(price) => onChange({ ...offering, price })} placeholder="Ex.: 45.000 Kz, sob consulta" testId={`input-product-price-${index}`} />
-      <TextAreaField label="Descrição" value={offering.description} onChange={(description) => onChange({ ...offering, description })} placeholder="Explica este produto em poucas palavras" testId={`input-product-description-${index}`} />
-      <div className="flex items-center justify-between gap-3 border-t border-[var(--border-soft)] pt-3">
-        <div className="min-w-0">
-          <p className="text-[14px] font-semibold text-[var(--ink)]">Produto em destaque</p>
-          <p className="mt-1 text-[12px] text-[var(--ink-soft)]">Até 3 produtos podem aparecer em destaque.</p>
+    <div className="min-h-full min-w-0 bg-[var(--bg)]" data-testid={`product-focus-editor-${mode}-${index}`}>
+      <AppHeader
+        title={mode === "add" ? "Adicionar produto" : "Editar produto"}
+        onBack={onCancel}
+        actions={
+          <button
+            type="button"
+            onClick={() => draft.name.trim() && onCommit(draft)}
+            disabled={!draft.name.trim()}
+            className="min-h-[40px] rounded-[var(--radius-md)] px-2 text-[13px] font-semibold text-[var(--green-dark)] transition-colors hover:bg-[var(--green-light)] disabled:opacity-40"
+            data-testid="button-save-product"
+          >
+            {mode === "add" ? "Adicionar" : "Guardar"}
+          </button>
+        }
+      />
+      <div className="min-w-0 space-y-5 px-5 pb-8 pt-5">
+        <ImageUploader offering={draft} onChange={setDraft} />
+        <Field label="Nome do produto" value={draft.name} onChange={(name) => update({ name })} placeholder="Ex.: Disjuntor 4P 80A" testId="input-focus-product-name" />
+        <Field label="Preço" value={draft.price} onChange={(price) => update({ price })} placeholder="Ex.: 45.000 Kz, sob consulta" testId="input-focus-product-price" />
+        <TextAreaField label="Descrição" value={draft.description} onChange={(description) => update({ description })} placeholder="Explica este produto em poucas palavras" testId="input-focus-product-description" minHeight="88px" />
+        <div className="flex items-center justify-between gap-3 border-t border-[var(--border-soft)] pt-4">
+          <div className="min-w-0">
+            <p className="text-[14px] font-semibold text-[var(--ink)]">Produto em destaque</p>
+          </div>
+          <Toggle enabled={Boolean(draft.featured)} onChange={() => update({ featured: !draft.featured })} disabled={!draft.featured && !canFeature} label="Marcar produto em destaque" testId="toggle-focus-product-featured" />
         </div>
-        <Toggle enabled={Boolean(offering.featured)} onChange={() => onChange({ ...offering, featured: !offering.featured })} disabled={!canFeature} label="Marcar produto em destaque" testId={`toggle-product-featured-${index}`} />
+        {mode === "edit" && (
+          <button type="button" onClick={remove} className="inline-flex min-h-[44px] items-center gap-2 rounded-[var(--radius-md)] px-2 text-[13px] font-semibold text-[#B91C1C] hover:bg-[#FEF2F2]" data-testid="button-remove-focus-product">
+            <Trash2 size={16} /> Eliminar produto
+          </button>
+        )}
       </div>
-      <button type="button" onClick={remove} className="inline-flex min-h-[44px] items-center gap-2 rounded-[var(--radius-md)] px-2 text-[13px] font-semibold text-[#B91C1C] hover:bg-[#FEF2F2]" data-testid={`button-remove-product-${index}`}>
-        <Trash2 size={16} /> Eliminar produto
-      </button>
     </div>
   );
 }
 
-function OfferingsSection({ offerings, setOfferings }: { offerings: Offering[]; setOfferings: Dispatch<SetStateAction<Offering[]>> }) {
-  const [openIndex, setOpenIndex] = useState<number | null>(null);
+function OfferingsSection({
+  offerings,
+  setOfferings,
+  onAdd,
+  onEdit,
+}: {
+  offerings: Offering[];
+  setOfferings: Dispatch<SetStateAction<Offering[]>>;
+  onAdd: () => void;
+  onEdit: (index: number) => void;
+}) {
   const [reorderMode, setReorderMode] = useState(false);
   const dragIndex = useRef<number | null>(null);
-  const featuredCount = offerings.filter((item) => item.featured).length;
-
-  const add = () => {
-    setOfferings((current) => [...current, { name: "", description: "", price: "", sortOrder: current.length }]);
-    setOpenIndex(offerings.length);
-  };
-  const update = (index: number, offering: Offering) => setOfferings((current) => current.map((item, itemIndex) => itemIndex === index ? offering : item));
-  const remove = (index: number) => {
-    setOfferings((current) => current.filter((_, itemIndex) => itemIndex !== index).map((item, itemIndex) => ({ ...item, sortOrder: itemIndex })));
-    setOpenIndex(null);
-  };
   const drop = (targetIndex: number) => {
     const sourceIndex = dragIndex.current;
     if (sourceIndex === null || sourceIndex === targetIndex) return;
@@ -520,46 +551,33 @@ function OfferingsSection({ offerings, setOfferings }: { offerings: Offering[]; 
       id="offerings"
       title="Produtos & serviços"
       description={offerings.length ? `${offerings.length} produto${offerings.length === 1 ? "" : "s"} no catálogo` : "Adiciona o que o teu negócio vende."}
-      action={<AddButton onClick={add} label="Adicionar" testId="button-add-product" />}
+      collapsible
+      defaultOpen={false}
+      action={<AddButton onClick={onAdd} label="Adicionar" testId="button-add-product" />}
     >
-      <div className="flex items-center justify-between gap-3 border-b border-[var(--border-soft)] pb-2">
-        <p className="text-[12px] text-[var(--ink-faint)]">{reorderMode ? "Arrasta para mudar a ordem" : "Toca num produto para editar"}</p>
-        {offerings.length > 1 && <button type="button" onClick={() => setReorderMode((value) => !value)} className="min-h-[40px] rounded-[var(--radius-md)] px-2 text-[12px] font-semibold text-[var(--green-dark)] hover:bg-[var(--green-light)]" data-testid="button-toggle-product-reorder">{reorderMode ? "Concluído" : "Reordenar"}</button>}
-      </div>
+      {offerings.length > 1 && <div className="flex justify-end border-b border-[var(--border-soft)] pb-1"><button type="button" onClick={() => setReorderMode((value) => !value)} className="min-h-[40px] rounded-[var(--radius-md)] px-2 text-[12px] font-semibold text-[var(--ink-soft)] hover:bg-[var(--subtle)]" data-testid="button-toggle-product-reorder">{reorderMode ? "Concluído" : "Reordenar"}</button></div>}
       {offerings.length === 0 ? (
         <div className="py-6 text-center">
           <ImagePlus size={22} className="mx-auto text-[var(--ink-faint)]" />
-          <p className="mt-2 text-[13px] text-[var(--ink-soft)]">Ainda não tens produtos neste perfil.</p>
-          <AddButton onClick={add} label="Adicionar produto" testId="button-add-first-product" />
+          <p className="mt-2 text-[13px] text-[var(--ink-soft)]">Ainda não tens produtos no catálogo.</p>
+          <AddButton onClick={onAdd} label="Adicionar produto" testId="button-add-first-product" />
         </div>
       ) : (
         <div className="mt-1">
           {offerings.map((offering, index) => (
-            <div key={`${index}-${offering.name}`} draggable={reorderMode} onDragStart={() => { dragIndex.current = index; }} onDragOver={(event) => event.preventDefault()} onDrop={() => drop(index)} data-testid={`product-container-${index}`}>
-              <div className={`py-3 ${openIndex === index ? "bg-[var(--green-muted)]" : ""}`}>
-                <button type="button" onClick={() => setOpenIndex(openIndex === index ? null : index)} className="flex min-h-[64px] w-full min-w-0 items-center gap-3 text-left active:opacity-60" data-testid={`button-edit-product-${index}`}>
-                  {reorderMode && <GripVertical size={17} className="shrink-0 text-[var(--ink-faint)]" />}
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius-md)] bg-[var(--subtle)]">
-                    {offering.imageUrl ? <img src={offering.imageUrl} alt="" className="h-full w-full object-cover" /> : <ImagePlus size={18} className="text-[var(--ink-faint)]" />}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="break-words text-[14px] font-semibold leading-5 text-[var(--ink)]" data-testid={`text-product-name-${index}`}>{offering.name || "Produto sem nome"}</p>
-                    <p className="mt-0.5 break-words text-[13px] leading-5 text-[var(--green-dark)]" data-testid={`text-product-price-${index}`}>{offering.price || "Preço por definir"}</p>
-                  </div>
-                  {offering.featured && <Star size={15} className="shrink-0 fill-[#D97706] text-[#D97706]" />}
-                  <ChevronDown size={17} className={`shrink-0 text-[var(--ink-faint)] transition-transform ${openIndex === index ? "" : "-rotate-90"}`} />
-                </button>
-                {openIndex === index && (
-                  <ProductEditor
-                    offering={offering}
-                    index={index}
-                    featuredCount={featuredCount}
-                    onChange={(updated) => update(index, updated)}
-                    onRemove={() => remove(index)}
-                    onClose={() => setOpenIndex(null)}
-                  />
-                )}
-              </div>
+            <div key={`${index}-${offering.name}`} draggable={reorderMode} onDragStart={() => { dragIndex.current = index; }} onDragOver={(event) => event.preventDefault()} onDrop={() => drop(index)} className="border-b border-[var(--border-soft)] last:border-0" data-testid={`product-container-${index}`}>
+              <button type="button" onClick={() => !reorderMode && onEdit(index)} className="flex min-h-[64px] w-full min-w-0 items-center gap-3 py-2 text-left active:opacity-60" aria-label={`Editar ${offering.name || "produto"}`} data-testid={`button-edit-product-${index}`}>
+                {reorderMode && <GripVertical size={17} className="shrink-0 text-[var(--ink-faint)]" />}
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[var(--radius-md)] bg-[var(--subtle)]">
+                  {offering.imageUrl ? <img src={offering.imageUrl} alt="" className="h-full w-full object-cover" /> : <ImagePlus size={18} className="text-[var(--ink-faint)]" />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="line-clamp-2 break-words text-[14px] font-semibold leading-5 text-[var(--ink)]" data-testid={`text-product-name-${index}`}>{offering.name || "Produto sem nome"}</p>
+                  <p className="mt-0.5 truncate text-[13px] leading-5 text-[var(--ink-soft)]" data-testid={`text-product-price-${index}`}>{offering.price || "Preço por definir"}</p>
+                </div>
+                {offering.featured && <Star size={14} className="shrink-0 fill-[#D97706] text-[#D97706]" />}
+                {!reorderMode && <ChevronRight size={18} className="shrink-0 text-[var(--ink-faint)]" />}
+              </button>
             </div>
           ))}
         </div>
@@ -570,13 +588,19 @@ function OfferingsSection({ offerings, setOfferings }: { offerings: Offering[]; 
 
 function CompactListSection({ id, title, description, items, onChange, onRemove, onAdd, placeholder }: { id: string; title: string; description: string; items: string[]; onChange: (index: number, value: string) => void; onRemove: (index: number) => void; onAdd: () => void; placeholder: string }) {
   const [openIndex, setOpenIndex] = useState<number | null>(items.length ? 0 : null);
+  const [sectionOpen, setSectionOpen] = useState(false);
+  const addItem = () => {
+    onAdd();
+    setSectionOpen(true);
+    setOpenIndex(items.length);
+  };
   return (
-    <EditorSection id={id} title={title} description={description} action={<AddButton onClick={() => { onAdd(); setOpenIndex(items.length); }} testId={`button-add-${id}`} />}>
+    <EditorSection id={id} title={title} description={description} open={sectionOpen} onToggle={() => setSectionOpen((value) => !value)} action={<AddButton onClick={addItem} testId={`button-add-${id}`} />}>
       {items.length === 0 ? (
         <div className="py-4">
           <p className="text-[13px] text-[var(--ink-soft)]">Ainda não adicionaste nenhum item.</p>
            <AddButton
-             onClick={() => { onAdd(); setOpenIndex(0); }}
+              onClick={addItem}
              label={id === "differentials" ? "Adicionar diferencial" : "Adicionar objetivo"}
              testId={`button-add-first-${id}`}
            />
@@ -615,9 +639,11 @@ function CompactListSection({ id, title, description, items, onChange, onRemove,
 
 function FaqSection({ faq, setFaq }: { faq: FaqItem[]; setFaq: Dispatch<SetStateAction<FaqItem[]>> }) {
   const [openIndex, setOpenIndex] = useState<number | null>(faq.length ? 0 : null);
+  const [sectionOpen, setSectionOpen] = useState(false);
   const add = () => {
     setFaq((items) => [...items, { question: "", answer: "" }]);
     setOpenIndex(faq.length);
+    setSectionOpen(true);
   };
   const remove = (index: number) => {
     if (!window.confirm("Eliminar esta pergunta frequente?")) return;
@@ -626,7 +652,7 @@ function FaqSection({ faq, setFaq }: { faq: FaqItem[]; setFaq: Dispatch<SetState
   };
 
   return (
-    <EditorSection id="faq" title="Perguntas frequentes" description="Respostas prontas que o assistente pode usar nas chamadas." action={<AddButton onClick={add} testId="button-add-faq" />}>
+    <EditorSection id="faq" title="Perguntas frequentes" description="Respostas prontas que o assistente pode usar nas chamadas." open={sectionOpen} onToggle={() => setSectionOpen((value) => !value)} action={<AddButton onClick={add} testId="button-add-faq" />}>
       {faq.length === 0 ? (
         <div className="py-4">
           <p className="text-[13px] text-[var(--ink-soft)]">Ainda não adicionaste nenhuma pergunta.</p>
@@ -658,7 +684,7 @@ function FaqSection({ faq, setFaq }: { faq: FaqItem[]; setFaq: Dispatch<SetState
   );
 }
 
-export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onReanalyze, onBack }: Props) {
+export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onReanalyze, onBack, onFocusModeChange }: Props) {
   const slug = useBusinessSlug();
   const init = <K extends keyof ProfileDraft>(key: K, fallback: NonNullable<ProfileDraft[K]>) =>
     (draft?.[key] ?? (profile[key as keyof BusinessProfile] as ProfileDraft[K]) ?? fallback) as NonNullable<ProfileDraft[K]>;
@@ -679,10 +705,35 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
   const [email, setEmail] = useState(profile.email ?? "");
   const [openIdentity, setOpenIdentity] = useState(true);
   const [openContact, setOpenContact] = useState(false);
+  const [focusedProduct, setFocusedProduct] = useState<{ mode: "add" | "edit"; index: number; offering: Offering } | null>(null);
+  const listScrollTop = useRef<number | null>(null);
+
+  useEffect(() => {
+    onFocusModeChange?.(focusedProduct !== null);
+  }, [focusedProduct, onFocusModeChange]);
 
   const currentValue = useMemo(() => JSON.stringify({ name, sector, description, targetAudience, toneOfVoice, differentials, offerings, faq, qualificationGoals, siteUrl, address, hours, phone, email }), [address, description, differentials, email, faq, hours, name, offerings, phone, qualificationGoals, sector, siteUrl, targetAudience, toneOfVoice]);
   const initialValue = useMemo(() => JSON.stringify({ name: init("name", ""), sector: init("sector", ""), description: init("description", ""), targetAudience: init("targetAudience", ""), toneOfVoice: init("toneOfVoice", ""), differentials: init("differentials", []), offerings: init("offerings", []), faq: init("faq", []), qualificationGoals: init("qualificationGoals", []), siteUrl: profile.websiteUrl ?? "", address: profile.address ?? "", hours: profile.hours ?? "", phone: profile.phone ?? "", email: profile.email ?? "" }), [draft, profile]);
   const dirty = currentValue !== initialValue;
+
+  const beginProductFocus = () => {
+    const scrollContainer = document.querySelector("main");
+    listScrollTop.current = scrollContainer instanceof HTMLElement ? scrollContainer.scrollTop : null;
+    if (scrollContainer instanceof HTMLElement) scrollContainer.scrollTop = 0;
+    onFocusModeChange?.(true);
+  };
+
+  const exitProductFocus = () => {
+    setFocusedProduct(null);
+    onFocusModeChange?.(false);
+    const savedScrollTop = listScrollTop.current;
+    if (savedScrollTop !== null) {
+      requestAnimationFrame(() => {
+        const scrollContainer = document.querySelector("main");
+        if (scrollContainer instanceof HTMLElement) scrollContainer.scrollTop = savedScrollTop;
+      });
+    }
+  };
 
   const save = () => onSave({
     name: name.trim(),
@@ -701,8 +752,55 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
     email: email.trim() || null,
   });
 
+  const openNewProduct = () => {
+    beginProductFocus();
+    setFocusedProduct({
+      mode: "add",
+      index: offerings.length,
+      offering: { name: "", description: "", price: "", sortOrder: offerings.length },
+    });
+  };
+
+  const openProduct = (index: number) => {
+    const offering = offerings[index];
+    if (offering) {
+      beginProductFocus();
+      setFocusedProduct({ mode: "edit", index, offering });
+    }
+  };
+
+  const commitProduct = (offering: Offering) => {
+    if (!focusedProduct) return;
+    if (focusedProduct.mode === "add") {
+      setOfferings((current) => [...current, { ...offering, sortOrder: current.length }]);
+    } else {
+      setOfferings((current) => current.map((item, index) => index === focusedProduct.index ? offering : item));
+    }
+    exitProductFocus();
+  };
+
+  const deleteFocusedProduct = () => {
+    if (!focusedProduct || focusedProduct.mode !== "edit") return;
+    setOfferings((current) => current.filter((_, index) => index !== focusedProduct.index).map((item, index) => ({ ...item, sortOrder: index })));
+    exitProductFocus();
+  };
+
+  if (focusedProduct) {
+    return (
+      <ProductFocusEditor
+        mode={focusedProduct.mode}
+        offering={focusedProduct.offering}
+        index={focusedProduct.index}
+        featuredCount={offerings.filter((item) => item.featured).length}
+        onCommit={commitProduct}
+        onDelete={deleteFocusedProduct}
+        onCancel={exitProductFocus}
+      />
+    );
+  }
+
   return (
-    <div className="min-w-0 overflow-x-hidden bg-[var(--bg)]">
+    <div className={`min-w-0 overflow-x-hidden bg-[var(--bg)] ${dirty ? "pb-24" : ""}`}>
       <EditorIntro onBack={onBack} />
 
       <EditorSection id="identity" title="Identidade" description="A base que o assistente usa para apresentar o teu negócio." open={openIdentity} onToggle={() => setOpenIdentity((value) => !value)}>
@@ -724,7 +822,7 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
         </div>
       </EditorSection>
 
-      <OfferingsSection offerings={offerings} setOfferings={setOfferings} />
+      <OfferingsSection offerings={offerings} setOfferings={setOfferings} onAdd={openNewProduct} onEdit={openProduct} />
       <CompactListSection id="differentials" title="Diferenciais" description="O que torna este negócio uma escolha melhor." items={differentials} onAdd={() => setDifferentials((items) => [...items, ""])} onChange={(index, value) => setDifferentials((items) => items.map((item, itemIndex) => itemIndex === index ? value : item))} onRemove={(index) => setDifferentials((items) => items.filter((_, itemIndex) => itemIndex !== index))} placeholder="Ex.: Entrega em 24h em Luanda" />
       <FaqSection faq={faq} setFaq={setFaq} />
       <CompactListSection id="qualification" title="Qualificação de leads" description="Perguntas que o assistente usa para perceber a necessidade do cliente." items={qualificationGoals} onAdd={() => setQualificationGoals((items) => [...items, ""])} onChange={(index, value) => setQualificationGoals((items) => items.map((item, itemIndex) => itemIndex === index ? value : item))} onRemove={(index) => setQualificationGoals((items) => items.filter((_, itemIndex) => itemIndex !== index))} placeholder="Ex.: Qual é o orçamento disponível?" />
@@ -732,11 +830,11 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
       {slug && <CatalogSection profile={{ ...profile, offerings }} businessSlug={slug} />}
       {slug && <NotificationsSection slug={slug} />}
 
-      <EditorSection id="test-call" title="Testar a chamada" description="Simula o que um lead vai ouvir com o perfil actual." action={<a href={`${import.meta.env.BASE_URL}e/${slug}?test=1`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-[44px] items-center gap-2 rounded-[var(--radius-md)] bg-[var(--green-light)] px-3 text-[13px] font-semibold text-[var(--green-dark)] hover:bg-[#BBF7D0]" data-testid="link-test-call"><Phone size={16} /> Testar agora</a>}>
+      <EditorSection id="test-call" title="Testar a chamada" description="Simula o que um lead vai ouvir com o perfil actual." collapsible defaultOpen={false} action={<a href={`${import.meta.env.BASE_URL}e/${slug}?test=1`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-[44px] items-center gap-2 rounded-[var(--radius-md)] bg-[var(--green-light)] px-3 text-[13px] font-semibold text-[var(--green-dark)] hover:bg-[#BBF7D0]" data-testid="link-test-call"><Phone size={16} /> Testar agora</a>}>
         <p className="text-[13px] leading-relaxed text-[var(--ink-soft)]">Abre uma chamada de teste numa nova janela sem sair deste editor.</p>
       </EditorSection>
 
-      <EditorSection id="reanalyze" title="Reanalisar o site" description="Substitui o perfil pelo resultado de uma nova análise do site.">
+      <EditorSection id="reanalyze" title="Reanalisar o site" description="Substitui o perfil pelo resultado de uma nova análise do site." collapsible defaultOpen={false}>
         <div className="flex min-w-0 flex-col gap-2 sm:flex-row">
           <input className={`${inputClass} flex-1`} value={siteUrl} onChange={(event) => setSiteUrl(event.target.value)} placeholder="https://oteusite.co.ao" inputMode="url" data-testid="input-reanalyze-url" />
           <button type="button" onClick={() => siteUrl.trim() && onReanalyze(siteUrl.trim())} disabled={reanalyzing || !siteUrl.trim()} className="inline-flex min-h-[44px] shrink-0 items-center justify-center gap-2 rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--subtle)] px-4 text-[13px] font-semibold text-[var(--ink-soft)] transition-colors hover:border-[var(--green)] hover:text-[var(--green-dark)] disabled:opacity-40" data-testid="button-reanalyze-site">
@@ -745,17 +843,16 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
         </div>
       </EditorSection>
 
-      <div className="sticky bottom-0 z-10 border-t border-[var(--border)] bg-[var(--surface)] px-5 py-3 shadow-[0_-4px_14px_rgba(17,24,39,0.06)]" data-testid="editor-save-bar">
-        <div className="flex items-center gap-3">
-          <div className="min-w-0 flex-1">
-            <p className="text-[13px] font-semibold text-[var(--ink)]" data-testid="status-editor-changes">{dirty ? "Alterações não guardadas" : "Tudo guardado"}</p>
-            <p className="mt-0.5 text-[12px] text-[var(--ink-soft)]">{dirty ? "Guarda quando terminares." : "Podes editar outra informação."}</p>
+      {dirty && (
+        <div className="fixed bottom-0 left-0 right-0 z-20 border-t border-[var(--border)] bg-[var(--surface)] px-5 py-3 pb-[calc(12px+env(safe-area-inset-bottom,0px))] shadow-[0_-4px_14px_rgba(17,24,39,0.06)]" data-testid="editor-save-bar">
+          <div className="mx-auto flex max-w-2xl items-center gap-3">
+            <p className="min-w-0 flex-1 text-[13px] font-semibold text-[var(--ink)]" data-testid="status-editor-changes">Alterações não guardadas</p>
+            <button type="button" onClick={save} disabled={saving || !name.trim()} className="inline-flex min-h-[44px] shrink-0 items-center justify-center gap-2 rounded-[var(--radius-md)] bg-[var(--green)] px-4 text-[14px] font-semibold text-white transition-colors hover:bg-[var(--green-dark)] disabled:opacity-40" data-testid="button-save-profile">
+              {saving ? <Loader2 size={17} className="animate-spin" /> : <Save size={17} />} {saving ? "A guardar…" : "Guardar"}
+            </button>
           </div>
-          <button type="button" onClick={save} disabled={saving || !name.trim() || !dirty} className="inline-flex min-h-[44px] shrink-0 items-center justify-center gap-2 rounded-[var(--radius-md)] bg-[var(--green)] px-4 text-[14px] font-semibold text-white transition-colors hover:bg-[var(--green-dark)] disabled:opacity-40" data-testid="button-save-profile">
-            {saving ? <Loader2 size={17} className="animate-spin" /> : <Save size={17} />} {saving ? "A guardar…" : "Guardar alterações"}
-          </button>
         </div>
-      </div>
+      )}
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 
@@ -9,6 +10,8 @@ interface EditorSectionProps {
   children: ReactNode;
   open?: boolean;
   onToggle?: () => void;
+  collapsible?: boolean;
+  defaultOpen?: boolean;
   status?: ReactNode;
 }
 
@@ -23,11 +26,16 @@ export function EditorSection({
   description,
   action,
   children,
-  open = true,
+  open,
   onToggle,
+  collapsible: collapsibleProp = false,
+  defaultOpen = true,
   status,
 }: EditorSectionProps) {
-  const collapsible = Boolean(onToggle);
+  const [internalOpen, setInternalOpen] = useState(defaultOpen);
+  const collapsible = Boolean(onToggle || collapsibleProp);
+  const isOpen = open ?? internalOpen;
+  const toggle = onToggle ?? (() => setInternalOpen((value) => !value));
 
   return (
     <section
@@ -40,15 +48,15 @@ export function EditorSection({
             {collapsible ? (
               <button
                 type="button"
-                onClick={onToggle}
+                onClick={toggle}
                 className="flex min-w-0 items-center gap-2 text-left"
-                aria-expanded={open}
+                aria-expanded={isOpen}
                 aria-controls={`editor-section-content-${id}`}
                 data-testid={`toggle-editor-section-${id}`}
               >
                 <ChevronDown
                   size={17}
-                  className={`shrink-0 transition-transform ${open ? "" : "-rotate-90"}`}
+                  className={`shrink-0 transition-transform ${isOpen ? "" : "-rotate-90"}`}
                   style={{ color: "var(--ink-faint)" }}
                 />
                 <span className="min-w-0 break-words text-[16px] font-semibold leading-tight text-[var(--ink)]">
@@ -70,7 +78,7 @@ export function EditorSection({
         </div>
         {action && <div className="shrink-0">{action}</div>}
       </div>
-      {open && (
+      {isOpen && (
         <div id={`editor-section-content-${id}`} className="px-5 pb-5">
           {children}
         </div>

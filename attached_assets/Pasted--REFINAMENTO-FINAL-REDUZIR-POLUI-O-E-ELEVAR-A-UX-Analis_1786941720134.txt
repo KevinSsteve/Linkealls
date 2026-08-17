@@ -1,0 +1,1159 @@
+# REFINAMENTO FINAL — REDUZIR POLUIÇÃO E ELEVAR A UX
+
+Analisa novamente a implementação atual do **Editar perfil**, especialmente as telas de **Identidade** e **Produtos & serviços**.
+
+A estrutura melhorou, mas a interface continua visualmente demasiado carregada.
+
+Quero que faças agora uma segunda etapa de design focada exclusivamente em:
+
+**SIMPLICIDADE + HIERARQUIA + REDUÇÃO DE RUÍDO + EXPERIÊNCIA MOBILE PREMIUM.**
+
+Não quero simplesmente reduzir font-size ou adicionar/remover padding.
+
+Quero alterar a arquitetura da experiência quando necessário.
+
+---
+
+# 1. O PROBLEMA PRINCIPAL
+
+Neste momento, a página está a tentar fazer coisas demais ao mesmo tempo.
+
+Por exemplo, em "Produtos & serviços" temos simultaneamente:
+
+* lista de produtos
+* instrução
+* botão adicionar
+* botão reordenar
+* produto selecionado
+* editor completo do produto
+* imagem
+* alterar foto
+* remover foto
+* nome
+* preço
+* descrição
+* toggle
+* navegação inferior
+
+Tudo aparece simultaneamente.
+
+Resultado:
+
+**o utilizador perde o foco.**
+
+A regra que quero implementar é:
+
+> **LISTA PRIMEIRO. EDIÇÃO DEPOIS.**
+
+A página principal não deve ser o editor completo.
+
+---
+
+# 2. REGRA DE OURO DO NOVO DESIGN
+
+Quero que o utilizador veja apenas a informação necessária para tomar a próxima decisão.
+
+Exemplo:
+
+### Página principal
+
+```text
+Produtos & serviços
+
+7 produtos no catálogo
+
+                    + Adicionar
+
+Disjuntor 4P 80A...
+244 329 Kz                         >
+
+Arrancador Suave...
+1 Kz                               >
+
+Compressor...
+1 715 959 Kz                      >
+
+Ver todos os produtos
+```
+
+Só isso.
+
+Quando tocar num produto:
+
+**abrir o editor do produto.**
+
+Não expandir um formulário enorme dentro da lista.
+
+---
+
+# 3. NÃO USAR MAIS "EDITOR EXPANDIDO INLINE"
+
+Quero remover o padrão atual:
+
+```text
+Produto
+↓
+Editar produto
+↓
+Foto
+↓
+Nome
+↓
+Preço
+↓
+Descrição
+↓
+Toggle
+```
+
+dentro da mesma página.
+
+Esse padrão cria uma página extremamente longa e visualmente pesada.
+
+Em vez disso:
+
+### Opção preferida
+
+Abrir uma página/modal/bottom sheet de edição dedicada.
+
+No mobile, prefiro:
+
+**full-screen editor**
+
+porque o formulário pode crescer sem competir com a lista.
+
+---
+
+# 4. EXPERIÊNCIA IDEAL
+
+Utilizador toca:
+
+```text
+Disjuntor 4P 80A
+244 329 Kz
+>
+```
+
+Abre:
+
+```text
+← Editar produto
+
+[Foto]
+
+Alterar foto
+
+Nome do produto
+Disjuntor 4P 80A...
+
+Preço
+244 329 Kz
+
+Descrição
+Disjuntor de proteção...
+
+Produto em destaque       ○
+
+                     Guardar
+```
+
+Muito mais focado.
+
+Ao voltar:
+
+retorna exatamente à posição anterior da lista.
+
+---
+
+# 5. EDITAR PRODUTO DEVE SER UMA "FOCUS MODE"
+
+Quando o utilizador entra em "Editar produto", a aplicação deve transmitir:
+
+> "Agora estás a editar este produto."
+
+Não deve mostrar:
+
+* outros produtos
+* bottom navigation principal
+* outras seções do perfil
+* informações irrelevantes.
+
+O editor deve ser uma experiência focada.
+
+---
+
+# 6. HEADER DO EDITOR DE PRODUTO
+
+Criar:
+
+```text
+← Voltar
+Editar produto
+```
+
+ou:
+
+```text
+← Produtos
+Editar produto
+```
+
+No lado direito:
+
+`Guardar`
+
+Não utilizar o enorme botão verde fixo que ocupa toda a largura, a menos que exista uma razão UX clara.
+
+O header deve ser limpo.
+
+---
+
+# 7. FOTO DO PRODUTO
+
+A imagem atualmente domina demasiado o editor.
+
+Redesenhar.
+
+Usar uma área compacta:
+
+```text
+        ┌───────────────┐
+        │               │
+        │    IMAGEM     │
+        │               │
+        └───────────────┘
+
+       Alterar foto
+```
+
+Não mostrar simultaneamente:
+
+* câmera
+* "Alterar foto"
+* "Remover"
+* "JPG ou PNG..."
+* ícones sobrepostos
+
+como elementos independentes competindo pela atenção.
+
+Agrupar essas ações.
+
+Por exemplo:
+
+```text
+[imagem]
+
+Alterar foto
+```
+
+Ao tocar:
+
+```text
+Alterar foto
+Remover foto
+```
+
+---
+
+# 8. NÃO MOSTRAR TODAS AS AÇÕES DESTRUCTIVAS
+
+O botão "Remover" atualmente aparece imediatamente ao lado de "Alterar foto".
+
+Isso adiciona ruído.
+
+Ações destrutivas devem ser secundárias.
+
+Use:
+
+`⋯`
+
+ou uma pequena ação secundária.
+
+Ao tocar:
+
+```text
+Alterar foto
+Remover foto
+```
+
+Isso deixa a interface muito mais limpa.
+
+---
+
+# 9. FORMULÁRIO DE PRODUTO
+
+Reduzir a aparência de "formulário cheio de caixas".
+
+Atualmente cada campo parece uma grande cápsula cinzenta.
+
+Quero um design mais sofisticado e leve.
+
+Exemplo:
+
+```text
+NOME DO PRODUTO
+
+Disjuntor 4P 80A Curva-C 6KA
+```
+
+```text
+PREÇO
+
+244 329,00 Kz
+```
+
+```text
+DESCRIÇÃO
+
+Disjuntor de proteção tetrapolar...
+```
+
+Os campos podem continuar tendo fundo subtil, mas:
+
+* menos contraste
+* border mais discreta
+* radius consistente
+* altura proporcional
+* menos espaço morto.
+
+---
+
+# 10. NÃO USAR INPUTS GIGANTES
+
+O campo:
+
+"Nome do produto"
+
+não precisa ocupar uma altura enorme.
+
+Campos de uma linha:
+
+**altura compacta e consistente.**
+
+Textareas:
+
+**altura proporcional ao conteúdo.**
+
+O objetivo é permitir ver mais informação sem tornar a interface apertada.
+
+---
+
+# 11. LABELS
+
+As labels atuais:
+
+Nome do produto
+Preço
+Descrição
+
+podem ser mais discretas.
+
+Usar:
+
+* tamanho menor
+* peso médio
+* cor secundária
+* espaçamento curto
+
+O valor inserido deve ser visualmente dominante.
+
+Não fazer a label competir com o conteúdo.
+
+---
+
+# 12. PRODUTOS & SERVIÇOS — PÁGINA PRINCIPAL
+
+Quero que essa seção seja muito mais parecida com uma lista de produtos profissional.
+
+Estrutura:
+
+```text
+Produtos & serviços
+
+7 produtos no catálogo
+
+                    + Adicionar
+
+
+┌────────────────────────────────────┐
+│ [foto]  Disjuntor 4P 80A...       │
+│         244 329 Kz             ›  │
+└────────────────────────────────────┘
+
+┌────────────────────────────────────┐
+│ [foto]  Arrancador Suave...       │
+│         1 Kz                   ›  │
+└────────────────────────────────────┘
+```
+
+Evitar cards excessivamente grandes.
+
+---
+
+# 13. PRODUTO NÃO PRECISA DE CARD PESADO
+
+Não quero:
+
+* sombra
+* borda forte
+* fundo cinzento pesado
+* múltiplas linhas decorativas.
+
+Pode ser simplesmente uma lista limpa com divisores muito subtis.
+
+Exemplo:
+
+```text
+[foto]   Nome do produto
+         Preço
+
+────────────────────────
+```
+
+Isto reduz muito o ruído.
+
+---
+
+# 14. REORDENAR
+
+"Reordenar" atualmente está muito próximo do botão "Adicionar".
+
+Transforma em uma ação secundária.
+
+Por exemplo:
+
+```text
+Produtos & serviços
+
+7 produtos
+
++ Adicionar                     ⋯
+```
+
+No menu:
+
+```text
+Adicionar produto
+Reordenar produtos
+```
+
+OU:
+
+```text
++ Adicionar                 Reordenar
+```
+
+mas com hierarquia clara.
+
+Se "Reordenar" for menos utilizado, não deve competir visualmente com "Adicionar".
+
+---
+
+# 15. MODO REORDENAR
+
+Quando o utilizador tocar em Reordenar:
+
+entrar num modo específico.
+
+```text
+Reordenar produtos
+
+☷  Disjuntor 4P
+☷  Arrancador Suave
+☷  Cabo Flexível
+☷  Compressor
+
+                 Concluído
+```
+
+Somente nesse momento mostrar drag handles.
+
+Não mostrar drag handles permanentemente.
+
+---
+
+# 16. IDENTIDADE
+
+A seção Identidade também ainda está demasiado longa.
+
+O conceito de accordion é bom, mas precisamos refiná-lo.
+
+Quando fechada:
+
+```text
+Identidade
+
+A base que o assistente usa para
+apresentar o teu negócio                         >
+```
+
+Quando aberta:
+
+mostrar os campos.
+
+Mas os campos devem ter uma composição mais leve.
+
+---
+
+# 17. NÃO PRECISAMOS DE UMA CAIXA GIGANTE À VOLTA DE TUDO
+
+Atualmente:
+
+```text
+Identidade
+────────────────
+Nome
+[..............]
+Setor
+[..............]
+Descrição
+[..............]
+Público
+[..............]
+Tom
+[..............]
+```
+
+parece um formulário dentro de um card.
+
+Prefiro:
+
+```text
+Identidade
+
+A base que o assistente usa...
+
+Nome do negócio
+[Electro Panga]
+
+Setor
+[Material Elétrico...]
+
+Descrição
+[A Electro Panga...]
+
+Público-alvo
+[Profissionais...]
+
+Tom de voz
+[Profissional...]
+```
+
+Sem container visual excessivo.
+
+---
+
+# 18. DESCRIÇÃO
+
+A descrição atualmente fica cortada visualmente.
+
+Isso é inaceitável.
+
+Se o conteúdo for longo:
+
+* aumentar automaticamente
+* permitir scroll interno somente quando realmente necessário
+* nunca cortar texto importante.
+
+No modo de edição, o utilizador deve conseguir ver o conteúdo que está a editar.
+
+---
+
+# 19. "CONTACTO & LOCALIZAÇÃO"
+
+A mesma regra:
+
+Quando fechado:
+
+```text
+Contacto & localização
+
+Onde e como os clientes podem
+encontrar o negócio.                 >
+```
+
+Quando aberto:
+
+mostrar campos.
+
+Não abrir automaticamente todas as seções.
+
+---
+
+# 20. EDITOR COMO ACCORDION
+
+Quero que o estado inicial seja:
+
+### Identidade
+
+ABERTA
+
+### Contacto & localização
+
+FECHADA
+
+### Produtos & serviços
+
+FECHADA
+
+### Diferenciais
+
+FECHADA
+
+### Perguntas frequentes
+
+FECHADA
+
+### Qualificação de leads
+
+FECHADA
+
+### Catálogo
+
+FECHADA
+
+### Automação
+
+FECHADA
+
+Assim o utilizador vê uma única tarefa de cada vez.
+
+---
+
+# 21. IMPORTANTE: NÃO FECHAR A SEÇÃO ATUAL AUTOMATICAMENTE
+
+Se o utilizador está a editar Identidade e abrir Contacto, não necessariamente fechar Identidade se isso causar perda de contexto.
+
+O comportamento deve ser natural.
+
+Pode existir mais de uma seção aberta, mas não devemos abrir tudo por defeito.
+
+---
+
+# 22. SAVE / GUARDAR
+
+Não quero que "Guardar perfil" fique permanentemente enorme sobre a interface.
+
+Criar um **Save Bar inteligente**.
+
+Estado normal:
+
+não aparece.
+
+Quando existem alterações:
+
+```text
+Alterações não guardadas
+
+              Guardar
+```
+
+Pode ser uma pequena barra sticky.
+
+Ou um botão "Guardar" no header.
+
+Escolhe a solução que resultar melhor visualmente.
+
+Mas:
+
+**nunca cobrir conteúdo.**
+
+O conteúdo deve ter `padding-bottom` suficiente para nunca ficar atrás do botão.
+
+---
+
+# 23. BOTTOM NAVIGATION
+
+Enquanto estiver no editor profundo:
+
+**considera esconder a bottom navigation principal.**
+
+Isto é importante.
+
+Quando o utilizador está em:
+
+`Editar perfil`
+
+ele está dentro de uma tarefa.
+
+A navegação:
+
+Perfil | Conversas | Campanhas | Mercado
+
+é uma distração.
+
+No editor de perfil, considero melhor:
+
+```text
+← Voltar ao perfil
+Editar perfil
+```
+
+e nada mais na parte inferior, além do Save Bar quando necessário.
+
+Quando sair do editor:
+
+bottom navigation volta.
+
+Isto criará uma sensação muito mais premium.
+
+---
+
+# 24. PRINCÍPIO DE "FOCUS MODE"
+
+Aplicar:
+
+### Navegação principal
+
+Bottom navigation.
+
+### Editor
+
+Focus mode.
+
+### Editor de produto
+
+Deep focus mode.
+
+Isso cria uma hierarquia natural:
+
+```text
+App
+ ↓
+Perfil
+ ↓
+Editar perfil
+ ↓
+Editar produto
+```
+
+Cada nível deve reduzir distrações.
+
+---
+
+# 25. ADICIONAR PRODUTO
+
+"Adicionar produto" deve abrir diretamente:
+
+```text
+Adicionar produto
+
+Foto
+[ + ]
+
+Nome
+[ ]
+
+Preço
+[ ]
+
+Descrição
+[ ]
+
+Produto em destaque     ○
+
+                         Adicionar
+```
+
+Não mostrar outros produtos.
+
+Não mostrar outras configurações.
+
+Não mostrar a bottom navigation.
+
+Não mostrar 20 opções.
+
+---
+
+# 26. EMPTY STATE
+
+Se não houver produtos:
+
+```text
+Produtos & serviços
+
+Ainda não tens produtos no catálogo.
+
+Adiciona os teus primeiros produtos
+para começares a receber pedidos.
+
+[ + Adicionar produto ]
+```
+
+Muito mais útil que uma lista vazia.
+
+---
+
+# 27. CONFIRMAÇÃO DE ELIMINAÇÃO
+
+Ao eliminar:
+
+```text
+Eliminar produto?
+
+Este produto será removido do teu
+catálogo.
+
+Cancelar       Eliminar
+```
+
+A ação destrutiva deve ser clara, mas não dominante no estado normal.
+
+---
+
+# 28. MICROCOPY
+
+Evita textos excessivamente técnicos.
+
+Por exemplo:
+
+Em vez de:
+
+"JPG ou PNG · máximo 5 MB"
+
+pode usar:
+
+"JPG ou PNG · até 5 MB"
+
+Em vez de:
+
+"Toca num produto para editar"
+
+pode simplesmente deixar a interação evidente.
+
+Se uma interface precisa explicar constantemente como funciona, a UI ainda pode ser melhorada.
+
+---
+
+# 29. REDUZIR TEXTO DESNECESSÁRIO
+
+A aplicação atualmente explica demasiadas coisas.
+
+Usar descrições somente quando elas realmente ajudam.
+
+Por exemplo:
+
+```text
+Produtos & serviços
+7 produtos no catálogo
+```
+
+já é suficiente.
+
+Não precisamos necessariamente de:
+
+"Toca num produto para editar"
+
+se o produto tiver uma seta `>` claramente indicando que é clicável.
+
+---
+
+# 30. HIERARQUIA VISUAL
+
+Quero no máximo três níveis de atenção por tela:
+
+### Primário
+
+Título + ação principal
+
+### Secundário
+
+Conteúdo que está a ser editado
+
+### Terciário
+
+Labels / metadata / ações secundárias
+
+Não permitir que:
+
+* labels
+* ícones
+* bordas
+* descrições
+* botões secundários
+
+tenham a mesma força visual do conteúdo principal.
+
+---
+
+# 31. ESPAÇAMENTO
+
+Não aumentar simplesmente todo o espaçamento.
+
+Usar ritmo consistente.
+
+Sugestão:
+
+* 8px entre label e campo
+* 16px entre campos
+* 24px entre grupos
+* 32px entre seções
+
+Mas aplicar visualmente, não mecanicamente.
+
+---
+
+# 32. CORES
+
+A cor verde da marca deve ser usada para:
+
+* ação primária
+* links
+* estado ativo
+* confirmação
+* elementos importantes.
+
+Não usar verde em excesso.
+
+O verde deve ser uma cor de ação, não o background de metade da interface.
+
+---
+
+# 33. CINZENTO
+
+Reduzir significativamente os fundos cinzentos dos inputs.
+
+Atualmente existem demasiados blocos cinzentos.
+
+O resultado deve ser mais próximo de:
+
+**white / subtle gray / green accent**
+
+do que:
+
+**gray box / gray box / gray box / gray box.**
+
+---
+
+# 34. BORDERS
+
+Reduzir borders.
+
+Uma border deve existir para:
+
+* delimitar input
+* separar itens quando necessário
+* indicar estado.
+
+Não colocar border simplesmente porque "é um card".
+
+---
+
+# 35. PRODUTOS — LISTA COMPACTA
+
+A altura dos produtos deve ser reduzida.
+
+Imagem:
+
+aproximadamente 56–64px.
+
+Nome:
+
+máximo 2 linhas.
+
+Preço:
+
+uma linha.
+
+Chevron:
+
+direita.
+
+Isso permite visualizar vários produtos de uma vez.
+
+---
+
+# 36. NOMES LONGOS
+
+Produtos como:
+
+"Disjuntor 4P 80A Curva-C 6KA S204-C80 ABB"
+
+devem quebrar em no máximo 2 linhas.
+
+Nunca:
+
+* cortar horizontalmente
+* criar overflow
+* esmagar o preço
+* deslocar o chevron.
+
+---
+
+# 37. PREÇOS
+
+O preço deve ser claramente secundário ao nome, mas ainda fácil de encontrar.
+
+Exemplo:
+
+**Disjuntor 4P 80A Curva-C...**
+
+244 329,00 Kz
+
+Não fazer o preço competir com o título.
+
+---
+
+# 38. DESIGN SYSTEM GLOBAL
+
+Tudo isto deve ser implementado através do Design System global.
+
+Não criar estilos específicos apenas para esta página.
+
+Especialmente:
+
+* Button
+* IconButton
+* Input
+* Textarea
+* Toggle
+* Section
+* ListItem
+* ProductItem
+* Header
+* SaveBar
+* Modal/Sheet
+* Navigation.
+
+Se outro local da aplicação possuir o mesmo tipo de componente:
+
+**reutilizar o componente.**
+
+---
+
+# 39. REGRA ABSOLUTA DE CONSISTÊNCIA
+
+Se dois componentes têm a mesma função:
+
+**devem ser o mesmo componente.**
+
+Não quero:
+
+```text
+Button A ≈ Button B
+```
+
+Quero:
+
+```text
+Button A === Button B
+```
+
+Visualmente e estruturalmente.
+
+Isto inclui o botão de:
+
+* enviar mensagem
+* guardar
+* adicionar
+* confirmar
+* continuar
+* testar
+* reanalisar
+* alterar foto.
+
+---
+
+# 40. RESULTADO VISUAL DESEJADO
+
+Quero que o resultado final tenha uma sensação próxima de:
+
+**Apple / Stripe / Linear / Revolut**
+
+não em termos de copiar o design, mas em termos de:
+
+* simplicidade
+* hierarquia
+* precisão
+* espaço
+* consistência
+* redução de ruído
+* confiança.
+
+Não quero uma interface "bonita porque tem muitos elementos".
+
+Quero:
+
+> **"Bonita porque nada está a mais."**
+
+---
+
+# 41. TESTE FINAL
+
+Depois da implementação, abre o editor num telefone de aproximadamente 390px.
+
+Pergunta:
+
+### Posso entender esta tela em 2 segundos?
+
+### Sei imediatamente o que posso editar?
+
+### Sei onde adicionar produto?
+
+### Consigo ver vários produtos sem fazer muito scroll?
+
+### Ao tocar num produto, entro numa experiência focada?
+
+### Consigo editar o produto sem distrações?
+
+### Existe algum elemento que não precisa estar visível?
+
+### Existe algum texto cortado?
+
+### Existe algum botão a cobrir conteúdo?
+
+### Existem demasiadas caixas?
+
+### Existem demasiadas borders?
+
+### Existem demasiadas cores?
+
+### Existem ações secundárias competindo com a principal?
+
+Se a resposta for sim a qualquer uma:
+
+**refina novamente.**
+
+---
+
+# 42. PRINCÍPIO FINAL
+
+Quero que o editor siga esta filosofia:
+
+> **Overview → Select → Focus → Edit → Save → Return**
+
+e não:
+
+> **Overview + list + editor + settings + navigation + actions todos ao mesmo tempo.**
+
+O utilizador deve conseguir fazer uma tarefa sem precisar processar toda a aplicação simultaneamente.
+
+### OBJETIVO FINAL
+
+Transformar "Editar perfil" numa experiência que pareça:
+
+**simples para um pequeno empresário,**
+
+mas que tenha por trás:
+
+**arquitetura de produto profissional.**
+
+Não adicionar mais UI.
+
+**Remover UI desnecessária.**
+
+Não adicionar mais cards.
+
+**Simplificar os existentes.**
+
+Não adicionar mais instruções.
+
+**Tornar a interface autoexplicativa.**
+
+Não criar componentes isolados.
+
+**Fortalecer o Design System global.**
+
+E principalmente:
+
+**se alguma decisão de design melhorar a beleza mas piorar a facilidade de uso, escolha a facilidade de uso.**
