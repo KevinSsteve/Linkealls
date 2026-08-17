@@ -1,0 +1,1013 @@
+# REPLIT — UI/UX REFINEMENT + DESIGN SYSTEM CONSISTENCY
+
+Quero que faças uma **revisão completa e profissional do design da aplicação**, usando como referência visual as telas atuais de **Perfil do Negócio, Mercado, Catálogo, Conversas, Campanhas e demais áreas da aplicação**.
+
+Não quero apenas pequenos ajustes cosméticos.
+
+Quero que trates isto como uma **UI/UX design audit + design-system refactor**, elevando a aplicação para um nível visual comparável ao de produtos mobile modernos e bem refinados.
+
+## 1. OBJETIVO PRINCIPAL
+
+A aplicação atualmente funciona, mas existem inconsistências visuais em:
+
+* espaçamento
+* padding
+* margens
+* alturas dos componentes
+* alinhamento
+* tipografia
+* hierarquia visual
+* tamanho dos ícones
+* posicionamento dos ícones
+* bordas
+* radius
+* cores
+* densidade das listas
+* bottom navigation
+* cards
+* headers
+* botões
+* estados ativos/inativos
+* componentes repetidos
+
+Quero que cries um **Design System centralizado** e depois apliques esse sistema a TODA a aplicação.
+
+### REGRA FUNDAMENTAL
+
+> **Componentes que possuem a mesma função devem possuir exatamente o mesmo padrão visual em toda a aplicação.**
+
+Não quero componentes visualmente diferentes só porque aparecem em páginas diferentes.
+
+Exemplos:
+
+* botão "Enviar mensagem"
+* botão "Enviar"
+* botão com ícone de envio
+* botão de confirmação
+
+Se possuem a mesma função primária, devem usar o mesmo componente/base visual.
+
+O mesmo vale para:
+
+* botões
+* campos de pesquisa
+* cards
+* listas
+* headers
+* ícones
+* badges
+* avatares
+* menus
+* dropdowns
+* setas de navegação
+* estados ativos
+* estados desativados
+* loaders
+* mensagens
+* notificações
+* modais
+* bottom sheets
+* tabs
+* filtros
+* componentes de produto
+* componentes de negócio.
+
+**Não dupliques estilos. Cria componentes reutilizáveis.**
+
+---
+
+# 2. PRIMEIRO: FAZER UMA AUDITORIA
+
+Antes de alterar visualmente as páginas, analisa toda a aplicação e identifica:
+
+1. componentes duplicados
+2. estilos duplicados
+3. valores de spacing diferentes para a mesma finalidade
+4. diferentes tamanhos de botão para a mesma função
+5. diferentes border-radius para componentes equivalentes
+6. diferentes tamanhos de ícones
+7. diferentes paddings em listas equivalentes
+8. diferentes estilos de títulos
+9. diferentes estilos de subtítulos
+10. diferentes estados ativos/inativos
+11. diferentes estilos de cards
+12. diferentes componentes de pesquisa
+13. diferentes estilos de navegação
+14. diferentes componentes de mensagens.
+
+Depois consolida tudo num sistema único.
+
+---
+
+# 3. CRIAR UM DESIGN SYSTEM
+
+Cria tokens globais para:
+
+### Spacing
+
+Usa uma escala consistente baseada em múltiplos de 4px.
+
+Por exemplo:
+
+* 4px
+* 8px
+* 12px
+* 16px
+* 20px
+* 24px
+* 32px
+* 40px
+* 48px
+
+Evita valores arbitrários como:
+
+* 13px
+* 17px
+* 19px
+* 23px
+* 27px
+
+a menos que exista uma razão visual muito clara.
+
+---
+
+# 4. TIPOGRAFIA
+
+Define uma hierarquia tipográfica global.
+
+Precisamos ter claramente:
+
+### Page title
+
+Exemplo:
+
+"Perfil do negócio"
+"Mercado"
+
+### Section title
+
+Exemplo:
+
+"PAGAMENTOS"
+"LEADS & CONVERSAS"
+"CATÁLOGO"
+
+### Primary item title
+
+Exemplo:
+
+"Vendas"
+"Carteira"
+"Assistente IA"
+
+### Secondary description
+
+Exemplo:
+
+"Encomendas pagas no catálogo"
+
+### Metadata
+
+Exemplo:
+
+"3 negócios"
+
+### Price
+
+Exemplo:
+
+"244 329,00 Kz"
+
+Não inventes tamanhos diferentes em cada tela.
+
+Usa uma escala tipográfica consistente e pesos coerentes.
+
+A hierarquia deve ser extremamente clara:
+
+**Título > seção > item > descrição > metadata**
+
+---
+
+# 5. PERFIL DO NEGÓCIO
+
+Na tela "Perfil do negócio", há demasiado espaço vertical desperdiçado e alguns elementos não estão visualmente equilibrados.
+
+Refina:
+
+### Header
+
+* manter o título forte
+* alinhar verticalmente o ícone de negócio com o título
+* usar padding horizontal consistente
+* definir altura fixa/padrão para headers
+* não permitir que cada página tenha um header com dimensões diferentes
+
+### Section headers
+
+Exemplo:
+
+PAGAMENTOS
+LEADS & CONVERSAS
+CONFIGURAR
+
+Devem possuir exatamente o mesmo:
+
+* tamanho
+* peso
+* cor
+* letter spacing
+* padding superior
+* padding inferior
+* alinhamento
+
+Todas as section headers da aplicação devem usar o mesmo componente.
+
+---
+
+# 6. LIST ITEMS
+
+Itens como:
+
+Vendas
+Carteira
+Plano
+Leads
+Conversas
+Testar chamada
+Reanalisar site
+
+devem utilizar um componente de lista único.
+
+Criar algo como:
+
+`<SettingsListItem />`
+
+ou equivalente.
+
+Esse componente deve controlar:
+
+* ícone
+* título
+* descrição
+* chevron
+* padding
+* altura mínima
+* alinhamento
+* border
+* estados hover/pressed/disabled
+
+### Importante
+
+O ícone deve ficar perfeitamente centralizado verticalmente em relação ao conteúdo.
+
+O título e descrição devem possuir espaçamento consistente.
+
+O chevron deve ter:
+
+* tamanho consistente
+* cor consistente
+* distância consistente da borda direita.
+
+---
+
+# 7. ÍCONES
+
+Existe uma inconsistência perceptível entre os ícones.
+
+Define:
+
+* uma única biblioteca/estilo de ícones
+* stroke width consistente
+* tamanho padrão
+* cor padrão
+* container padrão
+
+Por exemplo:
+
+`IconContainer`
+
+Todos os ícones equivalentes devem utilizar o mesmo container.
+
+Não quero um ícone dentro de uma caixa de 48px numa página e 44px noutra.
+
+---
+
+# 8. CATÁLOGO
+
+Na seção de catálogo existem problemas de densidade e alinhamento.
+
+Cada produto deve utilizar um componente único:
+
+`<ProductListItem />`
+
+Estrutura:
+
+[imagem] [nome + preço] [opcionalmente metadata] [ação]
+
+### Imagem
+
+Definir:
+
+* tamanho fixo
+* aspect ratio
+* border radius
+* object-fit
+* alinhamento vertical
+
+Todas as imagens de produto devem possuir exatamente o mesmo tratamento.
+
+### Nome
+
+Não deixar o texto criar layouts imprevisíveis.
+
+Implementar:
+
+* máximo de linhas
+* ellipsis quando necessário
+* altura previsível
+
+### Preço
+
+O preço deve ter:
+
+* tipografia consistente
+* peso consistente
+* cor primária da marca
+* espaçamento consistente em relação ao nome.
+
+---
+
+# 9. "VER CATÁLOGO COMPLETO"
+
+Esse elemento atualmente parece mais um texto clicável do que uma ação claramente definida.
+
+Transforma-o num componente reutilizável de navegação/CTA.
+
+Exemplo:
+
+`<ListFooterAction />`
+
+Deve possuir:
+
+* altura consistente
+* alinhamento
+* padding
+* tipografia
+* ícone/seta
+* estado pressed
+
+Esse mesmo componente deve ser usado em qualquer outra parte da aplicação que tenha a função:
+
+"Ver tudo"
+"Ver catálogo completo"
+"Mostrar mais"
+"Ver todos"
+
+Não criar versões diferentes.
+
+---
+
+# 10. MERCADO
+
+A tela Mercado precisa de uma revisão importante.
+
+## Search bar
+
+Criar um componente global:
+
+`<SearchInput />`
+
+Ele deve ser exatamente igual em todas as páginas que possuem pesquisa.
+
+Definir:
+
+* altura
+* radius
+* background
+* border
+* ícone
+* placeholder
+* padding horizontal
+* font-size
+* estado focus
+* estado disabled
+
+Não criar outro search bar diferente em Conversas, Campanhas, Mercado etc.
+
+---
+
+# 11. SEÇÃO "COM IA ACTIVA"
+
+O componente atualmente tem uma área visual muito grande em relação à informação apresentada.
+
+Reduz o espaço vazio e melhora a composição.
+
+Os avatares/badges dos negócios devem:
+
+* possuir tamanho consistente
+* estar alinhados
+* possuir espaçamento horizontal consistente
+* ter label abaixo corretamente alinhada
+* não cortar o texto de forma estranha.
+
+Se houver scroll horizontal, implementar corretamente.
+
+Não permitir que elementos fiquem parcialmente cortados sem uma indicação clara de que existe conteúdo horizontal.
+
+---
+
+# 12. BUSINESS LIST NO MERCADO
+
+Os negócios:
+
+Electro Panga
+Electro Panga
+SILUZ
+
+devem utilizar um componente único:
+
+`<BusinessListItem />`
+
+Cada item deve ter:
+
+* avatar
+* nome
+* badge IA quando aplicável
+* descrição
+* chevron
+* altura consistente
+* padding consistente
+* alinhamento perfeito.
+
+### Atenção especial
+
+Na tela atual existem dois negócios "Electro Panga" que visualmente parecem quase duplicados.
+
+Não assumas que são duplicados de dados.
+
+Mas verifica se:
+
+* são realmente dois registros
+* possuem identificadores diferentes
+* possuem descrições diferentes
+* a UI consegue distingui-los adequadamente.
+
+Se forem registros diferentes, manter ambos.
+
+Se forem duplicados acidentais no frontend, corrigir a origem.
+
+---
+
+# 13. BADGE "IA"
+
+Criar um componente global:
+
+`<AIBadge />`
+
+Sempre que aparecer "IA", usar o mesmo componente.
+
+Definir:
+
+* background
+* cor
+* font-size
+* font-weight
+* padding
+* radius
+* altura
+* alinhamento.
+
+Não criar badges manualmente em cada página.
+
+---
+
+# 14. BOTTOM NAVIGATION
+
+A bottom navigation é um dos componentes mais importantes da aplicação.
+
+Transforma-a num componente global único:
+
+`<BottomNavigation />`
+
+Ela deve ser exatamente a mesma em:
+
+* Perfil
+* Conversas
+* Campanhas
+* Mercado
+* qualquer futura seção principal.
+
+### Corrigir:
+
+* altura
+* padding inferior considerando safe area
+* espaçamento entre ícone e label
+* tamanho dos ícones
+* peso dos labels
+* cor ativa
+* cor inativa
+* alinhamento horizontal
+* alinhamento vertical.
+
+O estado ativo deve ser visualmente claro, mas elegante.
+
+Evitar excesso de peso visual.
+
+### Safe area
+
+A navegação deve respeitar:
+
+`env(safe-area-inset-bottom)`
+
+para evitar problemas em dispositivos Android/iOS.
+
+---
+
+# 15. ESPAÇAMENTO HORIZONTAL GLOBAL
+
+Todas as páginas devem utilizar uma margem horizontal consistente.
+
+Por exemplo:
+
+`16px`
+
+ou outro valor definido pelo Design System.
+
+Não quero:
+
+* 16px numa página
+* 20px noutra
+* 32px noutra
+* 12px noutra
+
+a menos que exista uma razão estrutural.
+
+Definir um:
+
+`--page-padding`
+
+e utilizá-lo globalmente.
+
+---
+
+# 16. HEADERS
+
+Criar um componente global:
+
+`<PageHeader />`
+
+Ele deve controlar:
+
+* título
+* ação direita
+* altura
+* padding
+* alinhamento
+* border inferior
+* safe area quando necessário.
+
+Exemplo:
+
+Perfil do negócio + ícone
+
+Mercado + refresh
+
+Cada página pode trocar o conteúdo, mas não o sistema visual.
+
+---
+
+# 17. CORES
+
+Centralizar as cores em tokens.
+
+Exemplo:
+
+* primary
+* primary-pressed
+* text-primary
+* text-secondary
+* text-muted
+* border
+* surface
+* background
+* success
+* danger
+* warning
+* AI badge background
+
+Não usar hexadecimal espalhado por dezenas de componentes.
+
+Se a cor verde atual for a cor principal da marca, transformá-la em token global.
+
+---
+
+# 18. BORDER RADIUS
+
+Criar uma escala global.
+
+Por exemplo:
+
+* small
+* medium
+* large
+* pill
+
+Usar os mesmos valores em toda a aplicação.
+
+Não quero que cada card tenha um radius diferente sem justificativa.
+
+---
+
+# 19. CARDS
+
+Criar um sistema de cards reutilizável.
+
+Por exemplo:
+
+`<Card />`
+
+com variantes:
+
+* default
+* interactive
+* highlighted
+* compact
+
+Todos os cards da aplicação devem derivar desse sistema.
+
+---
+
+# 20. ESTADOS INTERATIVOS
+
+Todos os componentes clicáveis devem possuir estados consistentes:
+
+* default
+* pressed
+* hover quando aplicável
+* focus
+* disabled
+* loading
+
+Particularmente:
+
+* botões
+* list items
+* cards
+* tabs
+* navigation
+* search
+* mensagens.
+
+Não quero que um botão fique completamente sem feedback ao toque.
+
+---
+
+# 21. BOTÕES — REGRA GLOBAL
+
+Criar um sistema único de botões:
+
+`PrimaryButton`
+
+`SecondaryButton`
+
+`GhostButton`
+
+`IconButton`
+
+`DestructiveButton`
+
+Se existir um botão "Enviar mensagem" numa área da aplicação e outro botão com a mesma função noutra área:
+
+**DEVEM SER O MESMO COMPONENTE, NÃO APENAS PARECIDOS.**
+
+Isso vale também para:
+
+* Enviar
+* Confirmar
+* Cancelar
+* Salvar
+* Continuar
+* Voltar
+* Fechar
+* Editar
+* Excluir
+* Ver tudo
+* Adicionar.
+
+---
+
+# 22. CHAT / CONVERSAS
+
+Mesmo que a tela de Conversas não esteja nas screenshots, aplica o mesmo princípio.
+
+Criar componentes reutilizáveis para:
+
+* message bubble
+* message input
+* send button
+* attachment button
+* conversation list
+* unread badge
+* timestamp
+* AI indicator.
+
+### MUITO IMPORTANTE
+
+O botão de envio de mensagens deve utilizar o mesmo sistema visual do resto da aplicação.
+
+Não quero que o botão de enviar numa conversa tenha um tamanho, radius, ícone ou cor diferentes de outro botão equivalente.
+
+---
+
+# 23. RESPONSIVIDADE MOBILE
+
+A aplicação parece ser utilizada principalmente em mobile.
+
+Prioriza:
+
+* largura de 320px
+* 360px
+* 375px
+* 390px
+* 414px
+
+Verifica especialmente:
+
+* overflow horizontal
+* textos cortados
+* botões que quebram linha
+* headers
+* bottom navigation
+* imagens
+* listas
+* long names
+* preços grandes
+* descrições longas.
+
+Nenhum conteúdo importante deve ficar escondido atrás da bottom navigation.
+
+---
+
+# 24. DENSIDADE VISUAL
+
+Quero uma interface:
+
+**clean + premium + funcional + moderna**
+
+Não quero simplesmente adicionar mais espaço.
+
+O objetivo é encontrar o equilíbrio correto entre:
+
+* breathing room
+* densidade de informação
+* hierarquia
+* velocidade de leitura.
+
+A interface deve parecer uma aplicação profissional, não uma coleção de telas independentes.
+
+---
+
+# 25. NÃO ALTERAR A LÓGICA
+
+IMPORTANTE:
+
+Não quebrar funcionalidades existentes.
+
+Não alterar:
+
+* APIs
+* banco de dados
+* autenticação
+* lógica de negócio
+* pagamentos
+* IA
+* navegação funcional
+
+sem necessidade.
+
+O objetivo principal desta tarefa é:
+
+**UI / UX / Design System / Component Architecture.**
+
+Se for necessário refatorar componentes para conseguir consistência visual, faça-o.
+
+---
+
+# 26. CRIAR COMPONENTES REUTILIZÁVEIS
+
+Antes de criar um componente visual novo, verifica:
+
+> "Já existe outro componente com a mesma função?"
+
+Se sim:
+
+**reutilizar o existente.**
+
+Se não:
+
+criar um componente reutilizável.
+
+Evitar estilos inline repetidos.
+
+Evitar copiar/colar CSS.
+
+Evitar criar versões quase iguais do mesmo componente.
+
+---
+
+# 27. DESIGN SYSTEM COMO SOURCE OF TRUTH
+
+Quero que exista uma única fonte de verdade para:
+
+* spacing
+* typography
+* colors
+* borders
+* radius
+* shadows
+* icons
+* buttons
+* inputs
+* cards
+* list items
+* navigation
+* badges.
+
+Quando eu alterar um token ou componente global, todas as páginas devem refletir a alteração.
+
+---
+
+# 28. QUALIDADE VISUAL
+
+Depois da implementação, faz uma revisão visual completa.
+
+Não basta verificar se "funciona".
+
+Analisa como um designer de produto sênior:
+
+### Pergunta 1
+
+Os elementos estão alinhados?
+
+### Pergunta 2
+
+Existe espaçamento excessivo?
+
+### Pergunta 3
+
+Existe espaçamento insuficiente?
+
+### Pergunta 4
+
+A hierarquia é imediatamente compreensível?
+
+### Pergunta 5
+
+Os componentes equivalentes parecem realmente iguais?
+
+### Pergunta 6
+
+Existe algum elemento visualmente deslocado?
+
+### Pergunta 7
+
+Os ícones possuem o mesmo peso visual?
+
+### Pergunta 8
+
+Os títulos e descrições possuem uma escala consistente?
+
+### Pergunta 9
+
+A interface parece um único produto?
+
+### Pergunta 10
+
+A aplicação parece suficientemente refinada para um produto comercial sério?
+
+---
+
+# 29. REGRA DE OURO
+
+Quero que a aplicação siga este princípio:
+
+> **Same function = same component = same visual language.**
+
+Exemplos:
+
+`SearchInput` → sempre igual.
+
+`PrimaryButton` → sempre igual.
+
+`IconButton` → sempre igual.
+
+`ListItem` → sempre igual.
+
+`PageHeader` → sempre igual.
+
+`SectionHeader` → sempre igual.
+
+`AIBadge` → sempre igual.
+
+`BottomNavigation` → sempre igual.
+
+`ProductCard` → sempre igual.
+
+`BusinessListItem` → sempre igual.
+
+`MessageSendButton` → sempre igual.
+
+Não quero "parecido".
+
+Quero **consistência estrutural através de componentes compartilhados**.
+
+---
+
+# 30. EXECUÇÃO
+
+Implementa em etapas:
+
+### FASE 1
+
+Auditar a aplicação atual.
+
+### FASE 2
+
+Criar/refatorar Design Tokens.
+
+### FASE 3
+
+Criar componentes base.
+
+### FASE 4
+
+Refatorar Perfil do Negócio.
+
+### FASE 5
+
+Refatorar Mercado.
+
+### FASE 6
+
+Refatorar Catálogo.
+
+### FASE 7
+
+Aplicar o sistema a Conversas.
+
+### FASE 8
+
+Aplicar o sistema a Campanhas.
+
+### FASE 9
+
+Aplicar o sistema às restantes páginas.
+
+### FASE 10
+
+Testar todos os breakpoints mobile.
+
+### FASE 11
+
+Eliminar inconsistências e estilos duplicados.
+
+### FASE 12
+
+Fazer uma última revisão visual completa.
+
+---
+
+# 31. CRITÉRIO FINAL
+
+Quando terminares, não quero apenas que a aplicação esteja "mais bonita".
+
+Quero que ela pareça ter sido desenhada por **uma única equipa de produto**, com um Design System profissional e consistente.
+
+A pessoa deve conseguir navegar entre:
+
+Perfil → Conversas → Campanhas → Mercado
+
+e sentir imediatamente:
+
+**"Estou na mesma aplicação."**
+
+Prioridade:
+
+1. Consistência
+2. Espaçamento
+3. Alinhamento
+4. Hierarquia visual
+5. Componentização
+6. Responsividade
+7. Acessibilidade
+8. Refinamento estético
+
+**Não introduzas efeitos visuais desnecessários, gradientes, sombras excessivas ou animações apenas para tornar a interface mais chamativa.**
+
+Quero uma estética:
+
+**minimalista, premium, limpa, moderna, confiável e altamente funcional.**
+
+Antes de finalizar, verifica especificamente todas as telas à procura de componentes que deveriam ser iguais mas ainda possuem estilos diferentes.
+
+Corrige essas inconsistências também, mesmo que eu não as tenha mencionado explicitamente acima.

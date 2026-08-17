@@ -24,3 +24,11 @@ export function SectionHeader({
     </div>
   );
 }
+
+export function SettingsSectionHeader({ children }: { children: ReactNode }) {
+  return (
+    <div className="app-settings-section-header">
+      <h2>{children}</h2>
+    </div>
+  );
+}

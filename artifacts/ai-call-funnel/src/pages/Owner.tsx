@@ -18,6 +18,10 @@ import { ProfileEditor } from "../components/owner/ProfileEditor";
 import { WaSkeletonList } from "../components/wa/WaSkeletonList";
 import { AppHeader, AppIconButton } from "../components/app/AppHeader";
 import { ViewField } from "../components/app/ViewField";
+import { SettingsSectionHeader } from "../components/app/Section";
+import { SettingsListItem } from "../components/app/SettingsListItem";
+import { ProductListItem } from "../components/app/ProductListItem";
+import { ListFooterAction } from "../components/app/ListFooterAction";
 
 type View = "loading" | "start" | "analyzing" | "editor";
 const POLL_MS = 2500;
@@ -68,24 +72,7 @@ function initials(name: string) {
 
 // ─── Section header — small caps label ───────────────────────────────────────
 function SectionLabel({ children }: { children: React.ReactNode }) {
-  return (
-    <div style={{ paddingLeft: 20, paddingRight: 20, paddingTop: 28, paddingBottom: 8 }}>
-      <p style={{
-        color: D.inkFaint,
-        fontSize: 11,
-        fontWeight: 600,
-        letterSpacing: "0.09em",
-        textTransform: "uppercase",
-      }}>
-        {children}
-      </p>
-    </div>
-  );
-}
-
-// ─── Divider ──────────────────────────────────────────────────────────────────
-function Divider() {
-  return <div style={{ height: 1, background: D.borderSoft, marginLeft: 20 }} />;
+  return <SettingsSectionHeader>{children}</SettingsSectionHeader>;
 }
 
 // ─── Tool row (navigation) ────────────────────────────────────────────────────
@@ -93,35 +80,13 @@ function ToolRow({ icon: Icon, title, description, href, last = false }: {
   icon: React.ElementType; title: string; description: string; href: string; last?: boolean;
 }) {
   return (
-    <Link href={href}>
-      <div
-        className="flex items-center gap-3 px-5 transition-colors active:bg-gray-50"
-        style={{
-          paddingTop: 12,
-          paddingBottom: 12,
-          borderBottom: last ? "none" : `1px solid ${D.borderSoft}`,
-          background: D.surface,
-        }}
-      >
-        <div
-          className="flex items-center justify-center shrink-0"
-          style={{
-            width: 36,
-            height: 36,
-            borderRadius: 10,
-            background: D.subtle,
-            border: `1px solid ${D.border}`,
-          }}
-        >
-          <Icon size={16} style={{ color: D.inkSoft }} strokeWidth={1.75} />
-        </div>
-        <div className="flex-1 min-w-0">
-          <p style={{ color: D.ink, fontSize: 15, fontWeight: 500, lineHeight: 1.3 }}>{title}</p>
-          <p style={{ color: D.inkFaint, fontSize: 13, marginTop: 1 }}>{description}</p>
-        </div>
-        <ChevronRight size={15} style={{ color: D.inkFaint }} strokeWidth={1.75} />
-      </div>
-    </Link>
+    <SettingsListItem
+      icon={<Icon size={19} strokeWidth={1.7} />}
+      title={title}
+      description={description}
+      href={href}
+      last={last}
+    />
   );
 }
 
@@ -131,37 +96,14 @@ function ActionRow({ icon: Icon, title, description, onClick, loading = false, l
   onClick: () => void; loading?: boolean; last?: boolean;
 }) {
   return (
-    <button
+    <SettingsListItem
+      icon={loading ? <Loader2 size={19} strokeWidth={1.7} className="animate-spin" /> : <Icon size={19} strokeWidth={1.7} />}
+      title={title}
+      description={description}
       onClick={onClick}
-      disabled={loading}
-      className="w-full flex items-center gap-3 px-5 text-left transition-colors active:bg-gray-50 disabled:opacity-50"
-      style={{
-        paddingTop: 12,
-        paddingBottom: 12,
-        borderBottom: last ? "none" : `1px solid ${D.borderSoft}`,
-        background: D.surface,
-      }}
-    >
-      <div
-        className="flex items-center justify-center shrink-0"
-        style={{
-          width: 36,
-          height: 36,
-          borderRadius: 10,
-          background: D.subtle,
-          border: `1px solid ${D.border}`,
-        }}
-      >
-        {loading
-          ? <Loader2 size={16} style={{ color: D.inkSoft }} className="animate-spin" />
-          : <Icon size={16} style={{ color: D.inkSoft }} strokeWidth={1.75} />}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p style={{ color: D.ink, fontSize: 15, fontWeight: 500, lineHeight: 1.3 }}>{title}</p>
-        <p style={{ color: D.inkFaint, fontSize: 13, marginTop: 1 }}>{description}</p>
-      </div>
-      <ChevronRight size={15} style={{ color: D.inkFaint }} strokeWidth={1.75} />
-    </button>
+      loading={loading}
+      last={last}
+    />
   );
 }
 
@@ -215,37 +157,7 @@ function FeaturedTile({ offering }: { offering: Offering }) {
 
 // ─── Catalog row ──────────────────────────────────────────────────────────────
 function CatalogRow({ offering, last = false }: { offering: Offering; last?: boolean }) {
-  const pal = avatarPalette(offering.name);
-  return (
-    <div
-      className="flex items-center gap-3 px-5"
-      style={{
-        paddingTop: 12,
-        paddingBottom: 12,
-        borderBottom: last ? "none" : `1px solid ${D.borderSoft}`,
-      }}
-    >
-      <div
-        className="flex items-center justify-center overflow-hidden shrink-0"
-        style={{
-          width: 42, height: 42,
-          borderRadius: 10,
-          background: offering.imageUrl ? "transparent" : pal.bg,
-          border: `1px solid ${D.border}`,
-        }}
-      >
-        {offering.imageUrl
-          ? <img src={offering.imageUrl} alt={offering.name} className="w-full h-full object-cover" />
-          : <Image size={15} style={{ color: pal.text }} strokeWidth={1.75} />}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p style={{ color: D.ink, fontSize: 14, fontWeight: 500 }} className="truncate">{offering.name}</p>
-        {offering.price && (
-          <p style={{ color: D.green, fontSize: 13, fontWeight: 600, marginTop: 1 }}>{offering.price}</p>
-        )}
-      </div>
-    </div>
-  );
+  return <ProductListItem name={offering.name} price={offering.price} imageUrl={offering.imageUrl} last={last} />;
 }
 
 // ─── Profile View (main view of the owner panel) ──────────────────────────────
@@ -402,13 +314,7 @@ function ProfileView({
             {previewOfferings.map((o, i) => (
               <CatalogRow key={i} offering={o} last={i === previewOfferings.length - 1} />
             ))}
-            <div style={{ borderTop: `1px solid ${D.borderSoft}` }}>
-              <Link href={`/e/${slug}/catalogo`}>
-                <p className="text-center" style={{ padding: "12px 20px", color: D.green, fontSize: 14, fontWeight: 600 }}>
-                  Ver catálogo completo →
-                </p>
-              </Link>
-            </div>
+              <ListFooterAction href={`/e/${slug}/catalogo`}>Ver catálogo completo</ListFooterAction>
           </div>
         </>
       )}

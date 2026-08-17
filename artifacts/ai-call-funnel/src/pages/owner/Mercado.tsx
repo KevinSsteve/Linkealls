@@ -5,12 +5,13 @@
  */
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { Link } from "wouter";
-import { ShoppingBag, RefreshCw, Search, ChevronRight } from "lucide-react";
+import { ShoppingBag, RefreshCw, Search } from "lucide-react";
 import { OwnerNav } from "../../components/owner/OwnerNav";
 import { WaSkeletonList } from "../../components/wa/WaSkeletonList";
 import { WaEmptyState } from "../../components/wa/WaEmptyState";
 import { AppHeader, AppIconButton } from "../../components/app/AppHeader";
 import { SearchBar } from "../../components/app/SearchBar";
+import { BusinessListItem } from "../../components/app/BusinessListItem";
 
 // ─── Design tokens locais ────────────────────────────────────────────────────
 const D = {
@@ -81,7 +82,7 @@ function StatusCard({ business }: { business: Business }) {
           }}
         >
           <div
-            className="w-[52px] h-[52px] rounded-full flex items-center justify-center font-bold text-[18px]"
+            className="w-[56px] h-[56px] rounded-full flex items-center justify-center font-bold text-[18px]"
             style={{
               background: pal.bg,
               color: pal.text,
@@ -104,61 +105,15 @@ function StatusCard({ business }: { business: Business }) {
 
 // ─── Business Row ─────────────────────────────────────────────────────────────
 function BusinessRow({ business, last = false }: { business: Business; last?: boolean }) {
-  const pal = avatarPalette(business.name);
   return (
-    <Link href={`/e/${business.slug}`}>
-      <div
-        className="flex items-center gap-3 px-4 py-3.5 cursor-pointer active:bg-[#F0F0EC] transition-colors"
-        style={{
-          background: D.surface,
-          borderBottom: last ? "none" : `1px solid ${D.lineSoft}`,
-        }}
-      >
-        {/* Avatar */}
-        <div
-          className="w-[48px] h-[48px] rounded-full flex items-center justify-center font-bold text-[17px] shrink-0"
-          style={{ background: pal.bg, color: pal.text }}
-        >
-          {initials(business.name)}
-        </div>
-
-        {/* Info */}
-        <div className="flex-1 min-w-0 py-0.5">
-          <div className="flex items-center gap-2">
-            <p
-              className="font-semibold truncate"
-              style={{ color: D.ink, fontSize: 15 }}
-            >
-              {business.name}
-            </p>
-            {business.hasActiveAI && (
-              <span
-                className="shrink-0 font-bold rounded-full"
-                style={{
-                  background: D.greenLt,
-                  color: D.greenDk,
-                  fontSize: 10,
-                  paddingLeft: 7,
-                  paddingRight: 7,
-                  paddingTop: 2,
-                  paddingBottom: 2,
-                }}
-              >
-                IA
-              </span>
-            )}
-          </div>
-          <p
-            className="truncate mt-0.5"
-            style={{ color: D.inkSoft, fontSize: 13 }}
-          >
-            {business.sector || business.description || "Negócio local"}
-          </p>
-        </div>
-
-        <ChevronRight size={15} style={{ color: D.inkFaint }} className="shrink-0" />
-      </div>
-    </Link>
+    <div className={last ? "app-business-list-last" : ""}>
+      <BusinessListItem
+        name={business.name}
+        description={business.sector || business.description || "Negócio local"}
+        hasActiveAI={business.hasActiveAI}
+        href={`/e/${business.slug}`}
+      />
+    </div>
   );
 }
 
