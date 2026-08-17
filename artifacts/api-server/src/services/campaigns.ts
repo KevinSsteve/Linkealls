@@ -10,6 +10,7 @@ import {
   type CampaignKit,
   type CampaignPlatform,
   type CampaignStatus,
+  type CampaignSetup,
 } from "@workspace/db";
 import { eq, and, desc } from "drizzle-orm";
 import { logger } from "../lib/logger.js";
@@ -94,6 +95,7 @@ export async function updateCampaign(
   patch: Partial<{
     name: string;
     status: CampaignStatus;
+    objective: string;
     budget: number;
     totalSpend: number;
     durationDays: number;
@@ -107,7 +109,8 @@ export async function updateCampaign(
 
   // Commercial terms are immutable once payment started: budget/duration
   // define what was (or is being) paid for and what goes to the ads gateway.
-  const touchesCommercialTerms = patch.budget !== undefined || patch.durationDays !== undefined;
+  const touchesCommercialTerms =
+    patch.budget !== undefined || patch.durationDays !== undefined || patch.objective !== undefined;
   const where = touchesCommercialTerms
     ? and(scope, eq(campaignsTable.paymentStatus, "nao_pago"))
     : scope;
@@ -123,11 +126,58 @@ export async function updateCampaign(
     const existing = await db.select({ id: campaignsTable.id }).from(campaignsTable).where(scope).limit(1);
     if (existing[0]) {
       throw new CampaignLockedError(
-        "O orçamento e a duração não podem ser alterados depois de o pagamento ter começado",
+        "O objetivo, orçamento e duração não podem ser alterados depois de o pagamento ter começado",
       );
     }
   }
   return null;
+}
+
+export async function updateCampaignSetup(
+  id: string,
+  setup: CampaignSetup,
+  businessId?: number,
+): Promise<Campaign | null> {
+  const scope =
+    businessId !== undefined
+      ? and(eq(campaignsTable.id, id), eq(campaignsTable.businessId, businessId))
+      : eq(campaignsTable.id, id);
+
+  const existing = await getCampaign(id, businessId);
+  if (!existing) return null;
+  if (existing.paymentStatus === "pago" || existing.paymentStatus === "pendente") {
+    throw new CampaignLockedError("A configuração não pode ser alterada depois de o pagamento começar");
+  }
+
+  const creativeChanged = JSON.stringify(existing.campaignSetup?.creative ?? null) !== JSON.stringify(setup.creative);
+  const uploadedCreative =
+    setup.creative.source === "upload" && setup.creative.mediaPath
+      ? {
+          productNames: [],
+          headline: setup.creative.headline,
+          body: setup.creative.body,
+          callToAction: setup.creative.callToAction,
+          mediaType: "image" as const,
+          mediaUrl: `/api/storage${setup.creative.mediaPath}`,
+          concept: "Imagem carregada pelo dono",
+          generatedAt: new Date().toISOString(),
+        }
+      : null;
+
+  const rows = await db
+    .update(campaignsTable)
+    .set({
+      campaignSetup: setup,
+      ...(uploadedCreative
+        ? { creativeStatus: "pronto" as const, creativeJson: uploadedCreative, creativeError: null }
+        : creativeChanged && setup.creative.source === "gemini"
+          ? { creativeStatus: "nenhum" as const, creativeJson: null, creativeError: null }
+          : {}),
+      updatedAt: new Date(),
+    })
+    .where(scope)
+    .returning();
+  return rows[0] ?? null;
 }
 
 export class CampaignLockedError extends Error {
@@ -153,6 +203,7 @@ const PLATFORM_LABELS: Record<CampaignPlatform, string> = {
   instagram: "Instagram Ads",
   facebook:  "Facebook Ads",
   tiktok:    "TikTok Ads",
+  meta:      "Meta Ads (Facebook + Instagram)",
 };
 
 export async function generateCampaignKit(campaignId: string, businessId?: number): Promise<Campaign> {

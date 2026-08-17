@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import { Link, useLocation } from "wouter";
 import {
   Plus, Megaphone, Globe, Instagram, Facebook,
-  Loader2, AlertCircle, ChevronRight, BarChart2,
+  Layers2, Loader2, AlertCircle, ChevronRight, BarChart2,
 } from "lucide-react";
 import {
   businessApi, type Campaign, type CampaignPlatform, type LeadsAnalytics,
@@ -41,6 +41,7 @@ const PLATFORM_META: Record<CampaignPlatform, { label: string; icon: React.React
   instagram: { label: "Instagram",   icon: <Instagram size={16} />, color: "#E1306C", bg: "#FCE4EC" },
   facebook:  { label: "Facebook",    icon: <Facebook size={16} />,  color: "#1877F2", bg: "#E3F2FD" },
   tiktok:    { label: "TikTok",      icon: <span className="text-[14px] font-bold">T</span>, color: "#010101", bg: "#F5F5F5" },
+  meta:      { label: "Meta Ads",    icon: <Layers2 size={16} />,    color: "#0866FF", bg: "#E7F0FF" },
 };
 const STATUS_META: Record<Campaign["status"], { label: string; bg: string; color: string }> = {
   rascunho:  { label: "Rascunho",  bg: D.subtle,    color: D.inkSoft },
@@ -49,7 +50,12 @@ const STATUS_META: Record<Campaign["status"], { label: string; bg: string; color
   encerrada: { label: "Encerrada", bg: "#FFEBEE",   color: "#C62828" },
 };
 
-const PLATFORMS: CampaignPlatform[] = ["google", "instagram", "facebook", "tiktok"];
+const OBJECTIVES = [
+  { value: "awareness", label: "Dar a conhecer", description: "Alcançar mais pessoas na tua zona." },
+  { value: "traffic", label: "Levar pessoas ao catálogo", description: "Gerar visitas para os teus produtos." },
+  { value: "lead_generation", label: "Receber contactos", description: "Encontrar pessoas interessadas no teu negócio." },
+  { value: "engagement", label: "Gerar envolvimento", description: "Aumentar interações com a tua marca." },
+] as const;
 
 // ─── Create modal ─────────────────────────────────────────────────────────────
 function CreateModal({ api, onClose, onCreate }: {
@@ -58,21 +64,19 @@ function CreateModal({ api, onClose, onCreate }: {
   onCreate: (c: Campaign) => void;
 }) {
   const [name, setName] = useState("");
-  const [platform, setPlatform] = useState<CampaignPlatform>("instagram");
-  const [objective, setObjective] = useState("");
-  const [budget, setBudget] = useState("");
-  const [durationDays, setDurationDays] = useState("7");
+  const platform: CampaignPlatform = "meta";
+  const [objective, setObjective] = useState("lead_generation");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   const handleCreate = async () => {
-    if (!name.trim() || !objective.trim()) { setErr("Preenche o nome e o objetivo."); return; }
+    if (!name.trim() || !objective) { setErr("Preenche o nome e escolhe o objetivo."); return; }
     setSaving(true); setErr(null);
     try {
       const { campaign } = await api.createCampaign({
         name: name.trim(), platform, objective: objective.trim(),
-        budget: parseInt(budget, 10) || 0,
-        durationDays: Math.min(90, Math.max(1, parseInt(durationDays, 10) || 7)),
+         budget: 0,
+         durationDays: 7,
       });
       onCreate(campaign);
     } catch (e) {
@@ -119,30 +123,19 @@ function CreateModal({ api, onClose, onCreate }: {
           </div>
         )}
 
-        {/* Plataforma */}
+         {/* Canal */}
         <div className="mb-4">
           <label className="block font-semibold mb-2" style={{ color: D.inkSoft, fontSize: 11.5, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-            Plataforma
+             Canal de anúncios
           </label>
-          <div className="grid grid-cols-2 gap-2">
-            {PLATFORMS.map((p) => {
-              const m = PLATFORM_META[p];
-              return (
-                <button
-                  key={p}
-                  onClick={() => setPlatform(p)}
-                  className="flex items-center gap-2 rounded-xl px-3 py-2.5 text-[13px] font-medium transition-all"
-                  style={{
-                    background: platform === p ? m.bg : D.subtle,
-                    border: `1.5px solid ${platform === p ? m.color + "50" : D.line}`,
-                    color: platform === p ? m.color : D.inkSoft,
-                  }}
-                >
-                  <span style={{ color: m.color }}>{m.icon}</span> {m.label}
-                </button>
-              );
-            })}
-          </div>
+           <div className="flex items-center gap-2 rounded-xl px-3 py-3"
+             style={{ background: PLATFORM_META.meta.bg, border: "1.5px solid #B8D1FF", color: PLATFORM_META.meta.color }}>
+             {PLATFORM_META.meta.icon}
+             <div>
+               <p className="text-[13px] font-semibold">Meta Ads</p>
+               <p className="text-[11px]" style={{ color: D.inkSoft }}>Facebook e Instagram num só anúncio</p>
+             </div>
+           </div>
         </div>
 
         {/* Nome */}
@@ -153,55 +146,30 @@ function CreateModal({ api, onClose, onCreate }: {
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Ex: Promo Julho – Instagram"
+             placeholder="Ex: Campanha de captação de leads"
             className="w-full px-3.5 py-2.5 text-[14px] outline-none"
             style={{ background: D.subtle, border: `1.5px solid ${D.line}`, borderRadius: D.rInput, color: D.ink }}
           />
         </div>
 
-        {/* Objetivo */}
+         {/* Objetivo */}
         <div className="mb-4">
           <label className="block font-semibold mb-1.5" style={{ color: D.inkSoft, fontSize: 11.5, letterSpacing: "0.08em", textTransform: "uppercase" }}>
             Objetivo
           </label>
-          <textarea
-            value={objective}
-            onChange={(e) => setObjective(e.target.value)}
-            rows={2}
-            placeholder="Ex: Captar leads qualificados para instalação em Luanda"
-            className="w-full px-3.5 py-2.5 text-[14px] outline-none resize-none"
-            style={{ background: D.subtle, border: `1.5px solid ${D.line}`, borderRadius: D.rInput, color: D.ink }}
-          />
-        </div>
-
-        {/* Orçamento + Duração */}
-        <div className="grid grid-cols-2 gap-3 mb-5">
-          <div>
-            <label className="block font-semibold mb-1.5" style={{ color: D.inkSoft, fontSize: 11.5, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-              Orçamento (Kz)
-            </label>
-            <input
-              value={budget}
-              onChange={(e) => setBudget(e.target.value.replace(/\D/g, ""))}
-              placeholder="Ex: 50000"
-              inputMode="numeric"
-              className="w-full px-3.5 py-2.5 text-[14px] outline-none"
-              style={{ background: D.subtle, border: `1.5px solid ${D.line}`, borderRadius: D.rInput, color: D.ink }}
-            />
-          </div>
-          <div>
-            <label className="block font-semibold mb-1.5" style={{ color: D.inkSoft, fontSize: 11.5, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-              Duração (dias)
-            </label>
-            <input
-              value={durationDays}
-              onChange={(e) => setDurationDays(e.target.value.replace(/\D/g, ""))}
-              placeholder="7"
-              inputMode="numeric"
-              className="w-full px-3.5 py-2.5 text-[14px] outline-none"
-              style={{ background: D.subtle, border: `1.5px solid ${D.line}`, borderRadius: D.rInput, color: D.ink }}
-            />
-          </div>
+           <div className="space-y-2">
+             {OBJECTIVES.map((item) => (
+               <button key={item.value} type="button" onClick={() => setObjective(item.value)}
+                 className="w-full text-left rounded-xl px-3 py-2.5 transition-colors"
+                 style={{
+                   background: objective === item.value ? "#E8F5E9" : D.subtle,
+                   border: `1.5px solid ${objective === item.value ? "#A5D6A7" : D.line}`,
+                 }}>
+                 <p className="text-[13px] font-semibold" style={{ color: objective === item.value ? "#1B5E20" : D.ink }}>{item.label}</p>
+                 <p className="text-[11px] mt-0.5" style={{ color: D.inkSoft }}>{item.description}</p>
+               </button>
+             ))}
+           </div>
         </div>
 
         <button
@@ -363,7 +331,7 @@ function CampaignCard({ campaign, slug }: { campaign: Campaign; slug: string }) 
           <p className="mt-1 flex items-center gap-1.5 flex-wrap" style={{ color: D.inkSoft, fontSize: 12 }}>
             <span style={{ color: pm.color }}>{pm.label}</span>
             {campaign.budget > 0 && <span>· {campaign.budget.toLocaleString("pt-AO")} AOA</span>}
-            {campaign.kitJson && <span style={{ color: D.green }}>· Kit pronto</span>}
+           {campaign.creativeStatus === "pronto" && <span style={{ color: D.green }}>· Criativo pronto</span>}
           </p>
         </div>
 

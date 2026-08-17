@@ -17,6 +17,7 @@ import {
   businessProfilesTable,
   type Campaign,
   type AdCreative,
+  type CampaignSetup,
 } from "@workspace/db";
 import { ObjectStorageService } from "../lib/objectStorage.js";
 import { logger } from "../lib/logger.js";
@@ -91,11 +92,23 @@ async function planCreative(
   return plan;
 }
 
-async function generateImage(prompt: string): Promise<{ buffer: Buffer; mime: string }> {
+async function generateImage(
+  prompt: string,
+  reference?: { buffer: Buffer; mime: string },
+): Promise<{ buffer: Buffer; mime: string }> {
   const ai = getAi();
+  const contents = reference
+    ? [{
+        role: "user" as const,
+        parts: [
+          { text: `Create a polished square 1:1 advertising image. Use the reference image as visual guidance, but improve the composition and keep the advertised product recognizable. ${prompt}` },
+          { inlineData: { data: reference.buffer.toString("base64"), mimeType: reference.mime } },
+        ],
+      }]
+    : `Professional advertising photo, square 1:1. ${prompt}`;
   const res = await ai.models.generateContent({
     model: IMAGE_MODEL,
-    contents: `Professional advertising photo, square 1:1. ${prompt}`,
+    contents,
   });
   const parts = res.candidates?.[0]?.content?.parts ?? [];
   for (const part of parts) {
@@ -137,16 +150,14 @@ export async function startCreativeGeneration(
   campaignId: string,
   businessId: number,
 ): Promise<Campaign | null> {
-  // Atomic gate: only a paid, not-yet-published campaign that isn't already
-  // generating may start a (paid) generation job. Prevents duplicate concurrent
-  // jobs and generation for unpaid or live campaigns.
+  // Atomic gate: the creative is intentionally generated before payment so the
+  // owner can review the complete ad before any money moves.
   const updated = await db
     .update(campaignsTable)
     .set({ creativeStatus: "a_gerar", creativeError: null, updatedAt: new Date() })
     .where(and(
       eq(campaignsTable.id, campaignId),
       eq(campaignsTable.businessId, businessId),
-      eq(campaignsTable.paymentStatus, "pago"),
       sql`${campaignsTable.creativeStatus} <> 'a_gerar'`,
       inArray(campaignsTable.publishStatus, ["nao_publicada", "erro", "rejeitada"]),
     ))
@@ -184,11 +195,47 @@ async function runCreativeGeneration(campaign: Campaign): Promise<void> {
     if (!profile) { await fail("Negócio não encontrado"); return; }
 
     const channel = campaign.platform === "tiktok" ? "tiktok" : "meta";
+    const setup = campaign.campaignSetup as CampaignSetup | null;
+    if (channel === "meta" && setup?.creative.source === "upload") {
+      if (!setup.creative.mediaPath) throw new Error("Carrega uma imagem antes de continuar");
+      const creative: AdCreative = {
+        productNames: [],
+        headline: setup.creative.headline,
+        body: setup.creative.body,
+        callToAction: setup.creative.callToAction,
+        mediaType: "image",
+        mediaUrl: `/api/storage${setup.creative.mediaPath}`,
+        concept: "Imagem carregada pelo dono",
+        generatedAt: new Date().toISOString(),
+      };
+      await db
+        .update(campaignsTable)
+        .set({ creativeStatus: "pronto", creativeJson: creative, creativeError: null, updatedAt: new Date() })
+        .where(eq(campaignsTable.id, campaign.id));
+      return;
+    }
     const plan = await planCreative(campaign, profile, channel);
+
+    let reference: { buffer: Buffer; mime: string } | undefined;
+    if (channel === "meta" && setup?.creative.referenceImagePath) {
+      const storage = new ObjectStorageService();
+      const file = await storage.getObjectEntityFile(setup.creative.referenceImagePath);
+      const [buffer] = await file.download();
+      const [metadata] = await file.getMetadata();
+      reference = {
+        buffer,
+        mime: setup.creative.mediaMimeType ?? String(metadata.contentType ?? "image/png"),
+      };
+    }
 
     const media = channel === "tiktok"
       ? await generateVideo(plan.visualPrompt)
-      : await generateImage(plan.visualPrompt);
+      : await generateImage(
+          setup?.creative.prompt?.trim()
+            ? `${plan.visualPrompt}. Extra direction from the owner: ${setup.creative.prompt}`
+            : plan.visualPrompt,
+          reference,
+        );
 
     const storage = new ObjectStorageService();
     const entityPath = await storage.uploadObjectEntity(media.buffer, media.mime);
@@ -204,9 +251,26 @@ async function runCreativeGeneration(campaign: Campaign): Promise<void> {
       generatedAt: new Date().toISOString(),
     };
 
+    const nextSetup = setup && channel === "meta"
+      ? {
+          ...setup,
+          creative: {
+            ...setup.creative,
+            mediaPath: entityPath,
+            mediaMimeType: media.mime,
+          },
+        }
+      : undefined;
+
     await db
       .update(campaignsTable)
-      .set({ creativeStatus: "pronto", creativeJson: creative, creativeError: null, updatedAt: new Date() })
+      .set({
+        creativeStatus: "pronto",
+        creativeJson: creative,
+        creativeError: null,
+        ...(nextSetup ? { campaignSetup: nextSetup } : {}),
+        updatedAt: new Date(),
+      })
       .where(eq(campaignsTable.id, campaign.id));
     logger.info({ campaignId: campaign.id, channel }, "ad creative generated");
   } catch (err) {

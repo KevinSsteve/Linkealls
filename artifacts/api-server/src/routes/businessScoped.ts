@@ -22,6 +22,7 @@ import {
   confirmActionSchema,
   createCampaignSchema,
   updateCampaignSchema,
+  campaignSetupSchema,
 } from "@workspace/db";
 import {
   getProfileBySlug,
@@ -47,6 +48,7 @@ import {
   duplicateCampaign,
   updateCampaign,
   CampaignLockedError,
+  updateCampaignSetup,
   generateCampaignKit,
   getCampaignMetrics,
   generateOptimizationSuggestions,
@@ -506,6 +508,27 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
+  router.patch("/campaigns/:id/setup", requireOwner, async (req, res) => {
+    const id = String(req.params["id"] ?? "");
+    const parsed = campaignSetupSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Configuração inválida", details: parsed.error });
+      return;
+    }
+    try {
+      const campaign = await updateCampaignSetup(id, parsed.data, bid(res));
+      if (!campaign) { res.status(404).json({ error: "Campanha não encontrada" }); return; }
+      res.json({ campaign });
+    } catch (err) {
+      if (err instanceof CampaignLockedError) {
+        res.status(err.statusCode).json({ error: err.message });
+        return;
+      }
+      logger.error({ err }, "PATCH /campaigns/:id/setup failed");
+      res.status(500).json({ error: "Erro ao guardar a configuração da campanha" });
+    }
+  });
+
   router.post("/campaigns/:id/duplicate", requireOwner, async (req, res) => {
     const id = String(req.params["id"] ?? "");
     try {
@@ -579,7 +602,7 @@ export function createBusinessScopedRouter(): Router {
     try {
       const campaign = await startCreativeGeneration(id, bid(res));
       if (!campaign) {
-        res.status(409).json({ error: "Não é possível gerar agora — a campanha tem de estar paga, sem geração em curso e ainda não publicada" });
+        res.status(409).json({ error: "Não é possível gerar agora — termina a configuração, evita gerações simultâneas e confirma que a campanha ainda não foi publicada" });
         return;
       }
       res.json({ campaign });

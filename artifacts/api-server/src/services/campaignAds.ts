@@ -17,6 +17,7 @@ import {
   walletLedgerTable,
   businessProfilesTable,
   type Campaign,
+  type CampaignSetup,
 } from "@workspace/db";
 import { newMerchantTransactionId, PaymentError } from "./payments.js";
 import { createGpoCharge, IS_SIMULATION as IS_EKWANZA_SIMULATION } from "./ekwanza.js";
@@ -58,7 +59,7 @@ function assertPayable(campaign: Campaign): void {
   if (campaign.budget < CAMPAIGN_MIN_BUDGET_AOA) {
     throw new PaymentError(`Orçamento mínimo: ${CAMPAIGN_MIN_BUDGET_AOA.toLocaleString("pt-AO")} Kz`);
   }
-  if (!["google", "instagram", "facebook", "tiktok"].includes(campaign.platform)) {
+  if (!["google", "instagram", "facebook", "tiktok", "meta"].includes(campaign.platform)) {
     throw new PaymentError("Plataforma inválida");
   }
   if (campaign.platform === "google") {
@@ -67,7 +68,7 @@ function assertPayable(campaign: Campaign): void {
   const channel: zernio.ZernioChannel = campaign.platform === "tiktok" ? "tiktok" : "meta";
   if (!zernio.isChannelConfigured(channel)) {
     throw new PaymentError(
-      `O canal ${campaign.platform} ainda não está configurado na plataforma — contacta o suporte antes de pagar`,
+      `O canal Meta ainda não está configurado na plataforma — contacta o suporte antes de pagar`,
       503,
     );
   }
@@ -84,19 +85,35 @@ function assertPayable(campaign: Campaign): void {
   }
   // Every prerequisite for actually publishing must exist BEFORE any money
   // moves — an owner must never be charged into a flow that cannot complete.
-  if (!zernio.IS_ZERNIO_SIMULATION) {
-    if (!publicBaseUrl()) {
+  if (!publicBaseUrl()) {
+    throw new PaymentError(
+      "Publicação indisponível: URL pública da plataforma não configurada — contacta o suporte antes de pagar",
+      503,
+    );
+  }
+
+  const setup = campaign.campaignSetup as CampaignSetup | null;
+  if (campaign.platform === "meta") {
+    if (!["awareness", "traffic", "engagement", "lead_generation"].includes(campaign.objective)) {
+      throw new PaymentError("Escolhe um objetivo Meta compatível antes de pagar");
+    }
+    if (!setup?.audience?.location || !setup.audience.ageMin || !setup.audience.ageMax) {
+      throw new PaymentError("Define o público da campanha antes de pagar");
+    }
+    if (campaign.creativeStatus !== "pronto" || !campaign.creativeJson) {
+      throw new PaymentError("Revê e aprova o criativo antes de pagar");
+    }
+    if (setup.creative.source === "gemini" && !process.env["GEMINI_API_KEY"]) {
       throw new PaymentError(
-        "Publicação indisponível: URL pública da plataforma não configurada — contacta o suporte antes de pagar",
+        "Publicação indisponível: geração de imagens Gemini não está configurada — contacta o suporte antes de pagar",
         503,
       );
     }
-    if (!process.env["GEMINI_API_KEY"]) {
-      throw new PaymentError(
-        "Publicação indisponível: geração de criativos não configurada — contacta o suporte antes de pagar",
-        503,
-      );
-    }
+  } else if (!zernio.IS_ZERNIO_SIMULATION && !process.env["GEMINI_API_KEY"]) {
+    throw new PaymentError(
+      "Publicação indisponível: geração de criativos não configurada — contacta o suporte antes de pagar",
+      503,
+    );
   }
 }
 
@@ -386,6 +403,8 @@ export async function publishCampaign(campaignId: string, businessId: number): P
       mediaUrl,
       mediaType: campaign.creativeJson.mediaType,
       linkUrl,
+      objective: campaign.objective,
+      audience: (campaign.campaignSetup as CampaignSetup | null)?.audience,
       idempotencyKey: `linkealls-pub-${campaign.id}`,
     });
     const publishStatus = result.reviewStatus && result.reviewStatus !== "APPROVED" ? "em_revisao" : "ativa";

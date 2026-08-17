@@ -19,6 +19,7 @@
  */
 import { randomUUID } from "crypto";
 import { logger } from "../lib/logger.js";
+import type { CampaignObjective, CampaignSetup } from "@workspace/db";
 
 const BASE_URL = process.env["ZERNIO_BASE_URL"] ?? "https://zernio.com/api";
 const API_KEY = process.env["ZERNIO_API_KEY"] ?? "";
@@ -92,6 +93,71 @@ async function zernioFetch<T>(
   return json as T;
 }
 
+type TargetingLookup = {
+  results?: Array<{ key?: string; id?: string | number; name?: string }>;
+};
+
+async function buildMetaTargeting(
+  accountId: string,
+  audience: CampaignSetup["audience"] | undefined,
+): Promise<Record<string, unknown>> {
+  const targeting: Record<string, unknown> = {
+    countries: ["AO"],
+    ageMin: audience?.ageMin,
+    ageMax: audience?.ageMax,
+    gender: audience?.gender,
+  };
+  if (!audience) return targeting;
+
+  // Zernio/Meta require opaque city keys, not free-form city names. Resolve
+  // the friendly wizard value just before publishing and fall back to the
+  // country when Meta has no matching city.
+  if (audience.location.trim()) {
+    try {
+      const query = new URLSearchParams({
+        accountId,
+        dimension: "geo",
+        type: "city",
+        q: audience.location.trim(),
+        countryCode: "AO",
+      });
+      const lookup = await zernioFetch<TargetingLookup>("GET", `/v1/ads/targeting/search?${query.toString()}`);
+      const cityKey = lookup.results?.[0]?.key;
+      if (cityKey) {
+        delete targeting.countries;
+        targeting.cities = [{ key: cityKey }];
+      }
+    } catch (error) {
+      logger.warn({ error, location: audience.location }, "Zernio city lookup failed; using country targeting");
+    }
+  }
+
+  // Interests also need Meta IDs. Resolve each friendly name and omit names
+  // that Meta cannot resolve rather than sending an invalid string payload.
+  const interestNames = audience.interests
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  if (interestNames.length) {
+    const interests = (await Promise.all(interestNames.map(async (name) => {
+      try {
+        const query = new URLSearchParams({ platform: "metaads", q: name });
+        const lookup = await zernioFetch<TargetingLookup>("GET", `/v1/ads/interests?${query.toString()}`);
+        const match = lookup.results?.[0];
+        return match?.id !== undefined
+          ? { id: String(match.id), name: match.name ?? name }
+          : null;
+      } catch (error) {
+        logger.warn({ error, interest: name }, "Zernio interest lookup failed");
+        return null;
+      }
+    }))).filter((interest): interest is { id: string; name: string } => interest !== null);
+    if (interests.length) targeting.interests = interests;
+  }
+
+  return targeting;
+}
+
 // ─── Create ad ────────────────────────────────────────────────────────────────
 
 export interface CreateAdParams {
@@ -108,6 +174,8 @@ export interface CreateAdParams {
   mediaType: "image" | "video";
   /** Destination — the business' public catalog URL with UTM params. */
   linkUrl: string;
+  objective?: string;
+  audience?: CampaignSetup["audience"];
   /** Idempotency key so a retried publish never creates a duplicate ad. */
   idempotencyKey: string;
 }
@@ -146,11 +214,23 @@ export async function createAd(params: CreateAdParams): Promise<CreateAdResult> 
   const end = new Date(start.getTime() + params.durationDays * 24 * 3600_000);
   const fmt = (d: Date) => d.toISOString().slice(0, 10);
 
+  const objective = String(params.objective ?? "traffic").toLowerCase() as CampaignObjective;
+  const metaGoal = objective === "leads" ? "lead_generation" : objective;
+  const supportedMetaGoals = ["awareness", "traffic", "engagement", "lead_generation"];
+  if (params.channel === "meta" && !supportedMetaGoals.includes(metaGoal)) {
+    throw new ZernioError(`Objetivo Meta não suportado pelo Zernio: ${objective}`, 400);
+  }
+  // Keep the historical TikTok request shape untouched; only new Meta
+  // campaigns use the stricter Zernio ODAX goal names above.
+  const goal = params.channel === "meta"
+    ? metaGoal
+    : (["awareness", "traffic", "leads", "sales"].includes(objective) ? objective : "traffic");
+  const audience = params.audience;
   const body: Record<string, unknown> = {
     accountId: account.accountId,
     adAccountId: account.adAccountId,
     name: params.name,
-    goal: "traffic",
+    goal,
     budgetAmount: params.budgetUsd,
     budgetType: "lifetime",
     status: "ACTIVE",
@@ -158,10 +238,10 @@ export async function createAd(params: CreateAdParams): Promise<CreateAdResult> 
     endDate: fmt(end),
     linkUrl: params.linkUrl,
     callToAction: params.callToAction,
-    targeting: { countries: ["AO"] },
   };
 
   if (params.channel === "meta") {
+    Object.assign(body, await buildMetaTargeting(account.accountId, audience));
     body["headline"] = params.headline;
     body["body"] = params.body;
     if (params.mediaType === "video") body["video"] = params.mediaUrl;

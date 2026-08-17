@@ -250,8 +250,9 @@ export interface AssistantMessage {
 
 // ─── Campaigns API ────────────────────────────────────────────────────────────
 
-export type CampaignPlatform = "google" | "instagram" | "facebook" | "tiktok";
+export type CampaignPlatform = "google" | "instagram" | "facebook" | "tiktok" | "meta";
 export type CampaignStatus = "rascunho" | "ativa" | "pausada" | "encerrada";
+export type CampaignObjective = "awareness" | "traffic" | "leads" | "sales";
 
 export interface CampaignCopy {
   headline: string;
@@ -301,6 +302,27 @@ export interface AdCreative {
   generatedAt: string;
 }
 
+export interface CampaignSetup {
+  audience: {
+    location: string;
+    ageMin: number;
+    ageMax: number;
+    gender: "all" | "female" | "male";
+    interests: string;
+    excludedAudiences: string;
+  };
+  creative: {
+    source: "upload" | "gemini";
+    referenceImagePath: string | null;
+    mediaPath: string | null;
+    mediaMimeType: string | null;
+    prompt: string;
+    headline: string;
+    body: string;
+    callToAction: "SHOP_NOW" | "LEARN_MORE" | "CONTACT_US" | "ORDER_NOW" | "GET_OFFER";
+  };
+}
+
 export interface Campaign {
   id: string;
   name: string;
@@ -310,6 +332,7 @@ export interface Campaign {
   status: CampaignStatus;
   utmSlug: string;
   kitJson: CampaignKit | null;
+  campaignSetup: CampaignSetup | null;
   totalSpend: number;
   durationDays: number;
   paymentStatus: CampaignPaymentStatus;
@@ -337,6 +360,25 @@ export interface AdsQuote {
   minBudgetAoa: number;
   budgetUsd: number;
   simulated: boolean;
+}
+
+export async function uploadPrivateImage(file: File): Promise<string> {
+  if (!file.type.startsWith("image/")) throw new Error("Escolhe uma imagem válida");
+  if (file.size > 10 * 1024 * 1024) throw new Error("A imagem deve ter no máximo 10 MB");
+  const { uploadURL, objectPath } = await request<{ uploadURL: string; objectPath: string }>(
+    "/storage/uploads/request-url",
+    {
+      method: "POST",
+      body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+    },
+  );
+  const upload = await fetch(uploadURL, {
+    method: "PUT",
+    headers: { "Content-Type": file.type },
+    body: file,
+  });
+  if (!upload.ok) throw new Error("Não foi possível carregar a imagem");
+  return objectPath;
 }
 
 export interface CampaignMetrics {
@@ -625,10 +667,14 @@ export function businessApi(slug: string) {
       }),
     updateCampaignStatus: (
       id: string,
-      patch: { status?: CampaignStatus; budget?: number; totalSpend?: number },
+      patch: { status?: CampaignStatus; budget?: number; totalSpend?: number; durationDays?: number; objective?: string },
     ) =>
       bRequest<{ campaign: Campaign }>(`/campaigns/${id}`, {
         method: "PATCH", body: JSON.stringify(patch),
+      }),
+    updateCampaignSetup: (id: string, setup: CampaignSetup) =>
+      bRequest<{ campaign: Campaign }>(`/campaigns/${id}/setup`, {
+        method: "PATCH", body: JSON.stringify(setup),
       }),
     generateCampaignKit: (id: string) =>
       bRequest<{ campaign: Campaign }>(`/campaigns/${id}/generate`, { method: "POST" }),

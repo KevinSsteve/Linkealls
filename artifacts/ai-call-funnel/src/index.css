@@ -146,6 +146,33 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   box-shadow: var(--focus-ring);
 }
 
+.field-label {
+  display: block;
+  color: var(--ink-soft);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.wizard-input {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--subtle);
+  color: var(--ink);
+  font-size: 13px;
+  outline: none;
+  padding: 9px 12px;
+}
+
+.wizard-input:focus {
+  border-color: var(--green);
+  box-shadow: var(--focus-ring);
+}
+
 /* ─── Shared app primitives ─────────────────────────────────────────────── */
 .app-header {
   border-bottom: 1px solid var(--border);

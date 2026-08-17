@@ -1,11 +1,12 @@
 /**
  * Detalhe de campanha — tema claro estilo WhatsApp Business.
  */
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Link, useParams, useLocation } from "wouter";
 import {
   ArrowLeft, Sparkles, Copy, Check, Loader2, AlertCircle,
   Globe, Instagram, Facebook, ExternalLink,
+  Layers2, ImagePlus, WandSparkles,
   ChevronDown, ChevronUp, Users, BadgeCheck, TrendingUp,
   DollarSign, Lightbulb, Play, Pause, CopyPlus,
   Wallet, Smartphone, Rocket, Eye, MousePointerClick, StopCircle,
@@ -15,6 +16,8 @@ import {
   businessApi, type Campaign, type CampaignKit,
   type CampaignMetrics, type CampaignPlatform,
   type AdsQuote, type CampaignPublishStatus,
+  type CampaignSetup,
+  uploadPrivateImage,
 } from "../../lib/api";
 import { useBusinessSlug } from "../../hooks/useBusinessSlug";
 import { AppHeader, AppIconButton } from "../../components/app/AppHeader";
@@ -36,6 +39,7 @@ const PLATFORM_META: Record<CampaignPlatform, { label: string; icon: React.React
   instagram: { label: "Instagram",   icon: <Instagram size={14} />, color: "#E1306C", bg: "#FCE4EC" },
   facebook:  { label: "Facebook",    icon: <Facebook size={14} />,  color: "#1877F2", bg: "#E3F2FD" },
   tiktok:    { label: "TikTok",      icon: <span className="text-[13px] font-bold">T</span>, color: "#010101", bg: "#F5F5F5" },
+  meta:      { label: "Meta Ads",    icon: <Layers2 size={14} />,    color: "#0866FF", bg: "#E7F0FF" },
 };
 const STATUS_NEXT: Record<Campaign["status"], Campaign["status"] | null> = {
   rascunho: "ativa", ativa: "pausada", pausada: "ativa", encerrada: null,
@@ -169,7 +173,400 @@ function KitView({ kit }: { kit: CampaignKit }) {
   );
 }
 
-// ─── Publish flow (real ads via Zernio, paid in Kz) ──────────────────────────
+// ─── Meta Ads wizard (real ads via Zernio, paid in Kz) ─────────────────────────
+const META_OBJECTIVES = [
+  { value: "awareness", label: "Dar a conhecer", description: "Alcançar mais pessoas na tua zona." },
+  { value: "traffic", label: "Levar pessoas ao catálogo", description: "Gerar visitas para os teus produtos." },
+  { value: "lead_generation", label: "Receber contactos", description: "Encontrar pessoas interessadas no teu negócio." },
+  { value: "engagement", label: "Gerar envolvimento", description: "Aumentar interações com a tua marca." },
+] as const;
+
+const CTA_LABELS: Record<CampaignSetup["creative"]["callToAction"], string> = {
+  SHOP_NOW: "Comprar agora",
+  LEARN_MORE: "Saber mais",
+  CONTACT_US: "Contactar",
+  ORDER_NOW: "Encomendar agora",
+  GET_OFFER: "Ver oferta",
+};
+
+function defaultCampaignSetup(campaign: Campaign): CampaignSetup {
+  return campaign.campaignSetup ?? {
+    audience: {
+      location: "Luanda",
+      ageMin: 18,
+      ageMax: 55,
+      gender: "all",
+      interests: "",
+      excludedAudiences: "",
+    },
+    creative: {
+      source: "gemini",
+      referenceImagePath: null,
+      mediaPath: null,
+      mediaMimeType: null,
+      prompt: "",
+      headline: "",
+      body: "",
+      callToAction: "LEARN_MORE",
+    },
+  };
+}
+
+function objectStorageUrl(path: string): string {
+  const base = import.meta.env.BASE_URL.endsWith("/") ? import.meta.env.BASE_URL : `${import.meta.env.BASE_URL}/`;
+  return `${base}api/storage${path}`;
+}
+
+function MetaAdsWizard({ api, campaign, onUpdate }: {
+  api: ReturnType<typeof businessApi>;
+  campaign: Campaign;
+  onUpdate: (c: Campaign) => void;
+}) {
+  const [step, setStep] = useState(0);
+  const [setup, setSetup] = useState<CampaignSetup>(() => defaultCampaignSetup(campaign));
+  const [objective, setObjective] = useState(campaign.objective);
+  const [budget, setBudget] = useState(campaign.budget ? String(campaign.budget) : "");
+  const [durationDays, setDurationDays] = useState(String(campaign.durationDays || 7));
+  const [quote, setQuote] = useState<AdsQuote | null>(null);
+  const [payMethod, setPayMethod] = useState<"carteira" | "multicaixa">("carteira");
+  const [phone, setPhone] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState<"creative" | "reference" | null>(null);
+  const creativeInput = useRef<HTMLInputElement>(null);
+  const referenceInput = useRef<HTMLInputElement>(null);
+
+  const paid = campaign.paymentStatus === "pago";
+  const creativeReady = campaign.creativeStatus === "pronto" && !!campaign.creativeJson;
+  const published = !["nao_publicada", "erro", "rejeitada"].includes(campaign.publishStatus);
+  const ps = PUBLISH_LABEL[campaign.publishStatus];
+
+  useEffect(() => {
+    if (!campaign.budget) return;
+    api.getAdsQuote(campaign.budget).then(setQuote).catch(() => {});
+  }, [api, campaign.budget]);
+
+  useEffect(() => {
+    if (campaign.campaignSetup) setSetup(campaign.campaignSetup);
+    setObjective(campaign.objective);
+    setBudget(campaign.budget ? String(campaign.budget) : "");
+    setDurationDays(String(campaign.durationDays || 7));
+  }, [campaign.campaignSetup, campaign.objective, campaign.budget, campaign.durationDays]);
+
+  const polling = campaign.creativeStatus === "a_gerar" ||
+    campaign.paymentStatus === "pendente" ||
+    campaign.publishStatus === "a_publicar";
+  useEffect(() => {
+    if (!polling) return;
+    const timer = setInterval(() => {
+      api.getCampaignById(campaign.id).then(({ campaign: next }) => onUpdate(next)).catch(() => {});
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [api, campaign.id, onUpdate, polling]);
+
+  const run = async (key: string, fn: () => Promise<{ campaign: Campaign }>) => {
+    setBusy(key);
+    setError(null);
+    try {
+      const { campaign: next } = await fn();
+      onUpdate(next);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro inesperado");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const saveObjective = async (nextObjective: string) => {
+    setObjective(nextObjective);
+    setError(null);
+    try {
+      const { campaign: next } = await api.updateCampaignStatus(campaign.id, { objective: nextObjective });
+      onUpdate(next);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível guardar o objetivo");
+    }
+  };
+
+  const saveSetup = async (nextStep: number) => {
+    setBusy("save");
+    setError(null);
+    try {
+      const { campaign: next } = await api.updateCampaignSetup(campaign.id, setup);
+      onUpdate(next);
+      setStep(nextStep);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível guardar esta etapa");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const saveBudget = async () => {
+    const amount = Number.parseInt(budget, 10);
+    const days = Math.min(90, Math.max(1, Number.parseInt(durationDays, 10) || 7));
+    if (!Number.isInteger(amount) || amount < (quote?.minBudgetAoa ?? 5000)) {
+      setError(`O orçamento mínimo é ${(quote?.minBudgetAoa ?? 5000).toLocaleString("pt-AO")} Kz.`);
+      return;
+    }
+    await run("budget", async () => {
+      const { campaign: next } = await api.updateCampaignStatus(campaign.id, { budget: amount, durationDays: days });
+      setQuote(await api.getAdsQuote(amount));
+      setStep(4);
+      return { campaign: next };
+    });
+  };
+
+  const handleFile = async (file: File | undefined, kind: "creative" | "reference") => {
+    if (!file) return;
+    setUploading(kind);
+    setError(null);
+    try {
+      const path = await uploadPrivateImage(file);
+      setSetup((current) => ({
+        ...current,
+        creative: {
+          ...current.creative,
+          ...(kind === "creative"
+            ? { source: "upload" as const, mediaPath: path, mediaMimeType: file.type }
+            : { referenceImagePath: path, mediaMimeType: file.type }),
+        },
+      }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível carregar a imagem");
+    } finally {
+      setUploading(null);
+    }
+  };
+
+  const generate = async () => {
+    setBusy("generate");
+    setError(null);
+    try {
+      const { campaign: saved } = await api.updateCampaignSetup(campaign.id, setup);
+      onUpdate(saved);
+      const { campaign: started } = await api.generateCampaignCreative(campaign.id);
+      onUpdate(started);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível iniciar a geração");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const audience = setup.audience;
+  const creative = setup.creative;
+  const selectedObjective = META_OBJECTIVES.find((item) => item.value === objective);
+
+  return (
+    <div className="space-y-3 px-4 py-3">
+      <div className="rounded-2xl px-3.5 py-3 flex items-center justify-between"
+        style={{ background: ps.bg, border: `1px solid ${ps.color}22` }}>
+        <div>
+          <p className="text-[11px] uppercase tracking-wide font-semibold" style={{ color: ps.color }}>Meta Ads</p>
+          <p className="text-[15px] font-bold" style={{ color: ps.color }}>{published ? ps.label : `Passo ${step + 1} de 5`}</p>
+        </div>
+        {quote?.simulated && <span className="text-[10px] px-2 py-1 rounded-full font-semibold" style={{ background: "#FFF", color: "#E65100" }}>SIMULAÇÃO</span>}
+      </div>
+
+      {error && (
+        <div className="rounded-xl px-3.5 py-2.5 text-[12px] flex items-start gap-2" style={{ background: "#FFEBEE", color: "#C62828" }}>
+          <AlertCircle size={13} className="shrink-0 mt-0.5" /> {error}
+        </div>
+      )}
+
+      <div className="flex gap-1.5 px-1">
+        {[0, 1, 2, 3, 4].map((item) => (
+          <div key={item} className="h-1 flex-1 rounded-full" style={{ background: item <= step ? C.green : C.border }} />
+        ))}
+      </div>
+
+      {step === 0 && (
+        <WizardCard title="Qual é o objetivo?" description="Escolhe o resultado mais importante para esta campanha.">
+          <div className="space-y-2">
+            {META_OBJECTIVES.map((item) => (
+              <button key={item.value} type="button" onClick={() => void saveObjective(item.value)}
+                className="w-full rounded-xl px-3 py-3 text-left"
+                style={{ background: objective === item.value ? "#E8F5E9" : C.bg, border: `1px solid ${objective === item.value ? "#A5D6A7" : C.border}` }}>
+                <p className="text-[13px] font-semibold" style={{ color: objective === item.value ? "#1B5E20" : C.text }}>{item.label}</p>
+                <p className="text-[11px] mt-0.5" style={{ color: C.text2 }}>{item.description}</p>
+              </button>
+            ))}
+          </div>
+          <NextButton label="Escolher criativo" onClick={() => setStep(1)} disabled={!objective} />
+        </WizardCard>
+      )}
+
+      {step === 1 && (
+        <WizardCard title="Que imagem queres usar?" description="Podes carregar uma imagem tua ou pedir uma imagem nova à Gemini.">
+          <div className="grid grid-cols-2 gap-2">
+            {([
+              ["upload", "Imagem própria", "Usar uma foto do produto ou negócio", <ImagePlus size={17} />],
+              ["gemini", "Gerar com Gemini", "Criar uma imagem publicitária", <WandSparkles size={17} />],
+            ] as const).map(([source, label, description, icon]) => (
+              <button key={source} type="button" onClick={() => setSetup((current) => ({
+                ...current,
+                creative: {
+                  ...current.creative,
+                  source,
+                  ...(current.creative.source === source ? {} : { mediaPath: null, mediaMimeType: null }),
+                },
+              }))}
+                className="rounded-xl p-3 text-left"
+                style={{ background: creative.source === source ? "#E8F5E9" : C.bg, border: `1px solid ${creative.source === source ? "#A5D6A7" : C.border}` }}>
+                <span style={{ color: creative.source === source ? C.green : C.text2 }}>{icon}</span>
+                <p className="text-[12px] font-semibold mt-2" style={{ color: C.text }}>{label}</p>
+                <p className="text-[10px] mt-0.5 leading-relaxed" style={{ color: C.text2 }}>{description}</p>
+              </button>
+            ))}
+          </div>
+
+          {creative.source === "upload" ? (
+            <>
+              <input ref={creativeInput} type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
+                onChange={(event) => { void handleFile(event.target.files?.[0], "creative"); event.currentTarget.value = ""; }} />
+              <button type="button" onClick={() => creativeInput.current?.click()} disabled={uploading !== null}
+                className="w-full rounded-xl py-3 text-[13px] font-semibold"
+                style={{ background: C.bg, color: C.green, border: `1px dashed ${C.green}` }}>
+                {uploading === "creative" ? <Loader2 size={15} className="animate-spin inline mr-2" /> : <ImagePlus size={15} className="inline mr-2" />}
+                {creative.mediaPath ? "Trocar imagem" : "Carregar imagem"}
+              </button>
+              {creative.mediaPath && <img src={objectStorageUrl(creative.mediaPath)} alt="Pré-visualização" className="w-full rounded-xl object-cover" style={{ maxHeight: 260 }} />}
+              <input value={creative.headline} maxLength={40} onChange={(event) => setSetup((current) => ({ ...current, creative: { ...current.creative, headline: event.target.value } }))}
+                placeholder="Título do anúncio (máx. 40 caracteres)" className="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text }} />
+              <textarea value={creative.body} maxLength={300} onChange={(event) => setSetup((current) => ({ ...current, creative: { ...current.creative, body: event.target.value } }))}
+                placeholder="Texto curto do anúncio" rows={3} className="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none resize-none" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text }} />
+            </>
+          ) : (
+            <>
+              <input ref={referenceInput} type="file" accept="image/png,image/jpeg,image/webp" className="hidden"
+                onChange={(event) => { void handleFile(event.target.files?.[0], "reference"); event.currentTarget.value = ""; }} />
+              <button type="button" onClick={() => referenceInput.current?.click()} disabled={uploading !== null}
+                className="w-full rounded-xl py-3 text-[13px] font-semibold"
+                style={{ background: C.bg, color: C.green, border: `1px dashed ${C.green}` }}>
+                {uploading === "reference" ? <Loader2 size={15} className="animate-spin inline mr-2" /> : <ImagePlus size={15} className="inline mr-2" />}
+                {creative.referenceImagePath ? "Trocar imagem de referência" : "Adicionar referência (opcional)"}
+              </button>
+              {creative.referenceImagePath && <img src={objectStorageUrl(creative.referenceImagePath)} alt="Imagem de referência" className="w-full rounded-xl object-cover" style={{ maxHeight: 180 }} />}
+              <textarea value={creative.prompt} onChange={(event) => setSetup((current) => ({ ...current, creative: { ...current.creative, prompt: event.target.value } }))}
+                placeholder="Descreve o estilo, ambiente ou mensagem que queres ver na imagem (opcional)" rows={3} className="w-full rounded-xl px-3 py-2.5 text-[13px] outline-none resize-none" style={{ background: C.bg, border: `1px solid ${C.border}`, color: C.text }} />
+              <button type="button" onClick={() => void generate()} disabled={busy !== null || campaign.creativeStatus === "a_gerar"}
+                className="w-full rounded-full py-2.5 text-[13px] font-semibold flex items-center justify-center gap-2"
+                style={{ background: C.green, color: "#fff", opacity: busy ? 0.7 : 1 }}>
+                {busy === "generate" || campaign.creativeStatus === "a_gerar" ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                {campaign.creativeStatus === "a_gerar" ? "A criar a imagem…" : creativeReady ? "Gerar outra imagem" : "Gerar imagem com Gemini"}
+              </button>
+              {creativeReady && campaign.creativeJson && (
+                <div className="space-y-2">
+                  <img src={campaign.creativeJson.mediaUrl} alt="Criativo Meta" className="w-full rounded-xl" />
+                  <p className="text-[13px] font-semibold" style={{ color: C.text }}>{campaign.creativeJson.headline}</p>
+                  <p className="text-[12px]" style={{ color: C.text2 }}>{campaign.creativeJson.body}</p>
+                </div>
+              )}
+              {campaign.creativeStatus === "erro" && <p className="text-[12px]" style={{ color: "#C62828" }}>{campaign.creativeError ?? "Erro ao gerar imagem"}</p>}
+            </>
+          )}
+
+          <div className="flex gap-2">
+            <BackButton onClick={() => setStep(0)} />
+            <NextButton className="flex-1" label="Definir público" onClick={() => void saveSetup(2)}
+              disabled={busy !== null || (creative.source === "upload" && (!creative.mediaPath || !creative.headline.trim() || !creative.body.trim())) || (creative.source === "gemini" && !creativeReady)} />
+          </div>
+        </WizardCard>
+      )}
+
+      {step === 2 && (
+        <WizardCard title="Quem queres alcançar?" description="Começa simples. O Meta pode otimizar a entrega dentro deste público.">
+          <label className="field-label">Localização</label>
+          <input value={audience.location} onChange={(event) => setSetup((current) => ({ ...current, audience: { ...current.audience, location: event.target.value } }))}
+            placeholder="Ex: Luanda" className="wizard-input" />
+          <div className="grid grid-cols-2 gap-2">
+            <div><label className="field-label">Idade mínima</label><input type="number" min={13} max={65} value={audience.ageMin} onChange={(event) => setSetup((current) => ({ ...current, audience: { ...current.audience, ageMin: Number(event.target.value) } }))} className="wizard-input" /></div>
+            <div><label className="field-label">Idade máxima</label><input type="number" min={13} max={65} value={audience.ageMax} onChange={(event) => setSetup((current) => ({ ...current, audience: { ...current.audience, ageMax: Number(event.target.value) } }))} className="wizard-input" /></div>
+          </div>
+          <label className="field-label">Género</label>
+          <select value={audience.gender} onChange={(event) => setSetup((current) => ({ ...current, audience: { ...current.audience, gender: event.target.value as CampaignSetup["audience"]["gender"] } }))} className="wizard-input">
+            <option value="all">Todas as pessoas</option><option value="female">Mulheres</option><option value="male">Homens</option>
+          </select>
+          <label className="field-label">Interesses (separados por vírgulas)</label>
+          <input value={audience.interests} onChange={(event) => setSetup((current) => ({ ...current, audience: { ...current.audience, interests: event.target.value } }))}
+            placeholder="Ex: casa, tecnologia, empreendedorismo" className="wizard-input" />
+          <label className="field-label">Excluir (opcional)</label>
+          <input value={audience.excludedAudiences} onChange={(event) => setSetup((current) => ({ ...current, audience: { ...current.audience, excludedAudiences: event.target.value } }))}
+            placeholder="Ex: clientes actuais" className="wizard-input" />
+          <div className="flex gap-2"><BackButton onClick={() => setStep(1)} /><NextButton className="flex-1" label="Definir orçamento" onClick={() => void saveSetup(3)} disabled={busy !== null || !audience.location.trim() || audience.ageMax < audience.ageMin} /></div>
+        </WizardCard>
+      )}
+
+      {step === 3 && (
+        <WizardCard title="Quanto queres investir?" description="O orçamento é total para toda a duração da campanha.">
+          <label className="field-label">Orçamento total (Kz)</label>
+          <input value={budget} onChange={(event) => setBudget(event.target.value.replace(/\D/g, ""))} inputMode="numeric" placeholder="Ex: 50000" className="wizard-input text-[18px] font-semibold" />
+          <label className="field-label">Duração (dias)</label>
+          <input value={durationDays} onChange={(event) => setDurationDays(event.target.value.replace(/\D/g, ""))} inputMode="numeric" placeholder="7" className="wizard-input" />
+          {budget && quote && Number(budget) > 0 && <p className="text-[12px]" style={{ color: C.text2 }}>≈ <b style={{ color: C.text }}>${quote.budgetUsd.toFixed(2)}</b> para anúncios Meta · câmbio {quote.fxRateAoaPerUsd.toLocaleString("pt-AO")} Kz/USD</p>}
+          <div className="flex gap-2"><BackButton onClick={() => setStep(2)} /><NextButton className="flex-1" label="Rever campanha" onClick={() => void saveBudget()} disabled={busy !== null || !budget} /></div>
+        </WizardCard>
+      )}
+
+      {step === 4 && (
+        <WizardCard title="Está tudo pronto?" description="Revisa antes de pagar. O anúncio só é enviado ao Meta depois da tua confirmação.">
+          <ReviewRow label="Objetivo" value={selectedObjective?.label ?? objective} />
+          <ReviewRow label="Criativo" value={creative.source === "gemini" ? "Imagem criada pela Gemini" : "Imagem própria carregada"} />
+          <ReviewRow label="Público" value={`${audience.location} · ${audience.ageMin}-${audience.ageMax} anos`} />
+          <ReviewRow label="Investimento" value={`${campaign.budget.toLocaleString("pt-AO")} Kz · ${campaign.durationDays} dias`} />
+          {!paid ? (
+            <>
+              {quote?.simulated && <div className="rounded-xl px-3 py-2 text-[12px]" style={{ background: "#FFF8E1", color: "#E65100", border: "1px solid #FFE082" }}>Modo de teste: nenhum anúncio real será publicado.</div>}
+              <div className="flex gap-2">
+                {([["carteira", "Carteira", <Wallet key="wallet" size={13} />], ["multicaixa", "Multicaixa", <Smartphone key="phone" size={13} />]] as const).map(([method, label, icon]) => (
+                  <button key={method} onClick={() => setPayMethod(method)} className="flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2 text-[12px] font-semibold"
+                    style={{ background: payMethod === method ? "#E8F5E9" : C.bg, color: payMethod === method ? "#1B5E20" : C.text2, border: `1px solid ${payMethod === method ? "#A5D6A7" : C.border}` }}>{icon}{label}</button>
+                ))}
+              </div>
+              {payMethod === "multicaixa" && <input value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="Telemóvel (9XXXXXXXX)" inputMode="tel" className="wizard-input" />}
+              <button onClick={() => void run("pay", () => api.payCampaign(campaign.id, payMethod === "carteira" ? { method: "carteira" } : { method: "multicaixa", phone }))} disabled={busy !== null || (payMethod === "multicaixa" && !/^9\d{8}$/.test(phone.replace(/\s/g, "")))}
+                className="w-full flex items-center justify-center gap-2 rounded-full py-2.5 text-[13px] font-semibold" style={{ background: C.green, color: "#fff", opacity: busy ? 0.7 : 1 }}>
+                {busy === "pay" ? <Loader2 size={14} className="animate-spin" /> : <DollarSign size={14} />} Pagar {campaign.budget.toLocaleString("pt-AO")} Kz
+              </button>
+            </>
+          ) : published ? (
+            <div className="rounded-xl px-3 py-2.5 text-[13px]" style={{ background: "#E8F5E9", color: "#1B5E20" }}>Campanha enviada para o Meta. Estado actual: {ps.label}.</div>
+          ) : (
+            <button onClick={() => void run("publish", () => api.publishCampaign(campaign.id))} disabled={busy !== null}
+              className="w-full flex items-center justify-center gap-2 rounded-full py-2.5 text-[13px] font-semibold" style={{ background: "#111827", color: "#fff", opacity: busy ? 0.7 : 1 }}>
+              {busy === "publish" ? <Loader2 size={14} className="animate-spin" /> : <Rocket size={14} />} Publicar no Meta
+            </button>
+          )}
+          {!paid && <BackButton onClick={() => setStep(3)} label="Voltar e editar" />}
+        </WizardCard>
+      )}
+    </div>
+  );
+}
+
+function WizardCard({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-2xl p-4 space-y-3" style={{ background: C.white, border: `1px solid ${C.border}` }}>
+      <div><p className="text-[16px] font-bold" style={{ color: C.text }}>{title}</p><p className="text-[12px] mt-1 leading-relaxed" style={{ color: C.text2 }}>{description}</p></div>
+      {children}
+    </div>
+  );
+}
+
+function ReviewRow({ label, value }: { label: string; value: string }) {
+  return <div className="flex items-center justify-between gap-3 py-2.5 border-b last:border-b-0" style={{ borderColor: C.border }}><span className="text-[11px] uppercase tracking-wide" style={{ color: C.text3 }}>{label}</span><span className="text-[13px] font-semibold text-right" style={{ color: C.text }}>{value}</span></div>;
+}
+
+function NextButton({ label, onClick, disabled, className = "" }: { label: string; onClick: () => void; disabled?: boolean; className?: string }) {
+  return <button onClick={onClick} disabled={disabled} className={`rounded-full py-2.5 text-[13px] font-semibold ${className}`} style={{ background: C.green, color: "#fff", opacity: disabled ? 0.45 : 1 }}>{label}<ChevronDown size={14} className="inline ml-1 -rotate-90" /></button>;
+}
+
+function BackButton({ onClick, label = "Voltar" }: { onClick: () => void; label?: string }) {
+  return <button onClick={onClick} className="rounded-full py-2.5 px-4 text-[13px] font-semibold" style={{ background: C.bg, color: C.text2, border: `1px solid ${C.border}` }}>{label}</button>;
+}
+
+// ─── Legacy publish flow (TikTok/Facebook/Instagram history) ──────────────────
 const PUBLISH_LABEL: Record<CampaignPublishStatus, { label: string; color: string; bg: string }> = {
   nao_publicada: { label: "Não publicada", color: "#6B7280", bg: "#F3F4F6" },
   a_publicar:    { label: "A publicar…",   color: "#E65100", bg: "#FFF8E1" },
@@ -199,7 +596,7 @@ function StepCard({ n, title, done, active, children }: {
   );
 }
 
-function PublishFlow({ api, campaign, onUpdate }: {
+function LegacyPublishFlow({ api, campaign, onUpdate }: {
   api: ReturnType<typeof businessApi>;
   campaign: Campaign;
   onUpdate: (c: Campaign) => void;
@@ -572,7 +969,11 @@ export function CampaignDetail() {
   useEffect(() => {
     if (!api) return;
     Promise.all([api.getCampaignById(id), api.getCampaignMetrics(id)])
-      .then(([{ campaign: c }, { metrics: m }]) => { setCampaign(c); setMetrics(m); })
+              .then(([{ campaign: c }, { metrics: m }]) => {
+                setCampaign(c);
+                setMetrics(m);
+                if (c.platform === "meta") setTab("publicar");
+              })
       .catch(() => setError("Não foi possível carregar a campanha"))
       .finally(() => setLoading(false));
   }, [id, api]);
@@ -742,7 +1143,9 @@ export function CampaignDetail() {
 
         {/* Publish tab */}
         {tab === "publicar" && api && (
-          <PublishFlow api={api} campaign={campaign} onUpdate={setCampaign} />
+          campaign.platform === "meta"
+            ? <MetaAdsWizard api={api} campaign={campaign} onUpdate={setCampaign} />
+            : <LegacyPublishFlow api={api} campaign={campaign} onUpdate={setCampaign} />
         )}
 
         {/* Metrics tab */}
