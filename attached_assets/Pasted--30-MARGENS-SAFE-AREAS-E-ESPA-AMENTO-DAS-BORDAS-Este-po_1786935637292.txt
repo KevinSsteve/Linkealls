@@ -1,0 +1,135 @@
+# 30. MARGENS, SAFE AREAS E ESPAÇAMENTO DAS BORDAS
+
+Este ponto é **obrigatório**.
+
+Atualmente alguns elementos e textos estão demasiado próximos das bordas físicas da tela, especialmente na lateral esquerda.
+
+Corrigir isso em toda a aplicação.
+
+## Margens horizontais
+
+Nunca deixar textos, ícones ou componentes principais encostados diretamente nas bordas do viewport.
+
+Usar uma margem/padding horizontal consistente.
+
+Como referência:
+
+* telas de 360 px: aproximadamente 16 px de cada lado
+* telas de 375–390 px: aproximadamente 16–20 px
+* telas de 412 px ou maiores: aproximadamente 20–24 px
+
+O conteúdo deve respirar.
+
+Exemplo:
+
+```css
+padding-inline: 16px;
+```
+
+ou utilizar um token global equivalente.
+
+Não aplicar padding aleatoriamente em cada componente. Criar um sistema consistente de **page horizontal padding**.
+
+## Hierarquia de espaçamento
+
+Revisar também o espaço entre:
+
+* título e subtítulo
+* avatar e nome
+* nome e categoria
+* status e informações
+* seção e conteúdo
+* ícone e texto
+* texto e divisores
+* itens da lista
+* search bar e filtros
+* filtros e lista
+* conteúdo e bottom navigation
+
+O objetivo é eliminar tanto:
+
+**elementos colados**
+
+quanto:
+
+**espaços exageradamente grandes.**
+
+Cada elemento deve ter uma distância visual intencional.
+
+## Safe Area
+
+Garantir suporte para dispositivos com:
+
+* notch
+* câmera frontal
+* rounded corners
+* navigation bar
+* gesture navigation
+
+Utilizar quando necessário:
+
+```css
+padding-top: env(safe-area-inset-top);
+padding-bottom: env(safe-area-inset-bottom);
+```
+
+Especialmente na bottom navigation.
+
+## Conteúdo próximo das bordas
+
+Nenhum texto importante deve ficar visualmente "cortado" ou colado na borda.
+
+Revisar especialmente:
+
+* descrição do negócio
+* endereço
+* horário
+* contacto
+* email
+* website
+* títulos
+* lista de conversas
+* search
+* filtros
+
+## Alinhamento global
+
+Criar uma linha vertical imaginária de alinhamento.
+
+Por exemplo:
+
+[16px] Conteúdo
+
+[16px] Conteúdo
+
+[16px] Conteúdo
+
+[16px] Conteúdo
+
+Todos os elementos principais da página devem respeitar essa mesma linha.
+
+Não permitir que um componente tenha 4 px de margem, outro 8 px e outro 24 px sem uma razão de design.
+
+## Importante
+
+O objetivo não é simplesmente "adicionar padding".
+
+Fazer uma **auditoria visual de espaçamento de toda a tela**.
+
+Verificar:
+
+1. distância dos elementos às bordas
+2. distância entre elementos
+3. alinhamento vertical
+4. alinhamento horizontal
+5. densidade de informação
+6. áreas de toque
+7. safe areas do dispositivo
+
+A interface final deve ter a sensação de que **cada pixel foi intencionalmente posicionado**.
+
+Em caso de dúvida, priorizar:
+
+**respiração + alinhamento + consistência**
+
+em vez de simplesmente colocar mais elementos na tela.

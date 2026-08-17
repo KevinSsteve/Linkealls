@@ -9,19 +9,6 @@ const TABS = [
   { sub: "/mercado",   icon: ShoppingBag,   label: "Mercado",   exact: false },
 ] as const;
 
-// ─── Design tokens — mesma linguagem que o catálogo ──────────────────────────
-const N = {
-  surface:  "#FFFFFF",
-  ink:      "#14171A",
-  inkSoft:  "#6B7280",
-  inkFaint: "#9CA3AF",
-  line:     "#E7E7E3",
-  // tab activo — verde Linkealls
-  activeBg:   "#DCFCE7",
-  activeInk:  "#15803D",
-  activeText: "#14171A",
-} as const;
-
 export function OwnerNav() {
   const [location] = useLocation();
   const slug = useBusinessSlug();
@@ -31,9 +18,9 @@ export function OwnerNav() {
     <nav
       className="flex-shrink-0 flex items-stretch"
       style={{
-        background: N.surface,
-        borderTop: `1px solid ${N.line}`,
-        paddingBottom: "env(safe-area-inset-bottom, 0)",
+        background: "#FFFFFF",
+        borderTop: "1px solid #E5E7EB",
+        paddingBottom: "env(safe-area-inset-bottom, 0px)",
       }}
     >
       {TABS.map(({ sub, icon: Icon, label, exact }) => {
@@ -45,28 +32,21 @@ export function OwnerNav() {
           <Link
             key={path}
             href={path}
-            className="flex-1 flex flex-col items-center justify-center gap-1 pt-2 pb-2 transition-colors select-none"
+            className="flex-1 flex flex-col items-center justify-center gap-1.5 py-2.5 transition-colors select-none active:opacity-70"
+            aria-label={label}
           >
-            {/* Pill activo */}
+            <Icon
+              size={23}
+              strokeWidth={active ? 2.25 : 1.75}
+              style={{ color: active ? "#16A34A" : "#9CA3AF" }}
+            />
             <span
-              className="flex items-center justify-center rounded-full transition-all"
               style={{
-                width: 52,
-                height: 30,
-                background: active ? N.activeBg : "transparent",
-              }}
-            >
-              <Icon
-                size={20}
-                strokeWidth={active ? 2.5 : 1.8}
-                style={{ color: active ? N.activeInk : N.inkFaint }}
-              />
-            </span>
-            <span
-              className="text-[10.5px] leading-none"
-              style={{
-                color: active ? N.ink : N.inkFaint,
-                fontWeight: active ? 700 : 500,
+                fontSize: 11.5,
+                lineHeight: 1,
+                color: active ? "#16A34A" : "#9CA3AF",
+                fontWeight: active ? 600 : 400,
+                letterSpacing: "0.01em",
               }}
             >
               {label}

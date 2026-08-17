@@ -3,8 +3,9 @@ import { Link } from "wouter";
 import {
   Globe, Sparkles, Loader2, AlertCircle, CheckCircle2,
   Zap, Grid3x3, Megaphone, Users, ChevronRight, X, Store,
-  MessageSquare, Phone, RefreshCw, Edit2, Share2, MoreHorizontal,
+  MessageSquare, Phone, RefreshCw, Edit2, Share2, MoreVertical,
   MapPin, Clock, Mail, Image, ShoppingCart, Wallet, Crown,
+  ExternalLink,
 } from "lucide-react";
 import { OwnerNav } from "../components/owner/OwnerNav";
 import {
@@ -18,35 +19,33 @@ import { ProfileEditor } from "../components/owner/ProfileEditor";
 import { WaSkeletonList } from "../components/wa/WaSkeletonList";
 
 type View = "loading" | "start" | "analyzing" | "editor";
-
 const POLL_MS = 2500;
 
-// ─── Design tokens locais ────────────────────────────────────────────────────
+// ─── Design tokens (alinhados com o brief premium) ───────────────────────────
 const D = {
-  bg:       "#F6F6F4",
-  surface:  "#FFFFFF",
-  ink:      "#14171A",
-  inkSoft:  "#6B7280",
-  inkFaint: "#9CA3AF",
-  line:     "#E7E7E3",
-  lineSoft: "#F0F0EC",
-  subtle:   "#F2F2EF",
-  green:    "#16A34A",
-  greenDk:  "#15803D",
-  greenLt:  "#DCFCE7",
-  greenMuted:"#F0FDF4",
-  errorBg:  "#FEF2F2",
-  errorText:"#DC2626",
-  errorBorder:"#FECACA",
-  successBg:"#F0FDF4",
-  successText:"#15803D",
-  successBorder:"#BBF7D0",
-  rCard:    "20px",
-  rBtn:     "999px",
-  rInput:   "12px",
+  bg:            "#F8F9FA",
+  surface:       "#FFFFFF",
+  ink:           "#111111",
+  inkSoft:       "#6B7280",
+  inkFaint:      "#9CA3AF",
+  border:        "#E5E7EB",
+  borderSoft:    "#F3F4F6",
+  subtle:        "#F3F4F6",
+  green:         "#16A34A",
+  greenDk:       "#15803D",
+  greenLt:       "#DCFCE7",
+  greenMuted:    "#F0FDF4",
+  errorBg:       "#FEF2F2",
+  errorText:     "#DC2626",
+  errorBorder:   "#FECACA",
+  successBg:     "#F0FDF4",
+  successText:   "#15803D",
+  successBorder: "#BBF7D0",
+  rCard:         16,   // px number for template literals
+  rInput:        12,
 } as const;
 
-// ─── Avatar palette (deterministic from name) ─────────────────────────────────
+// ─── Avatar palette ───────────────────────────────────────────────────────────
 const PALETTES = [
   { bg: "#DCFCE7", text: "#15803D" },
   { bg: "#DBEAFE", text: "#1D4ED8" },
@@ -62,70 +61,70 @@ function avatarPalette(name: string) {
   for (const c of name) h = (h * 31 + c.charCodeAt(0)) & 0xffffffff;
   return PALETTES[Math.abs(h) % PALETTES.length]!;
 }
+function initials(name: string) {
+  return name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "N";
+}
 
-// ─── Section header — label editorial pequena em caps ──────────────────────────
-function SectionHeader({ label }: { label: string }) {
+// ─── Section header — small caps label ───────────────────────────────────────
+function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ padding: "28px 20px 10px" }}>
-      <p
-        className="font-semibold uppercase tracking-widest"
-        style={{ color: D.inkFaint, fontSize: 10.5, letterSpacing: "0.13em" }}
-      >
-        {label}
+    <div style={{ paddingLeft: 20, paddingRight: 20, paddingTop: 28, paddingBottom: 8 }}>
+      <p style={{
+        color: D.inkFaint,
+        fontSize: 11,
+        fontWeight: 600,
+        letterSpacing: "0.09em",
+        textTransform: "uppercase",
+      }}>
+        {children}
       </p>
     </div>
   );
 }
 
-// ─── Section list wrapper ─────────────────────────────────────────────────────
-function SectionList({ children }: { children: React.ReactNode }) {
-  return (
-    <div
-      className="mx-5 overflow-hidden"
-      style={{
-        background: D.surface,
-        border: `1px solid ${D.line}`,
-        borderRadius: D.rCard,
-      }}
-    >
-      {children}
-    </div>
-  );
+// ─── Divider ──────────────────────────────────────────────────────────────────
+function Divider() {
+  return <div style={{ height: 1, background: D.borderSoft, marginLeft: 20 }} />;
 }
 
-// ─── Tool row — navigation link ───────────────────────────────────────────────
+// ─── Tool row (navigation) ────────────────────────────────────────────────────
 function ToolRow({ icon: Icon, title, description, href, last = false }: {
   icon: React.ElementType; title: string; description: string; href: string; last?: boolean;
 }) {
   return (
     <Link href={href}>
       <div
-        className="flex items-center gap-3.5 px-4 py-3.5 cursor-pointer transition-colors active:bg-[#F0F0EC]"
-        style={{ borderBottom: last ? "none" : `1px solid ${D.lineSoft}` }}
+        className="flex items-center gap-3 px-5 transition-colors active:bg-gray-50"
+        style={{
+          paddingTop: 12,
+          paddingBottom: 12,
+          borderBottom: last ? "none" : `1px solid ${D.borderSoft}`,
+          background: D.surface,
+        }}
       >
         <div
           className="flex items-center justify-center shrink-0"
           style={{
-            width: 38,
-            height: 38,
-            borderRadius: 12,
+            width: 36,
+            height: 36,
+            borderRadius: 10,
             background: D.subtle,
-            border: `1px solid ${D.line}`,
+            border: `1px solid ${D.border}`,
           }}
         >
-          <Icon size={17} style={{ color: D.inkSoft }} strokeWidth={1.8} />
+          <Icon size={16} style={{ color: D.inkSoft }} strokeWidth={1.75} />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-medium leading-tight" style={{ color: D.ink, fontSize: 14.5 }}>{title}</p>
-          <p className="mt-0.5 leading-snug" style={{ color: D.inkFaint, fontSize: 12.5 }}>{description}</p>
+          <p style={{ color: D.ink, fontSize: 15, fontWeight: 500, lineHeight: 1.3 }}>{title}</p>
+          <p style={{ color: D.inkFaint, fontSize: 13, marginTop: 1 }}>{description}</p>
         </div>
-        <ChevronRight size={15} style={{ color: D.inkFaint }} className="shrink-0" />
+        <ChevronRight size={15} style={{ color: D.inkFaint }} strokeWidth={1.75} />
       </div>
     </Link>
   );
 }
 
-// ─── Action row — button ──────────────────────────────────────────────────────
+// ─── Action row (button) ──────────────────────────────────────────────────────
 function ActionRow({ icon: Icon, title, description, onClick, loading = false, last = false }: {
   icon: React.ElementType; title: string; description: string;
   onClick: () => void; loading?: boolean; last?: boolean;
@@ -134,118 +133,147 @@ function ActionRow({ icon: Icon, title, description, onClick, loading = false, l
     <button
       onClick={onClick}
       disabled={loading}
-      className="w-full flex items-center gap-3.5 px-4 py-3.5 transition-colors active:bg-[#F0F0EC] text-left disabled:opacity-50"
-      style={{ borderBottom: last ? "none" : `1px solid ${D.lineSoft}` }}
+      className="w-full flex items-center gap-3 px-5 text-left transition-colors active:bg-gray-50 disabled:opacity-50"
+      style={{
+        paddingTop: 12,
+        paddingBottom: 12,
+        borderBottom: last ? "none" : `1px solid ${D.borderSoft}`,
+        background: D.surface,
+      }}
     >
       <div
         className="flex items-center justify-center shrink-0"
         style={{
-          width: 38,
-          height: 38,
-          borderRadius: 12,
+          width: 36,
+          height: 36,
+          borderRadius: 10,
           background: D.subtle,
-          border: `1px solid ${D.line}`,
+          border: `1px solid ${D.border}`,
         }}
       >
         {loading
-          ? <Loader2 size={17} style={{ color: D.inkSoft }} className="animate-spin" />
-          : <Icon size={17} style={{ color: D.inkSoft }} strokeWidth={1.8} />}
+          ? <Loader2 size={16} style={{ color: D.inkSoft }} className="animate-spin" />
+          : <Icon size={16} style={{ color: D.inkSoft }} strokeWidth={1.75} />}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="font-medium leading-tight" style={{ color: D.ink, fontSize: 14.5 }}>{title}</p>
-        <p className="mt-0.5 leading-snug" style={{ color: D.inkFaint, fontSize: 12.5 }}>{description}</p>
+        <p style={{ color: D.ink, fontSize: 15, fontWeight: 500, lineHeight: 1.3 }}>{title}</p>
+        <p style={{ color: D.inkFaint, fontSize: 13, marginTop: 1 }}>{description}</p>
       </div>
-      <ChevronRight size={15} style={{ color: D.inkFaint }} className="shrink-0" />
+      <ChevronRight size={15} style={{ color: D.inkFaint }} strokeWidth={1.75} />
     </button>
   );
 }
 
-// ─── Info row — dados do perfil ──────────────────────────────────────────────
-function InfoRow({
-  icon: Icon, label, value, placeholder, last = false,
+// ─── Info field (section row) — continuous content style ─────────────────────
+function InfoField({
+  label, value, placeholder, link = false, onAdd, last = false,
 }: {
-  icon: React.ElementType; label: string; value?: string | null;
-  placeholder: string; last?: boolean;
+  label: string;
+  value?: string | null;
+  placeholder: string;
+  link?: boolean;
+  onAdd?: () => void;
+  last?: boolean;
 }) {
   const isEmpty = !value?.trim();
   return (
-    <div
-      className="px-4 py-3.5"
-      style={{ borderBottom: last ? "none" : `1px solid ${D.lineSoft}` }}
-    >
-      <div className="flex items-center gap-1.5 mb-1">
-        <Icon size={12} style={{ color: D.inkFaint }} strokeWidth={2} />
-        <p
-          className="font-semibold uppercase tracking-wider"
-          style={{ color: D.inkFaint, fontSize: 10, letterSpacing: "0.11em" }}
-        >
+    <div>
+      <div
+        className="px-5"
+        style={{ paddingTop: 14, paddingBottom: 14 }}
+      >
+        <p style={{ color: D.inkFaint, fontSize: 12, fontWeight: 600, letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 4 }}>
           {label}
         </p>
+        {isEmpty ? (
+          <button
+            onClick={onAdd}
+            className="text-left"
+            style={{ color: D.inkFaint, fontSize: 15 }}
+          >
+            {placeholder}
+          </button>
+        ) : link ? (
+          <a
+            href={value!.startsWith("http") ? value! : `https://${value}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5"
+            style={{ color: D.green, fontSize: 15, fontWeight: 500 }}
+          >
+            {value!.replace(/^https?:\/\//, "")}
+            <ExternalLink size={13} strokeWidth={1.75} />
+          </a>
+        ) : (
+          <p style={{ color: D.ink, fontSize: 15, lineHeight: 1.55 }}>{value}</p>
+        )}
       </div>
-      <p
-        className="leading-relaxed pl-4 whitespace-pre-wrap"
-        style={{ color: isEmpty ? D.inkFaint : D.ink, fontSize: 14 }}
-      >
-        {isEmpty ? placeholder : value}
-      </p>
+      {!last && <Divider />}
     </div>
   );
 }
 
-// ─── Destaque tile ─────────────────────────────────────────────────────────────
-function DestaqueTile({ offering }: { offering: Offering }) {
+// ─── Offering tile (featured) ─────────────────────────────────────────────────
+function FeaturedTile({ offering }: { offering: Offering }) {
   const pal = avatarPalette(offering.name);
   return (
-    <div className="flex flex-col items-center gap-2 w-20 shrink-0">
+    <div className="flex flex-col items-center gap-2" style={{ width: 72 }}>
       <div
-        className="w-[60px] h-[60px] rounded-2xl overflow-hidden flex items-center justify-center"
-        style={{ background: offering.imageUrl ? "transparent" : pal.bg, border: `1px solid ${D.line}` }}
+        className="flex items-center justify-center overflow-hidden"
+        style={{
+          width: 60, height: 60,
+          borderRadius: 14,
+          background: offering.imageUrl ? "transparent" : pal.bg,
+          border: `1px solid ${D.border}`,
+        }}
       >
         {offering.imageUrl
           ? <img src={offering.imageUrl} alt={offering.name} className="w-full h-full object-cover" />
-          : <span className="text-[20px] font-bold" style={{ color: pal.text }}>
-              {offering.name[0]?.toUpperCase() ?? "·"}
-            </span>
-        }
+          : <span style={{ color: pal.text, fontSize: 20, fontWeight: 700 }}>{offering.name[0]?.toUpperCase()}</span>}
       </div>
-      <p
-        className="text-center leading-tight line-clamp-2 font-medium"
-        style={{ color: D.inkSoft, fontSize: 11 }}
-      >
+      <p style={{ color: D.inkSoft, fontSize: 11, textAlign: "center", lineHeight: 1.3 }} className="line-clamp-2">
         {offering.name}
       </p>
     </div>
   );
 }
 
-// ─── Catalog product row ───────────────────────────────────────────────────────
+// ─── Catalog row ──────────────────────────────────────────────────────────────
 function CatalogRow({ offering, last = false }: { offering: Offering; last?: boolean }) {
   const pal = avatarPalette(offering.name);
   return (
     <div
-      className="flex items-center gap-3 px-4 py-3"
-      style={{ borderBottom: last ? "none" : `1px solid ${D.lineSoft}` }}
+      className="flex items-center gap-3 px-5"
+      style={{
+        paddingTop: 12,
+        paddingBottom: 12,
+        borderBottom: last ? "none" : `1px solid ${D.borderSoft}`,
+      }}
     >
       <div
-        className="w-11 h-11 rounded-xl overflow-hidden flex items-center justify-center shrink-0"
-        style={{ background: offering.imageUrl ? "transparent" : pal.bg, border: `1px solid ${D.line}` }}
+        className="flex items-center justify-center overflow-hidden shrink-0"
+        style={{
+          width: 42, height: 42,
+          borderRadius: 10,
+          background: offering.imageUrl ? "transparent" : pal.bg,
+          border: `1px solid ${D.border}`,
+        }}
       >
         {offering.imageUrl
           ? <img src={offering.imageUrl} alt={offering.name} className="w-full h-full object-cover" />
-          : <Image size={16} style={{ color: pal.text }} />
-        }
+          : <Image size={15} style={{ color: pal.text }} strokeWidth={1.75} />}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="font-medium leading-tight truncate" style={{ color: D.ink, fontSize: 14 }}>{offering.name}</p>
+        <p style={{ color: D.ink, fontSize: 14, fontWeight: 500 }} className="truncate">{offering.name}</p>
         {offering.price && (
-          <p className="mt-0.5 font-semibold" style={{ color: D.green, fontSize: 13 }}>{offering.price}</p>
+          <p style={{ color: D.green, fontSize: 13, fontWeight: 600, marginTop: 1 }}>{offering.price}</p>
         )}
       </div>
     </div>
   );
 }
 
-// ─── Profile View ─────────────────────────────────────────────────────────────
+// ─── Profile View (main view of the owner panel) ──────────────────────────────
 function ProfileView({
   profile, slug, onEdit, onReanalyze, reanalyzing,
 }: {
@@ -256,16 +284,15 @@ function ProfileView({
   reanalyzing: boolean;
 }) {
   const pal = avatarPalette(profile.name || "N");
-  const initials = profile.name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "N";
+  const inits = initials(profile.name);
   const isActive = profile.catalogEnabled && profile.offerings.length > 0;
   const featured = profile.offerings.filter((o) => o.featured);
-  const previewOfferings = profile.offerings.slice(0, 3);
-  const catalogUrl = `${typeof window !== "undefined" ? window.location.origin : ""}${import.meta.env.BASE_URL}e/${slug}/catalogo`;
+  const previewOfferings = profile.offerings.slice(0, 4);
 
+  const catalogUrl = `${typeof window !== "undefined" ? window.location.origin : ""}${import.meta.env.BASE_URL}e/${slug}/catalogo`;
   const handleShare = async () => {
     if (navigator.share) {
-      try { await navigator.share({ title: profile.name, url: catalogUrl }); return; }
-      catch { /* dismissed */ }
+      try { await navigator.share({ title: profile.name, url: catalogUrl }); return; } catch { /* dismissed */ }
     }
     try { await navigator.clipboard.writeText(catalogUrl); } catch { /* ignore */ }
   };
@@ -273,207 +300,174 @@ function ProfileView({
   return (
     <div style={{ paddingBottom: 32 }}>
 
-      {/* ── Bloco de identidade ─────────────────────────────────────────────── */}
-      <div
-        className="mx-5 mt-5 overflow-hidden"
-        style={{
-          background: D.surface,
-          border: `1px solid ${D.line}`,
-          borderRadius: D.rCard,
-        }}
-      >
-        {/* Avatar + nome + sector */}
-        <div className="flex items-center gap-4 px-5 pt-5 pb-4">
+      {/* ─── Identity block ──────────────────────────────────────────────────── */}
+      <div style={{ background: D.surface, borderBottom: `1px solid ${D.border}`, paddingBottom: 4 }}>
+        {/* Avatar + name + sector */}
+        <div
+          className="flex items-start gap-4"
+          style={{ padding: "20px 20px 16px" }}
+        >
+          {/* Avatar */}
           <div
             className="flex items-center justify-center shrink-0 font-bold"
             style={{
-              width: 68,
-              height: 68,
-              borderRadius: 18,
+              width: 68, height: 68,
+              borderRadius: "50%",
               background: pal.bg,
               color: pal.text,
-              fontSize: 26,
+              fontSize: 24,
+              border: `1.5px solid ${D.border}`,
             }}
           >
-            {initials}
+            {inits}
           </div>
-          <div className="flex-1 min-w-0">
+
+          {/* Name + sector + status */}
+          <div className="flex-1 min-w-0" style={{ paddingTop: 4 }}>
             <h2
-              className="font-bold leading-tight"
-              style={{ color: D.ink, fontSize: 18 }}
+              className="leading-tight"
+              style={{ color: D.ink, fontSize: 20, fontWeight: 700, letterSpacing: "-0.3px" }}
             >
               {profile.name}
             </h2>
             {profile.sector && (
               <p
-                className="mt-1 leading-snug line-clamp-1"
-                style={{ color: D.inkSoft, fontSize: 13 }}
+                className="mt-1 leading-snug"
+                style={{ color: D.inkSoft, fontSize: 14 }}
               >
                 {profile.sector}
               </p>
             )}
-            <span
-              className="inline-flex items-center gap-1.5 mt-2 rounded-full font-semibold"
-              style={{
-                fontSize: 11,
-                paddingLeft: 10,
-                paddingRight: 10,
-                paddingTop: 3,
-                paddingBottom: 3,
-                background: isActive ? D.greenLt : D.subtle,
-                color: isActive ? D.greenDk : D.inkFaint,
-              }}
-            >
+            <div className="flex items-center gap-1.5 mt-2">
               <span
-                className="w-1.5 h-1.5 rounded-full inline-block"
-                style={{ background: isActive ? D.green : D.inkFaint }}
+                className="inline-block rounded-full"
+                style={{
+                  width: 7,
+                  height: 7,
+                  background: isActive ? D.green : D.inkFaint,
+                  flexShrink: 0,
+                }}
               />
-              {isActive ? "Ativo" : "Inativo"}
-            </span>
+              <span style={{ color: D.inkSoft, fontSize: 13 }}>
+                {isActive ? "Ativo" : "Inativo"}
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* 4 acções rápidas */}
+        {/* Action toolbar — 4 compact actions */}
         <div
-          className="grid grid-cols-4 px-3 pt-3 pb-4"
-          style={{ borderTop: `1px solid ${D.lineSoft}` }}
+          className="grid grid-cols-4"
+          style={{ borderTop: `1px solid ${D.borderSoft}`, margin: "0 20px" }}
         >
           {[
-            { icon: Edit2,          label: "Editar",    action: onEdit },
-            { icon: Grid3x3,        label: "Catálogo",  href: `/e/${slug}/catalogo` },
-            { icon: Share2,         label: "Partilhar", action: handleShare },
-            { icon: MoreHorizontal, label: "Mais",      href: `/e/${slug}/dono/assistente` },
+            { icon: Edit2,        label: "Editar",    action: onEdit,      href: undefined },
+            { icon: Grid3x3,      label: "Catálogo",  action: undefined,   href: `/e/${slug}/catalogo` },
+            { icon: Share2,       label: "Partilhar", action: handleShare, href: undefined },
+            { icon: MoreVertical, label: "Mais",      action: onEdit,      href: undefined },
           ].map(({ icon: Icon, label, action, href }) => {
             const inner = (
-              <div className="flex flex-col items-center gap-2 pt-2 pb-1 px-1">
-                <div
-                  className="flex items-center justify-center"
-                  style={{
-                    width: 44,
-                    height: 44,
-                    borderRadius: 14,
-                    background: D.subtle,
-                    border: `1px solid ${D.line}`,
-                  }}
-                >
-                  <Icon size={18} style={{ color: D.inkSoft }} strokeWidth={1.8} />
-                </div>
-                <span
-                  className="font-medium"
-                  style={{ color: D.inkSoft, fontSize: 11 }}
-                >
-                  {label}
-                </span>
+              <div
+                className="flex flex-col items-center gap-1.5 transition-opacity active:opacity-50"
+                style={{ paddingTop: 14, paddingBottom: 12 }}
+              >
+                <Icon size={20} strokeWidth={1.75} style={{ color: D.inkSoft }} />
+                <span style={{ color: D.inkSoft, fontSize: 11.5, fontWeight: 500 }}>{label}</span>
               </div>
             );
             return href ? (
               <Link key={label} href={href}>{inner}</Link>
             ) : (
-              <button key={label} onClick={action} className="w-full active:opacity-70 transition-opacity">{inner}</button>
+              <button key={label} className="w-full" onClick={action}>{inner}</button>
             );
           })}
         </div>
       </div>
 
-      {/* ── Info ────────────────────────────────────────────────────────────── */}
-      <SectionHeader label="Informações" />
-      <SectionList>
-        <InfoRow icon={Sparkles} label="Descrição" value={profile.description} placeholder="Adicionar descrição…" />
-        <InfoRow icon={MapPin}   label="Endereço"  value={profile.address}     placeholder="Adicionar endereço…" />
-        <InfoRow icon={Clock}    label="Horário"   value={profile.hours}       placeholder="Adicionar horário…" />
-        <InfoRow icon={Phone}    label="Contacto"  value={profile.phone}       placeholder="Adicionar contacto…" />
-        <InfoRow icon={Mail}     label="E-mail"    value={profile.email}       placeholder="Adicionar e-mail…" />
-        <InfoRow icon={Globe}    label="Website"   value={profile.websiteUrl}  placeholder="Adicionar website…" last />
-      </SectionList>
+      {/* ─── Info section — continuous content, no wrapping card ─────────────── */}
+      <SectionLabel>Informações</SectionLabel>
+      <div style={{ background: D.surface, borderTop: `1px solid ${D.border}`, borderBottom: `1px solid ${D.border}` }}>
+        <InfoField label="Descrição"  value={profile.description} placeholder="Adicionar descrição"  onAdd={onEdit} />
+        <InfoField label="Endereço"   value={profile.address}     placeholder="Adicionar endereço"   onAdd={onEdit} />
+        <InfoField label="Horário"    value={profile.hours}       placeholder="Adicionar horário"    onAdd={onEdit} />
+        <InfoField label="Contacto"   value={profile.phone}       placeholder="Adicionar contacto"   onAdd={onEdit} />
+        <InfoField label="E-mail"     value={profile.email}       placeholder="Adicionar e-mail"     onAdd={onEdit} />
+        <InfoField label="Website"    value={profile.websiteUrl}  placeholder="Adicionar website"    onAdd={onEdit} link last />
+      </div>
 
-      {/* ── Destaques ───────────────────────────────────────────────────────── */}
+      {/* ─── Destaques ───────────────────────────────────────────────────────── */}
       {featured.length > 0 && (
         <>
-          <div className="flex items-center justify-between px-5 pt-6 pb-2">
-            <p
-              className="font-semibold uppercase tracking-widest"
-              style={{ color: D.inkFaint, fontSize: 10.5, letterSpacing: "0.13em" }}
-            >
+          <div className="flex items-center justify-between" style={{ padding: "28px 20px 8px" }}>
+            <p style={{ color: D.inkFaint, fontSize: 11, fontWeight: 600, letterSpacing: "0.09em", textTransform: "uppercase" }}>
               Destaques
             </p>
-            <button
-              onClick={onEdit}
-              className="font-semibold"
-              style={{ color: D.green, fontSize: 13 }}
-            >
-              Gerir
-            </button>
+            <button onClick={onEdit} style={{ color: D.green, fontSize: 13, fontWeight: 600 }}>Gerir</button>
           </div>
-          <SectionList>
-            <div className="flex gap-4 px-4 py-4 overflow-x-auto scrollbar-none">
-              {featured.map((o, i) => <DestaqueTile key={i} offering={o} />)}
+          <div style={{ background: D.surface, borderTop: `1px solid ${D.border}`, borderBottom: `1px solid ${D.border}` }}>
+            <div className="flex gap-4 px-5 py-4 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+              {featured.map((o, i) => <FeaturedTile key={i} offering={o} />)}
             </div>
-          </SectionList>
+          </div>
         </>
       )}
 
-      {/* ── Catálogo preview ─────────────────────────────────────────────────── */}
+      {/* ─── Catálogo preview ─────────────────────────────────────────────────── */}
       {previewOfferings.length > 0 && (
         <>
-          <div className="flex items-center justify-between px-5 pt-6 pb-2">
-            <p
-              className="font-semibold uppercase tracking-widest"
-              style={{ color: D.inkFaint, fontSize: 10.5, letterSpacing: "0.13em" }}
-            >
+          <div className="flex items-center justify-between" style={{ padding: "28px 20px 8px" }}>
+            <p style={{ color: D.inkFaint, fontSize: 11, fontWeight: 600, letterSpacing: "0.09em", textTransform: "uppercase" }}>
               Catálogo
             </p>
             <Link href={`/e/${slug}/catalogo`}>
-              <span className="font-semibold" style={{ color: D.green, fontSize: 13 }}>Ver tudo</span>
+              <span style={{ color: D.green, fontSize: 13, fontWeight: 600 }}>Ver tudo</span>
             </Link>
           </div>
-          <SectionList>
+          <div style={{ background: D.surface, borderTop: `1px solid ${D.border}`, borderBottom: `1px solid ${D.border}` }}>
             {previewOfferings.map((o, i) => (
               <CatalogRow key={i} offering={o} last={i === previewOfferings.length - 1} />
             ))}
-            <Link href={`/e/${slug}/catalogo`}>
-              <div
-                className="flex items-center justify-center py-3 px-4"
-                style={{ borderTop: `1px solid ${D.lineSoft}` }}
-              >
-                <span className="font-semibold" style={{ color: D.green, fontSize: 13 }}>
+            <div style={{ borderTop: `1px solid ${D.borderSoft}` }}>
+              <Link href={`/e/${slug}/catalogo`}>
+                <p className="text-center" style={{ padding: "12px 20px", color: D.green, fontSize: 14, fontWeight: 600 }}>
                   Ver catálogo completo →
-                </span>
-              </div>
-            </Link>
-          </SectionList>
+                </p>
+              </Link>
+            </div>
+          </div>
         </>
       )}
 
-      {/* ── O teu negócio ───────────────────────────────────────────────────── */}
-      <SectionHeader label="O teu negócio" />
-      <SectionList>
-        <ToolRow icon={Grid3x3}   title="Catálogo"      description="Exibe os teus produtos e serviços"      href={`/e/${slug}/catalogo`} />
+      {/* ─── O teu negócio ───────────────────────────────────────────────────── */}
+      <SectionLabel>O teu negócio</SectionLabel>
+      <div style={{ background: D.surface, borderTop: `1px solid ${D.border}`, borderBottom: `1px solid ${D.border}` }}>
+        <ToolRow icon={Grid3x3}   title="Catálogo"      description="Exibe produtos e serviços"                href={`/e/${slug}/catalogo`} />
         <ToolRow icon={Zap}       title="Assistente IA" description="Responde automaticamente, 24h por dia"   href={`/e/${slug}/dono/assistente`} />
-        <ToolRow icon={Megaphone} title="Campanhas"     description="Cria anúncios para trazer mais clientes" href={`/e/${slug}/dono/campanhas`} last />
-      </SectionList>
+        <ToolRow icon={Megaphone} title="Campanhas"     description="Anúncios para trazer mais clientes"      href={`/e/${slug}/dono/campanhas`} last />
+      </div>
 
-      {/* ── Pagamentos ──────────────────────────────────────────────────────── */}
-      <SectionHeader label="Pagamentos" />
-      <SectionList>
+      {/* ─── Pagamentos ──────────────────────────────────────────────────────── */}
+      <SectionLabel>Pagamentos</SectionLabel>
+      <div style={{ background: D.surface, borderTop: `1px solid ${D.border}`, borderBottom: `1px solid ${D.border}` }}>
         <ToolRow icon={ShoppingCart} title="Vendas"   description="Encomendas pagas no catálogo"               href={`/e/${slug}/dono/vendas`} />
         <ToolRow icon={Wallet}       title="Carteira" description="Saldo, extracto e saques"                   href={`/e/${slug}/dono/carteira`} />
         <ToolRow icon={Crown}        title="Plano"    description="Subscrição Linkealls — 10.000 Kz / 30 dias" href={`/e/${slug}/dono/plano`} last />
-      </SectionList>
+      </div>
 
-      {/* ── Leads & conversas ───────────────────────────────────────────────── */}
-      <SectionHeader label="Leads & Conversas" />
-      <SectionList>
-        <ToolRow icon={Users}         title="Leads"      description="Gere todos os contactos qualificados"    href={`/e/${slug}/dono/leads`} />
-        <ToolRow icon={MessageSquare} title="Conversas"  description="Historial de conversas com os clientes"  href={`/e/${slug}/dono/conversas`} last />
-      </SectionList>
+      {/* ─── Leads & Conversas ───────────────────────────────────────────────── */}
+      <SectionLabel>Leads &amp; Conversas</SectionLabel>
+      <div style={{ background: D.surface, borderTop: `1px solid ${D.border}`, borderBottom: `1px solid ${D.border}` }}>
+        <ToolRow icon={Users}         title="Leads"     description="Todos os contactos qualificados"       href={`/e/${slug}/dono/leads`} />
+        <ToolRow icon={MessageSquare} title="Conversas" description="Historial de conversas com clientes"   href={`/e/${slug}/dono/conversas`} last />
+      </div>
 
-      {/* ── Configurar ──────────────────────────────────────────────────────── */}
-      <SectionHeader label="Configurar" />
-      <SectionList>
+      {/* ─── Configurar ──────────────────────────────────────────────────────── */}
+      <SectionLabel>Configurar</SectionLabel>
+      <div style={{ background: D.surface, borderTop: `1px solid ${D.border}`, borderBottom: `1px solid ${D.border}` }}>
         <ToolRow
           icon={Phone}
           title="Testar chamada"
-          description="Fala com o teu assistente IA como um cliente"
+          description="Fala com o assistente IA como um cliente"
           href={`/e/${slug}`}
           last={!profile.websiteUrl}
         />
@@ -481,13 +475,13 @@ function ProfileView({
           <ActionRow
             icon={RefreshCw}
             title="Reanalisar site"
-            description="Actualiza o perfil com as últimas informações do site"
+            description="Actualiza o perfil com info do site"
             onClick={() => onReanalyze(profile.websiteUrl ?? "")}
             loading={reanalyzing}
             last
           />
         )}
-      </SectionList>
+      </div>
     </div>
   );
 }
@@ -619,43 +613,63 @@ export function Owner() {
 
       {/* ── Header ────────────────────────────────────────────────────────── */}
       <header
-        className="shrink-0 flex items-center justify-between px-5 pt-6 pb-3"
-        style={{ background: D.surface, borderBottom: `1px solid ${D.line}` }}
+        className="flex items-center justify-between shrink-0"
+        style={{
+          background: D.surface,
+          borderBottom: `1px solid ${D.border}`,
+          paddingLeft: 20,
+          paddingRight: 20,
+          paddingTop: 16,
+          paddingBottom: 16,
+        }}
       >
-        <h1
-          className="font-bold tracking-tight"
-          style={{ color: D.ink, fontSize: 22, letterSpacing: "-0.3px" }}
-        >
+        <h1 style={{ color: D.ink, fontSize: 20, fontWeight: 700, letterSpacing: "-0.2px" }}>
           {editing ? "Editar perfil" : "Perfil do negócio"}
         </h1>
         {!editing && (
-          <Link href={`/e/${slug}`} title="Ver página pública">
-            <Store size={19} strokeWidth={1.8} style={{ color: D.inkFaint }} />
+          <Link href={`/e/${slug}`} aria-label="Ver página pública">
+            <Store size={20} strokeWidth={1.75} style={{ color: D.inkFaint }} />
           </Link>
         )}
       </header>
 
-      {/* ── Alertas ───────────────────────────────────────────────────────── */}
+      {/* ── Alerts ────────────────────────────────────────────────────────── */}
       {(error || notice) && (
-        <div className="shrink-0 px-5 pt-3">
+        <div style={{ padding: "12px 20px 0" }}>
           {error && (
             <div
-              className="flex items-start gap-2 rounded-xl px-4 py-3"
-              style={{ background: D.errorBg, border: `1px solid ${D.errorBorder}`, color: D.errorText, fontSize: 13 }}
+              className="flex items-start gap-2"
+              style={{
+                background: D.errorBg,
+                border: `1px solid ${D.errorBorder}`,
+                color: D.errorText,
+                borderRadius: 12,
+                padding: "12px 14px",
+                fontSize: 13,
+                lineHeight: 1.5,
+              }}
             >
-              <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+              <AlertCircle size={15} className="shrink-0 mt-0.5" />
               <span className="flex-1">{error}</span>
-              <button onClick={() => setError(null)} className="shrink-0"><X size={14} /></button>
+              <button onClick={() => setError(null)} aria-label="Fechar"><X size={14} /></button>
             </div>
           )}
           {notice && !error && (
             <div
-              className="flex items-start gap-2 rounded-xl px-4 py-3"
-              style={{ background: D.successBg, border: `1px solid ${D.successBorder}`, color: D.successText, fontSize: 13 }}
+              className="flex items-start gap-2"
+              style={{
+                background: D.successBg,
+                border: `1px solid ${D.successBorder}`,
+                color: D.successText,
+                borderRadius: 12,
+                padding: "12px 14px",
+                fontSize: 13,
+                lineHeight: 1.5,
+              }}
             >
-              <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
+              <CheckCircle2 size={15} className="shrink-0 mt-0.5" />
               <span className="flex-1">{notice}</span>
-              <button onClick={() => setNotice(null)} className="shrink-0"><X size={14} /></button>
+              <button onClick={() => setNotice(null)} aria-label="Fechar"><X size={14} /></button>
             </div>
           )}
         </div>
@@ -665,105 +679,86 @@ export function Owner() {
 
         {/* ── Loading ─────────────────────────────────────────────────────── */}
         {view === "loading" && (
-          <div className="pt-4">
-            <WaSkeletonList count={4} showAvatar={false} />
+          <div style={{ paddingTop: 16 }}>
+            <WaSkeletonList count={5} showAvatar={false} />
           </div>
         )}
 
-        {/* ── Start: formulário de configuração ───────────────────────────── */}
+        {/* ── Start ───────────────────────────────────────────────────────── */}
         {view === "start" && (
           <div>
             {promoVisible && (
-              <div className="mx-5 mt-5">
+              <div style={{ margin: "20px 20px 0" }}>
                 <div
-                  className="rounded-2xl p-4 flex gap-3 relative"
-                  style={{ background: D.surface, border: `1px solid ${D.line}` }}
+                  className="flex gap-3 relative"
+                  style={{
+                    background: D.surface,
+                    border: `1px solid ${D.border}`,
+                    borderRadius: D.rCard,
+                    padding: 16,
+                  }}
                 >
                   <button
                     onClick={() => setPromoVisible(false)}
-                    className="absolute top-3 right-3"
-                    style={{ color: D.inkFaint }}
+                    className="absolute"
+                    style={{ top: 12, right: 12, color: D.inkFaint }}
+                    aria-label="Fechar"
                   >
-                    <X size={16} />
+                    <X size={16} strokeWidth={1.75} />
                   </button>
                   <div
                     className="flex items-center justify-center shrink-0"
-                    style={{ width: 44, height: 44, borderRadius: 12, background: D.greenMuted }}
+                    style={{ width: 42, height: 42, borderRadius: 10, background: D.greenMuted }}
                   >
-                    <Sparkles size={20} style={{ color: D.green }} />
+                    <Sparkles size={18} style={{ color: D.green }} strokeWidth={1.75} />
                   </div>
-                  <div className="flex-1 min-w-0 pr-4">
-                    <p className="font-semibold leading-snug" style={{ color: D.ink, fontSize: 14 }}>
-                      Configura o teu assistente IA
+                  <div className="flex-1 min-w-0 pr-6">
+                    <p style={{ color: D.ink, fontSize: 15, fontWeight: 600, lineHeight: 1.3 }}>
+                      Configura o assistente IA
                     </p>
-                    <p className="mt-1 leading-relaxed" style={{ color: D.inkSoft, fontSize: 12 }}>
-                      Ensina a IA sobre o teu negócio para atender clientes automaticamente, 24h por dia.
+                    <p style={{ color: D.inkSoft, fontSize: 13, marginTop: 4, lineHeight: 1.5 }}>
+                      Ensina a IA sobre o teu negócio para atender clientes automaticamente.
                     </p>
-                    <button
-                      onClick={() => {
-                        setPromoVisible(false);
-                        setTimeout(() => {
-                          document.querySelector<HTMLInputElement>("input[inputmode='url'], textarea")?.focus();
-                        }, 100);
-                      }}
-                      className="mt-3 font-semibold"
-                      style={{
-                        background: D.green,
-                        color: "#fff",
-                        borderRadius: D.rBtn,
-                        fontSize: 13,
-                        paddingLeft: 16,
-                        paddingRight: 16,
-                        paddingTop: 6,
-                        paddingBottom: 6,
-                      }}
-                    >
-                      Começar agora
-                    </button>
                   </div>
                 </div>
               </div>
             )}
 
-            <SectionHeader label="Configurar negócio" />
-            <SectionList>
-              {/* Tabs dentro do card */}
-              <div className="flex" style={{ borderBottom: `1px solid ${D.lineSoft}` }}>
-                <button
-                  onClick={() => setMode("site")}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-3 font-medium transition-colors"
-                  style={{
-                    fontSize: 13.5,
-                    color: mode === "site" ? D.green : D.inkSoft,
-                    borderBottom: mode === "site" ? `2px solid ${D.green}` : "2px solid transparent",
-                  }}
-                >
-                  <Globe className="w-4 h-4" /> Tenho site
-                </button>
-                <button
-                  onClick={() => setMode("manual")}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-3 font-medium transition-colors"
-                  style={{
-                    fontSize: 13.5,
-                    color: mode === "manual" ? D.green : D.inkSoft,
-                    borderBottom: mode === "manual" ? `2px solid ${D.green}` : "2px solid transparent",
-                  }}
-                >
-                  <Sparkles className="w-4 h-4" /> Sem site
-                </button>
+            <SectionLabel>Configurar negócio</SectionLabel>
+            <div style={{ background: D.surface, borderTop: `1px solid ${D.border}`, borderBottom: `1px solid ${D.border}` }}>
+              {/* Tabs */}
+              <div className="flex" style={{ borderBottom: `1px solid ${D.borderSoft}` }}>
+                {(["site", "manual"] as const).map((m) => (
+                  <button
+                    key={m}
+                    onClick={() => setMode(m)}
+                    className="flex-1 flex items-center justify-center gap-1.5 transition-colors"
+                    style={{
+                      padding: "12px 16px",
+                      fontSize: 14,
+                      fontWeight: 500,
+                      color: mode === m ? D.green : D.inkSoft,
+                      borderBottom: mode === m ? `2px solid ${D.green}` : "2px solid transparent",
+                    }}
+                  >
+                    {m === "site" ? <><Globe size={15} strokeWidth={1.75} /> Tenho site</> : <><Sparkles size={15} strokeWidth={1.75} /> Sem site</>}
+                  </button>
+                ))}
               </div>
 
-              <div className="p-4 space-y-3">
+              <div style={{ padding: 20 }}>
                 {mode === "site" ? (
                   <>
                     <input
-                      className="w-full px-4 py-3 outline-none"
+                      className="w-full outline-none"
                       style={{
                         background: D.subtle,
-                        border: `1.5px solid ${D.line}`,
+                        border: `1px solid ${D.border}`,
                         borderRadius: D.rInput,
+                        padding: "12px 14px",
                         color: D.ink,
                         fontSize: 15,
+                        marginBottom: 12,
                       }}
                       value={url}
                       onChange={(e) => setUrl(e.target.value)}
@@ -776,23 +771,26 @@ export function Owner() {
                       onClick={handleAnalyze}
                       disabled={busy || !url.trim()}
                       className="w-full flex items-center justify-center gap-2 font-semibold transition-opacity disabled:opacity-50"
-                      style={{ background: D.green, color: "#fff", borderRadius: D.rBtn, minHeight: 48, fontSize: 14 }}
+                      style={{ background: D.green, color: "#fff", borderRadius: 12, minHeight: 48, fontSize: 15 }}
                     >
-                      {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Globe className="w-4 h-4" />}
+                      {busy ? <Loader2 size={16} className="animate-spin" /> : <Globe size={16} strokeWidth={1.75} />}
                       Analisar o meu site
                     </button>
                   </>
                 ) : (
                   <>
                     <textarea
-                      className="w-full px-4 py-3 outline-none resize-y"
+                      className="w-full outline-none resize-y"
                       style={{
                         background: D.subtle,
-                        border: `1.5px solid ${D.line}`,
+                        border: `1px solid ${D.border}`,
                         borderRadius: D.rInput,
+                        padding: "12px 14px",
                         color: D.ink,
-                        minHeight: 120,
                         fontSize: 15,
+                        minHeight: 120,
+                        marginBottom: 12,
+                        lineHeight: 1.55,
                       }}
                       value={descriptionText}
                       onChange={(e) => setDescriptionText(e.target.value)}
@@ -802,45 +800,54 @@ export function Owner() {
                       onClick={handleAssist}
                       disabled={busy || descriptionText.trim().length < 20}
                       className="w-full flex items-center justify-center gap-2 font-semibold transition-opacity disabled:opacity-50"
-                      style={{ background: D.green, color: "#fff", borderRadius: D.rBtn, minHeight: 48, fontSize: 14 }}
+                      style={{ background: D.green, color: "#fff", borderRadius: 12, minHeight: 48, fontSize: 15 }}
                     >
-                      {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                      {busy ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} strokeWidth={1.75} />}
                       Estruturar com IA
                     </button>
                   </>
                 )}
               </div>
-            </SectionList>
+            </div>
           </div>
         )}
 
         {/* ── Analyzing ───────────────────────────────────────────────────── */}
         {view === "analyzing" && (
-          <div className="flex flex-col items-center justify-center py-20 gap-6 px-8 text-center">
-            <div className="relative w-20 h-20">
-              <div className="absolute inset-0 rounded-full" style={{ border: `2px solid ${D.green}20` }} />
+          <div
+            className="flex flex-col items-center justify-center gap-6 text-center"
+            style={{ padding: "80px 32px" }}
+          >
+            <div className="relative" style={{ width: 72, height: 72 }}>
+              <div
+                className="absolute inset-0 rounded-full"
+                style={{ border: `2px solid ${D.green}20` }}
+              />
               <div
                 className="absolute inset-0 rounded-full border-2 border-transparent animate-spin"
                 style={{ borderTopColor: D.green }}
               />
               <div className="absolute inset-0 flex items-center justify-center">
-                <Globe className="w-8 h-8" style={{ color: D.green }} />
+                <Globe size={28} style={{ color: D.green }} strokeWidth={1.75} />
               </div>
             </div>
             <div>
-              <h2 className="font-semibold" style={{ color: D.ink, fontSize: 18 }}>A estudar o teu site…</h2>
-              <p className="mt-2 leading-relaxed" style={{ color: D.inkSoft, fontSize: 14 }}>
-                Estou a ler as páginas, identificar produtos e preços. Aguarda um momento.
+              <h2 style={{ color: D.ink, fontSize: 18, fontWeight: 600 }}>A analisar o site…</h2>
+              <p style={{ color: D.inkSoft, fontSize: 14, marginTop: 8, lineHeight: 1.55 }}>
+                Estou a identificar produtos, serviços e preços. Aguarda um momento.
               </p>
             </div>
-            <p className="flex items-center gap-1.5" style={{ color: D.inkFaint, fontSize: 12 }}>
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            <p
+              className="flex items-center gap-1.5"
+              style={{ color: D.inkFaint, fontSize: 12 }}
+            >
+              <Loader2 size={13} className="animate-spin" />
               {profile?.websiteUrl}
             </p>
           </div>
         )}
 
-        {/* ── Perfil — view ───────────────────────────────────────────────── */}
+        {/* ── Profile view ────────────────────────────────────────────────── */}
         {view === "editor" && profile && !editing && (
           <ProfileView
             profile={profile}
@@ -851,9 +858,9 @@ export function Owner() {
           />
         )}
 
-        {/* ── Formulário de edição ─────────────────────────────────────────── */}
+        {/* ── Editor ──────────────────────────────────────────────────────── */}
         {view === "editor" && profile && editing && (
-          <div className="mx-5 pt-4">
+          <div style={{ padding: "16px 20px" }}>
             <ProfileEditor
               key={editorKey}
               profile={profile}

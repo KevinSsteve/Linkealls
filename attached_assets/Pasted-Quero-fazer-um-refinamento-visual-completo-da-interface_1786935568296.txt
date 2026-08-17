@@ -1,0 +1,786 @@
+Quero fazer um **refinamento visual completo da interface mobile atual**, especialmente das páginas **Perfil do negócio** e **Conversas**, para que o produto tenha uma aparência premium, madura e polida, próxima do nível de qualidade visual de aplicações como **WhatsApp / WhatsApp Business**, mas **sem copiar a interface do WhatsApp**.
+
+IMPORTANTE: **não altere a lógica, funcionalidades, rotas, APIs, banco de dados ou fluxos existentes.** O trabalho é principalmente de UI/UX, design system, espaçamento, tipografia, componentes e responsividade.
+
+## OBJETIVO
+
+A interface atual parece um dashboard web adaptado para mobile. Quero que ela passe a parecer um **aplicativo mobile nativo premium**, com uma sensação de produto confiável, sofisticado e pronto para produção.
+
+A referência de qualidade é:
+
+* WhatsApp Business
+* Linear
+* Stripe
+* Apple
+* Notion mobile
+
+Não quero uma cópia visual desses produtos. Quero apenas o mesmo nível de **simplicidade, consistência, hierarquia e acabamento**.
+
+---
+
+# 1. PRINCÍPIOS VISUAIS
+
+Adotar estes princípios em toda a aplicação:
+
+### Simplicidade
+
+Reduzir elementos decorativos desnecessários.
+
+Evitar:
+
+* excesso de cards
+* excesso de bordas
+* excesso de sombras
+* excesso de pills
+* excesso de containers arredondados
+* gradientes desnecessários
+* elementos gigantes
+
+A interface deve parecer mais "clean" e menos "template de SaaS".
+
+### Hierarquia
+
+Cada tela deve ter claramente:
+
+1. título
+2. contexto
+3. ação principal
+4. conteúdo
+5. navegação
+
+Não deixar todos os elementos competindo visualmente.
+
+### Espaçamento
+
+Criar um sistema consistente de spacing:
+
+* 4 px
+* 8 px
+* 12 px
+* 16 px
+* 20 px
+* 24 px
+* 32 px
+
+Usar principalmente múltiplos de 4.
+
+---
+
+# 2. DESIGN SYSTEM
+
+Criar ou consolidar um pequeno design system global.
+
+## Cores
+
+Usar uma paleta muito limpa:
+
+Background principal:
+#F8F9FA ou equivalente
+
+Surface:
+#FFFFFF
+
+Texto principal:
+#111111 / #171717
+
+Texto secundário:
+#6B7280
+
+Texto terciário:
+#9CA3AF
+
+Border:
+#E5E7EB
+
+Cor primária:
+manter o verde atualmente utilizado pela aplicação, mas usar o verde principalmente para:
+
+* estados ativos
+* CTA
+* status
+* indicadores
+* elementos selecionados
+
+Não transformar a interface inteira em verde.
+
+## Bordas
+
+Usar borders extremamente sutis.
+
+Evitar outlines pesados.
+
+Exemplo:
+
+border: 1px solid #E5E7EB
+
+## Sombras
+
+Usar sombras muito discretas.
+
+Na maioria dos elementos, preferir border em vez de shadow.
+
+---
+
+# 3. BORDER RADIUS
+
+Reduzir o excesso de elementos extremamente arredondados.
+
+Usar aproximadamente:
+
+* Avatar: 50%
+* Botões circulares: 50%
+* Cards principais: 16 px
+* Inputs: 12–14 px
+* Pequenos controles: 10–12 px
+* Bottom navigation: sem grandes pills
+
+A interface deve deixar de parecer construída exclusivamente com "rounded-xl / rounded-full".
+
+---
+
+# 4. TIPOGRAFIA
+
+Usar uma fonte moderna e extremamente legível.
+
+Prioridade:
+
+1. Inter
+2. SF Pro / system font
+3. Roboto
+
+Criar uma hierarquia consistente.
+
+### Page title
+
+20–24 px
+font-weight: 700
+
+### Section title
+
+13–14 px
+font-weight: 600
+letter-spacing: aproximadamente 0.05em
+uppercase quando fizer sentido
+
+### Body
+
+16 px
+font-weight: 400
+
+### Secondary text
+
+14–15 px
+
+### Metadata
+
+12–13 px
+
+Evitar textos gigantes em mobile.
+
+---
+
+# 5. PÁGINA "PERFIL DO NEGÓCIO"
+
+A estrutura atual está excessivamente baseada em cards.
+
+Quero transformar essa página em uma experiência de perfil profissional.
+
+## Header
+
+Manter:
+
+Perfil do negócio
+
+Mas melhorar a composição.
+
+O nome:
+
+Electro Panga
+
+deve ter bastante destaque.
+
+A categoria:
+
+Material Elétrico, Automação e Ferramentas
+
+deve aparecer logo abaixo em tamanho menor e cor secundária.
+
+O status "Ativo" deve ser pequeno, elegante e discreto.
+
+Exemplo visual:
+
+● Ativo
+
+Não criar um botão/pill gigante.
+
+---
+
+# 6. BUSINESS AVATAR
+
+O avatar "EP" deve parecer uma identidade de marca.
+
+Aumentar ligeiramente a presença visual, mas sem ocupar espaço excessivo.
+
+Usar:
+
+* fundo suave
+* letras fortes
+* excelente alinhamento
+* bordas muito discretas
+* aproximadamente 64–72 px em mobile
+
+---
+
+# 7. AÇÕES DO PERFIL
+
+Atualmente existem:
+
+Editar
+Catálogo
+Partilhar
+Mais
+
+Os botões estão muito grandes e parecem quatro cards separados.
+
+Redesenhar como uma toolbar de ações premium.
+
+Cada ação deve possuir:
+
+ícone
+label
+
+Mas com menos peso visual.
+
+Usar ícones Lucide ou outra biblioteca consistente.
+
+Exemplo:
+
+✎ Editar
+▦ Catálogo
+↗ Partilhar
+⋯ Mais
+
+O botão "Mais" deve abrir um menu bottom sheet ou dropdown elegante.
+
+---
+
+# 8. SEÇÃO INFORMAÇÕES
+
+Transformar a seção em conteúdo contínuo.
+
+Em vez de vários cards aninhados, usar:
+
+INFORMAÇÕES
+
+Descrição
+
+[A descrição]
+
+────────────
+
+Endereço
+
+[valor]
+
+────────────
+
+Horário
+
+[valor]
+
+────────────
+
+Contacto
+
+[valor]
+
+────────────
+
+E-mail
+
+[valor]
+
+────────────
+
+Website
+
+[valor]
+
+Os divisores devem ser extremamente sutis.
+
+Não colocar cada informação dentro de um card arredondado independente.
+
+---
+
+# 9. DESCRIÇÃO
+
+A descrição atual está visualmente muito pesada.
+
+Melhorar:
+
+* largura do texto
+* line-height
+* padding
+* hierarquia
+* tamanho da fonte
+
+Usar aproximadamente:
+
+font-size: 16px
+line-height: 1.55
+
+Se o texto for muito longo, implementar:
+
+"Ver mais"
+
+de forma discreta.
+
+---
+
+# 10. CAMPOS VAZIOS
+
+Atualmente aparece:
+
+Adicionar endereço...
+Adicionar horário...
+Adicionar contacto...
+Adicionar e-mail...
+
+Eles parecem campos de formulário mesmo estando apenas a mostrar informação.
+
+Transformá-los em estados vazios elegantes.
+
+Exemplo:
+
+Endereço
+
+Adicionar endereço
+pequeno texto cinza + ação discreta
+
+Ou:
+
+Endereço
+Ainda não adicionado
+Adicionar
+
+Quando o utilizador clicar, aí sim abrir o formulário.
+
+---
+
+# 11. WEBSITE
+
+O website deve parecer um link clicável, não apenas texto.
+
+Exemplo:
+
+Website
+
+electropanga.com
+↗
+
+---
+
+# 12. PÁGINA "CONVERSAS"
+
+Esta tela precisa ser tratada como uma **inbox profissional**.
+
+O título:
+
+Conversas
+
+deve permanecer.
+
+Adicionar eventualmente um botão de ação no canto direito, mas sem competir com o título.
+
+---
+
+# 13. SEARCH
+
+O campo:
+
+Pesquisar...
+
+deve ser refinado.
+
+Evitar um container excessivamente arredondado.
+
+Usar:
+
+ícone de pesquisa
+placeholder
+altura aproximadamente 44–48 px
+
+Radius 12–14 px.
+
+---
+
+# 14. FILTROS
+
+Atualmente:
+
+Todas
+Novo
+Em atendimento
+Qualificado
+
+Os filtros parecem grandes pills.
+
+Redesenhar para algo mais refinado.
+
+Podem continuar como chips horizontais, mas:
+
+* menor altura
+* menos radius
+* typography mais compacta
+* melhor espaçamento
+* estado ativo usando verde muito sutil
+
+Exemplo:
+
+Todas    Novo    Em atendimento    Qualificado
+
+A opção ativa deve ter contraste suficiente sem parecer um botão gigante.
+
+---
+
+# 15. RESUMO DE CONVERSAS
+
+A linha:
+
+2 conversas     1 qualificado
+
+deve parecer metadata da inbox.
+
+Exemplo:
+
+2 conversas · 1 qualificado
+
+Tipografia pequena e discreta.
+
+---
+
+# 16. LISTA DE CONVERSAS
+
+Transformar cada conversa em uma linha de inbox premium.
+
+Estrutura:
+
+[Avatar]   Visitante anónimo
+Chamada de voz concluída
+
+```
+                                  Ontem
+```
+
+Ou:
+
+[Avatar]   Visitante anónimo
+Chamada de voz concluída
+
+```
+                                  14/08
+```
+
+Avatar:
+
+52–56 px.
+
+Usar indicador de status pequeno sobreposto ao avatar.
+
+Não criar cards gigantes.
+
+Cada conversa deve ocupar aproximadamente 72–80 px.
+
+Adicionar divisor extremamente sutil entre conversas.
+
+---
+
+# 17. STATUS
+
+Os indicadores verde e laranja atuais estão bons como conceito.
+
+Refinar para pequenos dots de aproximadamente 8 px.
+
+Usar significado consistente:
+
+Verde = novo/ativo
+Laranja = aguardando/atenção
+
+Não usar cores sem significado definido.
+
+---
+
+# 18. EMPTY SPACE
+
+Na página Conversas existe atualmente uma quantidade excessiva de espaço vazio.
+
+Isso não significa necessariamente que devemos preencher a tela com elementos.
+
+O objetivo é fazer a lista ocupar naturalmente o espaço disponível e criar uma sensação de inbox real.
+
+Se não houver conversas:
+
+criar um empty state elegante no centro da tela.
+
+Exemplo:
+
+Nenhuma conversa ainda
+
+Quando clientes entrarem em contacto, as conversas aparecerão aqui.
+
+Mas não mostrar esse empty state quando existem conversas.
+
+---
+
+# 19. FLOATING ACTION BUTTON
+
+O botão preto com raio deve ser refinado.
+
+Atualmente parece um botão genérico de dashboard.
+
+Transformá-lo em um FAB premium.
+
+Características:
+
+* 52–56 px
+* círculo ou radius 16–18 px
+* sombra extremamente suave
+* ícone Lucide
+* posicionamento correto acima da bottom navigation
+* touch target adequado
+
+Manter a funcionalidade atual.
+
+---
+
+# 20. BOTTOM NAVIGATION
+
+Esta é uma das áreas mais importantes.
+
+Atualmente:
+
+Perfil
+Conversas
+Campanhas
+Mercado
+
+está muito semelhante a uma barra de navegação genérica.
+
+Quero uma bottom navigation com qualidade de aplicativo nativo.
+
+Características:
+
+* altura aproximadamente 68–76 px
+* background branco
+* border-top muito sutil
+* ícones 22–24 px
+* labels 12–13 px
+* espaçamento consistente
+* item ativo claramente identificável
+* verde usado apenas no estado ativo
+
+Evitar uma enorme cápsula verde atrás do item ativo.
+
+Pode usar um pequeno background suave ou simplesmente ícone/texto verde.
+
+Garantir:
+
+padding-bottom: env(safe-area-inset-bottom)
+
+para dispositivos com navigation bar.
+
+---
+
+# 21. HEADER MOBILE
+
+O header deve respeitar safe areas e ter uma altura consistente.
+
+Evitar:
+
+* espaços excessivos
+* elementos desalinhados
+* títulos gigantes
+* ícones com estilos diferentes
+
+Todos os ícones devem ter stroke e tamanho consistentes.
+
+---
+
+# 22. ÍCONES
+
+Padronizar toda a aplicação usando Lucide Icons ou biblioteca equivalente.
+
+Não misturar:
+
+* Material Icons
+* Font Awesome
+* SVGs com estilos diferentes
+* emojis
+
+Todos os ícones devem ter aproximadamente:
+
+1.75–2 px stroke
+
+e tamanho consistente.
+
+---
+
+# 23. INTERAÇÕES
+
+Adicionar microinterações discretas:
+
+* active state ao pressionar
+* hover quando aplicável
+* transition 150–200ms
+* feedback visual ao clicar
+* skeleton loading quando necessário
+* animações muito suaves
+
+Não adicionar animações exageradas.
+
+A interface deve parecer rápida.
+
+---
+
+# 24. MOBILE FIRST
+
+O design deve ser pensado primeiro para:
+
+360 px
+375 px
+390 px
+412 px
+
+Depois adaptar para tablets e desktop.
+
+Não simplesmente reduzir a versão desktop.
+
+---
+
+# 25. DESKTOP
+
+No desktop, manter o mesmo design system.
+
+A interface pode utilizar:
+
+sidebar/navigation mais espaçosa
+
+ou layout centralizado.
+
+Mas a linguagem visual deve continuar consistente.
+
+---
+
+# 26. ACESSIBILIDADE
+
+Garantir:
+
+* contraste adequado
+* touch targets de pelo menos 44 px
+* textos legíveis
+* focus states
+* labels acessíveis
+* aria-label nos ícones
+* navegação por teclado quando aplicável
+
+---
+
+# 27. O MAIS IMPORTANTE
+
+Não quero apenas trocar cores ou border-radius.
+
+Quero que a interface seja **redesenhada visualmente** para transmitir:
+
+PREMIUM
+SIMPLES
+CONFIÁVEL
+PROFISSIONAL
+MOBILE-NATIVE
+MODERNA
+
+A sensação desejada é:
+
+"Este produto poderia estar publicado na App Store e competir visualmente com produtos de primeira linha."
+
+Não quero:
+
+* aparência de template
+* excesso de cards
+* excesso de pills
+* excesso de sombras
+* excesso de bordas
+* gradientes desnecessários
+* UI genérica de dashboard
+
+Quero:
+
+* whitespace inteligente
+* excelente tipografia
+* alinhamento perfeito
+* divisores sutis
+* ícones consistentes
+* hierarquia visual clara
+* componentes simples
+* microinterações
+* excelente experiência em telas pequenas.
+
+---
+
+# 28. IMPLEMENTAÇÃO
+
+Antes de alterar os componentes, inspecione a estrutura atual do projeto.
+
+Identifique:
+
+* componentes reutilizáveis
+* sistema de cores existente
+* biblioteca de ícones
+* sistema de navegação
+* estilos globais
+* componentes de perfil
+* componentes de conversa
+* bottom navigation
+
+Depois faça o redesign utilizando componentes reutilizáveis.
+
+**Não duplicar estilos página por página.**
+
+Criar tokens/componentes compartilhados para:
+
+* Typography
+* Button
+* IconButton
+* Avatar
+* Badge
+* ListItem
+* Divider
+* BottomNavigation
+* SectionHeader
+* EmptyState
+* SearchBar
+* FilterChip
+
+---
+
+# 29. REGRA FINAL
+
+Depois da implementação, faça uma revisão visual completa em viewport mobile.
+
+Compare especialmente:
+
+1. espaçamento
+2. alinhamento
+3. tamanho dos títulos
+4. tamanho dos ícones
+5. densidade da informação
+6. border radius
+7. uso de verde
+8. bottom navigation
+9. lista de conversas
+10. perfil do negócio
+
+Se algum componente parecer "dashboard SaaS genérico", simplifique-o.
+
+O resultado final deve parecer **um produto mobile premium**, não uma página web dentro de um celular.
+
+**Preservar todas as funcionalidades existentes. Alterar apenas a apresentação e UX onde necessário.**
