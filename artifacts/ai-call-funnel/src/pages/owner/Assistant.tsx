@@ -285,8 +285,10 @@ export function Assistant() {
 
       {/* ── Error toast ───────────────────────────────────────────────────── */}
       {error && (
-        <div className="shrink-0 mx-4 mt-2 flex items-center gap-2 text-[13px] py-2.5 px-3.5 rounded-xl"
-          style={{ background: "#FFEBEE", color: "#C62828", border: "1px solid #FFCDD2" }}>
+        <div
+          className="shrink-0 flex items-center gap-2 text-[13px]"
+          style={{ background: "#FEF2F2", color: "#DC2626", border: "1px solid #FECACA", borderRadius: 10, margin: "12px 16px 0", padding: "10px 14px" }}
+        >
           <AlertCircle size={14} className="shrink-0" />
           <span className="flex-1">{error}</span>
           <button onClick={() => setError(null)}><XCircle size={14} /></button>

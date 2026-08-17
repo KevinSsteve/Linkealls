@@ -1,5 +1,5 @@
 /**
- * ChooseHandle — onboarding step. WhatsApp Business light theme.
+ * ChooseHandle — onboarding step. Premium, safe-area-aware.
  */
 import { useState, useEffect, useRef } from "react";
 import { useLocation, Redirect } from "wouter";
@@ -7,12 +7,18 @@ import { AtSign, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { checkHandleAvailability, setUserHandle } from "@/lib/api";
 
-const HANDLE_RE = /^[a-z0-9-]{3,30}$/;
+const G = "#16A34A";
+const INK = "#111111";
+const SOFT = "#6B7280";
+const FAINT = "#9CA3AF";
+const SUBTLE = "#F3F4F6";
+const BORDER = "#E5E7EB";
 
+const HANDLE_RE = /^[a-z0-9-]{3,30}$/;
 type CheckState = "idle" | "checking" | "available" | "taken" | "invalid";
 
 export function ChooseHandle() {
-  const [, nav]                = useLocation();
+  const [, nav] = useLocation();
   const { user, token, setHandle, isLoggedIn } = useAuth();
 
   const [raw, setRaw]          = useState("");
@@ -36,11 +42,8 @@ export function ChooseHandle() {
       try {
         const { available, reason } = await checkHandleAvailability(handle);
         setCheck(available ? "available" : "taken");
-        if (reason) setError(reason);
-        else setError("");
-      } catch {
-        setCheck("idle");
-      }
+        if (reason) setError(reason); else setError("");
+      } catch { setCheck("idle"); }
     }, 400);
   }, [handle]);
 
@@ -53,105 +56,114 @@ export function ChooseHandle() {
       nav(`/e/${handle}/dono`);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Erro ao guardar");
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   }
 
   const borderColor =
-    checkState === "available" ? "#25D366" :
+    checkState === "available" ? G :
     checkState === "taken"     ? "#EF4444" :
-    checkState === "invalid"   ? "#F59E0B" : "#E9EDEF";
+    checkState === "invalid"   ? "#F59E0B" : BORDER;
 
   const statusColor =
-    checkState === "available" ? "#128C7E" :
+    checkState === "available" ? G :
     checkState === "taken"     ? "#EF4444" :
-    checkState === "invalid"   ? "#F59E0B" : "#8696A0";
+    checkState === "invalid"   ? "#F59E0B" : FAINT;
 
   const statusLabel =
     checkState === "available" ? "✓ Disponível" :
     checkState === "taken"     ? "Já está a ser usado" :
-    checkState === "invalid"   ? "3-30 letras, números ou hífens" :
+    checkState === "invalid"   ? "3–30 letras, números ou hífens" :
     checkState === "checking"  ? "A verificar…" : "";
 
   return (
     <div
-      className="flex flex-col h-full px-6 pt-12 pb-8 overflow-y-auto"
-      style={{ background: "#FFFFFF", minHeight: "var(--vh, 100dvh)" }}
+      className="flex flex-col h-full overflow-y-auto"
+      style={{
+        background: "#FFFFFF",
+        minHeight: "100dvh",
+        paddingTop: "env(safe-area-inset-top, 0px)",
+        paddingBottom: "env(safe-area-inset-bottom, 0px)",
+      }}
     >
-      {/* Icon + heading */}
-      <div className="mb-10 text-center">
-        <div
-          className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5"
-          style={{ background: "#D9FDD3" }}
-        >
-          <AtSign size={28} style={{ color: "#128C7E" }} strokeWidth={2.5} />
+      <div className="flex flex-col flex-1" style={{ padding: "24px 20px 20px" }}>
+
+        {/* Icon + heading */}
+        <div className="text-center mb-10">
+          <div
+            className="flex items-center justify-center mx-auto mb-5"
+            style={{ width: 64, height: 64, borderRadius: 18, background: "#DCFCE7" }}
+          >
+            <AtSign size={26} style={{ color: G }} strokeWidth={2.25} />
+          </div>
+          <h1 style={{ color: INK, fontSize: 24, fontWeight: 700, letterSpacing: "-0.3px" }}>
+            Escolhe o teu link
+          </h1>
+          <p style={{ color: SOFT, fontSize: 15, marginTop: 8, lineHeight: 1.55 }}>
+            O teu espaço pessoal no Linkealls. Podes alterar a qualquer momento.
+          </p>
         </div>
-        <h1 className="text-[24px] font-bold" style={{ color: "#111B21" }}>Escolhe o teu link</h1>
-        <p className="text-[15px] mt-2 leading-relaxed" style={{ color: "#667781" }}>
-          O teu espaço pessoal no Linkealls. Podes alterar a qualquer momento.
-        </p>
+
+        {/* Preview URL */}
+        <div
+          className="rounded-xl mb-5"
+          style={{ background: SUBTLE, border: `1px solid ${BORDER}`, padding: "12px 14px" }}
+        >
+          <span style={{ color: FAINT, fontSize: 14 }}>linkealls.com/e/</span>
+          <span style={{ fontWeight: 700, color: handle ? G : FAINT, fontSize: 14 }}>
+            {handle || "o-teu-nome"}
+          </span>
+        </div>
+
+        {/* Input */}
+        <div
+          className="flex items-center gap-2 rounded-xl mb-2"
+          style={{
+            background: SUBTLE,
+            border: `2px solid ${borderColor}`,
+            height: 52,
+            paddingLeft: 14,
+            paddingRight: 14,
+            transition: "border-color 0.2s",
+          }}
+        >
+          <span style={{ fontSize: 16, fontWeight: 600, color: FAINT }}>@</span>
+          <input
+            type="text"
+            value={raw}
+            onChange={(e) => setRaw(e.target.value)}
+            placeholder="o-teu-nome"
+            autoFocus
+            maxLength={30}
+            className="flex-1 bg-transparent outline-none"
+            style={{ color: INK, fontSize: 16, caretColor: G }}
+            onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+          />
+          {checkState === "checking"  && <Loader2 size={17} className="shrink-0 animate-spin" style={{ color: FAINT }} />}
+          {checkState === "available" && <CheckCircle2 size={17} className="shrink-0" style={{ color: G }} />}
+          {(checkState === "taken" || checkState === "invalid") && <XCircle size={17} className="shrink-0" style={{ color: "#EF4444" }} />}
+        </div>
+
+        {/* Status */}
+        {(statusLabel || error) && (
+          <p style={{ color: statusColor, fontSize: 13, marginBottom: 16, paddingLeft: 2 }}>
+            {statusLabel || error}
+          </p>
+        )}
+
+        {/* CTA */}
+        <button
+          onClick={handleSubmit}
+          disabled={checkState !== "available" || saving}
+          className="w-full font-bold transition-opacity disabled:opacity-40"
+          style={{
+            background: G, color: "#fff",
+            borderRadius: 14, height: 52, fontSize: 16,
+            marginTop: 8,
+          }}
+        >
+          {saving ? "A guardar…" : "Continuar"}
+        </button>
       </div>
-
-      {/* Preview */}
-      <div
-        className="rounded-xl px-4 py-3 mb-6 text-[14px]"
-        style={{ background: "#F0F2F5" }}
-      >
-        <span style={{ color: "#8696A0" }}>linkealls.com/u/</span>
-        <span className="font-bold" style={{ color: handle ? "#128C7E" : "#8696A0" }}>
-          {handle || "o-teu-nome"}
-        </span>
-      </div>
-
-      {/* Input */}
-      <div
-        className="flex items-center gap-2 rounded-xl px-4 mb-2"
-        style={{
-          background: "#F0F2F5",
-          border: `2px solid ${borderColor}`,
-          height: 56,
-          transition: "border-color 0.2s",
-        }}
-      >
-        <span className="text-[16px] font-semibold shrink-0" style={{ color: "#8696A0" }}>@</span>
-        <input
-          type="text"
-          value={raw}
-          onChange={(e) => setRaw(e.target.value)}
-          placeholder="o-teu-nome"
-          autoFocus
-          maxLength={30}
-          className="flex-1 bg-transparent outline-none text-[16px]"
-          style={{ color: "#111B21", caretColor: "#25D366" }}
-          onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-        />
-        {checkState === "checking"  && <Loader2 size={18} className="shrink-0 animate-spin" style={{ color: "#8696A0" }} />}
-        {checkState === "available" && <CheckCircle2 size={18} className="shrink-0" style={{ color: "#25D366" }} />}
-        {(checkState === "taken" || checkState === "invalid") && <XCircle size={18} className="shrink-0" style={{ color: "#EF4444" }} />}
-      </div>
-
-      {/* Status / error */}
-      {(statusLabel || error) && (
-        <p className="text-[13px] mb-4 px-1" style={{ color: statusColor }}>
-          {statusLabel || error}
-        </p>
-      )}
-
-      {/* CTA */}
-      <button
-        onClick={handleSubmit}
-        disabled={checkState !== "available" || saving}
-        className="w-full h-[54px] rounded-full font-bold text-[16px] mt-4 transition-opacity"
-        style={{
-          background: "#25D366",
-          color: "#FFFFFF",
-          opacity: checkState === "available" && !saving ? 1 : 0.4,
-          cursor: checkState === "available" && !saving ? "pointer" : "not-allowed",
-        }}
-      >
-        {saving ? "A guardar…" : "Continuar"}
-      </button>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 /**
- * Página de login — WhatsApp Business light theme.
+ * Página de login — design premium, safe-area-aware.
  */
 import { useState, useRef } from "react";
 import { Link, useLocation } from "wouter";
@@ -7,9 +7,17 @@ import { ArrowLeft } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { userLogin } from "@/lib/api";
 
+const G = "#16A34A";      // brand green
+const BG = "#FFFFFF";
+const SUBTLE = "#F3F4F6";
+const INK = "#111111";
+const SOFT = "#6B7280";
+const FAINT = "#9CA3AF";
+const BORDER = "#E5E7EB";
+
 function PinDots({ value }: { value: string }) {
   return (
-    <div className="flex justify-center gap-5 my-6">
+    <div className="flex justify-center gap-5" style={{ margin: "24px 0" }}>
       {[0, 1, 2, 3].map((i) => (
         <div
           key={i}
@@ -18,8 +26,8 @@ function PinDots({ value }: { value: string }) {
             width: i < value.length ? 14 : 12,
             height: i < value.length ? 14 : 12,
             borderRadius: "50%",
-            background: i < value.length ? "#25D366" : "transparent",
-            border: `2px solid ${i < value.length ? "#25D366" : "#8696A0"}`,
+            background: i < value.length ? G : "transparent",
+            border: `2px solid ${i < value.length ? G : FAINT}`,
             transform: i < value.length ? "scale(1.1)" : "scale(1)",
           }}
         />
@@ -32,16 +40,16 @@ const KEYS = ["1","2","3","4","5","6","7","8","9","","0","⌫"] as const;
 
 function Keypad({ onKey }: { onKey: (k: string) => void }) {
   return (
-    <div className="grid grid-cols-3 gap-3 w-full max-w-xs mx-auto">
+    <div className="grid grid-cols-3 gap-3 w-full max-w-[280px] mx-auto">
       {KEYS.map((k, i) =>
         k === "" ? <div key={i} /> : (
           <button
             key={i}
             onPointerDown={(e) => { e.preventDefault(); onKey(k); }}
-            className="h-[60px] rounded-full text-xl font-semibold flex items-center justify-center active:scale-90 transition-transform select-none"
+            className="h-[60px] rounded-2xl text-xl font-semibold flex items-center justify-center active:scale-90 transition-transform select-none"
             style={{
-              background: k === "⌫" ? "transparent" : "#F0F2F5",
-              color: k === "⌫" ? "#667781" : "#111B21",
+              background: k === "⌫" ? "transparent" : SUBTLE,
+              color: k === "⌫" ? SOFT : INK,
               fontSize: k === "⌫" ? 22 : undefined,
             }}
           >
@@ -94,96 +102,130 @@ export function LoginPage() {
 
   return (
     <div
-      className="flex flex-col h-full px-6 pt-10 pb-8 overflow-y-auto"
-      style={{ background: "#FFFFFF", minHeight: "var(--vh, 100dvh)" }}
+      className="flex flex-col h-full overflow-y-auto"
+      style={{
+        background: BG,
+        minHeight: "100dvh",
+        // Safe area: top padding respects notch
+        paddingTop: "env(safe-area-inset-top, 0px)",
+        paddingBottom: "env(safe-area-inset-bottom, 0px)",
+      }}
     >
-      {/* Back */}
-      <button
-        onClick={() => step === "pin" ? (setStep("phone"), setPin("")) : nav("/")}
-        className="mb-8 w-9 h-9 flex items-center justify-center rounded-full transition-colors active:bg-[#F0F2F5]"
-        style={{ color: "#667781" }}
-      >
-        <ArrowLeft size={22} />
-      </button>
+      {/* Inner container with consistent horizontal padding */}
+      <div className="flex flex-col flex-1" style={{ padding: "0 20px" }}>
 
-      {/* Logo / heading */}
-      <div className="mb-8 text-center">
-        <div
-          className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5"
-          style={{ background: "#25D366" }}
+        {/* Back button */}
+        <button
+          onClick={() => step === "pin" ? (setStep("phone"), setPin("")) : nav("/")}
+          className="flex items-center justify-center rounded-full transition-opacity active:opacity-60 self-start"
+          style={{
+            width: 40, height: 40,
+            background: SUBTLE,
+            color: SOFT,
+            marginTop: 12,
+            marginBottom: 32,
+          }}
+          aria-label="Voltar"
         >
-          <span className="text-white font-bold text-[28px]">L</span>
+          <ArrowLeft size={20} strokeWidth={1.75} />
+        </button>
+
+        {/* Logo + heading */}
+        <div className="text-center mb-8">
+          <div
+            className="flex items-center justify-center mx-auto mb-5 font-bold text-white"
+            style={{
+              width: 64, height: 64,
+              borderRadius: 18,
+              background: G,
+              fontSize: 26,
+            }}
+          >
+            L
+          </div>
+          <h1 style={{ color: INK, fontSize: 24, fontWeight: 700, letterSpacing: "-0.3px" }}>
+            {step === "phone" ? "Entrar" : "PIN de acesso"}
+          </h1>
+          <p style={{ color: SOFT, fontSize: 15, marginTop: 6 }}>
+            {step === "phone"
+              ? "Insere o teu número de telemóvel"
+              : `Código de acesso para ${phone}`}
+          </p>
         </div>
-        <h1 className="text-[24px] font-bold" style={{ color: "#111B21" }}>
-          {step === "phone" ? "Entrar" : "PIN de acesso"}
-        </h1>
-        <p className="text-[15px] mt-1.5" style={{ color: "#667781" }}>
-          {step === "phone"
-            ? "Insere o teu número de telemóvel"
-            : `Código de acesso para ${phone}`}
+
+        {/* Error */}
+        {error && (
+          <div
+            className="rounded-xl mb-4"
+            style={{
+              background: "#FEF2F2",
+              border: `1px solid #FECACA`,
+              color: "#DC2626",
+              padding: "12px 14px",
+              fontSize: 14,
+            }}
+          >
+            {error}
+          </div>
+        )}
+
+        {step === "phone" && (
+          <>
+            {/* Phone field */}
+            <div
+              className="flex items-center gap-3 rounded-xl mb-4"
+              style={{
+                background: SUBTLE,
+                border: `1px solid ${BORDER}`,
+                height: 52,
+                paddingLeft: 14,
+                paddingRight: 14,
+              }}
+            >
+              <span style={{ fontSize: 18 }}>🇦🇴</span>
+              <span style={{ fontSize: 15, fontWeight: 600, color: SOFT }}>+244</span>
+              <div style={{ width: 1, height: 20, background: BORDER }} />
+              <input
+                ref={phoneRef}
+                type="tel"
+                inputMode="numeric"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value.replace(/[^\d\s]/g, ""))}
+                placeholder="9XX XXX XXX"
+                autoFocus
+                className="flex-1 bg-transparent outline-none"
+                style={{ color: INK, fontSize: 16, caretColor: G }}
+                onKeyDown={(e) => e.key === "Enter" && handlePhoneNext()}
+              />
+            </div>
+
+            <button
+              onClick={handlePhoneNext}
+              className="w-full font-bold transition-opacity active:opacity-80"
+              style={{ background: G, color: "#fff", borderRadius: 14, height: 52, fontSize: 16 }}
+            >
+              Continuar
+            </button>
+          </>
+        )}
+
+        {step === "pin" && (
+          <div className="flex flex-col items-center">
+            <PinDots value={pin} />
+            <p style={{ color: loading ? G : "transparent", fontSize: 13, marginBottom: 20 }}>
+              A entrar…
+            </p>
+            <Keypad onKey={handlePinKey} />
+          </div>
+        )}
+
+        <p className="mt-auto text-center" style={{ color: SOFT, fontSize: 15, paddingTop: 32, paddingBottom: 16 }}>
+          Ainda não tens conta?{" "}
+          <Link href={`/registar${window.location.search}`}>
+            <span className="font-semibold" style={{ color: G }}>Criar conta</span>
+          </Link>
         </p>
       </div>
-
-      {/* Error */}
-      {error && (
-        <div
-          className="mb-4 px-4 py-3 rounded-xl text-[14px]"
-          style={{ background: "#FEE2E2", color: "#DC2626" }}
-        >
-          {error}
-        </div>
-      )}
-
-      {step === "phone" && (
-        <>
-          {/* Phone input */}
-          <div
-            className="flex items-center gap-3 px-4 rounded-xl mb-5"
-            style={{ background: "#F0F2F5", height: 56 }}
-          >
-            <span className="text-[18px]">🇦🇴</span>
-            <span className="text-[15px] font-semibold" style={{ color: "#667781" }}>+244</span>
-            <div style={{ width: 1, height: 22, background: "#E9EDEF" }} />
-            <input
-              ref={phoneRef}
-              type="tel"
-              inputMode="numeric"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value.replace(/[^\d\s]/g, ""))}
-              placeholder="9XX XXX XXX"
-              autoFocus
-              className="flex-1 bg-transparent outline-none text-[16px]"
-              style={{ color: "#111B21", caretColor: "#25D366" }}
-              onKeyDown={(e) => e.key === "Enter" && handlePhoneNext()}
-            />
-          </div>
-
-          <button
-            onClick={handlePhoneNext}
-            className="w-full h-[54px] rounded-full font-bold text-[16px]"
-            style={{ background: "#25D366", color: "#FFFFFF" }}
-          >
-            Continuar
-          </button>
-        </>
-      )}
-
-      {step === "pin" && (
-        <div className="flex flex-col items-center">
-          <PinDots value={pin} />
-          {loading
-            ? <p className="text-[13px] mb-5" style={{ color: "#25D366" }}>A entrar…</p>
-            : <p className="text-[13px] mb-5 opacity-0">·</p>}
-          <Keypad onKey={handlePinKey} />
-        </div>
-      )}
-
-      <p className="mt-auto pt-8 text-center text-[15px]" style={{ color: "#667781" }}>
-        Ainda não tens conta?{" "}
-        <Link href={`/registar${window.location.search}`} className="font-semibold" style={{ color: "#25D366" }}>
-          Criar conta
-        </Link>
-      </p>
     </div>
   );
 }

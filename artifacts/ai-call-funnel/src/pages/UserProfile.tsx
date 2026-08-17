@@ -29,8 +29,12 @@ function PublicProfile({ handle, name }: { handle: string; name: string }) {
   const p = palette(name);
   return (
     <div
-      className="flex flex-col items-center justify-center h-full px-8 text-center gap-6"
-      style={{ background: "#FFFFFF" }}
+      className="flex flex-col items-center justify-center h-full px-6 text-center gap-6"
+      style={{
+        background: "#FFFFFF",
+        paddingTop: "env(safe-area-inset-top, 0px)",
+        paddingBottom: "env(safe-area-inset-bottom, 0px)",
+      }}
     >
       <div
         className="w-24 h-24 rounded-full flex items-center justify-center font-bold text-[36px]"

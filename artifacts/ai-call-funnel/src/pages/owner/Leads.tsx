@@ -374,47 +374,81 @@ export function Leads() {
   }
 
   return (
-    <div className="flex flex-col h-full wa-page" style={{ background: C.bg }}>
+    <div className="flex flex-col h-full" style={{ background: "#F8F9FA" }}>
       {/* Header */}
-      <div className="shrink-0 px-4 pt-6 pb-2 flex items-center justify-between"
-        style={{ background: C.white }}>
-        <h1 className="text-[22px] font-bold tracking-tight" style={{ color: C.text }}>Leads</h1>
-        <button onClick={() => void loadLeads()} className="p-1.5 rounded-full" style={{ color: C.text3 }}>
-          <RefreshCw size={20} strokeWidth={1.8} />
-        </button>
+      <div className="shrink-0" style={{ background: "#FFFFFF", borderBottom: "1px solid #E5E7EB" }}>
+        <div className="flex items-center justify-between" style={{ padding: "16px 16px 12px" }}>
+          <h1 style={{ color: "#111111", fontSize: 22, fontWeight: 700, letterSpacing: "-0.3px" }}>Leads</h1>
+          <button
+            onClick={() => void loadLeads()}
+            className="flex items-center justify-center rounded-full transition-opacity active:opacity-60"
+            style={{ width: 36, height: 36, color: "#9CA3AF" }}
+            aria-label="Actualizar"
+          >
+            <RefreshCw size={18} strokeWidth={1.75} />
+          </button>
+        </div>
+
+        {/* Search */}
+        <div style={{ padding: "0 16px 10px" }}>
+          <div
+            className="flex items-center gap-2"
+            style={{
+              background: "#F3F4F6",
+              border: "1px solid #E5E7EB",
+              borderRadius: 12,
+              height: 44,
+              paddingLeft: 12,
+              paddingRight: 12,
+            }}
+          >
+            <Search size={16} style={{ color: "#9CA3AF" }} strokeWidth={1.75} className="shrink-0" />
+            <input
+              type="text"
+              placeholder="Pesquisar leads..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="flex-1 bg-transparent outline-none"
+              style={{ color: "#111111", fontSize: 15 }}
+            />
+          </div>
+        </div>
+
+        {/* Filter chips */}
+        <div
+          className="flex gap-1.5 overflow-x-auto"
+          style={{ padding: "2px 16px 10px", scrollbarWidth: "none" }}
+        >
+          {([["todos", "Todos"] as const, ...STATE_ORDER.map((s) => [s, STATE_LABELS[s]] as const)]).map(([key, label]) => (
+            <button
+              key={key}
+              onClick={() => setFilterState(key as LeadState | "todos")}
+              className="shrink-0 transition-all"
+              style={{
+                fontSize: 12.5,
+                fontWeight: filterState === key ? 600 : 400,
+                padding: "5px 12px",
+                borderRadius: 8,
+                background: filterState === key ? "#111111" : "#F3F4F6",
+                color: filterState === key ? "#FFFFFF" : "#6B7280",
+                border: `1px solid ${filterState === key ? "#111111" : "#E5E7EB"}`,
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
 
+      {/* Notification banner */}
       {notification && (
-        <div className="shrink-0 mx-4 mt-3 flex items-center gap-2 text-[13px] py-2.5 px-3.5 rounded-xl"
-          style={{ background: C.successBg, color: C.successText, border: `1px solid ${C.successBorder}` }}>
+        <div
+          className="shrink-0 flex items-center gap-2 text-[13px]"
+          style={{ background: "#F0FDF4", color: "#15803D", border: "1px solid #BBF7D0", borderRadius: 10, margin: "12px 16px 0", padding: "10px 14px" }}
+        >
           {notification}
         </div>
       )}
-
-      {/* Search */}
-      <div className="shrink-0 px-4 py-2" style={{ background: C.white }}>
-        <div className="flex items-center gap-3 px-4 rounded-full" style={{ background: C.bg, height: 44 }}>
-          <Search size={18} style={{ color: "#54656F" }} className="shrink-0" />
-          <input type="text" placeholder="Pesquisar leads..." value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="flex-1 bg-transparent text-[16px] outline-none" style={{ color: C.text }} />
-        </div>
-      </div>
-
-      {/* Filter chips */}
-      <div className="shrink-0 flex gap-2 px-4 py-2 overflow-x-auto scrollbar-none"
-        style={{ background: C.white }}>
-        {([["todos", "Todos"] as const, ...STATE_ORDER.map((s) => [s, STATE_LABELS[s]] as const)]).map(([key, label]) => (
-          <button key={key} onClick={() => setFilterState(key as LeadState | "todos")}
-            className="shrink-0 text-[12px] px-3 py-1.5 rounded-full font-medium transition-all"
-            style={{
-              background: filterState === key ? C.green : C.bg,
-              color: filterState === key ? "#fff" : C.text2,
-            }}>
-            {label}
-          </button>
-        ))}
-      </div>
 
       {/* List */}
       <div className="flex-1 overflow-y-auto">
@@ -422,17 +456,17 @@ export function Leads() {
           <div className="py-2">
             {[1,2,3].map((i) => (
               <div key={i} className="flex items-center gap-3 px-4 py-3 animate-pulse"
-                style={{ background: C.white, borderBottom: `1px solid ${C.border}` }}>
-                <div className="w-12 h-12 rounded-full shrink-0" style={{ background: C.bg }} />
+                style={{ background: "#FFFFFF", borderBottom: "1px solid #F3F4F6" }}>
+                <div className="w-12 h-12 rounded-full shrink-0" style={{ background: "#F3F4F6" }} />
                 <div className="flex-1">
-                  <div className="h-4 rounded mb-2" style={{ background: C.bg, width: "45%" }} />
-                  <div className="h-3 rounded" style={{ background: C.bg, width: "65%" }} />
+                  <div className="h-4 rounded mb-2" style={{ background: "#F3F4F6", width: "45%" }} />
+                  <div className="h-3 rounded" style={{ background: "#F3F4F6", width: "65%" }} />
                 </div>
               </div>
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full gap-3 px-8 text-center">
+          <div className="flex flex-col items-center justify-center h-full gap-3 px-4 text-center">
             <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: C.bg }}>
               <User size={28} style={{ color: C.text3 }} />
             </div>

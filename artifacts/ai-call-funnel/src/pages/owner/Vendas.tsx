@@ -1,5 +1,5 @@
 /**
- * Vendas — owner list of catalog orders paid via Multicaixa Express.
+ * Vendas — design premium, fundo #F8F9FA, safe-area, 16px horizontal padding.
  */
 import { useState, useEffect, useCallback } from "react";
 import { RefreshCw, ShoppingCart, CheckCircle2, Clock, XCircle, FlaskConical } from "lucide-react";
@@ -10,42 +10,63 @@ import { useBusinessSlug } from "../../hooks/useBusinessSlug";
 import { businessApi, type Order } from "../../lib/api";
 import { C } from "../../theme";
 
+const D = {
+  bg:       "#F8F9FA",
+  surface:  "#FFFFFF",
+  ink:      "#111111",
+  inkSoft:  "#6B7280",
+  inkFaint: "#9CA3AF",
+  border:   "#E5E7EB",
+  borderS:  "#F3F4F6",
+  green:    "#16A34A",
+  greenDk:  "#15803D",
+  greenLt:  "#DCFCE7",
+  px:       16,
+} as const;
+
 function fmtKz(v: string | number): string {
   const n = typeof v === "string" ? Number(v) : v;
   return `${n.toLocaleString("pt-AO", { maximumFractionDigits: 2 })} Kz`;
 }
-
 function fmtDate(iso: string): string {
-  return new Date(iso).toLocaleString("pt-PT", {
-    day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
-  });
+  return new Date(iso).toLocaleString("pt-PT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
 const STATUS_UI: Record<Order["status"], { label: string; bg: string; color: string; Icon: typeof Clock }> = {
-  paga:     { label: "Paga",     bg: C.successBg, color: C.successText, Icon: CheckCircle2 },
-  pendente: { label: "Pendente", bg: C.warnBg,    color: C.warnText,    Icon: Clock },
-  expirada: { label: "Expirada", bg: "#F3F4F6",   color: "#6B7280",     Icon: XCircle },
-  falhada:  { label: "Falhada",  bg: C.errorBg,   color: C.errorText,   Icon: XCircle },
+  paga:     { label: "Paga",     bg: "#F0FDF4", color: "#15803D", Icon: CheckCircle2 },
+  pendente: { label: "Pendente", bg: "#FFFBEB", color: "#B45309", Icon: Clock },
+  expirada: { label: "Expirada", bg: D.borderS, color: D.inkFaint, Icon: XCircle },
+  falhada:  { label: "Falhada",  bg: "#FEF2F2", color: "#DC2626", Icon: XCircle },
 };
 
-function OrderRow({ order }: { order: Order }) {
+function OrderRow({ order, last = false }: { order: Order; last?: boolean }) {
   const ui = STATUS_UI[order.status];
   return (
-    <div className="px-4 py-3 flex items-center gap-3" style={{ background: C.white, borderBottom: `1px solid ${C.border}` }}>
+    <div
+      className="flex items-center gap-3"
+      style={{
+        background: D.surface,
+        borderBottom: last ? "none" : `1px solid ${D.borderS}`,
+        padding: `12px ${D.px}px`,
+      }}
+    >
       <div className="flex-1 min-w-0">
-        <p className="font-semibold text-[15px] truncate" style={{ color: C.text }}>
+        <p className="font-semibold truncate" style={{ color: D.ink, fontSize: 15 }}>
           {order.quantity > 1 ? `${order.quantity}× ` : ""}{order.offeringName}
         </p>
-        <p className="text-[13px] truncate mt-0.5" style={{ color: C.text2 }}>
+        <p className="truncate mt-0.5" style={{ color: D.inkSoft, fontSize: 13 }}>
           {order.buyerName ? `${order.buyerName} · ` : ""}{order.buyerPhone} · {fmtDate(order.createdAt)}
         </p>
       </div>
       <div className="flex flex-col items-end gap-1 shrink-0">
-        <p className="font-bold text-[15px] tabular-nums" style={{ color: order.status === "paga" ? C.green : C.text }}>
+        <p className="font-bold tabular-nums" style={{ color: order.status === "paga" ? D.green : D.ink, fontSize: 15 }}>
           {fmtKz(order.amount)}
         </p>
-        <span className="flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full" style={{ background: ui.bg, color: ui.color }}>
-          <ui.Icon size={11} /> {ui.label}
+        <span
+          className="flex items-center gap-1 font-semibold rounded-lg"
+          style={{ background: ui.bg, color: ui.color, fontSize: 11, padding: "2px 8px" }}
+        >
+          <ui.Icon size={10} strokeWidth={2} /> {ui.label}
         </span>
       </div>
     </div>
@@ -61,74 +82,111 @@ export function Vendas() {
 
   const load = useCallback(async () => {
     if (!slug) return;
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     try {
       const res = await businessApi(slug).listOrders();
-      setOrders(res.orders);
-      setSimulation(res.simulation);
+      setOrders(res.orders); setSimulation(res.simulation);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erro ao carregar vendas");
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }, [slug]);
 
   useEffect(() => { void load(); }, [load]);
 
-  const paidTotal = orders
-    .filter((o) => o.status === "paga")
-    .reduce((s, o) => s + Number(o.amount), 0);
+  const paidTotal = orders.filter((o) => o.status === "paga").reduce((s, o) => s + Number(o.amount), 0);
   const paidCount = orders.filter((o) => o.status === "paga").length;
 
   return (
-    <div className="flex flex-col h-full wa-page" style={{ background: "#F3F4F6" }}>
+    <div className="flex flex-col h-full" style={{ background: D.bg }}>
+
       {/* Header */}
-      <div className="shrink-0" style={{ background: C.white }}>
-        <div className="flex items-center justify-between px-4 pt-5 pb-3">
-          <h1 className="text-[26px] font-extrabold tracking-tight" style={{ color: "#111827" }}>Vendas</h1>
-          <button onClick={() => void load()} className="p-1.5 rounded-full active:bg-[#F3F4F6]" aria-label="Actualizar" style={{ color: "#6B7280" }}>
-            <RefreshCw size={20} strokeWidth={1.8} />
+      <div className="shrink-0" style={{ background: D.surface, borderBottom: `1px solid ${D.border}` }}>
+        <div
+          className="flex items-center justify-between"
+          style={{ padding: `16px ${D.px}px 12px` }}
+        >
+          <h1 style={{ color: D.ink, fontSize: 22, fontWeight: 700, letterSpacing: "-0.3px" }}>Vendas</h1>
+          <button
+            onClick={() => void load()}
+            className="flex items-center justify-center rounded-full transition-opacity active:opacity-60"
+            style={{ width: 36, height: 36, color: D.inkFaint }}
+            aria-label="Actualizar"
+          >
+            <RefreshCw size={18} strokeWidth={1.75} />
           </button>
         </div>
-        {/* Summary */}
-        <div className="px-4 pb-4 flex gap-3">
-          <div className="flex-1 rounded-2xl px-4 py-3" style={{ background: C.greenMuted, border: `1px solid ${C.successBorder}` }}>
-            <p className="text-[12px] font-medium" style={{ color: C.text2 }}>Total vendido</p>
-            <p className="text-[20px] font-extrabold tabular-nums" style={{ color: C.greenDark }}>{fmtKz(paidTotal)}</p>
+
+        {/* Summary cards */}
+        <div className="flex gap-3" style={{ padding: `0 ${D.px}px 16px` }}>
+          <div
+            className="flex-1 rounded-2xl"
+            style={{ background: "#F0FDF4", border: `1px solid #BBF7D0`, padding: "12px 14px" }}
+          >
+            <p style={{ color: D.inkSoft, fontSize: 12, fontWeight: 500 }}>Total vendido</p>
+            <p style={{ color: D.greenDk, fontSize: 20, fontWeight: 700, marginTop: 2 }} className="tabular-nums">
+              {fmtKz(paidTotal)}
+            </p>
           </div>
-          <div className="flex-1 rounded-2xl px-4 py-3" style={{ background: "#F9FAFB", border: `1px solid ${C.border}` }}>
-            <p className="text-[12px] font-medium" style={{ color: C.text2 }}>Vendas pagas</p>
-            <p className="text-[20px] font-extrabold tabular-nums" style={{ color: C.text }}>{paidCount}</p>
+          <div
+            className="flex-1 rounded-2xl"
+            style={{ background: D.borderS, border: `1px solid ${D.border}`, padding: "12px 14px" }}
+          >
+            <p style={{ color: D.inkSoft, fontSize: 12, fontWeight: 500 }}>Vendas pagas</p>
+            <p style={{ color: D.ink, fontSize: 20, fontWeight: 700, marginTop: 2 }} className="tabular-nums">
+              {paidCount}
+            </p>
           </div>
         </div>
       </div>
 
+      {/* Simulation banner */}
       {simulation && (
-        <div className="shrink-0 mx-4 mt-2 flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-[12px]"
-          style={{ background: C.warnBg, color: C.warnText, border: `1px solid ${C.warnBorder}` }}>
-          <FlaskConical size={14} className="shrink-0" />
+        <div
+          className="shrink-0 flex items-center gap-2"
+          style={{
+            background: "#FFFBEB", color: "#B45309",
+            border: `1px solid #FDE68A`,
+            borderRadius: 10,
+            margin: `12px ${D.px}px 0`,
+            padding: "10px 14px",
+            fontSize: 12,
+          }}
+        >
+          <FlaskConical size={14} className="shrink-0" strokeWidth={1.75} />
           Modo de simulação — os pagamentos não usam dinheiro real.
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto flex flex-col mt-2" style={{ background: C.white }}>
+      {/* List */}
+      <div className="flex-1 overflow-y-auto" style={{ background: D.surface, borderTop: `1px solid ${D.border}`, marginTop: 12 }}>
         {error && (
-          <div className="mx-4 mt-3 rounded-xl px-3.5 py-2.5 text-[13px]" style={{ background: C.errorBg, color: C.errorText, border: `1px solid ${C.errorBorder}` }}>
+          <div
+            className="flex items-center gap-2"
+            style={{
+              background: "#FEF2F2", color: "#DC2626",
+              border: `1px solid #FECACA`,
+              borderRadius: 10,
+              margin: `12px ${D.px}px`,
+              padding: "10px 14px",
+              fontSize: 13,
+            }}
+          >
             {error}
           </div>
         )}
         {loading && <WaSkeletonList count={6} />}
         {!loading && !error && orders.length === 0 && (
           <WaEmptyState
-            icon={<ShoppingCart size={36} />}
-            iconBg="#E8F5E9"
-            iconColor={C.green}
+            icon={<ShoppingCart size={32} strokeWidth={1.75} />}
+            iconBg={D.greenLt}
+            iconColor={D.green}
             title="Ainda sem vendas"
             subtitle="Quando alguém comprar no teu catálogo com Multicaixa Express, aparece aqui."
           />
         )}
-        {!loading && orders.map((o) => <OrderRow key={o.id} order={o} />)}
+        {!loading && orders.map((o, i) => (
+          <OrderRow key={o.id} order={o} last={i === orders.length - 1} />
+        ))}
       </div>
 
       <OwnerNav />

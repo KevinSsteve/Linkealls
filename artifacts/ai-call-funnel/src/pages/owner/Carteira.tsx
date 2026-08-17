@@ -170,19 +170,24 @@ export function Carteira() {
   }, [api, load]);
 
   return (
-    <div className="flex flex-col h-full wa-page" style={{ background: "#F3F4F6" }}>
+    <div className="flex flex-col h-full" style={{ background: "#F8F9FA" }}>
       {/* Header */}
-      <div className="shrink-0" style={{ background: C.white }}>
-        <div className="flex items-center justify-between px-4 pt-5 pb-2">
-          <h1 className="text-[26px] font-extrabold tracking-tight" style={{ color: "#111827" }}>Carteira</h1>
-          <button onClick={() => void load()} className="p-1.5 rounded-full active:bg-[#F3F4F6]" aria-label="Actualizar" style={{ color: "#6B7280" }}>
-            <RefreshCw size={20} strokeWidth={1.8} />
+      <div className="shrink-0" style={{ background: "#FFFFFF", borderBottom: "1px solid #E5E7EB" }}>
+        <div className="flex items-center justify-between" style={{ padding: "16px 16px 12px" }}>
+          <h1 style={{ color: "#111111", fontSize: 22, fontWeight: 700, letterSpacing: "-0.3px" }}>Carteira</h1>
+          <button
+            onClick={() => void load()}
+            className="flex items-center justify-center rounded-full transition-opacity active:opacity-60"
+            style={{ width: 36, height: 36, color: "#9CA3AF" }}
+            aria-label="Actualizar"
+          >
+            <RefreshCw size={18} strokeWidth={1.75} />
           </button>
         </div>
 
         {/* Balance card */}
-        <div className="px-4 pb-4">
-          <div className="rounded-2xl px-5 py-4" style={{ background: C.headerBg }}>
+        <div style={{ padding: "0 16px 16px" }}>
+          <div className="rounded-2xl" style={{ background: C.headerBg, padding: "16px 18px" }}>
             <p className="text-[12px] font-medium" style={{ color: "rgba(255,255,255,0.7)" }}>Saldo disponível</p>
             <p className="text-[28px] font-extrabold tabular-nums text-white">
               {wallet ? fmtKz(wallet.balance) : "—"}
@@ -200,23 +205,23 @@ export function Carteira() {
       </div>
 
       {wallet?.simulation && (
-        <div className="shrink-0 mx-4 mt-2 flex items-center gap-2 rounded-xl px-3.5 py-2.5 text-[12px]"
-          style={{ background: C.warnBg, color: C.warnText, border: `1px solid ${C.warnBorder}` }}>
+        <div className="shrink-0 flex items-center gap-2 text-[12px]"
+          style={{ background: C.warnBg, color: C.warnText, border: `1px solid ${C.warnBorder}`, borderRadius: 10, margin: "12px 16px 0", padding: "10px 14px" }}>
           <FlaskConical size={14} className="shrink-0" />
           Modo de simulação — saldos e saques sem dinheiro real.
         </div>
       )}
 
       {saqueOk && (
-        <div className="shrink-0 mx-4 mt-2 rounded-xl px-3.5 py-2.5 text-[13px]"
-          style={{ background: C.successBg, color: C.successText, border: `1px solid ${C.successBorder}` }}>
+        <div className="shrink-0 text-[13px]"
+          style={{ background: C.successBg, color: C.successText, border: `1px solid ${C.successBorder}`, borderRadius: 10, margin: "12px 16px 0", padding: "10px 14px" }}>
           {saqueOk}
         </div>
       )}
 
       {/* Saque form */}
       {showSaque && wallet && (
-        <div className="shrink-0 mx-4 mt-2 rounded-2xl px-4 py-4" style={{ background: C.white, border: `1px solid ${C.border}` }}>
+        <div className="shrink-0" style={{ background: C.white, border: `1px solid #E5E7EB`, borderRadius: 16, margin: "12px 16px 0", padding: "16px 16px" }}>
           <p className="font-bold text-[15px] mb-3" style={{ color: C.text }}>Pedir saque</p>
 
           <label className="block mb-3">
@@ -282,7 +287,7 @@ export function Carteira() {
       {/* Statement + payouts */}
       <div className="flex-1 overflow-y-auto flex flex-col mt-2">
         {error && (
-          <div className="mx-4 mt-3 rounded-xl px-3.5 py-2.5 text-[13px]" style={{ background: C.errorBg, color: C.errorText, border: `1px solid ${C.errorBorder}` }}>
+          <div className="text-[13px]" style={{ background: C.errorBg, color: C.errorText, border: `1px solid ${C.errorBorder}`, borderRadius: 10, margin: "12px 16px", padding: "10px 14px" }}>
             {error}
           </div>
         )}
@@ -290,7 +295,7 @@ export function Carteira() {
 
         {!loading && payouts.length > 0 && (
           <>
-            <p className="px-4 pt-3 pb-1.5 text-[12px] font-semibold" style={{ color: C.text2 }}>Saques</p>
+            <p style={{ color: "#6B7280", fontSize: 11, fontWeight: 600, letterSpacing: "0.09em", textTransform: "uppercase", padding: "20px 16px 8px" }}>Saques</p>
             <div>
               {payouts.map((p) => (
                 <PayoutRow key={p.id} payout={p} onReconcile={(id) => void reconcile(id)} busy={reconciling} />
@@ -301,7 +306,7 @@ export function Carteira() {
 
         {!loading && wallet && (
           <>
-            <p className="px-4 pt-3 pb-1.5 text-[12px] font-semibold" style={{ color: C.text2 }}>Extracto</p>
+            <p style={{ color: "#6B7280", fontSize: 11, fontWeight: 600, letterSpacing: "0.09em", textTransform: "uppercase", padding: "20px 16px 8px" }}>Extracto</p>
             {wallet.entries.length === 0 ? (
               <WaEmptyState
                 icon={<Wallet size={36} />}

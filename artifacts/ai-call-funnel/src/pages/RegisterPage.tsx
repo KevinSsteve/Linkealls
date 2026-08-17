@@ -160,16 +160,23 @@ export function RegisterPage() {
 
   return (
     <div
-      className="flex flex-col h-full px-6 pt-10 pb-8 overflow-y-auto"
-      style={{ background: "#FFFFFF", minHeight: "var(--vh, 100dvh)" }}
+      className="flex flex-col h-full px-5 overflow-y-auto"
+      style={{
+        background: "#FFFFFF",
+        minHeight: "100dvh",
+        paddingTop: "env(safe-area-inset-top, 0px)",
+        paddingBottom: "env(safe-area-inset-bottom, 0px)",
+      }}
     >
+    <div style={{ paddingTop: 24, paddingBottom: 20 }} className="flex flex-col flex-1">
       {/* Back */}
       <button
         onClick={back}
-        className="mb-6 w-9 h-9 flex items-center justify-center rounded-full transition-colors active:bg-[#F0F2F5]"
-        style={{ color: "#667781" }}
+        className="flex items-center justify-center rounded-full transition-opacity active:opacity-60 self-start"
+        style={{ width: 40, height: 40, background: "#F3F4F6", color: "#6B7280", marginBottom: 28 }}
+        aria-label="Voltar"
       >
-        <ArrowLeft size={22} />
+        <ArrowLeft size={20} strokeWidth={1.75} />
       </button>
 
       {/* Heading */}
@@ -266,12 +273,13 @@ export function RegisterPage() {
         </div>
       )}
 
-      <p className="mt-auto pt-8 text-center text-[15px]" style={{ color: "#667781" }}>
+      <p className="mt-auto pt-8 text-center text-[15px]" style={{ color: "#667781", paddingBottom: 16 }}>
         Já tens conta?{" "}
         <Link href={`/login${window.location.search}`} className="font-semibold" style={{ color: "#25D366" }}>
           Entrar
         </Link>
       </p>
+    </div>
     </div>
   );
 }

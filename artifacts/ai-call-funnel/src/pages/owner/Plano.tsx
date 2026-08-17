@@ -104,12 +104,20 @@ export function Plano() {
   const active = info?.active ?? null;
 
   return (
-    <div className="flex flex-col h-full wa-page" style={{ background: "#F3F4F6" }}>
+    <div className="flex flex-col h-full" style={{ background: "#F8F9FA" }}>
       {/* Header */}
-      <div className="shrink-0 flex items-center justify-between px-4 pt-5 pb-3" style={{ background: C.white }}>
-        <h1 className="text-[26px] font-extrabold tracking-tight" style={{ color: "#111827" }}>Plano</h1>
-        <button onClick={() => void load()} className="p-1.5 rounded-full active:bg-[#F3F4F6]" aria-label="Actualizar" style={{ color: "#6B7280" }}>
-          <RefreshCw size={20} strokeWidth={1.8} />
+      <div
+        className="shrink-0 flex items-center justify-between"
+        style={{ background: "#FFFFFF", borderBottom: "1px solid #E5E7EB", padding: "16px 16px 12px" }}
+      >
+        <h1 style={{ color: "#111111", fontSize: 22, fontWeight: 700, letterSpacing: "-0.3px" }}>Plano</h1>
+        <button
+          onClick={() => void load()}
+          className="flex items-center justify-center rounded-full transition-opacity active:opacity-60"
+          style={{ width: 36, height: 36, color: "#9CA3AF" }}
+          aria-label="Actualizar"
+        >
+          <RefreshCw size={18} strokeWidth={1.75} />
         </button>
       </div>
 
