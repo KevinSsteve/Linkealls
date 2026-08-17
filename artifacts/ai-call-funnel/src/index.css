@@ -13,7 +13,7 @@
   --green: #16A34A;
   --green-dark: #15803D;
   --green-light: #DCFCE7;
-  --page-padding-mobile: 16px;
+  --page-padding-mobile: 20px;
   --page-padding-tablet: 20px;
   --space-1: 4px;
   --space-2: 8px;
@@ -27,7 +27,7 @@
   --radius-lg: 16px;
   --radius-xl: 20px;
   --control-height: 44px;
-  --header-height: 64px;
+  --header-height: 80px;
   --focus-ring: 0 0 0 3px rgba(22, 163, 74, 0.18);
   --shadow-soft: 0 1px 2px rgba(17, 24, 39, 0.05);
 }
@@ -156,7 +156,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: calc(10px + env(safe-area-inset-top, 0px)) var(--page-padding-mobile) 10px;
+  padding: env(safe-area-inset-top, 0px) var(--page-padding-mobile) 0;
 }
 
 .app-header-dark {
@@ -165,7 +165,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 
 .app-header-title {
   color: var(--ink);
-  font-size: 22px;
+  font-size: 26px;
   font-weight: 700;
   line-height: 1.15;
   letter-spacing: -0.3px;
@@ -215,6 +215,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   padding: var(--space-4) var(--page-padding-mobile);
 }
 
+.owner-editor-shell {
+  padding-inline: 0;
+}
+
 .app-section {
   width: 100%;
   margin-bottom: var(--space-6);
@@ -239,10 +243,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 }
 
 .app-settings-section-header {
-  min-height: 48px;
+  min-height: 56px;
   display: flex;
   align-items: center;
-  padding: 12px var(--page-padding-mobile) 8px;
+  padding: 16px var(--page-padding-mobile) 12px;
   border-top: 1px solid var(--border);
   border-bottom: 1px solid var(--border);
   background: var(--subtle);
@@ -353,7 +357,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .app-status-badge.is-info { color: #0369A1; background: #E0F2FE; }
 
 .app-view-field {
-  padding: 14px var(--page-padding-mobile);
+  padding: 18px var(--page-padding-mobile) 17px;
   border-bottom: 1px solid var(--border-soft);
 }
 
@@ -364,18 +368,18 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   align-items: center;
   gap: 6px;
   color: var(--ink-faint);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.08em;
   line-height: 1.2;
   text-transform: uppercase;
-  margin-bottom: 5px;
+  margin-bottom: 8px;
 }
 
 .app-view-field-value {
   color: var(--ink);
-  font-size: 15px;
-  line-height: 1.5;
+  font-size: 17px;
+  line-height: 1.45;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -389,15 +393,15 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   justify-content: space-between;
   gap: var(--space-2);
   color: var(--ink-faint);
-  font-size: 14px;
+  font-size: 16px;
 }
 
 .app-view-field-action {
-  min-height: 36px;
-  padding: 0 10px;
+  min-height: 40px;
+  padding: 0 8px;
   border-radius: var(--radius-sm);
   color: var(--green-dark);
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
 }
 
@@ -437,8 +441,21 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 }
 
 .app-icon-container.is-sm { width: 36px; height: 36px; border-radius: var(--radius-md); }
-.app-icon-container.is-md { width: 46px; height: 46px; border-radius: var(--radius-md); }
-.app-settings-list-item { min-height: 80px; }
+.app-icon-container.is-md { width: 60px; height: 60px; border-radius: var(--radius-lg); }
+.app-settings-list-item {
+  min-height: 100px;
+  padding-block: 16px;
+}
+.app-settings-list-item .app-list-item-title {
+  font-size: 18px;
+  font-weight: 650;
+  line-height: 1.25;
+}
+.app-settings-list-item .app-list-item-description {
+  margin-top: 5px;
+  font-size: 16px;
+  line-height: 1.25;
+}
 .app-settings-list-item.is-last { border-bottom: 0; }
 .app-settings-list-item.is-loading { opacity: 0.62; }
 
@@ -458,11 +475,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 }
 
 .app-product-list-item {
-  min-height: 84px;
+  min-height: 104px;
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 12px var(--page-padding-mobile);
+  padding: 16px var(--page-padding-mobile);
   border-bottom: 1px solid var(--border-soft);
   background: var(--surface);
 }
@@ -473,7 +490,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   display: -webkit-box;
   overflow: hidden;
   color: var(--ink);
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 500;
   line-height: 1.35;
   -webkit-box-orient: vertical;
@@ -483,7 +500,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   overflow: hidden;
   margin-top: 3px;
   color: var(--green-dark);
-  font-size: 16px;
+  font-size: 18px;
   font-weight: 700;
   line-height: 1.25;
   text-overflow: ellipsis;
@@ -578,19 +595,19 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 }
 
 .app-product-image.is-sm { width: 48px; height: 48px; border-radius: var(--radius-md); }
-.app-product-image.is-md { width: 52px; height: 52px; border-radius: var(--radius-md); }
+.app-product-image.is-md { width: 64px; height: 64px; border-radius: var(--radius-md); }
 .app-product-image.is-lg { width: 100%; aspect-ratio: 1 / 1; border-radius: var(--radius-lg); }
 
 .app-bottom-nav {
-  min-height: 64px;
+  min-height: 72px;
   padding-bottom: env(safe-area-inset-bottom, 0px);
   border-top: 1px solid var(--border);
   background: var(--surface);
 }
 
 .app-bottom-nav-item {
-  min-height: 64px;
-  padding: 8px 4px 7px;
+  min-height: 72px;
+  padding: 10px 4px 8px;
   color: var(--ink-faint);
 }
 
@@ -599,7 +616,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 
 .app-bottom-nav-label {
   color: currentColor;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   line-height: 1;
   letter-spacing: 0.01em;

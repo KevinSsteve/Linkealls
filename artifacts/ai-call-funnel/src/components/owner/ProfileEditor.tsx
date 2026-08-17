@@ -41,9 +41,9 @@ interface Props {
 }
 
 const inputClass =
-  "w-full min-h-[44px] min-w-0 rounded-[var(--radius-md)] border border-[var(--border-soft)] bg-[var(--surface)] px-3.5 py-2.5 text-[15px] leading-6 text-[var(--ink)] placeholder:text-[var(--ink-faint)] focus:border-[var(--green)] focus:outline-none focus:ring-0 focus:shadow-[var(--focus-ring)] transition-colors";
+  "w-full min-h-[46px] min-w-0 rounded-[var(--radius-md)] border border-[var(--border-soft)] bg-[var(--surface)] px-3.5 py-2.5 text-[15px] leading-6 text-[var(--ink)] placeholder:text-[var(--ink-faint)] focus:border-[var(--green)] focus:outline-none focus:ring-0 focus:shadow-[var(--focus-ring)] transition-colors";
 const labelClass =
-  "mb-1.5 block text-[11px] font-semibold leading-4 text-[var(--ink-soft)]";
+  "mb-1.5 block text-[12px] font-semibold leading-4 text-[var(--ink-soft)]";
 
 function Field({
   label,
@@ -807,7 +807,7 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
         <div className="space-y-4">
           <Field label="Nome do negócio" value={name} onChange={setName} placeholder="Ex.: Óptica Luanda Premium" testId="input-business-name" />
           <Field label="Setor" value={sector} onChange={setSector} placeholder="Ex.: Óptica e saúde visual" testId="input-business-sector" />
-          <TextAreaField label="Descrição" value={description} onChange={setDescription} placeholder="O que fazes, para quem e onde?" testId="input-business-description" minHeight="84px" />
+          <TextAreaField label="Descrição" value={description} onChange={setDescription} placeholder="O que fazes, para quem e onde?" testId="input-business-description" minHeight="128px" />
           <Field label="Público-alvo" value={targetAudience} onChange={setTargetAudience} placeholder="Quem são os clientes ideais?" testId="input-business-audience" />
           <Field label="Tom de voz" value={toneOfVoice} onChange={setToneOfVoice} placeholder="Ex.: profissional e acolhedor" testId="input-business-tone" />
         </div>

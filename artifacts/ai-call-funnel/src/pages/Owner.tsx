@@ -733,7 +733,7 @@ export function Owner() {
 
         {/* ── Editor ──────────────────────────────────────────────────────── */}
         {view === "editor" && profile && editing && (
-          <div className={productFocus ? "min-h-0 flex-1" : "app-page-content"}>
+          <div className={productFocus ? "min-h-0 flex-1" : "app-page-content owner-editor-shell"}>
             <ProfileEditor
               key={editorKey}
               profile={profile}
