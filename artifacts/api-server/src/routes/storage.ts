@@ -8,6 +8,8 @@ import { ObjectNotFoundError, ObjectStorageService } from "../lib/objectStorage.
 import { logger } from "../lib/logger.js";
 import { z } from "zod";
 import { getUserByToken, requestToken } from "./userAuth.js";
+import { and, eq } from "drizzle-orm";
+import { db, businessProfilesTable, ordersTable } from "@workspace/db";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -92,6 +94,26 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
   try {
     const raw = req.params.path;
     const wildcardPath = Array.isArray(raw) ? raw.join("/") : raw;
+    // Order proofs use a dedicated private prefix. Unlike catalog assets,
+    // they must only be readable by the owner of the matching business.
+    if (wildcardPath.startsWith("order-proofs/")) {
+      const user = await getUserByToken(requestToken(req));
+      if (!user) {
+        res.status(401).json({ error: "Sessão necessária" });
+        return;
+      }
+      const objectPath = `/objects/${wildcardPath}`;
+      const matches = await db
+        .select({ slug: businessProfilesTable.slug })
+        .from(ordersTable)
+        .innerJoin(businessProfilesTable, eq(ordersTable.businessId, businessProfilesTable.id))
+        .where(and(eq(ordersTable.proofObjectPath, objectPath), eq(ordersTable.proofStatus, "recebido")))
+        .limit(1);
+      if (!matches[0] || user.handle !== matches[0].slug) {
+        res.status(403).json({ error: "Sem permissão para ver este comprovativo" });
+        return;
+      }
+    }
     const objectPath = `/objects/${wildcardPath}`;
     const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
     const response = await objectStorageService.downloadObject(objectFile);

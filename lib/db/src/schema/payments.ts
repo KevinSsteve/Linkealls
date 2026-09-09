@@ -1,4 +1,4 @@
-import { pgTable, uuid, integer, text, timestamp, numeric, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, uuid, integer, text, timestamp, numeric, uniqueIndex, jsonb, index } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { z } from "zod/v4";
 
@@ -15,6 +15,8 @@ import { z } from "zod/v4";
 // ─── Orders (product purchases from the public catalog) ──────────────────────
 
 export type OrderStatus = "pendente" | "paga" | "expirada" | "falhada";
+export type OrderFulfillmentStatus = "novo" | "em_preparacao" | "pronto" | "entregue" | "cancelado";
+export type OrderProofStatus = "nao_pedido" | "pendente" | "recebido" | "aprovado" | "rejeitado";
 
 export const ordersTable = pgTable("orders", {
   id: uuid("id").defaultRandom().primaryKey(),
@@ -27,6 +29,24 @@ export const ordersTable = pgTable("orders", {
   /** Buyer's phone (Multicaixa Express push target), e.g. 9XXXXXXXX. */
   buyerPhone: text("buyer_phone").notNull(),
   buyerName: text("buyer_name"),
+  /** Optional visitor conversation that originated this order. */
+  leadId: uuid("lead_id"),
+  /** Operational state after payment; intentionally separate from gateway status. */
+  fulfillmentStatus: text("fulfillment_status")
+    .$type<OrderFulfillmentStatus>()
+    .notNull()
+    .default("novo"),
+  /** Optional instructions or delivery details collected in chat. */
+  customerNotes: text("customer_notes"),
+  /** Payment proof is private and stored in App Storage. */
+  proofObjectPath: text("proof_object_path"),
+  proofStatus: text("proof_status")
+    .$type<OrderProofStatus>()
+    .notNull()
+    .default("nao_pedido"),
+  proofSubmittedAt: timestamp("proof_submitted_at"),
+  proofReviewedAt: timestamp("proof_reviewed_at"),
+  lastFollowUpAt: timestamp("last_follow_up_at"),
   /** Unique id sent to the gateway — settlement key. */
   merchantTransactionId: text("merchant_transaction_id").notNull().unique(),
   /** e-kwanza transaction id received in the callback. */
@@ -123,6 +143,8 @@ export const createOrderSchema = z.object({
   quantity: z.number().int().min(1).max(99),
   phone: aoPhoneSchema,
   buyerName: z.string().max(200).optional(),
+  leadId: z.string().uuid().optional(),
+  customerNotes: z.string().max(2000).optional(),
 });
 
 export const createPayoutSchema = z.object({
@@ -135,3 +157,42 @@ export type Order = typeof ordersTable.$inferSelect;
 export type Subscription = typeof subscriptionsTable.$inferSelect;
 export type WalletLedgerEntry = typeof walletLedgerTable.$inferSelect;
 export type Payout = typeof payoutsTable.$inferSelect;
+
+// ─── Order timeline (operational audit, not payment ledger) ───────────────────
+
+export type OrderEventType =
+  | "criada"
+  | "pagamento_confirmado"
+  | "estado_alterado"
+  | "prova_pedida"
+  | "prova_submetida"
+  | "prova_aprovada"
+  | "prova_rejeitada"
+  | "followup_enviado"
+  | "nota_adicionada";
+
+export type OrderEventActor = "sistema" | "cliente" | "ia" | "dono";
+
+export interface OrderEventMeta {
+  fromStatus?: string;
+  toStatus?: string;
+  note?: string;
+  proofStatus?: OrderProofStatus;
+  [key: string]: string | number | boolean | undefined;
+}
+
+export const orderEventsTable = pgTable("order_events", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  orderId: uuid("order_id").notNull(),
+  businessId: integer("business_id").notNull(),
+  type: text("type").$type<OrderEventType>().notNull(),
+  actor: text("actor").$type<OrderEventActor>().notNull(),
+  content: text("content").notNull().default(""),
+  meta: jsonb("meta").$type<OrderEventMeta>().notNull().default({}),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  index("order_events_order_created_idx").on(table.orderId, table.createdAt),
+  index("order_events_business_created_idx").on(table.businessId, table.createdAt),
+]);
+
+export type OrderEvent = typeof orderEventsTable.$inferSelect;

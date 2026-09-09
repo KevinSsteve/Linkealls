@@ -211,6 +211,7 @@ export function setupCallFunnelWebSocket(server: Server): void {
                 quantity: qty,
                 phone: rawPhone,
                 buyerName: args.buyer_name,
+                leadId: leadId ?? undefined,
               })
                 .then(({ order, simulated }) => {
                   if (!closed) {

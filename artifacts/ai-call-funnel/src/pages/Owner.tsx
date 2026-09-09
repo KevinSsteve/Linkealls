@@ -4,7 +4,7 @@ import {
   Globe, Sparkles, Loader2, AlertCircle, CheckCircle2,
   Zap, Grid3x3, Megaphone, Users, ChevronRight, X, Store,
   MessageSquare, Phone, RefreshCw, Edit2, Share2, MoreVertical,
-  MapPin, Clock, Mail, Image, ShoppingCart, Wallet, Crown, LogOut,
+  MapPin, Clock, Mail, Image, ShoppingCart, PackageCheck, Wallet, Crown, LogOut,
 } from "lucide-react";
 import { OwnerNav } from "../components/owner/OwnerNav";
 import {
@@ -337,6 +337,7 @@ function ProfileView({
       <SectionLabel>Pagamentos</SectionLabel>
       <div style={{ background: D.surface, borderTop: `1px solid ${D.border}`, borderBottom: `1px solid ${D.border}` }}>
         <ToolRow icon={ShoppingCart} title="Vendas"   description="Encomendas pagas no catálogo"               href={`/e/${slug}/dono/vendas`} />
+        <ToolRow icon={PackageCheck} title="Comércio" description="Pedidos, follow-up e comprovativos"        href={`/e/${slug}/dono/comercio`} />
         <ToolRow icon={Wallet}       title="Carteira" description="Saldo, extracto e saques"                   href={`/e/${slug}/dono/carteira`} />
         <ToolRow icon={Crown}        title="Plano"    description="Subscrição Linkealls — 10.000 Kz / 30 dias" href={`/e/${slug}/dono/plano`} last />
       </div>

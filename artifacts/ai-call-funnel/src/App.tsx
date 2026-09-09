@@ -18,6 +18,7 @@ import { CampaignDetail } from "@/pages/owner/CampaignDetail";
 import { Conversas } from "@/pages/owner/Conversas";
 import { Mercado } from "@/pages/owner/Mercado";
 import { Vendas } from "@/pages/owner/Vendas";
+import { Comercio } from "@/pages/owner/Comercio";
 import { Carteira } from "@/pages/owner/Carteira";
 import { Plano } from "@/pages/owner/Plano";
 
@@ -145,6 +146,7 @@ export default function App() {
                   <Route path="/e/:businessSlug/dono/campanhas">{() => <OwnerGate><Campaigns /></OwnerGate>}</Route>
                   <Route path="/e/:businessSlug/dono/mercado">{() => <OwnerGate><Mercado /></OwnerGate>}</Route>
                   <Route path="/e/:businessSlug/dono/vendas">{() => <OwnerGate><Vendas /></OwnerGate>}</Route>
+                  <Route path="/e/:businessSlug/dono/comercio">{() => <OwnerGate><Comercio /></OwnerGate>}</Route>
                   <Route path="/e/:businessSlug/dono/carteira">{() => <OwnerGate><Carteira /></OwnerGate>}</Route>
                   <Route path="/e/:businessSlug/dono/plano">{() => <OwnerGate><Plano /></OwnerGate>}</Route>
                   <Route path="/e/:businessSlug/dono">{() => <OwnerGate><Owner /></OwnerGate>}</Route>

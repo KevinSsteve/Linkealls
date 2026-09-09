@@ -12,6 +12,8 @@ import { and, desc, eq, sql, gt } from "drizzle-orm";
 import {
   db,
   ordersTable,
+  orderEventsTable,
+  leadsTable,
   subscriptionsTable,
   walletLedgerTable,
   payoutsTable,
@@ -21,6 +23,8 @@ import {
   type Payout,
   type WalletLedgerEntry,
   type PayoutDestinationType,
+  type OrderFulfillmentStatus,
+  type OrderProofStatus,
 } from "@workspace/db";
 import {
   createGpoCharge,
@@ -38,6 +42,20 @@ export const PLAN_DAYS = 30;
 export const PAYOUT_MIN_AOA = 1_000;
 /** Pending orders older than this are treated as expired. */
 const ORDER_EXPIRY_HOURS = 24;
+
+type OrderEventListener = (businessId: number) => void;
+const orderEventListeners = new Set<OrderEventListener>();
+
+export function subscribeToOrderEvents(listener: OrderEventListener): () => void {
+  orderEventListeners.add(listener);
+  return () => orderEventListeners.delete(listener);
+}
+
+function notifyOrderEvent(businessId: number): void {
+  for (const listener of orderEventListeners) {
+    try { listener(businessId); } catch { /* isolated notification bus */ }
+  }
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -76,7 +94,14 @@ export class PaymentError extends Error {
  */
 export async function createProductOrder(
   businessId: number,
-  input: { offeringName: string; quantity: number; phone: string; buyerName?: string },
+  input: {
+    offeringName: string;
+    quantity: number;
+    phone: string;
+    buyerName?: string;
+    leadId?: string;
+    customerNotes?: string;
+  },
 ): Promise<{ order: Order; simulated: boolean }> {
   const rows = await db
     .select({ offerings: businessProfilesTable.offerings, name: businessProfilesTable.name })
@@ -88,6 +113,14 @@ export async function createProductOrder(
 
   const offering = profile.offerings.find((o) => o.name === input.offeringName);
   if (!offering) throw new PaymentError("Produto não encontrado no catálogo", 404);
+  if (input.leadId) {
+    const lead = await db
+      .select({ id: leadsTable.id })
+      .from(leadsTable)
+      .where(and(eq(leadsTable.id, input.leadId), eq(leadsTable.businessId, businessId)))
+      .limit(1);
+    if (!lead[0]) throw new PaymentError("Conversa não encontrada", 400);
+  }
   const unitPrice = parseOfferingPrice(offering.price);
   if (unitPrice === null) throw new PaymentError("Este produto não tem preço fixo — fala com o negócio", 400);
 
@@ -104,10 +137,20 @@ export async function createProductOrder(
       amount: amount.toFixed(2),
       buyerPhone: input.phone,
       buyerName: input.buyerName ?? null,
+      leadId: input.leadId ?? null,
+      customerNotes: input.customerNotes ?? null,
       merchantTransactionId,
     })
     .returning();
   const order = inserted[0]!;
+  await db.insert(orderEventsTable).values({
+    orderId: order.id,
+    businessId,
+    type: "criada",
+    actor: "sistema",
+    content: `Pedido criado para ${order.offeringName} x${order.quantity}.`,
+  });
+  notifyOrderEvent(businessId);
 
   // In simulation mode the charge is instant; in real mode it blocks until
   // the buyer approves (up to 60 s). We fire it in the background so the HTTP
@@ -142,7 +185,7 @@ export async function createProductOrder(
   // setImmediate lets the current call stack (HTTP response) finish first.
   setImmediate(() => { void fireCharge(); });
 
-  return { order, simulated: false };
+  return { order, simulated: IS_SIMULATION };
 }
 
 /** Public polling endpoint helper — the order UUID is the capability. */
@@ -176,6 +219,229 @@ export async function listOrders(businessId: number): Promise<Order[]> {
     .orderBy(desc(ordersTable.createdAt))
     .limit(200);
   return Promise.all(rows.map(maybeExpire));
+}
+
+export interface OrderAnalytics {
+  totalOrders: number;
+  paidOrders: number;
+  pendingPayments: number;
+  grossSales: number;
+  awaitingFollowUp: number;
+  awaitingProof: number;
+  averageFulfillmentHours: number | null;
+  topProducts: Array<{ name: string; quantity: number; sales: number }>;
+}
+
+export async function getOrderAnalytics(businessId: number): Promise<OrderAnalytics> {
+  const [summary, products] = await Promise.all([
+    db.execute(sql`
+      SELECT
+        COUNT(*)::int AS total_orders,
+        COUNT(*) FILTER (WHERE status = 'paga')::int AS paid_orders,
+        COUNT(*) FILTER (WHERE status = 'pendente')::int AS pending_payments,
+        COALESCE(SUM(amount) FILTER (WHERE status = 'paga'), 0)::numeric AS gross_sales,
+        COUNT(*) FILTER (WHERE status = 'paga' AND proof_status = 'pendente')::int AS awaiting_proof,
+        COUNT(*) FILTER (WHERE status = 'paga' AND lead_id IS NOT NULL AND last_follow_up_at IS NULL)::int AS awaiting_follow_up,
+        AVG(EXTRACT(EPOCH FROM (updated_at - paid_at)) / 3600)
+          FILTER (WHERE status = 'paga' AND fulfillment_status = 'entregue' AND paid_at IS NOT NULL)::numeric
+          AS average_fulfillment_hours
+      FROM orders
+      WHERE business_id = ${businessId}
+    `),
+    db.execute(sql`
+      SELECT offering_name AS name,
+             COALESCE(SUM(quantity) FILTER (WHERE status = 'paga'), 0)::int AS quantity,
+             COALESCE(SUM(amount) FILTER (WHERE status = 'paga'), 0)::numeric AS sales
+      FROM orders
+      WHERE business_id = ${businessId}
+      GROUP BY offering_name
+      ORDER BY sales DESC, quantity DESC
+      LIMIT 5
+    `),
+  ]);
+  const row = summary.rows[0] as Record<string, unknown> | undefined;
+  return {
+    totalOrders: Number(row?.total_orders ?? 0),
+    paidOrders: Number(row?.paid_orders ?? 0),
+    pendingPayments: Number(row?.pending_payments ?? 0),
+    grossSales: Number(row?.gross_sales ?? 0),
+    awaitingFollowUp: Number(row?.awaiting_follow_up ?? 0),
+    awaitingProof: Number(row?.awaiting_proof ?? 0),
+    averageFulfillmentHours: row?.average_fulfillment_hours == null
+      ? null
+      : Number(row.average_fulfillment_hours),
+    topProducts: (products.rows as Array<Record<string, unknown>>).map((item) => ({
+      name: String(item.name),
+      quantity: Number(item.quantity ?? 0),
+      sales: Number(item.sales ?? 0),
+    })),
+  };
+}
+
+export async function updateOrderFulfillment(
+  businessId: number,
+  orderId: string,
+  status: OrderFulfillmentStatus,
+  note?: string,
+): Promise<Order | null> {
+  const current = await db
+    .select()
+    .from(ordersTable)
+    .where(and(eq(ordersTable.id, orderId), eq(ordersTable.businessId, businessId)))
+    .limit(1);
+  const order = current[0];
+  if (!order) return null;
+  if (order.fulfillmentStatus === status && !note) return order;
+  const updated = await db.transaction(async (tx) => {
+    const rows = await tx
+      .update(ordersTable)
+      .set({ fulfillmentStatus: status, updatedAt: new Date() })
+      .where(and(eq(ordersTable.id, orderId), eq(ordersTable.businessId, businessId)))
+      .returning();
+    await tx.insert(orderEventsTable).values({
+      orderId,
+      businessId,
+      type: note ? "nota_adicionada" : "estado_alterado",
+      actor: "dono",
+      content: note ?? `Estado alterado para ${status}.`,
+      meta: {
+        fromStatus: order.fulfillmentStatus,
+        toStatus: status,
+        ...(note ? { note } : {}),
+      },
+    });
+    return rows[0]!;
+  });
+  if (updated.leadId) {
+    const statusMessages: Record<OrderFulfillmentStatus, string> = {
+      novo: "A tua encomenda foi recebida e está na fila de preparação.",
+      em_preparacao: "A tua encomenda entrou em preparação.",
+      pronto: "A tua encomenda está pronta. O negócio vai combinar contigo a entrega ou recolha.",
+      entregue: "A tua encomenda foi marcada como entregue. Obrigado pela confiança.",
+      cancelado: "O negócio marcou a tua encomenda como cancelada. Fala connosco se precisares de esclarecimentos.",
+    };
+    const leadRows = await db.select({ chatMessages: leadsTable.chatMessages })
+      .from(leadsTable)
+      .where(and(eq(leadsTable.id, updated.leadId), eq(leadsTable.businessId, businessId)))
+      .limit(1);
+    const lead = leadRows[0];
+    if (lead) {
+      await db.update(leadsTable).set({
+        chatMessages: [
+          ...(lead.chatMessages ?? []),
+          { role: "bot", text: statusMessages[status], ts: new Date().toISOString() },
+        ],
+        updatedAt: new Date(),
+      }).where(eq(leadsTable.id, updated.leadId));
+    }
+  }
+  notifyOrderEvent(businessId);
+  return updated;
+}
+
+export async function reviewOrderProof(
+  businessId: number,
+  orderId: string,
+  status: Extract<OrderProofStatus, "aprovado" | "rejeitado">,
+  note?: string,
+): Promise<Order | null> {
+  const updated = await db
+    .update(ordersTable)
+    .set({ proofStatus: status, proofReviewedAt: new Date(), updatedAt: new Date() })
+    .where(and(eq(ordersTable.id, orderId), eq(ordersTable.businessId, businessId)))
+    .returning();
+  const order = updated[0];
+  if (!order) return null;
+  await db.insert(orderEventsTable).values({
+    orderId,
+    businessId,
+    type: status === "aprovado" ? "prova_aprovada" : "prova_rejeitada",
+    actor: "dono",
+    content: note ?? (status === "aprovado" ? "Comprovativo aprovado." : "Comprovativo precisa de revisão."),
+    meta: { proofStatus: status, ...(note ? { note } : {}) },
+  });
+  if (order.leadId) {
+    const leadRows = await db.select({ chatMessages: leadsTable.chatMessages })
+      .from(leadsTable)
+      .where(and(eq(leadsTable.id, order.leadId), eq(leadsTable.businessId, businessId)))
+      .limit(1);
+    const lead = leadRows[0];
+    if (lead) {
+      const message = status === "aprovado"
+        ? "O negócio validou o teu comprovativo de pagamento. A encomenda continua a ser acompanhada por aqui."
+        : "O negócio não conseguiu validar este comprovativo. Envia uma imagem ou PDF mais nítido para podermos continuar.";
+      await db.update(leadsTable).set({
+        chatMessages: [
+          ...(lead.chatMessages ?? []),
+          { role: "bot", text: message, ts: new Date().toISOString() },
+        ],
+        updatedAt: new Date(),
+      }).where(eq(leadsTable.id, order.leadId));
+    }
+  }
+  notifyOrderEvent(businessId);
+  return order;
+}
+
+export async function listOrderEvents(businessId: number, orderId: string) {
+  return db
+    .select()
+    .from(orderEventsTable)
+    .where(and(eq(orderEventsTable.businessId, businessId), eq(orderEventsTable.orderId, orderId)))
+    .orderBy(desc(orderEventsTable.createdAt))
+    .limit(100);
+}
+
+export async function submitOrderProof(
+  orderId: string,
+  objectPath: string,
+): Promise<Order | null> {
+  const current = await db
+    .select()
+    .from(ordersTable)
+    .where(eq(ordersTable.id, orderId))
+    .limit(1);
+  const order = current[0];
+  if (!order || order.status !== "paga") return null;
+  const updated = await db
+    .update(ordersTable)
+    .set({
+      proofObjectPath: objectPath,
+      proofStatus: "recebido",
+      proofSubmittedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(eq(ordersTable.id, orderId))
+    .returning();
+  const next = updated[0] ?? null;
+  if (next) {
+    await db.insert(orderEventsTable).values({
+      orderId,
+      businessId: order.businessId,
+      type: "prova_submetida",
+      actor: "cliente",
+      content: "O cliente enviou um comprovativo de pagamento.",
+      meta: { proofStatus: "recebido" },
+    });
+    if (next.leadId) {
+      const leadRows = await db.select({ chatMessages: leadsTable.chatMessages })
+        .from(leadsTable)
+        .where(and(eq(leadsTable.id, next.leadId), eq(leadsTable.businessId, next.businessId)))
+        .limit(1);
+      const lead = leadRows[0];
+      if (lead) {
+        await db.update(leadsTable).set({
+          chatMessages: [
+            ...(lead.chatMessages ?? []),
+            { role: "bot", text: "Recebi o teu comprovativo de pagamento. O negócio vai revê-lo e continuar o acompanhamento da encomenda por aqui.", ts: new Date().toISOString() },
+          ],
+          updatedAt: new Date(),
+        }).where(eq(leadsTable.id, next.leadId));
+      }
+    }
+    notifyOrderEvent(next.businessId);
+  }
+  return next;
 }
 
 // ─── Subscriptions (Linkealls plan) ───────────────────────────────────────────
@@ -298,6 +564,8 @@ export async function settleGpoPayment(
           .set({
             status: "paga",
             paidAt: new Date(),
+            proofStatus: "pendente",
+            lastFollowUpAt: order.leadId ? new Date() : null,
             ekwanzaTransactionId: ekwanzaTransactionId ?? null,
             updatedAt: new Date(),
           })
@@ -314,16 +582,71 @@ export async function settleGpoPayment(
               description: `Venda: ${order.offeringName} x${order.quantity}`,
             })
             .onConflictDoNothing();
+          if (updated.length > 0) {
+            await tx.insert(orderEventsTable).values([
+              {
+                orderId: order.id,
+                businessId: order.businessId,
+                type: "pagamento_confirmado",
+                actor: "sistema",
+                content: `Pagamento confirmado: ${order.offeringName} x${order.quantity}.`,
+              },
+              {
+                orderId: order.id,
+                businessId: order.businessId,
+                type: "prova_pedida",
+                actor: "ia",
+                content: "Foi pedido ao cliente o envio do comprovativo no chat.",
+                meta: { proofStatus: "pendente" },
+              },
+            ]);
+          }
         }
         return { firstSettle: updated.length > 0 };
       });
       if (firstSettle) {
+        if (order.leadId) {
+          const leadRows = await db
+            .select({ chatMessages: leadsTable.chatMessages, qualificationData: leadsTable.qualificationData })
+            .from(leadsTable)
+            .where(and(eq(leadsTable.id, order.leadId), eq(leadsTable.businessId, order.businessId)))
+            .limit(1);
+          const lead = leadRows[0];
+          if (lead) {
+            const followUp = [
+              `Pagamento confirmado para ${order.offeringName} (${Number(order.amount).toLocaleString("pt-AO")} Kz).`,
+              "Para o negócio preparar a tua encomenda, envia aqui o comprovativo de pagamento.",
+              "Se houver algum detalhe de entrega ou dado que ainda não tenhamos, podes enviar também nesta conversa.",
+            ].join(" ");
+            await db.update(leadsTable)
+              .set({
+                chatMessages: [
+                  ...(lead.chatMessages ?? []),
+                  { role: "bot", text: followUp, ts: new Date().toISOString() },
+                ],
+                qualificationData: {
+                  ...(lead.qualificationData ?? {}),
+                  ...(order.buyerName ? { name: order.buyerName } : {}),
+                  phone: order.buyerPhone,
+                  extras: {
+                    ...(lead.qualificationData?.extras ?? {}),
+                    orderId: order.id,
+                    paymentPhone: order.buyerPhone,
+                    paymentConfirmed: "sim",
+                  },
+                },
+                updatedAt: new Date(),
+              })
+              .where(and(eq(leadsTable.id, order.leadId), eq(leadsTable.businessId, order.businessId)));
+          }
+        }
         void sendPushToOwner({
-          title: "Venda paga!",
-          body: `${order.offeringName} x${order.quantity} — ${Number(order.amount).toLocaleString("pt-AO")} Kz`,
+          title: "Novo pedido pago",
+          body: `${order.offeringName} x${order.quantity} — ${Number(order.amount).toLocaleString("pt-AO")} Kz. O cliente já recebeu o próximo passo.`,
           tag: `order-${order.id}`,
-          url: await ownerUrl(order.businessId, "/dono/vendas"),
+          url: await ownerUrl(order.businessId, "/dono/comercio"),
         }, order.businessId).catch(() => {});
+        notifyOrderEvent(order.businessId);
       }
     } else {
       await db

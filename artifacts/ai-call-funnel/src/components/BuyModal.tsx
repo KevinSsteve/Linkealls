@@ -12,6 +12,7 @@ import {
   X, Smartphone, Loader2, CheckCircle2, XCircle, Minus, Plus, ShieldCheck, FlaskConical,
 } from "lucide-react";
 import { businessApi, simulatePayment, type Offering, type OrderStatus } from "../lib/api";
+import { OrderProofUpload } from "./OrderProofUpload";
 
 // ─── Tokens locais (mesmos valores que T em Catalogo.tsx) ─────────────────────
 const M = {
@@ -110,10 +111,12 @@ export function BuyModal({
   businessSlug,
   offering,
   onClose,
+  leadId,
 }: {
   businessSlug: string;
   offering: Offering;
   onClose: () => void;
+  leadId?: string | null;
 }) {
   const unitPrice = parsePriceAoa(offering.price) ?? 0;
   const [qty, setQty] = useState(1);
@@ -166,6 +169,7 @@ export function BuyModal({
         quantity: qty,
         phone: p,
         ...(buyerName.trim() ? { buyerName: buyerName.trim() } : {}),
+        ...(leadId ? { leadId } : {}),
       });
       setOrderId(res.orderId);
       setMtid(res.merchantTransactionId);
@@ -177,7 +181,7 @@ export function BuyModal({
     } finally {
       setBusy(false);
     }
-  }, [api, phone, buyerName, qty, offering.name, startPolling]);
+  }, [api, phone, buyerName, qty, offering.name, leadId, startPolling]);
 
   const approveSimulated = useCallback(async () => {
     if (!mtid) return;
@@ -491,6 +495,9 @@ export function BuyModal({
                 >
                   Ref: {orderId.slice(0, 8).toUpperCase()}
                 </p>
+              )}
+              {orderId && (
+                <OrderProofUpload businessSlug={businessSlug} orderId={orderId} />
               )}
               <button
                 onClick={onClose}

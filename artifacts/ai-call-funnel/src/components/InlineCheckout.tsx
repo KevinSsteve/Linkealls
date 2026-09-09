@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { businessApi, simulatePayment } from "../lib/api";
 import type { CheckoutInfo } from "../hooks/useGeminiLive";
+import { OrderProofUpload } from "./OrderProofUpload";
 
 function formatAoa(v: number): string {
   return `${v.toLocaleString("pt-AO", { maximumFractionDigits: 2 })} Kz`;
@@ -228,6 +229,7 @@ export function InlineCheckout({ businessSlug, checkout, onDone, onDismiss }: Pr
             <p className="text-[11px] tabular-nums" style={{ color: T.inkFaint }}>
               Ref: {checkout.orderId.slice(0, 8).toUpperCase()}
             </p>
+            <OrderProofUpload businessSlug={businessSlug} orderId={checkout.orderId} compact />
           </div>
         )}
 

@@ -493,6 +493,8 @@ export function checkSlugAvailability(slug: string): Promise<{ available: boolea
 // ─── Payments (Multicaixa Express) ────────────────────────────────────────────
 
 export type OrderStatus = "pendente" | "paga" | "expirada" | "falhada";
+export type OrderFulfillmentStatus = "novo" | "em_preparacao" | "pronto" | "entregue" | "cancelado";
+export type OrderProofStatus = "nao_pedido" | "pendente" | "recebido" | "aprovado" | "rejeitado";
 
 export interface OrderCheckout {
   orderId: string;
@@ -511,6 +513,8 @@ export interface OrderPublicStatus {
   quantity: number;
   merchantTransactionId: string;
   paidAt: string | null;
+  fulfillmentStatus: OrderFulfillmentStatus;
+  proofStatus: OrderProofStatus;
 }
 
 export interface Order {
@@ -522,6 +526,14 @@ export interface Order {
   buyerPhone: string;
   buyerName: string | null;
   status: OrderStatus;
+  leadId: string | null;
+  fulfillmentStatus: OrderFulfillmentStatus;
+  customerNotes: string | null;
+  proofObjectPath: string | null;
+  proofStatus: OrderProofStatus;
+  proofSubmittedAt: string | null;
+  proofReviewedAt: string | null;
+  lastFollowUpAt: string | null;
   paidAt: string | null;
   createdAt: string;
 }
@@ -539,6 +551,28 @@ export interface WalletData {
   entries: WalletLedgerEntry[];
   payoutMin: number;
   simulation: boolean;
+}
+
+export interface OrderAnalytics {
+  totalOrders: number;
+  paidOrders: number;
+  pendingPayments: number;
+  grossSales: number;
+  awaitingFollowUp: number;
+  awaitingProof: number;
+  averageFulfillmentHours: number | null;
+  topProducts: Array<{ name: string; quantity: number; sales: number }>;
+}
+
+export interface OrderEvent {
+  id: string;
+  orderId: string;
+  businessId: number;
+  type: string;
+  actor: "sistema" | "cliente" | "ia" | "dono";
+  content: string;
+  meta: Record<string, unknown>;
+  createdAt: string;
 }
 
 export type PayoutStatus = "pendente" | "processado" | "falhado" | "revertido";
@@ -666,7 +700,14 @@ export function businessApi(slug: string) {
       }),
 
     // Payments — public checkout (visitor)
-    createOrder: (data: { offeringName: string; quantity: number; phone: string; buyerName?: string }) =>
+    createOrder: (data: {
+      offeringName: string;
+      quantity: number;
+      phone: string;
+      buyerName?: string;
+      leadId?: string;
+      customerNotes?: string;
+    }) =>
       bRequest<OrderCheckout>("/orders", { method: "POST", body: JSON.stringify(data) }),
     getOrderStatus: (orderId: string) =>
       bRequest<OrderPublicStatus>(`/orders/${orderId}/status`),
@@ -674,6 +715,46 @@ export function businessApi(slug: string) {
     // Payments — owner
     listOrders: () =>
       bRequest<{ orders: Order[]; simulation: boolean }>("/orders"),
+    getOrderAnalytics: () =>
+      bRequest<{ analytics: OrderAnalytics }>("/orders/analytics"),
+    getOrdersEventsUrl: () => {
+      const token = sessionToken();
+      return `${API_BASE}/b/${encodeURIComponent(slug)}/orders/events${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+    },
+    updateOrderFulfillment: (orderId: string, status: OrderFulfillmentStatus, note?: string) =>
+      bRequest<{ order: Order }>(`/orders/${encodeURIComponent(orderId)}/fulfillment`, {
+        method: "PATCH",
+        body: JSON.stringify({ status, ...(note ? { note } : {}) }),
+      }),
+    reviewOrderProof: (orderId: string, status: "aprovado" | "rejeitado", note?: string) =>
+      bRequest<{ order: Order }>(`/orders/${encodeURIComponent(orderId)}/proof`, {
+        method: "PATCH",
+        body: JSON.stringify({ status, ...(note ? { note } : {}) }),
+      }),
+    listOrderEvents: (orderId: string) =>
+      bRequest<{ events: OrderEvent[] }>(`/orders/${encodeURIComponent(orderId)}/events`),
+    requestOrderProofUrl: (orderId: string, file: Pick<File, "name" | "size" | "type">) =>
+      bRequest<{ uploadURL: string; objectPath: string }>(
+        `/orders/${encodeURIComponent(orderId)}/proof/request-url`,
+        {
+          method: "POST",
+          body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+        },
+      ),
+    submitOrderProof: (orderId: string, objectPath: string) =>
+      bRequest<{ order: Order | null }>(`/orders/${encodeURIComponent(orderId)}/proof`, {
+        method: "POST",
+        body: JSON.stringify({ objectPath }),
+      }),
+    downloadOrderProof: async (orderId: string): Promise<Blob> => {
+      const token = sessionToken();
+      const res = await fetch(
+        `${API_BASE}/b/${encodeURIComponent(slug)}/orders/${encodeURIComponent(orderId)}/proof`,
+        { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+      );
+      if (!res.ok) throw new Error("Não foi possível abrir o comprovativo");
+      return res.blob();
+    },
     getWallet: () =>
       bRequest<WalletData>("/wallet"),
     listPayouts: () =>

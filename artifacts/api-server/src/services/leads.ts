@@ -2,6 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import {
   db,
   leadsTable,
+  ordersTable,
   type Lead,
   type InsertLead,
   type LeadOrigin,
@@ -328,6 +329,28 @@ export async function chatWithLead(
   const faqText = profile.faq?.length
     ? profile.faq.map((f) => `P: ${f.question}\nR: ${f.answer}`).join("\n\n")
     : "";
+  const relatedOrders = await db
+    .select({
+      id: ordersTable.id,
+      offeringName: ordersTable.offeringName,
+      amount: ordersTable.amount,
+      buyerPhone: ordersTable.buyerPhone,
+      status: ordersTable.status,
+      fulfillmentStatus: ordersTable.fulfillmentStatus,
+      proofStatus: ordersTable.proofStatus,
+      paidAt: ordersTable.paidAt,
+    })
+    .from(ordersTable)
+    .where(eq(ordersTable.leadId, leadId))
+    .orderBy(desc(ordersTable.createdAt))
+    .limit(5);
+  const ordersText = relatedOrders.length
+    ? relatedOrders.map((order) => [
+      `- ${order.offeringName} — ${Number(order.amount).toLocaleString("pt-AO")} Kz`,
+      `pagamento: ${order.status}, preparação: ${order.fulfillmentStatus}, comprovativo: ${order.proofStatus}`,
+      `telefone usado no pagamento: ${order.buyerPhone}${order.paidAt ? `, pago em ${new Date(order.paidAt).toLocaleString("pt-AO")}` : ""}`,
+    ].join(" | ")).join("\n")
+    : "(sem pedido associado)";
 
   const systemInstruction = `És um assistente comercial de atendimento por texto para ${profile.name || "este negócio"}.
 Tom de voz: ${profile.toneOfVoice || "profissional e amigável"}.
@@ -339,11 +362,17 @@ Diferenciais: ${(profile.differentials || []).join(", ")}.
 PRODUTOS/SERVIÇOS:
 ${offeringsText}
 ${faqText ? `\nPERGUNTAS FREQUENTES:\n${faqText}\n` : ""}
+
+PEDIDOS ASSOCIADOS A ESTA CONVERSA:
+${ordersText}
 REGRAS:
 - Responde de forma natural, útil e muito curta: no máximo 2 frases e 3 linhas.
 - Não repitas a descrição do negócio nem faças introduções longas. Responde directamente ao que o cliente perguntou.
 - NÃO uses formatação markdown (sem asteriscos, sem #, sem bullets).
 - Quando fizer sentido, sugere ligar de volta ao cliente.
+- Depois de um pagamento confirmado, faz follow-up: confirma que o número usado no Multicaixa Express (${relatedOrders.find((order) => order.status === "paga")?.buyerPhone ?? "ainda não confirmado"}) é o correcto e recolhe os dados em falta para entrega (localização, endereço, pessoa a receber e horário).
+- Se o comprovativo estiver pendente ou rejeitado, pede-o de forma clara. Se já foi recebido ou aprovado, confirma que está em revisão/validado e não o peças novamente.
+- Não inventes estados, prazos de entrega ou confirmação de dados que não estejam no contexto.
 - Escreve em Português de Angola (tratamento informal mas respeitoso).
 - Se não souberes uma resposta, diz honestamente e oferece alternativa.`;
 

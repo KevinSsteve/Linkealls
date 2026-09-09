@@ -746,6 +746,7 @@ export function Chat() {
           businessSlug={businessSlug}
           offering={buyModalOfferingAsOffering}
           onClose={() => setBuyModalOffering(null)}
+          leadId={leadId}
         />
       )}
 
