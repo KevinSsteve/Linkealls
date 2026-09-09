@@ -31,7 +31,7 @@ function normalizeIbanDigits(value: string): string {
   const withoutPrefix = compact.startsWith(KWIK_IBAN_PREFIX)
     ? compact.slice(KWIK_IBAN_PREFIX.length)
     : compact;
-  return withoutPrefix.replace(/\D/g, "").slice(0, KWIK_IBAN_DIGIT_COUNT);
+  return withoutPrefix.replace(/\D/g, "");
 }
 
 function formatIbanDigits(value: string): string {
@@ -261,7 +261,7 @@ export function Carteira() {
                 onChange={(e) => setDestination(normalizeIbanDigits(e.target.value))}
                 placeholder="0000 0000 0000 0000 0000 0"
                 inputMode="numeric"
-                maxLength={26}
+                maxLength={40}
                 aria-label="21 dígitos do IBAN KWiK depois de AO06"
                 className="min-w-0 flex-1 px-3 py-2.5 text-[14px] outline-none"
                 style={{ background: "transparent", color: C.text }}
