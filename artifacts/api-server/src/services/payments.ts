@@ -771,13 +771,14 @@ export async function requestPayout(
   input: { amount: number; destinationType: PayoutDestinationType; destination: string },
 ): Promise<Payout> {
   const amount = Math.round(input.amount * 100) / 100;
+  const iban = input.destination.trim().replace(/[\s-]/g, "").toUpperCase();
   if (amount < PAYOUT_MIN_AOA) {
     throw new PaymentError(`O levantamento mínimo é ${PAYOUT_MIN_AOA.toLocaleString("pt-AO")} Kz`);
   }
   if (input.destinationType !== "iban") {
     throw new PaymentError("Os novos saques são feitos apenas para IBAN KWiK");
   }
-  if (!/^AO06\d{21}$/i.test(input.destination.replace(/\s/g, ""))) {
+  if (!/^AO06\d{21}$/.test(iban)) {
     throw new PaymentError("IBAN inválido (formato AO06 + 21 dígitos)");
   }
 
@@ -800,7 +801,7 @@ export async function requestPayout(
         businessId,
         amount: amount.toFixed(2),
         destinationType: input.destinationType,
-        destination: input.destination,
+        destination: iban,
         operationCode,
       })
       .returning();
@@ -810,7 +811,7 @@ export async function requestPayout(
       type: "saque",
       amount: (-amount).toFixed(2),
       payoutId: p.id,
-      description: `Levantamento para ${input.destinationType === "iban" ? "IBAN" : "telemóvel"} ${input.destination}`,
+      description: `Levantamento para ${input.destinationType === "iban" ? "IBAN" : "telemóvel"} ${iban}`,
     });
     return p;
   });
@@ -818,7 +819,7 @@ export async function requestPayout(
   // Call the gateway outside the transaction.
   try {
     const result = await sendKwikToCustomer({
-      iban: input.destination.replace(/\s/g, "").toUpperCase(),
+      iban,
       amount,
       operationCode,
     });

@@ -23,6 +23,21 @@ function fmtDate(iso: string): string {
   return new Date(iso).toLocaleString("pt-PT", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
+const KWIK_IBAN_PREFIX = "AO06";
+const KWIK_IBAN_DIGIT_COUNT = 21;
+
+function normalizeIbanDigits(value: string): string {
+  const compact = value.trim().replace(/[\s-]/g, "").toUpperCase();
+  const withoutPrefix = compact.startsWith(KWIK_IBAN_PREFIX)
+    ? compact.slice(KWIK_IBAN_PREFIX.length)
+    : compact;
+  return withoutPrefix.replace(/\D/g, "").slice(0, KWIK_IBAN_DIGIT_COUNT);
+}
+
+function formatIbanDigits(value: string): string {
+  return value.match(/.{1,4}/g)?.join(" ") ?? "";
+}
+
 const PAYOUT_UI: Record<Payout["status"], { label: string; bg: string; color: string; Icon: typeof Clock }> = {
   processado: { label: "Processado", bg: C.successBg, color: C.successText, Icon: CheckCircle2 },
   pendente:   { label: "Pendente",   bg: C.warnBg,    color: C.warnText,    Icon: Clock },
@@ -135,11 +150,11 @@ export function Carteira() {
       setSaqueError("Saldo insuficiente.");
       return;
     }
-    const dest = destination.trim().replace(/[\s-]/g, "");
-    if (!/^AO06\d{21}$/i.test(dest)) {
-      setSaqueError("Indica um IBAN angolano válido (AO06 + 21 dígitos).");
+    if (destination.length !== KWIK_IBAN_DIGIT_COUNT) {
+      setSaqueError(`Indica os ${KWIK_IBAN_DIGIT_COUNT} dígitos do IBAN depois de AO06.`);
       return;
     }
+    const dest = `${KWIK_IBAN_PREFIX}${destination}`;
     setSaqueBusy(true);
     try {
       await api.requestPayout({ amount: value, destinationType: "iban", destination: dest });
@@ -231,16 +246,30 @@ export function Carteira() {
 
           <label className="block mb-3">
             <span className="text-[12px] font-medium block mb-1" style={{ color: C.text2 }}>
-              IBAN KWiK (AO06...)
+              IBAN KWiK
             </span>
-            <input
-              value={destination}
-              onChange={(e) => setDestination(e.target.value)}
-              placeholder="AO06 0000 0000 0000 0000 0000 0"
-              inputMode="text"
-              className="w-full rounded-xl px-3.5 py-2.5 text-[14px] outline-none"
-              style={{ background: C.inputBg, color: C.text }}
-            />
+            <div className="flex items-center rounded-xl overflow-hidden" style={{ background: C.inputBg }}>
+              <span
+                aria-hidden="true"
+                className="px-3.5 py-2.5 text-[14px] font-bold border-r"
+                style={{ color: C.greenDark, borderColor: C.border }}
+              >
+                {KWIK_IBAN_PREFIX}
+              </span>
+              <input
+                value={formatIbanDigits(destination)}
+                onChange={(e) => setDestination(normalizeIbanDigits(e.target.value))}
+                placeholder="0000 0000 0000 0000 0000 0"
+                inputMode="numeric"
+                maxLength={26}
+                aria-label="21 dígitos do IBAN KWiK depois de AO06"
+                className="min-w-0 flex-1 px-3 py-2.5 text-[14px] outline-none"
+                style={{ background: "transparent", color: C.text }}
+              />
+            </div>
+            <span className="text-[11px] mt-1 block" style={{ color: C.text3 }}>
+              AO06 é preenchido automaticamente · 21 dígitos
+            </span>
           </label>
 
           {saqueError && (

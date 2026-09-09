@@ -138,6 +138,13 @@ export const aoPhoneSchema = z
   .transform((v) => v.replace(/[\s-]/g, "").replace(/^\+?244/, ""))
   .pipe(z.string().regex(/^9\d{8}$/, "Número de telemóvel inválido (9XXXXXXXX)"));
 
+/** Angolan KWiK IBAN: fixed AO06 prefix plus exactly 21 digits. */
+export const kwikIbanSchema = z
+  .string()
+  .trim()
+  .transform((v) => v.replace(/[\s-]/g, "").toUpperCase())
+  .pipe(z.string().regex(/^AO06\d{21}$/, "IBAN inválido (AO06 + 21 dígitos)"));
+
 export const createOrderSchema = z.object({
   offeringName: z.string().min(1).max(200),
   quantity: z.number().int().min(1).max(99),
@@ -152,7 +159,7 @@ export const createPayoutSchema = z.object({
   // New payouts use KWiK/IBAN only. The "telemovel" value remains in the
   // database type so historical payouts can still be displayed.
   destinationType: z.literal("iban"),
-  destination: z.string().min(5).max(60),
+  destination: kwikIbanSchema,
 });
 
 export type Order = typeof ordersTable.$inferSelect;
