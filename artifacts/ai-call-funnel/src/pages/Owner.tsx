@@ -4,7 +4,7 @@ import {
   Globe, Sparkles, Loader2, AlertCircle, CheckCircle2,
   Zap, Grid3x3, Megaphone, Users, ChevronRight, X, Store,
   MessageSquare, Phone, RefreshCw, Edit2, Share2, MoreVertical,
-  MapPin, Clock, Mail, Image, ShoppingCart, PackageCheck, Wallet, Crown, LogOut, Trash2,
+  MapPin, Clock, Mail, Image, ShoppingCart, PackageCheck, Wallet, Crown, LogOut, Trash2, UserRound,
 } from "lucide-react";
 import { OwnerNav } from "../components/owner/OwnerNav";
 import {
@@ -621,9 +621,20 @@ export function Owner() {
           title={editing ? "Editar perfil" : "Perfil do negócio"}
           actions={
             !editing ? (
-              <Link href={`/e/${slug}`} className="app-icon-button" aria-label="Ver página pública" data-testid="link-public-profile">
-                <Store size={19} strokeWidth={1.75} />
-              </Link>
+              <>
+                <Link
+                  href={`/${slug}`}
+                  className="inline-flex h-10 items-center gap-1.5 rounded-full px-3 text-[12px] font-semibold text-[var(--ink-soft)] transition-colors hover:bg-[var(--subtle)] hover:text-[var(--ink)]"
+                  aria-label="O meu perfil"
+                  data-testid="link-my-profile"
+                >
+                  <UserRound size={16} strokeWidth={1.8} />
+                  <span>O meu perfil</span>
+                </Link>
+                <Link href={`/e/${slug}`} className="app-icon-button" aria-label="Ver página pública" data-testid="link-public-profile">
+                  <Store size={19} strokeWidth={1.75} />
+                </Link>
+              </>
             ) : undefined
           }
         />
