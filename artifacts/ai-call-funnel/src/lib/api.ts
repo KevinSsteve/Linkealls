@@ -883,7 +883,10 @@ export function businessApi(slug: string) {
     requestPayout: (data: { amount: number; destinationType: "iban"; destination: string }) =>
       bRequest<{ payout: Payout }>("/wallet/payouts", { method: "POST", body: JSON.stringify(data) }),
     reconcilePayout: (id: string) =>
-      bRequest<{ payout: Payout }>(`/wallet/payouts/${id}/reconcile`, { method: "POST" }),
+      bRequest<{
+        payout: Payout;
+        reconciliation: "processed" | "reverted" | "pending";
+      }>(`/wallet/payouts/${id}/reconcile`, { method: "POST" }),
     getSubscription: () =>
       bRequest<SubscriptionInfo>("/subscription"),
     checkoutSubscription: (phone: string) =>

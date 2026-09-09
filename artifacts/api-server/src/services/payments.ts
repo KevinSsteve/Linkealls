@@ -885,8 +885,13 @@ async function failPayout(payoutId: string, businessId: number, amount: number, 
   return updated;
 }
 
+export type PayoutReconciliationResult = "processed" | "reverted" | "pending";
+
 /** Reconcile a pending KWiK payout against the gateway status endpoint. */
-export async function reconcilePayout(payoutId: string, businessId: number): Promise<Payout | null> {
+export async function reconcilePayout(
+  payoutId: string,
+  businessId: number,
+): Promise<{ payout: Payout; reconciliation: PayoutReconciliationResult } | null> {
   const rows = await db
     .select()
     .from(payoutsTable)
@@ -894,7 +899,12 @@ export async function reconcilePayout(payoutId: string, businessId: number): Pro
     .limit(1);
   const payout = rows[0];
   if (!payout) return null;
-  if (payout.status !== "pendente") return payout;
+  if (payout.status !== "pendente") {
+    return {
+      payout,
+      reconciliation: payout.status === "processado" ? "processed" : "reverted",
+    };
+  }
 
   const state = await getKwikPayoutStatus(payout.operationCode);
   if (state === "processed") {
@@ -903,12 +913,15 @@ export async function reconcilePayout(payoutId: string, businessId: number): Pro
         .set({ status: "processado", error: null, updatedAt: new Date() })
       .where(and(eq(payoutsTable.id, payout.id), eq(payoutsTable.status, "pendente")))
       .returning();
-    return updated[0] ?? payout;
+    return { payout: updated[0] ?? payout, reconciliation: "processed" };
   }
   if (state === "cancelled" || state === "voided") {
-    return failPayout(payout.id, businessId, Number(payout.amount), "Levantamento revertido pelo e-kwanza");
+    return {
+      payout: await failPayout(payout.id, businessId, Number(payout.amount), "Levantamento revertido pelo e-kwanza"),
+      reconciliation: "reverted",
+    };
   }
-  return payout;
+  return { payout, reconciliation: "pending" };
 }
 
 export { IS_SIMULATION };

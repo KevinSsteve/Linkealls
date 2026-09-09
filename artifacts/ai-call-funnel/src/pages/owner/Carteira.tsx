@@ -116,6 +116,8 @@ export function Carteira() {
   const [saqueError, setSaqueError] = useState<string | null>(null);
   const [saqueOk, setSaqueOk] = useState<string | null>(null);
   const [reconciling, setReconciling] = useState(false);
+  const [reconcileMessage, setReconcileMessage] = useState<string | null>(null);
+  const [reconcileError, setReconcileError] = useState<string | null>(null);
 
   const api = slug ? businessApi(slug) : null;
 
@@ -173,9 +175,22 @@ export function Carteira() {
 
   const reconcile = useCallback(async (id: string) => {
     if (!api) return;
+    setReconcileMessage(null);
+    setReconcileError(null);
     setReconciling(true);
-    try { await api.reconcilePayout(id); await load(); }
-    catch { /* keep state */ }
+    try {
+      const result = await api.reconcilePayout(id);
+      await load();
+      if (result.reconciliation === "processed") {
+        setReconcileMessage("Saque confirmado pelo e‑kwanza.");
+      } else if (result.reconciliation === "reverted") {
+        setReconcileMessage("O e‑kwanza rejeitou o saque. O valor foi devolvido ao saldo.");
+      } else {
+        setReconcileMessage("O e‑kwanza ainda não confirmou este saque. Continua pendente; verifica novamente mais tarde.");
+      }
+    } catch (e) {
+      setReconcileError(e instanceof Error ? e.message : "Não foi possível verificar o estado do saque.");
+    }
     finally { setReconciling(false); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api, load]);
@@ -224,6 +239,20 @@ export function Carteira() {
         <div className="shrink-0 text-[13px]"
           style={{ background: C.successBg, color: C.successText, border: `1px solid ${C.successBorder}`, borderRadius: 10, margin: "12px 16px 0", padding: "10px 14px" }}>
           {saqueOk}
+        </div>
+      )}
+
+      {reconcileMessage && (
+        <div className="shrink-0 text-[13px]"
+          style={{ background: C.warnBg, color: C.warnText, border: `1px solid ${C.warnBorder}`, borderRadius: 10, margin: "12px 16px 0", padding: "10px 14px" }}>
+          {reconcileMessage}
+        </div>
+      )}
+
+      {reconcileError && (
+        <div className="shrink-0 text-[13px]"
+          style={{ background: C.errorBg, color: C.errorText, border: `1px solid ${C.errorBorder}`, borderRadius: 10, margin: "12px 16px", padding: "10px 14px" }}>
+          {reconcileError}
         </div>
       )}
 

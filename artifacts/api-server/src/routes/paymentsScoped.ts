@@ -325,7 +325,7 @@ export function createPaymentsScopedRouter(
         res.status(404).json({ error: "Levantamento não encontrado" });
         return;
       }
-      res.json({ payout });
+      res.json(payout);
     } catch (err) {
       handleError(res, err, "POST /wallet/payouts/:id/reconcile failed");
     }
