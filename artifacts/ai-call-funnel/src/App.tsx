@@ -101,6 +101,25 @@ export default function App() {
           <Route path="/catalogo" component={Catalogo} />
           <Route path="/c/:slug" component={Catalogo} />
 
+          {/* ── One-segment public/reserved routes must precede /:handle ─────── */}
+          <Route path="/login" component={LoginPage} />
+          <Route path="/registar" component={RegisterPage} />
+          <Route path="/escolher-handle" component={ChooseHandle} />
+          <Route path="/dono"><LegacyOwnerRedirect /></Route>
+          <Route path="/conversas">
+            <div className="w-full flex flex-col overflow-hidden" style={{ height: "var(--vh, 100dvh)" }}>
+              <LegacyLinkNotice />
+            </div>
+          </Route>
+          <Route path="/captacao">
+            <div className="w-full flex flex-col overflow-hidden" style={{ height: "var(--vh, 100dvh)" }}>
+              <LegacyLinkNotice />
+            </div>
+          </Route>
+
+          {/* ── Canonical public catalog: https://dominio/<handle> ───────────── */}
+          <Route path="/:handle" component={Catalogo} />
+
           {/* ── All other routes: full-screen dark wrapper ───────────────────── */}
           <Route>
             {() => (
@@ -109,17 +128,10 @@ export default function App() {
                 style={{ height: "var(--vh, 100dvh)" }}
               >
                 <Switch>
-                  {/* Auth */}
-                  <Route path="/login"   component={LoginPage} />
-                  <Route path="/registar" component={RegisterPage} />
-
                   {/* User profile & onboarding */}
-                  <Route path="/escolher-handle" component={ChooseHandle} />
                   <Route path="/u/:handle" component={UserProfile} />
 
                   {/* Legacy generic conversations — /u/:handle covers this now */}
-                  <Route path="/conversas"><LegacyLinkNotice /></Route>
-
                   {/* ── Owner panel (protected by OwnerGate) ─────────────────── */}
                   <Route path="/e/:businessSlug/dono/leads">{() => <OwnerGate><Leads /></OwnerGate>}</Route>
                   <Route path="/e/:businessSlug/dono/conversas">{() => <OwnerGate><Conversas /></OwnerGate>}</Route>
@@ -140,11 +152,6 @@ export default function App() {
                   <Route path="/dono/assistente"><LegacyOwnerRedirect /></Route>
                   <Route path="/dono/campanhas/:id"><LegacyOwnerRedirect /></Route>
                   <Route path="/dono/campanhas"><LegacyOwnerRedirect /></Route>
-                  <Route path="/dono"><LegacyOwnerRedirect /></Route>
-
-                  {/* Lead capture legacy — explain instead of failing silently */}
-                  <Route path="/captacao"><LegacyLinkNotice /></Route>
-
                   {/* Fallback */}
                   <Route><Redirect to="/" /></Route>
                 </Switch>

@@ -202,10 +202,10 @@ function CatalogSection({ profile, businessSlug }: { profile: BusinessProfile; b
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const base = import.meta.env.BASE_URL;
-  const genericUrl = `${origin}${base}e/${businessSlug}/catalogo`;
+  const genericUrl = `${origin}${base}${businessSlug}`;
   const slugUrl = /^[a-z0-9-]{3,60}$/.test(slug) ? `${origin}${base}c/${slug}` : null;
   const productCount = profile.offerings?.length ?? 0;
-  const isReady = Boolean(profile.name?.trim()) && productCount > 0;
+  const isReady = Boolean(profile.name?.trim());
 
   useEffect(() => {
     const value = slug.trim().toLowerCase();
@@ -274,14 +274,20 @@ function CatalogSection({ profile, businessSlug }: { profile: BusinessProfile; b
       description="Define onde os clientes podem ver os teus produtos."
       collapsible
       defaultOpen={false}
-      status={<span className={`app-status-badge ${enabled && isReady ? "is-success" : "is-neutral"}`}>{!isReady ? "Incompleto" : enabled ? "Activo" : "Inactivo"}</span>}
+      status={<span className={`app-status-badge ${enabled && isReady ? "is-success" : "is-neutral"}`}>{!enabled ? "Inactivo" : !isReady ? "Incompleto" : productCount === 0 ? "Sem produtos" : "Activo"}</span>}
     >
       <div className="space-y-5">
         <div className="flex items-center justify-between gap-3 border-b border-[var(--border-soft)] pb-4">
           <div className="min-w-0">
             <p className="text-[14px] font-semibold text-[var(--ink)]">Estado do catálogo</p>
             <p className="mt-1 break-words text-[13px] text-[var(--ink-soft)]">
-              {isReady ? `${productCount} produto${productCount === 1 ? "" : "s"} publicado${productCount === 1 ? "" : "s"}` : "Adiciona pelo menos um produto para activar"}
+              {!enabled
+                ? "O catálogo está escondido dos visitantes"
+                : !isReady
+                  ? "Preenche o nome do negócio para publicar"
+                  : productCount === 0
+                    ? "Catálogo visível, mas ainda sem produtos"
+                    : `${productCount} produto${productCount === 1 ? "" : "s"} publicado${productCount === 1 ? "" : "s"}`}
             </p>
           </div>
           <Toggle
@@ -305,7 +311,7 @@ function CatalogSection({ profile, businessSlug }: { profile: BusinessProfile; b
         </div>
 
         <div className="min-w-0">
-          <p className={labelClass}>Link do catálogo</p>
+          <p className={labelClass}>Link público do catálogo</p>
           <div className="flex min-w-0 items-center gap-2">
             <div className="min-w-0 flex-1 rounded-[var(--radius-md)] bg-[var(--subtle)] px-3 py-2.5">
               <span className="block break-all font-mono text-[12px] leading-5 text-[var(--ink-soft)]" data-testid="text-catalog-url">{genericUrl}</span>
@@ -320,7 +326,7 @@ function CatalogSection({ profile, businessSlug }: { profile: BusinessProfile; b
         </div>
 
         <div className="min-w-0">
-          <p className={labelClass}>Link personalizado</p>
+          <p className={labelClass}>Link alternativo personalizado</p>
           <div className="flex min-w-0 items-center gap-2">
             <div className="flex min-w-0 flex-1 items-center rounded-[var(--radius-md)] border border-[var(--border)] bg-[var(--subtle)] px-3">
               <span className="shrink-0 font-mono text-[12px] text-[var(--ink-faint)]">{base}c/</span>

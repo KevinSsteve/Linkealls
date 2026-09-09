@@ -41,6 +41,19 @@ function bearerToken(req: { headers: { authorization?: string } }) {
 }
 
 const HANDLE_RE = /^[a-z0-9-]{3,30}$/;
+const RESERVED_HANDLES = new Set([
+  "login",
+  "registar",
+  "escolher-handle",
+  "conversas",
+  "captacao",
+  "dono",
+  "catalogo",
+  "api",
+  "u",
+  "e",
+  "c",
+]);
 
 function normaliseHandle(raw: string) {
   return raw.trim().toLowerCase();
@@ -211,6 +224,10 @@ router.get("/user-auth/handle/check", async (req, res) => {
     res.json({ available: false, reason: "Formato inválido (3-30 letras, números ou hífens)" });
     return;
   }
+  if (RESERVED_HANDLES.has(handle)) {
+    res.json({ available: false, reason: "Este nome está reservado pelo Linkealls" });
+    return;
+  }
 
   try {
     const [userRows, bizRows] = await Promise.all([
@@ -295,6 +312,10 @@ router.put("/user-auth/handle", async (req, res) => {
     return;
   }
   const handle = parse.data.handle;
+  if (RESERVED_HANDLES.has(handle)) {
+    res.status(400).json({ error: "Este nome está reservado pelo Linkealls" });
+    return;
+  }
 
   try {
     // Load session + current handle (outside tx — needed to distinguish re-submission)

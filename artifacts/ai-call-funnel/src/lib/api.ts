@@ -475,6 +475,11 @@ export interface CatalogData {
   catalogEnabled: boolean;
   catalogSlug: string | null;
   isReady: boolean;
+  hasProducts: boolean;
+}
+
+export function getCatalogByHandle(handle: string): Promise<CatalogData> {
+  return request<CatalogData>(`/catalog/by-handle/${encodeURIComponent(handle)}`);
 }
 
 export function getCatalogBySlug(slug: string): Promise<CatalogData> {

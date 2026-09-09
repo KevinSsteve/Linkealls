@@ -1,6 +1,6 @@
 /**
  * Catálogo público AI-first — design editorial premium, minimalista, mobile-first.
- * URL: /catalogo / /c/:slug / /e/:businessSlug/catalogo
+ * URL: /:handle / /catalogo / /c/:slug / /e/:businessSlug/catalogo
  *
  * APENAS DESIGN — toda a lógica, estado, efeitos, rotas e chamadas à API
  * são idênticos à versão anterior.
@@ -12,7 +12,7 @@ import {
   Send, ShoppingBag, ArrowRight, Loader2, ImageOff, Store, ArrowLeft, Smartphone,
 } from "lucide-react";
 import {
-  getCatalogBySlug, businessApi, getStorageObjectUrl,
+  getCatalogByHandle, getCatalogBySlug, businessApi, getStorageObjectUrl,
   type CatalogData, type Offering, type FaqItem,
 } from "../lib/api";
 import { BuyModal, parsePriceAoa } from "../components/BuyModal";
@@ -625,9 +625,10 @@ function ComingSoon({ name, reason }: { name: string; reason: "disabled" | "not_
 // ─── Página principal ─────────────────────────────────────────────────────────
 
 export function Catalogo() {
-  const params = useParams<{ slug?: string; businessSlug?: string }>();
+  const params = useParams<{ slug?: string; businessSlug?: string; handle?: string }>();
   const catalogSlug = params.slug ?? null;
   const businessSlug = params.businessSlug ?? null;
+  const handle = params.handle ?? null;
 
   const [catalog, setCatalog] = useState<CatalogData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -639,6 +640,8 @@ export function Catalogo() {
       fetch = getCatalogBySlug(catalogSlug);
     } else if (businessSlug) {
       fetch = businessApi(businessSlug).getCatalog();
+    } else if (handle) {
+      fetch = getCatalogByHandle(handle);
     } else {
       fetch = Promise.reject(new Error("Catálogo não encontrado"));
     }
@@ -646,7 +649,7 @@ export function Catalogo() {
       .then(setCatalog)
       .catch(console.error)
       .finally(() => setLoading(false));
-  }, [catalogSlug, businessSlug]);
+  }, [catalogSlug, businessSlug, handle]);
 
   // ── Loading ──
   if (loading) {
@@ -884,6 +887,32 @@ export function Catalogo() {
                     }
                   />
                 ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {catalog.offerings.length === 0 && (
+        <section>
+          <div className="mx-auto" style={{ maxWidth: 680, padding: "64px 24px 0" }}>
+            <div
+              className="flex flex-col items-center px-6 py-10 text-center"
+              style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: T.rCard }}
+            >
+              <ShoppingBag size={24} style={{ color: T.inkSoft }} />
+              <h2 className="mt-4 font-semibold" style={{ color: T.ink, fontSize: 18 }}>
+                Catálogo em actualização
+              </h2>
+              <p className="mt-2 max-w-sm text-[13.5px] leading-relaxed" style={{ color: T.inkSoft }}>
+                Este negócio ainda não publicou produtos. Fala com a assistente para saber mais.
+              </p>
+              <a
+                href={captacaoUrl(catalog.businessSlug)}
+                className="mt-6 flex min-h-[44px] items-center justify-center gap-2 px-5 font-semibold"
+                style={{ background: T.accent, color: T.accentInk, borderRadius: T.rBtn, fontSize: 14 }}
+              >
+                <MessageSquare size={15} /> Falar com IA
+              </a>
             </div>
           </div>
         </section>

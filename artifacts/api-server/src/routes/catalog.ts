@@ -12,7 +12,10 @@ const router = Router();
 
 /** Shared helper: build the public catalog payload from a profile. */
 function buildCatalogPayload(profile: Awaited<ReturnType<typeof getOrCreateProfile>>) {
-  const isReady = profile.name.trim().length > 0 && profile.offerings.length > 0;
+  // A catalog can be public before its first product is added. Keep the
+  // enabled/disabled switch as the source of truth and let the UI explain the
+  // empty state instead of presenting an enabled catalog as unavailable.
+  const isReady = profile.name.trim().length > 0;
   return {
     businessSlug: profile.slug ?? null,
     name: profile.name,
@@ -25,8 +28,33 @@ function buildCatalogPayload(profile: Awaited<ReturnType<typeof getOrCreateProfi
     catalogEnabled: profile.catalogEnabled,
     catalogSlug: profile.catalogSlug ?? null,
     isReady,
+    hasProducts: profile.offerings.length > 0,
   };
 }
+
+/** GET /catalog/by-handle/:handle — canonical public URL: /:handle. */
+router.get("/catalog/by-handle/:handle", async (req, res) => {
+  const handle = req.params.handle?.toLowerCase();
+  if (!handle || !/^[a-z0-9-]+$/.test(handle)) {
+    res.status(404).json({ error: "Catálogo não encontrado" });
+    return;
+  }
+  try {
+    const rows = await db
+      .select()
+      .from(businessProfilesTable)
+      .where(eq(businessProfilesTable.slug, handle))
+      .limit(1);
+    if (rows.length === 0) {
+      res.status(404).json({ error: "Catálogo não encontrado" });
+      return;
+    }
+    res.json(buildCatalogPayload(rows[0]!));
+  } catch (err) {
+    logger.error({ err }, "Failed to load catalog by handle");
+    res.status(500).json({ error: "Erro ao carregar catálogo" });
+  }
+});
 
 /** GET /catalog/by-slug/:slug — resolve a vanity slug to catalog data. */
 router.get("/catalog/by-slug/:slug", async (req, res) => {

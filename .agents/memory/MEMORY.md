@@ -13,3 +13,4 @@
 - [Managed Gemini credits](gemini-managed-integration.md) — Meta creative text/image generation uses Replit-managed Gemini credits; direct Google key remains only for legacy Veo video.
 - [Meta image policy review](meta-image-policy.md) — image analysis stores a versioned offline policy result and publishing fails closed unless the creative is approved.
 - [Agent product display fallback](agent-product-display-fallback.md) — product cards need a server-side intent fallback; never rely only on Gemini emitting a tool call.
+- [Public catalog routing](catalog-public-routing.md) — canonical links use /<handle>; enabled empty catalogs stay public and reserved route names cannot be claimed.

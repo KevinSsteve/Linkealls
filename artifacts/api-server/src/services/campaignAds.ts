@@ -420,7 +420,10 @@ export async function publishCampaign(campaignId: string, businessId: number): P
   }
   const destination = setup?.destination ?? "catalog";
   const tracking = `utm_source=${campaign.platform}&utm_medium=paid&utm_campaign=${campaign.utmSlug}&linkealls_destination=${destination}`;
-  const destPath = profile.catalogSlug ? `/c/${profile.catalogSlug}` : `/e/${profile.slug}`;
+  // The handle URL is the canonical public catalog destination. Keep custom
+  // /c/ links available for visitors, but paid traffic should use the same
+  // short URL shown in the owner panel.
+  const destPath = profile.slug ? `/${profile.slug}` : "/";
   const businessUrl = `${base}${destPath}?${tracking}`;
   const phone = (profile.phone ?? "").replace(/\D/g, "").replace(/^00/, "").replace(/^0/, "244");
   const directProductUrl = setup?.destinationUrl?.trim();

@@ -38,7 +38,7 @@ function palette(name: string) {
 function BusinessRow({ b }: { b: Business }) {
   const p = palette(b.name);
   return (
-    <Link href={`/e/${b.slug}`}>
+    <Link href={`/${b.slug}`}>
       <div
         className="flex items-center gap-3 px-4 active:bg-gray-50 cursor-pointer transition-colors"
         style={{ borderBottom: `1px solid ${C.border}` }}
@@ -120,7 +120,7 @@ export function HomePage() {
           "@type": "ItemList", "@id": `${origin}/#businesses`,
           name: "Negócios no Linkealls", numberOfItems: businesses.length,
           itemListElement: businesses.map((b, i) => ({
-            "@type": "ListItem", position: i + 1, url: `${origin}/e/${b.slug}/`, name: b.name,
+            "@type": "ListItem", position: i + 1, url: `${origin}/${b.slug}`, name: b.name,
           })),
         },
       ],

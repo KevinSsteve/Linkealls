@@ -432,7 +432,7 @@ export function createBusinessScopedRouter(): Router {
   router.get("/catalog", async (_req, res) => {
     try {
       const profile = await getOrCreateProfile(bid(res));
-      const isReady = profile.name.trim().length > 0 && profile.offerings.length > 0;
+      const isReady = profile.name.trim().length > 0;
       res.json({
         businessSlug: profile.slug ?? null,
         name: profile.name,
@@ -444,6 +444,7 @@ export function createBusinessScopedRouter(): Router {
         catalogEnabled: profile.catalogEnabled,
         catalogSlug: profile.catalogSlug ?? null,
         isReady,
+        hasProducts: profile.offerings.length > 0,
       });
     } catch (err) {
       logger.error({ err }, "GET /catalog failed");
