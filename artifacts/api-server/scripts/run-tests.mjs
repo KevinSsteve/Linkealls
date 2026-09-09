@@ -27,7 +27,7 @@ try {
     plugins: [{
       name: "stub-logger",
       setup(buildApi) {
-        buildApi.onResolve({ filter: /(^|\\/)lib\\/logger\\.js$/ }, () => ({
+        buildApi.onResolve({ filter: /(^|\/)lib\/logger\.js$/ }, () => ({
           path: loggerStubPath,
         }));
       },
