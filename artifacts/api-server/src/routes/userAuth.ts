@@ -244,7 +244,7 @@ router.get("/user-auth/handle/check", async (req, res) => {
 
 // ─── public profile by handle ───────────────────────────────────────────────
 //
-// Minimal public info for the /u/:handle page: real display name + handle.
+// Minimal public info for older clients that still request a profile by handle.
 // No phone or other sensitive fields.
 
 router.get("/user-auth/public/:handle", async (req, res) => {

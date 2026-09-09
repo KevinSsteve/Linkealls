@@ -63,7 +63,7 @@ export function getStorageObjectUrl(objectPath: string): string {
   return `${API_BASE}/storage${objectPath}`;
 }
 
-/** Public: real display name for a user handle (used by /u/:handle). */
+/** Legacy public profile lookup kept for compatibility with older clients. */
 export async function getPublicUserProfile(
   handle: string,
 ): Promise<{ name: string; handle: string }> {

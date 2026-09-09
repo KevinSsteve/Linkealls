@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Router, Route, Switch, Redirect, useLocation } from "wouter";
+import { Router, Route, Switch, Redirect, useLocation, useParams } from "wouter";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { HomePage } from "@/pages/HomePage";
@@ -9,7 +9,6 @@ import { Catalogo } from "@/pages/Catalogo";
 import { LoginPage } from "@/pages/LoginPage";
 import { RegisterPage } from "@/pages/RegisterPage";
 import { ChooseHandle } from "@/pages/ChooseHandle";
-import { UserProfile } from "@/pages/UserProfile";
 import { OwnerGate } from "@/components/owner/OwnerGate";
 import { Owner } from "@/pages/Owner";
 import { Leads } from "@/pages/owner/Leads";
@@ -85,6 +84,12 @@ function LegacyLinkNotice() {
   );
 }
 
+/** Keep old /u/:handle links working while making /:handle canonical. */
+function LegacyUserProfileRedirect() {
+  const { handle } = useParams<{ handle?: string }>();
+  return <Redirect to={handle ? `/${handle}` : "/"} />;
+}
+
 export default function App() {
   useVisualViewportHeight();
 
@@ -128,8 +133,8 @@ export default function App() {
                 style={{ height: "var(--vh, 100dvh)" }}
               >
                 <Switch>
-                  {/* User profile & onboarding */}
-                  <Route path="/u/:handle" component={UserProfile} />
+                  {/* Legacy user profile URL → canonical short catalog URL */}
+                  <Route path="/u/:handle"><LegacyUserProfileRedirect /></Route>
 
                   {/* Legacy generic conversations — /u/:handle covers this now */}
                   {/* ── Owner panel (protected by OwnerGate) ─────────────────── */}
