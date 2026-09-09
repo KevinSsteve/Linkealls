@@ -300,7 +300,6 @@ export function RegisterPage() {
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
   const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
-  const [registeredHandle, setRegisteredHandle] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -342,7 +341,6 @@ export function RegisterPage() {
       const response = await userRegister({ phone, name: name.trim(), pin });
       login(response.user, response.token);
       if (response.recoveryCode) {
-        setRegisteredHandle(response.user.handle);
         setRecoveryCode(response.recoveryCode);
       } else {
         nav(getSafeNext(response.user.handle ?? null));
@@ -396,7 +394,7 @@ export function RegisterPage() {
     return (
       <RecoveryCodeNotice
         code={recoveryCode}
-        onContinue={() => nav(getSafeNext(registeredHandle))}
+        onContinue={() => nav("/configurar-negocio")}
       />
     );
   }

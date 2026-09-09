@@ -27,6 +27,7 @@ import { SettingsSectionHeader } from "../components/app/Section";
 import { SettingsListItem } from "../components/app/SettingsListItem";
 import { ProductListItem } from "../components/app/ProductListItem";
 import { ListFooterAction } from "../components/app/ListFooterAction";
+import { clearBusinessOnboarding, readBusinessOnboarding } from "../lib/businessOnboarding";
 
 type View = "loading" | "start" | "analyzing" | "editor";
 const POLL_MS = 2500;
@@ -387,7 +388,7 @@ function ProfileView({
   const featured = profile.offerings.filter((o) => o.featured);
   const previewOfferings = profile.offerings.slice(0, 4);
 
-  const catalogUrl = `${typeof window !== "undefined" ? window.location.origin : ""}${import.meta.env.BASE_URL}e/${slug}/catalogo`;
+  const catalogUrl = `${typeof window !== "undefined" ? window.location.origin : ""}${import.meta.env.BASE_URL}${slug}`;
   const handleShare = async () => {
     if (navigator.share) {
       try { await navigator.share({ title: profile.name, url: catalogUrl }); return; } catch { /* dismissed */ }
@@ -462,7 +463,7 @@ function ProfileView({
         >
           {[
             { icon: Edit2,        label: "Editar",    action: onEdit,      href: undefined },
-            { icon: Grid3x3,      label: "Catálogo",  action: undefined,   href: `/e/${slug}/catalogo` },
+            { icon: Grid3x3,      label: "Catálogo",  action: undefined,   href: `/${slug}` },
             { icon: Share2,       label: "Partilhar", action: handleShare, href: undefined },
             { icon: MoreVertical, label: "Mais",      action: onEdit,      href: undefined },
           ].map(({ icon: Icon, label, action, href }) => {
@@ -519,7 +520,7 @@ function ProfileView({
             <p style={{ color: D.inkFaint, fontSize: 11, fontWeight: 600, letterSpacing: "0.09em", textTransform: "uppercase" }}>
               Catálogo
             </p>
-            <Link href={`/e/${slug}/catalogo`}>
+            <Link href={`/${slug}`}>
               <span style={{ color: D.green, fontSize: 13, fontWeight: 600 }}>Ver tudo</span>
             </Link>
           </div>
@@ -527,7 +528,7 @@ function ProfileView({
             {previewOfferings.map((o, i) => (
               <CatalogRow key={i} offering={o} last={i === previewOfferings.length - 1} />
             ))}
-              <ListFooterAction href={`/e/${slug}/catalogo`}>Ver catálogo completo</ListFooterAction>
+              <ListFooterAction href={`/${slug}`}>Ver catálogo completo</ListFooterAction>
           </div>
         </>
       )}
@@ -537,7 +538,7 @@ function ProfileView({
       {/* ─── O teu negócio ───────────────────────────────────────────────────── */}
       <SectionLabel>O teu negócio</SectionLabel>
       <div style={{ background: D.surface, borderTop: `1px solid ${D.border}`, borderBottom: `1px solid ${D.border}` }}>
-        <ToolRow icon={Grid3x3}   title="Catálogo"      description="Exibe produtos e serviços"                href={`/e/${slug}/catalogo`} />
+        <ToolRow icon={Grid3x3}   title="Catálogo"      description="Exibe produtos e serviços"                href={`/${slug}`} />
         <ToolRow icon={Zap}       title="Assistente IA" description="Responde automaticamente, 24h por dia"   href={`/e/${slug}/dono/assistente`} />
         <ToolRow icon={Megaphone} title="Campanhas"     description="Anúncios para trazer mais clientes"      href={`/e/${slug}/dono/campanhas`} last />
       </div>
@@ -631,6 +632,7 @@ export function Owner() {
   const [promoVisible, setPromoVisible] = useState(true);
   const [productFocus, setProductFocus] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
+  const onboardingLaunchedRef = useRef(false);
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -644,6 +646,32 @@ export function Owner() {
       const { profile: p, filled } = await api.getProfile();
       setProfile(p);
       setUrl(p.websiteUrl ?? "");
+      const shouldLaunchOnboarding =
+        new URLSearchParams(window.location.search).get("onboarding") === "1" &&
+        !filled &&
+        !onboardingLaunchedRef.current;
+      const pendingOnboarding = shouldLaunchOnboarding ? readBusinessOnboarding() : null;
+
+      if (pendingOnboarding) {
+        onboardingLaunchedRef.current = true;
+        clearBusinessOnboarding();
+        window.history.replaceState(null, "", window.location.pathname);
+        if (pendingOnboarding.mode === "site") {
+          setUrl(pendingOnboarding.value);
+          await api.startAnalysis(pendingOnboarding.value);
+          setView("analyzing");
+        } else {
+          setDescriptionText(pendingOnboarding.value);
+          const { draft: onboardingDraft } = await api.assistFromDescription(pendingOnboarding.value);
+          setDraft(onboardingDraft);
+          setEditorKey((key) => key + 1);
+          setNotice("A IA estruturou o teu negócio. Revê os campos e guarda.");
+          setView("editor");
+          setEditing(true);
+        }
+        return;
+      }
+
       if (p.analysisStatus === "running") setView("analyzing");
       else if (filled) setView("editor");
       else {

@@ -67,7 +67,7 @@ app.get("/sitemap.xml", async (_req, res) => {
       ...rows.flatMap((r) => [
         `  <url><loc>${base}/${r.slug}</loc><changefreq>weekly</changefreq><priority>0.9</priority><lastmod>${r.updatedAt.toISOString().slice(0, 10)}</lastmod></url>`,
         `  <url><loc>${base}/e/${r.slug}/</loc><changefreq>weekly</changefreq><priority>0.8</priority><lastmod>${r.updatedAt.toISOString().slice(0, 10)}</lastmod></url>`,
-        `  <url><loc>${base}/e/${r.slug}/catalogo</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>`,
+        `  <url><loc>${base}/${r.slug}</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>`,
         ...(r.catalogSlug ? [`  <url><loc>${base}/c/${r.catalogSlug}</loc><changefreq>weekly</changefreq><priority>0.6</priority><lastmod>${r.updatedAt.toISOString().slice(0, 10)}</lastmod></url>`] : []),
       ]),
     ].join("\n");

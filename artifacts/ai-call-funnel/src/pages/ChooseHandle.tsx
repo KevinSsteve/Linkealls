@@ -6,6 +6,7 @@ import { useLocation, Redirect } from "wouter";
 import { AtSign, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { checkHandleAvailability, setUserHandle } from "@/lib/api";
+import { readBusinessOnboarding } from "@/lib/businessOnboarding";
 
 const G = "#635BFF";
 const INK = "#0A2540";
@@ -51,9 +52,10 @@ export function ChooseHandle() {
     if (checkState !== "available" || !token) return;
     setSaving(true); setError("");
     try {
+      const hasPendingOnboarding = !!readBusinessOnboarding();
       const { user: updated } = await setUserHandle(handle, token);
       setHandle(updated.handle ?? handle);
-      nav(`/e/${handle}/dono`);
+      nav(hasPendingOnboarding ? `/e/${handle}/dono?onboarding=1` : `/e/${handle}/dono`);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Erro ao guardar");
     } finally { setSaving(false); }
@@ -108,7 +110,7 @@ export function ChooseHandle() {
           className="rounded-xl mb-5"
           style={{ background: SUBTLE, border: `1px solid ${BORDER}`, padding: "12px 14px" }}
         >
-          <span style={{ color: FAINT, fontSize: 14 }}>linkealls.com/e/</span>
+            <span style={{ color: FAINT, fontSize: 14 }}>linkealls.com/</span>
           <span style={{ fontWeight: 700, color: handle ? G : FAINT, fontSize: 14 }}>
             {handle || "o-teu-nome"}
           </span>

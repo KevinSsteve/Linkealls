@@ -44,7 +44,7 @@ export function ChatLayout({ children, onBack, onCall, businessName, businessSlu
   }
 
   function goToCatalog() {
-    if (businessSlug) nav(`/e/${businessSlug}/catalogo`);
+    if (businessSlug) nav(`/${businessSlug}`);
   }
 
   return (
