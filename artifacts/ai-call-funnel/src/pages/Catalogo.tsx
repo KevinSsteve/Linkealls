@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import {
   getCatalogByHandle, getCatalogBySlug, businessApi, getStorageObjectUrl,
+  recordCatalogEvent,
   type CatalogData, type Offering, type FaqItem,
 } from "../lib/api";
 import { BuyModal, parsePriceAoa } from "../components/BuyModal";
@@ -25,6 +26,21 @@ const CATALOG_ORIGIN = {
 } as const;
 
 const BASE = import.meta.env.BASE_URL;
+const VISITOR_ID_KEY = "linkealls_catalog_visitor_id";
+
+function getCatalogVisitorId(): string {
+  try {
+    const existing = window.localStorage.getItem(VISITOR_ID_KEY);
+    if (existing) return existing;
+    const created = typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    window.localStorage.setItem(VISITOR_ID_KEY, created);
+    return created;
+  } catch {
+    return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
+}
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
 const T = {
@@ -646,7 +662,16 @@ export function Catalogo() {
       fetch = Promise.reject(new Error("Catálogo não encontrado"));
     }
     fetch
-      .then(setCatalog)
+      .then((data) => {
+        setCatalog(data);
+        if (data.businessSlug && data.catalogEnabled && data.isReady) {
+          void recordCatalogEvent({
+            businessSlug: data.businessSlug,
+            eventType: "view",
+            visitorId: getCatalogVisitorId(),
+          }).catch(() => {});
+        }
+      })
       .catch(console.error)
       .finally(() => setLoading(false));
   }, [catalogSlug, businessSlug, handle]);
@@ -667,6 +692,16 @@ export function Catalogo() {
   if (!catalog) return <ComingSoon name="" reason="not_ready" />;
   if (!catalog.catalogEnabled) return <ComingSoon name={catalog.name} reason="disabled" />;
   if (!catalog.isReady) return <ComingSoon name={catalog.name} reason="not_ready" />;
+
+  const trackProductClick = (offering: Offering) => {
+    if (!catalog.businessSlug || !offering.analyticsKey) return;
+    void recordCatalogEvent({
+      businessSlug: catalog.businessSlug,
+      eventType: "click",
+      offeringKey: offering.analyticsKey,
+      visitorId: getCatalogVisitorId(),
+    }).catch(() => {});
+  };
 
   // ── Catálogo completo ──
   return (
@@ -877,12 +912,18 @@ export function Catalogo() {
                   <ProductCard
                     key={i}
                     offering={offering}
-                    onLearnMore={() => { window.location.href = captacaoUrl(catalog.businessSlug ?? ""); }}
+                     onLearnMore={() => {
+                       trackProductClick(offering);
+                       window.location.href = captacaoUrl(catalog.businessSlug ?? "");
+                     }}
                     onBuy={
                       catalog.businessSlug &&
                       offering.price &&
                       parsePriceAoa(offering.price) !== null
-                        ? () => setBuyOffering(offering)
+                         ? () => {
+                           trackProductClick(offering);
+                           setBuyOffering(offering);
+                         }
                         : undefined
                     }
                   />

@@ -86,6 +86,7 @@ import type { PushSubscriptionJSON } from "@workspace/db";
 import { logger } from "../lib/logger.js";
 import { getUserByToken, requestToken } from "./userAuth.js";
 import { createPaymentsScopedRouter } from "./paymentsScoped.js";
+import { getCatalogAnalytics, withOfferingAnalyticsKey } from "../services/catalogAnalytics.js";
 
 function bid(res: Response): number {
   return res.locals["businessId"] as number;
@@ -373,6 +374,16 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
+  router.get("/catalog/analytics", requireOwner, async (_req, res) => {
+    try {
+      const analytics = await getCatalogAnalytics(bid(res), await getOrCreateProfile(bid(res)));
+      res.json({ analytics });
+    } catch (err) {
+      logger.error({ err }, "GET /catalog/analytics failed");
+      res.status(500).json({ error: "Erro ao carregar métricas do catálogo" });
+    }
+  });
+
   router.get("/leads/:id", requireOwner, async (req, res) => {
     const id = String(req.params["id"] ?? "");
     try {
@@ -439,7 +450,7 @@ export function createBusinessScopedRouter(): Router {
         sector: profile.sector,
         description: profile.description,
         differentials: profile.differentials,
-        offerings: profile.offerings,
+        offerings: profile.offerings.map(withOfferingAnalyticsKey),
         faq: profile.faq,
         catalogEnabled: profile.catalogEnabled,
         catalogSlug: profile.catalogSlug ?? null,

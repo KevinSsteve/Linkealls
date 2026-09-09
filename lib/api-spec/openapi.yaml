@@ -12,6 +12,8 @@ tags:
     description: Health operations
   - name: Auth
     description: Browser authentication and Replit identity linking.
+  - name: Analytics
+    description: Anonymous catalog engagement and owner metrics.
 paths:
   /healthz:
     get:
@@ -112,7 +114,51 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/LocalAuthResponse"
+  /catalog/analytics:
+    post:
+      operationId: recordCatalogEvent
+      tags: [Analytics]
+      summary: Record an anonymous catalog view or product click
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CatalogEventRequest"
+      responses:
+        "202":
+          description: Event accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CatalogEventResponse"
+  /b/{businessSlug}/catalog/analytics:
+    get:
+      operationId: getCatalogAnalytics
+      tags: [Analytics]
+      summary: Get catalog engagement metrics for the authenticated owner
+      parameters:
+        - name: businessSlug
+          in: path
+          required: true
+          schema:
+            type: string
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Aggregated catalog metrics.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CatalogAnalyticsResponse"
+        "401":
+          description: Owner session required.
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
   schemas:
     HealthStatus:
       type: object
@@ -173,4 +219,55 @@ components:
           $ref: "#/components/schemas/LocalAuthUser"
         token:
           type: string
+    CatalogEventRequest:
+      type: object
+      required: [businessSlug, eventType, visitorId]
+      properties:
+        businessSlug:
+          type: string
+        eventType:
+          type: string
+          enum: [view, click]
+        offeringKey:
+          type: string
+          minLength: 24
+          maxLength: 24
+        visitorId:
+          type: string
+          minLength: 16
+          maxLength: 128
+    CatalogEventResponse:
+      type: object
+      required: [recorded]
+      properties:
+        recorded:
+          type: boolean
+    CatalogAnalyticsProduct:
+      type: object
+      required: [key, name, clicks]
+      properties:
+        key:
+          type: string
+        name:
+          type: string
+        clicks:
+          type: integer
+    CatalogAnalytics:
+      type: object
+      required: [catalogVisitors, productClicks, products]
+      properties:
+        catalogVisitors:
+          type: integer
+        productClicks:
+          type: integer
+        products:
+          type: array
+          items:
+            $ref: "#/components/schemas/CatalogAnalyticsProduct"
+    CatalogAnalyticsResponse:
+      type: object
+      required: [analytics]
+      properties:
+        analytics:
+          $ref: "#/components/schemas/CatalogAnalytics"
 

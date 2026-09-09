@@ -24,3 +24,4 @@ export * from "./campaigns";
 export * from "./users";
 export * from "./payments";
 export * from "./auth";
+export * from "./catalogAnalytics";

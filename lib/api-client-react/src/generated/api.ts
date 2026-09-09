@@ -22,6 +22,9 @@ import type {
 import type {
   AuthUserEnvelope,
   BeginReplitLoginParams,
+  CatalogAnalyticsResponse,
+  CatalogEventRequest,
+  CatalogEventResponse,
   HealthStatus,
   LegacyLoginRequest,
   LocalAuthResponse
@@ -125,10 +128,6 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
 
   return withQueryKey(query, queryOptions.queryKey);
 }
-
-
-
-
 
 
 
@@ -659,3 +658,152 @@ export const useProvisionLinkeallsAccount = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getProvisionLinkeallsAccountMutationOptions(options));
     }
+
+export const getRecordCatalogEventUrl = () => {
+
+
+
+
+  return `/api/catalog/analytics`
+}
+
+/**
+ * @summary Record an anonymous catalog view or product click
+ */
+export const recordCatalogEvent = async (catalogEventRequest: CatalogEventRequest, options?: RequestInit): Promise<CatalogEventResponse> => {
+
+  return customFetch<CatalogEventResponse>(getRecordCatalogEventUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(catalogEventRequest)
+  }
+);}
+
+
+
+
+
+export const getRecordCatalogEventMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordCatalogEvent>>, TError,{data: BodyType<CatalogEventRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recordCatalogEvent>>, TError,{data: BodyType<CatalogEventRequest>}, TContext> => {
+
+const mutationKey = ['recordCatalogEvent'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recordCatalogEvent>>, {data: BodyType<CatalogEventRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  recordCatalogEvent(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RecordCatalogEventMutationResult = NonNullable<Awaited<ReturnType<typeof recordCatalogEvent>>>
+    export type RecordCatalogEventMutationBody = BodyType<CatalogEventRequest>
+    export type RecordCatalogEventMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Record an anonymous catalog view or product click
+ */
+export const useRecordCatalogEvent = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordCatalogEvent>>, TError,{data: BodyType<CatalogEventRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof recordCatalogEvent>>,
+        TError,
+        {data: BodyType<CatalogEventRequest>},
+        TContext
+      > => {
+      return useMutation(getRecordCatalogEventMutationOptions(options));
+    }
+
+export const getGetCatalogAnalyticsUrl = (businessSlug: string,) => {
+
+
+
+
+  return `/api/b/${businessSlug}/catalog/analytics`
+}
+
+/**
+ * @summary Get catalog engagement metrics for the authenticated owner
+ */
+export const getCatalogAnalytics = async (businessSlug: string, options?: RequestInit): Promise<CatalogAnalyticsResponse> => {
+
+  return customFetch<CatalogAnalyticsResponse>(getGetCatalogAnalyticsUrl(businessSlug),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCatalogAnalyticsQueryKey = (businessSlug: string,) => {
+    return [
+    `/api/b/${businessSlug}/catalog/analytics`
+    ] as const;
+    }
+
+
+export const getGetCatalogAnalyticsQueryOptions = <TData = Awaited<ReturnType<typeof getCatalogAnalytics>>, TError = ErrorType<void>>(businessSlug: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCatalogAnalytics>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCatalogAnalyticsQueryKey(businessSlug);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCatalogAnalytics>>> = ({ signal }) => getCatalogAnalytics(businessSlug, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: businessSlug !== null && businessSlug !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCatalogAnalytics>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCatalogAnalyticsQueryResult = NonNullable<Awaited<ReturnType<typeof getCatalogAnalytics>>>
+export type GetCatalogAnalyticsQueryError = ErrorType<void>
+
+
+/**
+ * @summary Get catalog engagement metrics for the authenticated owner
+ */
+
+export function useGetCatalogAnalytics<TData = Awaited<ReturnType<typeof getCatalogAnalytics>>, TError = ErrorType<void>>(
+ businessSlug: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCatalogAnalytics>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCatalogAnalyticsQueryOptions(businessSlug,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+

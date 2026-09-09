@@ -15,6 +15,8 @@ import * as zod from 'zod';
 export const HealthCheckResponse = zod.object({
   "status": zod.string()
 })
+
+
 /**
  * @summary Get the current Replit identity
  */
@@ -64,6 +66,7 @@ export const CreateLocalSessionFromReplitResponse = zod.object({
   "token": zod.string()
 })
 
+
 /**
  * @summary Link a Replit identity to an existing local account
  */
@@ -100,3 +103,48 @@ export const ProvisionLinkeallsAccountResponse = zod.object({
 }),
   "token": zod.string()
 })
+
+
+/**
+ * @summary Record an anonymous catalog view or product click
+ */
+export const recordCatalogEventBodyOfferingKeyMin = 24;
+export const recordCatalogEventBodyOfferingKeyMax = 24;
+
+export const recordCatalogEventBodyVisitorIdMin = 16;
+export const recordCatalogEventBodyVisitorIdMax = 128;
+
+
+
+export const RecordCatalogEventBody = zod.object({
+  "businessSlug": zod.string(),
+  "eventType": zod.enum(['view', 'click']),
+  "offeringKey": zod.string().min(recordCatalogEventBodyOfferingKeyMin).max(recordCatalogEventBodyOfferingKeyMax).optional(),
+  "visitorId": zod.string().min(recordCatalogEventBodyVisitorIdMin).max(recordCatalogEventBodyVisitorIdMax)
+})
+
+export const RecordCatalogEventResponse = zod.object({
+  "recorded": zod.boolean()
+})
+
+
+/**
+ * @summary Get catalog engagement metrics for the authenticated owner
+ */
+export const GetCatalogAnalyticsParams = zod.object({
+  "businessSlug": zod.coerce.string()
+})
+
+export const GetCatalogAnalyticsResponse = zod.object({
+  "analytics": zod.object({
+  "catalogVisitors": zod.number(),
+  "productClicks": zod.number(),
+  "products": zod.array(zod.object({
+  "key": zod.string(),
+  "name": zod.string(),
+  "clicks": zod.number()
+}))
+})
+})
+
+

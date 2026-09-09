@@ -181,6 +181,7 @@ export interface Offering {
   description: string;
   price: string;
   imageUrl?: string;
+  analyticsKey?: string;
   /** Whether this product is highlighted in the public catalog (max 3). */
   featured?: boolean;
   /** Display order in the catalog (lower = first). */
@@ -554,6 +555,16 @@ export interface CatalogData {
   hasProducts: boolean;
 }
 
+export interface CatalogAnalytics {
+  catalogVisitors: number;
+  productClicks: number;
+  products: Array<{
+    key: string;
+    name: string;
+    clicks: number;
+  }>;
+}
+
 export function getCatalogByHandle(handle: string): Promise<CatalogData> {
   return request<CatalogData>(`/catalog/by-handle/${encodeURIComponent(handle)}`);
 }
@@ -564,6 +575,21 @@ export function getCatalogBySlug(slug: string): Promise<CatalogData> {
 
 export function checkSlugAvailability(slug: string): Promise<{ available: boolean; reason?: string }> {
   return request(`/catalog/slug-check/${encodeURIComponent(slug)}`);
+}
+
+export async function recordCatalogEvent(data: {
+  businessSlug: string;
+  eventType: "view" | "click";
+  offeringKey?: string;
+  visitorId: string;
+}): Promise<void> {
+  const res = await fetch(`${API_BASE}/catalog/analytics`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+    keepalive: true,
+  });
+  if (!res.ok) throw new Error("Métrica não registada");
 }
 
 // ─── Payments (Multicaixa Express) ────────────────────────────────────────────
@@ -766,6 +792,8 @@ export function businessApi(slug: string) {
     // Catalog
     getCatalog: () =>
       bRequest<CatalogData>("/catalog"),
+    getCatalogAnalytics: () =>
+      bRequest<{ analytics: CatalogAnalytics }>("/catalog/analytics"),
     saveCatalogSlug: (catalogSlug: string | null) =>
       bRequest<{ profile: BusinessProfile; filled: boolean }>("/profile", {
         method: "PUT", body: JSON.stringify({ catalogSlug }),

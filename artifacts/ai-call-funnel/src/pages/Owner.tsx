@@ -12,6 +12,7 @@ import {
   getStorageObjectUrl,
   userLogout, deleteUserAccount,
   type BusinessProfile,
+  type CatalogAnalytics as CatalogAnalyticsData,
   type ProfileDraft,
   type Offering,
 } from "../lib/api";
@@ -227,6 +228,83 @@ function CatalogRow({ offering, last = false }: { offering: Offering; last?: boo
   return <ProductListItem name={offering.name} price={offering.price} imageUrl={offering.imageUrl} last={last} />;
 }
 
+function CatalogAnalyticsCard({ slug, offerings }: { slug: string; offerings: Offering[] }) {
+  const api = useMemo(() => businessApi(slug), [slug]);
+  const [analytics, setAnalytics] = useState<CatalogAnalyticsData | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    api.getCatalogAnalytics()
+      .then(({ analytics: next }) => { if (active) setAnalytics(next); })
+      .catch(() => { if (active) setAnalytics(null); });
+    return () => { active = false; };
+  }, [api, offerings]);
+
+  if (!analytics) return null;
+  const maxClicks = Math.max(...analytics.products.map((product) => product.clicks), 1);
+
+  return (
+    <>
+      <SectionLabel>Visibilidade</SectionLabel>
+      <div
+        className="px-5 py-5"
+        style={{
+          background: D.surface,
+          borderTop: `1px solid ${D.border}`,
+          borderBottom: `1px solid ${D.border}`,
+        }}
+      >
+        <div className="grid grid-cols-2 gap-3">
+          <div className="rounded-[14px] px-4 py-3" style={{ background: D.greenMuted }}>
+            <p style={{ color: D.inkFaint, fontSize: 11, fontWeight: 600 }}>Visitantes do catálogo</p>
+            <p className="mt-1 tabular-nums" style={{ color: D.ink, fontSize: 25, fontWeight: 750 }}>
+              {analytics.catalogVisitors.toLocaleString("pt-AO")}
+            </p>
+          </div>
+          <div className="rounded-[14px] px-4 py-3" style={{ background: D.subtle }}>
+            <p style={{ color: D.inkFaint, fontSize: 11, fontWeight: 600 }}>Cliques em produtos</p>
+            <p className="mt-1 tabular-nums" style={{ color: D.ink, fontSize: 25, fontWeight: 750 }}>
+              {analytics.productClicks.toLocaleString("pt-AO")}
+            </p>
+          </div>
+        </div>
+
+        {analytics.products.length > 0 ? (
+          <div className="mt-5">
+            <p className="mb-3" style={{ color: D.inkSoft, fontSize: 12, fontWeight: 650 }}>
+              Produtos mais consultados
+            </p>
+            <div className="space-y-3">
+              {[...analytics.products]
+                .sort((a, b) => b.clicks - a.clicks)
+                .map((product) => (
+                  <div key={product.key}>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="min-w-0 truncate" style={{ color: D.ink, fontSize: 13 }}>{product.name}</span>
+                      <span className="shrink-0 tabular-nums" style={{ color: D.inkSoft, fontSize: 12, fontWeight: 650 }}>
+                        {product.clicks} {product.clicks === 1 ? "clique" : "cliques"}
+                      </span>
+                    </div>
+                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full" style={{ background: D.borderSoft }}>
+                      <div
+                        className="h-full rounded-full transition-all"
+                        style={{ width: `${Math.max((product.clicks / maxClicks) * 100, product.clicks > 0 ? 4 : 0)}%`, background: D.green }}
+                      />
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </div>
+        ) : (
+          <p className="mt-4" style={{ color: D.inkFaint, fontSize: 12 }}>
+            Adiciona produtos para começares a acompanhar o interesse dos visitantes.
+          </p>
+        )}
+      </div>
+    </>
+  );
+}
+
 // ─── Profile View (main view of the owner panel) ──────────────────────────────
 function ProfileView({
   profile, slug, onEdit, onReanalyze, reanalyzing, onLogout, onDeleteAccount, deletingAccount,
@@ -391,6 +469,8 @@ function ProfileView({
           </div>
         </>
       )}
+
+      <CatalogAnalyticsCard slug={slug} offerings={profile.offerings} />
 
       {/* ─── O teu negócio ───────────────────────────────────────────────────── */}
       <SectionLabel>O teu negócio</SectionLabel>

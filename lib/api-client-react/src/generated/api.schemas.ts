@@ -47,6 +47,49 @@ export interface LocalAuthResponse {
   token: string;
 }
 
+export type CatalogEventRequestEventType = typeof CatalogEventRequestEventType[keyof typeof CatalogEventRequestEventType];
+
+
+export const CatalogEventRequestEventType = {
+  view: 'view',
+  click: 'click',
+} as const;
+
+export interface CatalogEventRequest {
+  businessSlug: string;
+  eventType: CatalogEventRequestEventType;
+  /**
+     * @minLength 24
+     * @maxLength 24
+     */
+  offeringKey?: string;
+  /**
+     * @minLength 16
+     * @maxLength 128
+     */
+  visitorId: string;
+}
+
+export interface CatalogEventResponse {
+  recorded: boolean;
+}
+
+export interface CatalogAnalyticsProduct {
+  key: string;
+  name: string;
+  clicks: number;
+}
+
+export interface CatalogAnalytics {
+  catalogVisitors: number;
+  productClicks: number;
+  products: CatalogAnalyticsProduct[];
+}
+
+export interface CatalogAnalyticsResponse {
+  analytics: CatalogAnalytics;
+}
+
 export type BeginReplitLoginParams = {
 returnTo?: string;
 };
