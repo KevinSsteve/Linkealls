@@ -23,3 +23,4 @@ export * from "./assistantMessages";
 export * from "./campaigns";
 export * from "./users";
 export * from "./payments";
+export * from "./auth";

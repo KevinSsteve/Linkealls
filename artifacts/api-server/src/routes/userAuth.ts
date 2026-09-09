@@ -13,7 +13,7 @@
  * The DB unique constraints are the canonical authority — pre-flight checks are
  * only UX optimisations. Concurrent races are caught by the transaction.
  */
-import { Router } from "express";
+import { Router, type Request, type Response } from "express";
 import { createHash, randomUUID } from "crypto";
 import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
@@ -83,10 +83,24 @@ const USER_COLS = {
 function toUserDTO(row: { id: string; phone: string; name: string; handle: string | null }) {
   return {
     id:     row.id,
-    phone:  row.phone,
+    // Replit-provisioned accounts do not have a local phone login.
+    phone:  row.phone.startsWith("replit:") ? "" : row.phone,
     name:   row.name,
     handle: row.handle ?? null,
   };
+}
+
+function replitName(user: Request["replitUser"]): string {
+  const name = [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim();
+  return name || user?.email?.split("@")[0] || "Utilizador Linkealls";
+}
+
+function requireReplitUser(req: Request, res: Response) {
+  if (!req.isReplitAuthenticated()) {
+    res.status(401).json({ error: "Inicia sessão com o Replit para continuar." });
+    return null;
+  }
+  return req.replitUser;
 }
 
 /** Resolves the authenticated user from an opaque session token (or null). */
@@ -189,6 +203,115 @@ router.post("/user-auth/login", async (req, res) => {
     logger.error({ err }, "login failed");
     res.status(500).json({ error: "Erro ao fazer login" });
   }
+});
+
+// ─── Replit identity bridge ──────────────────────────────────────────────────
+//
+// Replit owns the browser identity. Linkealls keeps the local business row and
+// token so the existing commerce routes continue to enforce business ownership.
+router.post("/user-auth/session", async (req, res): Promise<void> => {
+  const replitUser = requireReplitUser(req, res);
+  if (!replitUser) return;
+
+  const [row] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.replitId, replitUser.id))
+    .limit(1);
+  if (!row) {
+    res.status(409).json({
+      error: "Esta identidade Replit ainda não está ligada a uma conta Linkealls.",
+      needsLink: true,
+    });
+    return;
+  }
+
+  const token = randomUUID();
+  const [updated] = await db.update(usersTable)
+    .set({
+      sessionToken: token,
+      email: replitUser.email,
+      firstName: replitUser.firstName,
+      lastName: replitUser.lastName,
+      profileImageUrl: replitUser.profileImageUrl,
+    })
+    .where(eq(usersTable.id, row.id))
+    .returning(USER_COLS);
+  res.json({ user: toUserDTO(updated!), token });
+});
+
+router.post("/user-auth/link-replit", async (req, res): Promise<void> => {
+  const replitUser = requireReplitUser(req, res);
+  if (!replitUser) return;
+
+  const parse = loginSchema.safeParse(req.body);
+  if (!parse.success) {
+    res.status(400).json({ error: "Indica o telefone e o PIN actuais." });
+    return;
+  }
+  const phone = normalisePhone(parse.data.phone);
+  const pinHash = hashPin(parse.data.pin);
+
+  const [existingReplitLink] = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(eq(usersTable.replitId, replitUser.id))
+    .limit(1);
+  if (existingReplitLink) {
+    res.status(409).json({ error: "Esta identidade Replit já está ligada a uma conta." });
+    return;
+  }
+
+  const [row] = await db.select().from(usersTable)
+    .where(eq(usersTable.phone, phone)).limit(1);
+  if (!row || row.pinHash !== pinHash) {
+    res.status(401).json({ error: "Telefone ou PIN incorrectos." });
+    return;
+  }
+  if (row.replitId && row.replitId !== replitUser.id) {
+    res.status(409).json({ error: "Esta conta Linkealls já está ligada a outra identidade." });
+    return;
+  }
+
+  const token = randomUUID();
+  const [updated] = await db.update(usersTable)
+    .set({
+      replitId: replitUser.id,
+      sessionToken: token,
+      email: replitUser.email,
+      firstName: replitUser.firstName,
+      lastName: replitUser.lastName,
+      profileImageUrl: replitUser.profileImageUrl,
+    })
+    .where(eq(usersTable.id, row.id))
+    .returning(USER_COLS);
+  res.json({ user: toUserDTO(updated!), token });
+});
+
+router.post("/user-auth/provision", async (req, res): Promise<void> => {
+  const replitUser = requireReplitUser(req, res);
+  if (!replitUser) return;
+
+  const [alreadyLinked] = await db.select({ id: usersTable.id })
+    .from(usersTable).where(eq(usersTable.replitId, replitUser.id)).limit(1);
+  if (alreadyLinked) {
+    res.status(409).json({ error: "Esta identidade Replit já tem uma conta Linkealls." });
+    return;
+  }
+
+  const token = randomUUID();
+  const [row] = await db.insert(usersTable).values({
+    phone: `replit:${replitUser.id}`,
+    name: replitName(replitUser).slice(0, 60),
+    pinHash: hashPin(randomUUID()),
+    sessionToken: token,
+    replitId: replitUser.id,
+    email: replitUser.email,
+    firstName: replitUser.firstName,
+    lastName: replitUser.lastName,
+    profileImageUrl: replitUser.profileImageUrl,
+  }).returning(USER_COLS);
+  res.status(201).json({ user: toUserDTO(row!) , token });
 });
 
 // ─── me ─────────────────────────────────────────────────────────────────────

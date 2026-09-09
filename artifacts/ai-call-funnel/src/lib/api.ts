@@ -24,6 +24,18 @@ export interface AuthResponse {
   token: string;
 }
 
+export interface ReplitAuthUser {
+  id: string;
+  email: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  profileImageUrl: string | null;
+}
+
+export interface ReplitAuthResponse {
+  user: ReplitAuthUser | null;
+}
+
 async function authFetch(path: string, opts: RequestInit): Promise<AuthResponse> {
   const res = await fetch(`${API_BASE}${path}`, {
     ...opts,
@@ -41,6 +53,60 @@ export function userRegister(data: { phone: string; name: string; pin: string })
 
 export function userLogin(data: { phone: string; pin: string }) {
   return authFetch("/user-auth/login", { method: "POST", body: JSON.stringify(data) });
+}
+
+export async function getReplitAuth(): Promise<ReplitAuthResponse> {
+  const res = await fetch(`${API_BASE}/auth/user`, { credentials: "include" });
+  if (!res.ok) throw new Error("Não foi possível verificar a sessão");
+  return res.json() as Promise<ReplitAuthResponse>;
+}
+
+export function beginReplitLogin(returnTo = window.location.pathname + window.location.search): void {
+  const target = `${API_BASE}/login?returnTo=${encodeURIComponent(returnTo)}`;
+  window.location.assign(target);
+}
+
+export function beginReplitLogout(returnTo = "/"): void {
+  const target = `${API_BASE}/logout?returnTo=${encodeURIComponent(returnTo)}`;
+  window.location.assign(target);
+}
+
+export async function createLocalSessionFromReplit(): Promise<AuthResponse> {
+  const res = await fetch(`${API_BASE}/user-auth/session`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+  });
+  const body = (await res.json()) as { user?: AuthUser; token?: string; error?: string; needsLink?: boolean };
+  if (!res.ok) {
+    const error = new Error(body.error ?? "Não foi possível abrir a conta");
+    if (body.needsLink) (error as Error & { code?: string }).code = "needs_link";
+    throw error;
+  }
+  return body as AuthResponse;
+}
+
+export async function linkReplitAccount(data: { phone: string; pin: string }): Promise<AuthResponse> {
+  const res = await fetch(`${API_BASE}/user-auth/link-replit`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  const body = (await res.json()) as { user?: AuthUser; token?: string; error?: string };
+  if (!res.ok) throw new Error(body.error ?? "Não foi possível ligar a conta");
+  return body as AuthResponse;
+}
+
+export async function provisionReplitAccount(): Promise<AuthResponse> {
+  const res = await fetch(`${API_BASE}/user-auth/provision`, {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+  });
+  const body = (await res.json()) as { user?: AuthUser; token?: string; error?: string };
+  if (!res.ok) throw new Error(body.error ?? "Não foi possível criar o espaço");
+  return body as AuthResponse;
 }
 
 export async function userLogout(token: string) {
@@ -232,6 +298,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const token = sessionToken();
   const res = await fetch(`${API_BASE}${path}`, {
     ...init,
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
       ...(token ? { Authorization: `Bearer ${token}` } : {}),

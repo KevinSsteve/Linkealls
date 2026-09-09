@@ -10,6 +10,8 @@ import { LoginPage } from "@/pages/LoginPage";
 import { RegisterPage } from "@/pages/RegisterPage";
 import { ChooseHandle } from "@/pages/ChooseHandle";
 import { LegalPage } from "@/pages/LegalPage";
+import { ReplitEntryPage } from "@/pages/ReplitEntryPage";
+import { LinkAccountPage } from "@/pages/LinkAccountPage";
 import { OwnerGate } from "@/components/owner/OwnerGate";
 import { Owner } from "@/pages/Owner";
 import { Leads } from "@/pages/owner/Leads";
@@ -54,8 +56,9 @@ function useVisualViewportHeight() {
  * If logged in without handle → onboarding; not logged in → login (with next).
  */
 function LegacyOwnerRedirect() {
-  const { isLoggedIn, user } = useAuth();
+  const { isLoading, isLoggedIn, user } = useAuth();
   const [location] = useLocation();
+  if (isLoading) return null;
   if (!isLoggedIn) return <Redirect to={`/login?next=${encodeURIComponent(location)}`} />;
   if (!user?.handle) return <Redirect to="/escolher-handle" />;
   const sub = location.replace(/^\/dono/, "");
@@ -109,9 +112,10 @@ export default function App() {
           <Route path="/c/:slug" component={Catalogo} />
 
           {/* ── One-segment public/reserved routes must precede /:handle ─────── */}
-          <Route path="/login" component={LoginPage} />
-          <Route path="/registar" component={RegisterPage} />
+          <Route path="/login">{() => <ReplitEntryPage mode="login" />}</Route>
+          <Route path="/registar">{() => <ReplitEntryPage mode="register" />}</Route>
           <Route path="/escolher-handle" component={ChooseHandle} />
+          <Route path="/ligar-conta" component={LinkAccountPage} />
           <Route path="/termos" component={() => <LegalPage kind="terms" />} />
           <Route path="/privacidade" component={() => <LegalPage kind="privacy" />} />
           <Route path="/dono"><LegacyOwnerRedirect /></Route>

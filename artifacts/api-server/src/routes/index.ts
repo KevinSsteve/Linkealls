@@ -6,6 +6,7 @@ import catalogRouter from "./catalog";
 import { createBusinessScopedRouter } from "./businessScoped.js";
 import businessesRouter from "./businesses.js";
 import paymentsRouter from "./payments.js";
+import replitAuthRouter from "./replitAuth.js";
 
 const router: IRouter = Router();
 
@@ -16,6 +17,7 @@ router.use("/b/:businessSlug", createBusinessScopedRouter());
 // ── Platform-level public routes ─────────────────────────────────────────────
 router.use(businessesRouter);
 router.use(healthRouter);
+router.use(replitAuthRouter);
 router.use(userAuthRouter);
 router.use(storageRouter);
 router.use(catalogRouter); // public catalog by slug + slug availability check

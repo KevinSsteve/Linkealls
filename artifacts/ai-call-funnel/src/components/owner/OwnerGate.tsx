@@ -16,10 +16,11 @@ import { useAuth } from "@/context/AuthContext";
 import { useBusinessSlug } from "@/hooks/useBusinessSlug";
 
 export function OwnerGate({ children }: { children: ReactNode }) {
-  const { isLoggedIn, user } = useAuth();
+  const { isLoading, isLoggedIn, user } = useAuth();
   const slug = useBusinessSlug();
   const [location] = useLocation();
 
+  if (isLoading) return null;
   if (!isLoggedIn) return <Redirect to={`/login?next=${encodeURIComponent(location)}`} />;
   if (!user?.handle) return <Redirect to="/escolher-handle" />;
   if (slug && user.handle !== slug) return <Redirect to={`/e/${user.handle}/dono`} />;

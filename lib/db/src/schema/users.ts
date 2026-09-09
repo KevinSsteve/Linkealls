@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, timestamp, varchar } from "drizzle-orm/pg-core";
 
 export const usersTable = pgTable("users", {
   id:           uuid("id").defaultRandom().primaryKey(),
@@ -8,6 +8,11 @@ export const usersTable = pgTable("users", {
   ownedSlug:    text("owned_slug"),                  // slug of the business this user owns, e.g. "electropanga"
   pinHash:      text("pin_hash").notNull(),          // SHA-256 hex of the 4-digit PIN
   sessionToken: text("session_token"),               // opaque token handed to client
+  replitId:     varchar("replit_id").unique(),       // Replit OIDC subject, when linked
+  email:        varchar("email"),
+  firstName:    varchar("first_name"),
+  lastName:     varchar("last_name"),
+  profileImageUrl: varchar("profile_image_url"),
   createdAt:    timestamp("created_at").defaultNow().notNull(),
 });
 

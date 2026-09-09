@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: Auth
+    description: Browser authentication and Replit identity linking.
 paths:
   /healthz:
     get:
@@ -24,6 +26,92 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /auth/user:
+    get:
+      operationId: getCurrentReplitAuthUser
+      tags: [Auth]
+      summary: Get the current Replit identity
+      responses:
+        "200":
+          description: Current identity or null when signed out.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUserEnvelope"
+  /login:
+    get:
+      operationId: beginReplitLogin
+      tags: [Auth]
+      summary: Start Replit OIDC login
+      parameters:
+        - name: returnTo
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "302":
+          description: Redirect to Replit.
+  /callback:
+    get:
+      operationId: completeReplitLogin
+      tags: [Auth]
+      summary: Complete Replit OIDC login
+      responses:
+        "302":
+          description: Redirect back to the application.
+  /logout:
+    get:
+      operationId: logoutReplitSession
+      tags: [Auth]
+      summary: Log out of the Replit identity
+      responses:
+        "302":
+          description: Redirect through the Replit logout endpoint.
+  /user-auth/session:
+    post:
+      operationId: createLocalSessionFromReplit
+      tags: [Auth]
+      summary: Resolve a Replit identity to a Linkealls session
+      responses:
+        "200":
+          description: Existing Linkealls account resolved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LocalAuthResponse"
+        "409":
+          description: The Replit identity needs to be linked.
+  /user-auth/link-replit:
+    post:
+      operationId: linkReplitIdentity
+      tags: [Auth]
+      summary: Link a Replit identity to an existing local account
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LegacyLoginRequest"
+      responses:
+        "200":
+          description: Identity linked.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LocalAuthResponse"
+  /user-auth/provision:
+    post:
+      operationId: provisionLinkeallsAccount
+      tags: [Auth]
+      summary: Create a new Linkealls account for a Replit identity
+      responses:
+        "201":
+          description: Account created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LocalAuthResponse"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +121,56 @@ components:
           type: string
       required:
         - status
+    AuthUser:
+      type: object
+      required: [id, email, firstName, lastName, profileImageUrl]
+      properties:
+        id:
+          type: string
+        email:
+          type: [string, "null"]
+        firstName:
+          type: [string, "null"]
+        lastName:
+          type: [string, "null"]
+        profileImageUrl:
+          type: [string, "null"]
+    AuthUserEnvelope:
+      type: object
+      required: [user]
+      properties:
+        user:
+          oneOf:
+            - $ref: "#/components/schemas/AuthUser"
+            - type: "null"
+    LegacyLoginRequest:
+      type: object
+      required: [phone, pin]
+      properties:
+        phone:
+          type: string
+        pin:
+          type: string
+          minLength: 4
+          maxLength: 4
+    LocalAuthUser:
+      type: object
+      required: [id, phone, name, handle]
+      properties:
+        id:
+          type: string
+        phone:
+          type: string
+        name:
+          type: string
+        handle:
+          type: [string, "null"]
+    LocalAuthResponse:
+      type: object
+      required: [user, token]
+      properties:
+        user:
+          $ref: "#/components/schemas/LocalAuthUser"
+        token:
+          type: string
 
