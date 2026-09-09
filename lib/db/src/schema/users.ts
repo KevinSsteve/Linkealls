@@ -7,6 +7,8 @@ export const usersTable = pgTable("users", {
   handle:       text("handle").unique(),             // personalised URL slug, e.g. "joao"
   ownedSlug:    text("owned_slug"),                  // slug of the business this user owns, e.g. "electropanga"
   pinHash:      text("pin_hash").notNull(),          // SHA-256 hex of the 4-digit PIN
+  recoveryCodeHash: text("recovery_code_hash"),      // one-time account recovery secret
+  recoveryCodeIssuedAt: timestamp("recovery_code_issued_at"),
   sessionToken: text("session_token"),               // opaque token handed to client
   replitId:     varchar("replit_id").unique(),       // Replit OIDC subject, when linked
   email:        varchar("email"),

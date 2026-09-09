@@ -347,6 +347,13 @@ export function LoginPage() {
                     <ShieldCheck size={16} strokeWidth={1.8} className="mt-0.5 shrink-0" style={{ color: COLORS.accent }} />
                     O teu número e PIN ficam protegidos. Não partilhamos os teus dados.
                   </p>
+                   <Link
+                     href="/recuperar-acesso"
+                     className="mt-6 inline-flex text-[13px] font-bold underline underline-offset-4"
+                     style={{ color: COLORS.soft }}
+                   >
+                     Esqueci-me do PIN
+                   </Link>
                 </div>
               ) : (
                 <div className="max-w-[460px]">

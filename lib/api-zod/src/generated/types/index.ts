@@ -19,3 +19,5 @@ export * from './healthStatus';
 export * from './legacyLoginRequest';
 export * from './localAuthResponse';
 export * from './localAuthUser';
+export * from './recoveryCodeResponse';
+export * from './recoveryRequest';

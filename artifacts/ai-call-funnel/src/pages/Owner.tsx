@@ -4,12 +4,13 @@ import {
   Globe, Sparkles, Loader2, AlertCircle, CheckCircle2,
   Zap, Grid3x3, Megaphone, Users, ChevronRight, X, Store,
   MessageSquare, Phone, RefreshCw, Edit2, Share2, MoreVertical,
-  MapPin, Clock, Mail, Image, ShoppingCart, PackageCheck, Wallet, Crown, LogOut, Trash2, UserRound,
+  MapPin, Clock, Mail, Image, ShoppingCart, PackageCheck, Wallet, Crown, LogOut, Trash2, UserRound, KeyRound,
 } from "lucide-react";
 import { OwnerNav } from "../components/owner/OwnerNav";
 import {
   businessApi,
   getStorageObjectUrl,
+  generateRecoveryCode,
   userLogout, deleteUserAccount,
   type BusinessProfile,
   type CatalogAnalytics as CatalogAnalyticsData,
@@ -305,12 +306,73 @@ function CatalogAnalyticsCard({ slug, offerings }: { slug: string; offerings: Of
   );
 }
 
+function RecoveryCodeRow({ token }: { token: string | null }) {
+  const [code, setCode] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  async function handleGenerate() {
+    if (!token || loading) return;
+    setLoading(true);
+    try {
+      const next = await generateRecoveryCode(token);
+      setCode(next.recoveryCode);
+      setCopied(false);
+    } catch {
+      setCode(null);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleCopy() {
+    if (!code) return;
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  return (
+    <div className="border-b px-5 py-4" style={{ borderColor: D.borderSoft }}>
+      <div className="flex items-start gap-3">
+        <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl" style={{ background: D.subtle, color: D.ink }}>
+          <KeyRound size={16} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p style={{ color: D.ink, fontSize: 13, fontWeight: 700 }}>Código de recuperação</p>
+          <p className="mt-1" style={{ color: D.inkFaint, fontSize: 12, lineHeight: 1.45 }}>
+            Guarda-o fora da app para recuperares o acesso se esqueceres o PIN.
+          </p>
+          {code && (
+            <div className="mt-3 flex items-center gap-2">
+              <code className="min-w-0 flex-1 rounded-xl px-3 py-2 text-center font-mono text-[13px] font-bold tracking-[0.08em]" style={{ background: D.subtle, color: D.ink }}>
+                {code}
+              </code>
+              <button type="button" onClick={() => void handleCopy()} className="shrink-0 rounded-xl px-3 py-2 text-[12px] font-bold" style={{ color: D.green, background: D.greenMuted }}>
+                {copied ? "Copiado" : "Copiar"}
+              </button>
+            </div>
+          )}
+          <button type="button" onClick={() => void handleGenerate()} disabled={loading} className="mt-3 text-[12px] font-bold disabled:opacity-50" style={{ color: D.green }}>
+            {loading ? "A gerar…" : code ? "Gerar novo código" : "Gerar código"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Profile View (main view of the owner panel) ──────────────────────────────
 function ProfileView({
-  profile, slug, onEdit, onReanalyze, reanalyzing, onLogout, onDeleteAccount, deletingAccount,
+  profile, slug, token, onEdit, onReanalyze, reanalyzing, onLogout, onDeleteAccount, deletingAccount,
 }: {
   profile: BusinessProfile;
   slug: string;
+  token: string | null;
   onEdit: () => void;
   onReanalyze: (url: string) => void;
   reanalyzing: boolean;
@@ -520,6 +582,7 @@ function ProfileView({
 
       <SectionLabel>Conta</SectionLabel>
       <div style={{ background: D.surface, borderTop: `1px solid ${D.border}`, borderBottom: `1px solid ${D.border}` }}>
+        <RecoveryCodeRow token={token} />
         <ActionRow
           icon={LogOut}
           title="Terminar sessão"
@@ -939,6 +1002,7 @@ export function Owner() {
           <ProfileView
             profile={profile}
             slug={slug}
+            token={token}
             onEdit={() => setEditing(true)}
             onReanalyze={handleReanalyze}
             reanalyzing={reanalyzing}

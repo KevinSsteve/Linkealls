@@ -14,7 +14,7 @@
  * only UX optimisations. Concurrent races are caught by the transaction.
  */
 import { Router, type Request, type Response } from "express";
-import { createHash, randomUUID } from "crypto";
+import { createHash, randomBytes, randomUUID } from "crypto";
 import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import {
@@ -39,6 +39,39 @@ const router = Router();
 
 function hashPin(pin: string) {
   return createHash("sha256").update(pin).digest("hex");
+}
+
+function normaliseRecoveryCode(raw: string): string {
+  return raw.replace(/[^a-z0-9]/gi, "").toUpperCase();
+}
+
+function hashRecoveryCode(code: string): string {
+  return createHash("sha256").update(normaliseRecoveryCode(code)).digest("hex");
+}
+
+function generateRecoveryCode(): string {
+  const raw = randomBytes(9).toString("hex").toUpperCase();
+  return raw.match(/.{1,4}/g)!.join("-");
+}
+
+const recoveryRateBuckets = new Map<string, { count: number; resetAt: number }>();
+function recoveryRateLimit(req: Request, res: Response, next: () => void): void {
+  const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim()
+    ?? req.socket.remoteAddress
+    ?? "unknown";
+  const now = Date.now();
+  const bucket = recoveryRateBuckets.get(ip);
+  if (!bucket || bucket.resetAt < now) {
+    recoveryRateBuckets.set(ip, { count: 1, resetAt: now + 60_000 });
+    next();
+    return;
+  }
+  bucket.count += 1;
+  if (bucket.count > 8) {
+    res.status(429).json({ error: "Demasiadas tentativas — tenta daqui a pouco" });
+    return;
+  }
+  next();
 }
 
 function normalisePhone(raw: string) {
@@ -144,6 +177,7 @@ router.post("/user-auth/register", async (req, res) => {
   }
   const { name, pin } = parse.data;
   const phone = normalisePhone(parse.data.phone);
+  const recoveryCode = generateRecoveryCode();
 
   try {
     const existing = await db.select({ id: usersTable.id })
@@ -158,10 +192,12 @@ router.post("/user-auth/register", async (req, res) => {
       phone,
       name,
       pinHash:      hashPin(pin),
+      recoveryCodeHash: hashRecoveryCode(recoveryCode),
+      recoveryCodeIssuedAt: new Date(),
       sessionToken: token,
     }).returning(USER_COLS);
 
-    res.status(201).json({ user: toUserDTO(row!), token });
+    res.status(201).json({ user: toUserDTO(row!), token, recoveryCode });
   } catch (err) {
     logger.error({ err }, "register failed");
     res.status(500).json({ error: "Erro ao criar conta" });
@@ -202,6 +238,83 @@ router.post("/user-auth/login", async (req, res) => {
   } catch (err) {
     logger.error({ err }, "login failed");
     res.status(500).json({ error: "Erro ao fazer login" });
+  }
+});
+
+// ─── account recovery ────────────────────────────────────────────────────────
+
+const recoverySchema = z.object({
+  phone: z.string().min(7),
+  recoveryCode: z.string().min(8).max(32),
+  pin: z.string().length(4).regex(/^\d{4}$/),
+});
+
+/**
+ * Generate or rotate the one-time recovery secret while the owner is signed in.
+ * The plaintext is returned only in this response so it can be saved offline.
+ */
+router.post("/user-auth/recovery-code", async (req, res) => {
+  const user = await getUserByToken(requestToken(req));
+  if (!user) {
+    res.status(401).json({ error: "Sessão inválida — inicia sessão novamente" });
+    return;
+  }
+
+  const recoveryCode = generateRecoveryCode();
+  try {
+    await db.update(usersTable)
+      .set({
+        recoveryCodeHash: hashRecoveryCode(recoveryCode),
+        recoveryCodeIssuedAt: new Date(),
+      })
+      .where(eq(usersTable.id, user.id));
+    res.json({ recoveryCode });
+  } catch (err) {
+    logger.error({ err, userId: user.id }, "recovery code generation failed");
+    res.status(500).json({ error: "Não foi possível gerar o código de recuperação" });
+  }
+});
+
+router.post("/user-auth/recover", recoveryRateLimit, async (req, res) => {
+  const parse = recoverySchema.safeParse(req.body);
+  if (!parse.success) {
+    res.status(400).json({ error: "Indica telefone, código de recuperação e um PIN de 4 dígitos." });
+    return;
+  }
+
+  const phone = normalisePhone(parse.data.phone);
+  const recoveryHash = hashRecoveryCode(parse.data.recoveryCode);
+  try {
+    const [row] = await db.select()
+      .from(usersTable)
+      .where(eq(usersTable.phone, phone))
+      .limit(1);
+    if (!row || !row.recoveryCodeHash || row.recoveryCodeHash !== recoveryHash) {
+      res.status(401).json({ error: "Telefone ou código de recuperação inválidos." });
+      return;
+    }
+
+    const token = randomUUID();
+    const [updated] = await db.update(usersTable)
+      .set({
+        pinHash: hashPin(parse.data.pin),
+        recoveryCodeHash: null,
+        recoveryCodeIssuedAt: null,
+        sessionToken: token,
+      })
+      .where(and(
+        eq(usersTable.id, row.id),
+        eq(usersTable.recoveryCodeHash, recoveryHash),
+      ))
+      .returning(USER_COLS);
+    if (!updated) {
+      res.status(401).json({ error: "Código de recuperação inválido ou já utilizado." });
+      return;
+    }
+    res.json({ user: toUserDTO(updated), token });
+  } catch (err) {
+    logger.error({ err }, "account recovery failed");
+    res.status(500).json({ error: "Não foi possível recuperar a conta" });
   }
 });
 

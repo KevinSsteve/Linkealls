@@ -47,6 +47,25 @@ export interface LocalAuthResponse {
   token: string;
 }
 
+export interface RecoveryRequest {
+  phone: string;
+  /**
+     * @minLength 8
+     * @maxLength 32
+     */
+  recoveryCode: string;
+  /**
+     * @minLength 4
+     * @maxLength 4
+     * @pattern ^[0-9]{4}$
+     */
+  pin: string;
+}
+
+export interface RecoveryCodeResponse {
+  recoveryCode: string;
+}
+
 export type CatalogEventRequestEventType = typeof CatalogEventRequestEventType[keyof typeof CatalogEventRequestEventType];
 
 
@@ -93,3 +112,4 @@ export interface CatalogAnalyticsResponse {
 export type BeginReplitLoginParams = {
 returnTo?: string;
 };
+

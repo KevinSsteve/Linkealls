@@ -27,7 +27,9 @@ import type {
   CatalogEventResponse,
   HealthStatus,
   LegacyLoginRequest,
-  LocalAuthResponse
+  LocalAuthResponse,
+  RecoveryCodeResponse,
+  RecoveryRequest
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -128,6 +130,10 @@ export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, 
 
   return withQueryKey(query, queryOptions.queryKey);
 }
+
+
+
+
 
 
 
@@ -657,6 +663,148 @@ export const useProvisionLinkeallsAccount = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getProvisionLinkeallsAccountMutationOptions(options));
+    }
+
+export const getRecoverUserAccessUrl = () => {
+
+
+
+
+  return `/api/user-auth/recover`
+}
+
+/**
+ * @summary Reset the local PIN with a one-time recovery code
+ */
+export const recoverUserAccess = async (recoveryRequest: RecoveryRequest, options?: RequestInit): Promise<LocalAuthResponse> => {
+
+  return customFetch<LocalAuthResponse>(getRecoverUserAccessUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(recoveryRequest)
+  }
+);}
+
+
+
+
+
+export const getRecoverUserAccessMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recoverUserAccess>>, TError,{data: BodyType<RecoveryRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recoverUserAccess>>, TError,{data: BodyType<RecoveryRequest>}, TContext> => {
+
+const mutationKey = ['recoverUserAccess'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recoverUserAccess>>, {data: BodyType<RecoveryRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  recoverUserAccess(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RecoverUserAccessMutationResult = NonNullable<Awaited<ReturnType<typeof recoverUserAccess>>>
+    export type RecoverUserAccessMutationBody = BodyType<RecoveryRequest>
+    export type RecoverUserAccessMutationError = ErrorType<void>
+
+    /**
+ * @summary Reset the local PIN with a one-time recovery code
+ */
+export const useRecoverUserAccess = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recoverUserAccess>>, TError,{data: BodyType<RecoveryRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof recoverUserAccess>>,
+        TError,
+        {data: BodyType<RecoveryRequest>},
+        TContext
+      > => {
+      return useMutation(getRecoverUserAccessMutationOptions(options));
+    }
+
+export const getGenerateRecoveryCodeUrl = () => {
+
+
+
+
+  return `/api/user-auth/recovery-code`
+}
+
+/**
+ * @summary Generate a new one-time recovery code for the signed-in owner
+ */
+export const generateRecoveryCode = async ( options?: RequestInit): Promise<RecoveryCodeResponse> => {
+
+  return customFetch<RecoveryCodeResponse>(getGenerateRecoveryCodeUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getGenerateRecoveryCodeMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof generateRecoveryCode>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof generateRecoveryCode>>, TError,void, TContext> => {
+
+const mutationKey = ['generateRecoveryCode'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof generateRecoveryCode>>, void> = () => {
+
+
+          return  generateRecoveryCode(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type GenerateRecoveryCodeMutationResult = NonNullable<Awaited<ReturnType<typeof generateRecoveryCode>>>
+
+    export type GenerateRecoveryCodeMutationError = ErrorType<void>
+
+    /**
+ * @summary Generate a new one-time recovery code for the signed-in owner
+ */
+export const useGenerateRecoveryCode = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof generateRecoveryCode>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof generateRecoveryCode>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getGenerateRecoveryCodeMutationOptions(options));
     }
 
 export const getRecordCatalogEventUrl = () => {

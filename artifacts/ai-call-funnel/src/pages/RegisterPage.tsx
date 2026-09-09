@@ -230,6 +230,61 @@ function ErrorNotice({ message }: { message: string }) {
   );
 }
 
+function RecoveryCodeNotice({ code, onContinue }: { code: string; onContinue: () => void }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copyCode() {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1800);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  return (
+    <main className="min-h-[100dvh] overflow-x-hidden" style={{ background: COLORS.page, color: COLORS.ink, fontFamily: "'Avenir Next', 'Trebuchet MS', system-ui, sans-serif" }}>
+      <div className="mx-auto flex min-h-[100dvh] w-full max-w-[620px] flex-col px-5 py-6 sm:px-10 sm:py-10">
+        <BrandMark compact />
+        <section className="my-auto py-12">
+          <div className="mb-8 flex h-14 w-14 items-center justify-center rounded-[18px]" style={{ background: "#e9f8f1", color: "#07885a" }}>
+            <Check size={25} />
+          </div>
+          <p className="mb-4 text-[13px] font-bold uppercase tracking-[0.15em]" style={{ color: COLORS.accent }}>Conta criada</p>
+          <h1 className="max-w-[500px] text-[clamp(35px,8vw,54px)] font-extrabold leading-[0.98] tracking-[-0.065em]">
+            Guarda este código.
+          </h1>
+          <p className="mt-5 max-w-[470px] text-[16px] leading-6" style={{ color: COLORS.soft }}>
+            É a única forma gratuita de recuperar o acesso se te esqueceres do PIN. Não o partilhes e guarda-o fora da aplicação.
+          </p>
+          <div className="mt-8 rounded-[20px] border px-4 py-5 text-center" style={{ borderColor: COLORS.accentSoft, background: "#ffffff" }}>
+            <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.15em]" style={{ color: COLORS.muted }}>Código de recuperação</p>
+            <p className="break-all font-mono text-[22px] font-bold tracking-[0.08em]" style={{ color: COLORS.ink }}>{code}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void copyCode()}
+            className="mt-3 w-full rounded-[16px] border py-3 text-[13px] font-bold"
+            style={{ borderColor: COLORS.line, color: COLORS.soft, background: "#ffffff" }}
+          >
+            {copied ? "Código copiado" : "Copiar código"}
+          </button>
+          <button
+            type="button"
+            onClick={onContinue}
+            className="mt-5 flex min-h-[60px] w-full items-center justify-between rounded-[18px] px-5 text-left font-bold"
+            style={{ background: COLORS.accent, color: "#ffffff", boxShadow: "0 12px 24px rgba(99,91,255,0.2)" }}
+          >
+            <span>Continuar para o meu espaço</span>
+            <ArrowRight size={19} strokeWidth={2.3} />
+          </button>
+        </section>
+      </div>
+    </main>
+  );
+}
+
 function getSafeNext(handle: string | null): string {
   const next = new URLSearchParams(window.location.search).get("next");
   if (next && next.startsWith("/") && !next.startsWith("//")) return next;
@@ -244,6 +299,8 @@ export function RegisterPage() {
   const [phone, setPhone] = useState("");
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
+  const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
+  const [registeredHandle, setRegisteredHandle] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -282,9 +339,14 @@ export function RegisterPage() {
     setLoading(true);
     setError("");
     try {
-      const { user, token } = await userRegister({ phone, name: name.trim(), pin });
-      login(user, token);
-      nav(getSafeNext(user.handle ?? null));
+      const response = await userRegister({ phone, name: name.trim(), pin });
+      login(response.user, response.token);
+      if (response.recoveryCode) {
+        setRegisteredHandle(response.user.handle);
+        setRecoveryCode(response.recoveryCode);
+      } else {
+        nav(getSafeNext(response.user.handle ?? null));
+      }
     } catch (requestError: unknown) {
       setError(requestError instanceof Error ? requestError.message : "Não foi possível criar a conta.");
       setPin("");
@@ -329,6 +391,15 @@ export function RegisterPage() {
     step === "name" ? "Vamos dar nome ao teu espaço." : step === "phone" ? "Onde te encontramos?" : step === "pin" ? "Cria um PIN simples." : "Confirma o teu PIN.";
   const description =
     step === "name" ? "Começa pelo nome que os teus clientes reconhecem." : step === "phone" ? "Usa o número onde costumas falar com clientes." : step === "pin" ? "Quatro dígitos para manter a tua conta só contigo." : "Só para termos a certeza de que ficou bem guardado.";
+
+  if (recoveryCode) {
+    return (
+      <RecoveryCodeNotice
+        code={recoveryCode}
+        onContinue={() => nav(getSafeNext(registeredHandle))}
+      />
+    );
+  }
 
   return (
     <main

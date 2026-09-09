@@ -22,6 +22,7 @@ export interface AuthUser {
 export interface AuthResponse {
   user: AuthUser;
   token: string;
+  recoveryCode?: string;
 }
 
 export interface ReplitAuthUser {
@@ -53,6 +54,22 @@ export function userRegister(data: { phone: string; name: string; pin: string })
 
 export function userLogin(data: { phone: string; pin: string }) {
   return authFetch("/user-auth/login", { method: "POST", body: JSON.stringify(data) });
+}
+
+export function recoverUserAccess(data: { phone: string; recoveryCode: string; pin: string }) {
+  return authFetch("/user-auth/recover", { method: "POST", body: JSON.stringify(data) });
+}
+
+export async function generateRecoveryCode(token: string): Promise<{ recoveryCode: string }> {
+  const res = await fetch(`${API_BASE}/user-auth/recovery-code`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const body = (await res.json()) as { recoveryCode?: string; error?: string };
+  if (!res.ok || !body.recoveryCode) {
+    throw new Error(body.error ?? "Não foi possível gerar o código de recuperação");
+  }
+  return { recoveryCode: body.recoveryCode };
 }
 
 export async function getReplitAuth(): Promise<ReplitAuthResponse> {

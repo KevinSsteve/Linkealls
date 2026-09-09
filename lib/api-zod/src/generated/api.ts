@@ -106,6 +106,44 @@ export const ProvisionLinkeallsAccountResponse = zod.object({
 
 
 /**
+ * @summary Reset the local PIN with a one-time recovery code
+ */
+export const recoverUserAccessBodyRecoveryCodeMin = 8;
+export const recoverUserAccessBodyRecoveryCodeMax = 32;
+
+export const recoverUserAccessBodyPinMin = 4;
+export const recoverUserAccessBodyPinMax = 4;
+
+
+export const recoverUserAccessBodyPinRegExp = new RegExp('^[0-9]{4}$');
+
+
+export const RecoverUserAccessBody = zod.object({
+  "phone": zod.string(),
+  "recoveryCode": zod.string().min(recoverUserAccessBodyRecoveryCodeMin).max(recoverUserAccessBodyRecoveryCodeMax),
+  "pin": zod.string().min(recoverUserAccessBodyPinMin).max(recoverUserAccessBodyPinMax).regex(recoverUserAccessBodyPinRegExp)
+})
+
+export const RecoverUserAccessResponse = zod.object({
+  "user": zod.object({
+  "id": zod.string(),
+  "phone": zod.string(),
+  "name": zod.string(),
+  "handle": zod.string().nullable()
+}),
+  "token": zod.string()
+})
+
+
+/**
+ * @summary Generate a new one-time recovery code for the signed-in owner
+ */
+export const GenerateRecoveryCodeResponse = zod.object({
+  "recoveryCode": zod.string()
+})
+
+
+/**
  * @summary Record an anonymous catalog view or product click
  */
 export const recordCatalogEventBodyOfferingKeyMin = 24;

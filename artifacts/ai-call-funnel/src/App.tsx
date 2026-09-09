@@ -8,6 +8,7 @@ import { Captacao } from "@/pages/Captacao";
 import { Catalogo } from "@/pages/Catalogo";
 import { LoginPage } from "@/pages/LoginPage";
 import { RegisterPage } from "@/pages/RegisterPage";
+import { RecoverAccessPage } from "@/pages/RecoverAccessPage";
 import { ChooseHandle } from "@/pages/ChooseHandle";
 import { LegalPage } from "@/pages/LegalPage";
 import { OwnerGate } from "@/components/owner/OwnerGate";
@@ -112,6 +113,7 @@ export default function App() {
           {/* ── One-segment public/reserved routes must precede /:handle ─────── */}
           <Route path="/login" component={LoginPage} />
           <Route path="/registar" component={RegisterPage} />
+          <Route path="/recuperar-acesso" component={RecoverAccessPage} />
           <Route path="/escolher-handle" component={ChooseHandle} />
           <Route path="/ligar-conta">{() => <Redirect to="/login" />}</Route>
           <Route path="/termos" component={() => <LegalPage kind="terms" />} />
