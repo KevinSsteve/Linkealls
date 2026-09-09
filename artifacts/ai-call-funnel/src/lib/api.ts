@@ -880,7 +880,7 @@ export function businessApi(slug: string) {
       bRequest<WalletData>("/wallet"),
     listPayouts: () =>
       bRequest<{ payouts: Payout[] }>("/wallet/payouts"),
-    requestPayout: (data: { amount: number; destinationType: "telemovel" | "iban"; destination: string }) =>
+    requestPayout: (data: { amount: number; destinationType: "iban"; destination: string }) =>
       bRequest<{ payout: Payout }>("/wallet/payouts", { method: "POST", body: JSON.stringify(data) }),
     reconcilePayout: (id: string) =>
       bRequest<{ payout: Payout }>(`/wallet/payouts/${id}/reconcile`, { method: "POST" }),

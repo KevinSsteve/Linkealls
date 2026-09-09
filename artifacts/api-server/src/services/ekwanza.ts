@@ -297,13 +297,20 @@ export function sendKwikToCustomer(params: { iban: string; amount: number; opera
 /** Check the state of a pending KWiK payout. */
 export async function getKwikPayoutStatus(externalReferenceId: string): Promise<"processed" | "processing" | "cancelled" | "voided" | "unknown"> {
   if (IS_SIMULATION) return "processed";
-  const res = await fetch(
-    `${EKWANZA_OPERATIONS_BASE_URL}/Operations/SendKWiKToCustomerStatus?ExternalReferenceId=${encodeURIComponent(externalReferenceId)}`,
-    { method: "POST", headers: { "X-API-Key": EKWANZA_API_KEY } },
-  );
-  if (!res.ok) return "unknown";
-  const raw = (await res.json().catch(() => ({}))) as { OperationStatus?: string };
-  const s = (raw.OperationStatus ?? "").toLowerCase();
-  if (s === "processed" || s === "processing" || s === "cancelled" || s === "voided") return s;
-  return "unknown";
+  try {
+    const res = await fetch(
+      `${EKWANZA_OPERATIONS_BASE_URL}/Operations/SendKWiKToCustomerStatus?ExternalReferenceId=${encodeURIComponent(externalReferenceId)}`,
+      { method: "POST", headers: { "X-API-Key": EKWANZA_API_KEY } },
+    );
+    if (!res.ok) return "unknown";
+    const raw = (await res.json().catch(() => ({}))) as { OperationStatus?: string };
+    const s = (raw.OperationStatus ?? "").toLowerCase();
+    if (s === "processed" || s === "processing" || s === "cancelled" || s === "voided") return s;
+    return "unknown";
+  } catch (err) {
+    // An unavailable status endpoint is not an authoritative rejection.
+    // Keep the payout pending and let a later retry reconcile it.
+    logger.warn({ err, externalReferenceId }, "e-kwanza KWiK status check unavailable");
+    return "unknown";
+  }
 }

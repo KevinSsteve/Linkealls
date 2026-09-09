@@ -775,10 +775,10 @@ export async function requestPayout(
   if (amount < PAYOUT_MIN_AOA) {
     throw new PaymentError(`O levantamento mínimo é ${PAYOUT_MIN_AOA.toLocaleString("pt-AO")} Kz`);
   }
-  if (input.destinationType === "telemovel" && !/^9\d{8}$/.test(input.destination.replace(/^\+?244/, ""))) {
-    throw new PaymentError("Número de telemóvel inválido (9XXXXXXXX)");
+  if (input.destinationType !== "iban") {
+    throw new PaymentError("Os novos saques são feitos apenas para IBAN KWiK");
   }
-  if (input.destinationType === "iban" && !/^AO06\d{21}$/i.test(input.destination.replace(/\s/g, ""))) {
+  if (!/^AO06\d{21}$/i.test(input.destination.replace(/\s/g, ""))) {
     throw new PaymentError("IBAN inválido (formato AO06 + 21 dígitos)");
   }
 
@@ -818,10 +818,11 @@ export async function requestPayout(
 
   // Call the gateway outside the transaction.
   try {
-    const dest = input.destination.replace(/\s/g, "").replace(/^\+?244/, "");
-    const result = input.destinationType === "iban"
-      ? await sendKwikToCustomer({ iban: input.destination.replace(/\s/g, "").toUpperCase(), amount, operationCode })
-      : await sendToCustomer({ mobileNumber: dest, amount, operationCode });
+    const result = await sendKwikToCustomer({
+      iban: input.destination.replace(/\s/g, "").toUpperCase(),
+      amount,
+      operationCode,
+    });
 
     if (result.ok) {
       const status = result.pending ? "pendente" : "processado";
@@ -829,6 +830,7 @@ export async function requestPayout(
         .update(payoutsTable)
         .set({
           status,
+          error: null,
           ekzOperationCode: result.ekzOperationCode ?? null,
           ekzTransactionCode: result.ekzTransactionCode ?? null,
           updatedAt: new Date(),
@@ -898,7 +900,7 @@ export async function reconcilePayout(payoutId: string, businessId: number): Pro
   if (state === "processed") {
     const updated = await db
       .update(payoutsTable)
-      .set({ status: "processado", updatedAt: new Date() })
+        .set({ status: "processado", error: null, updatedAt: new Date() })
       .where(and(eq(payoutsTable.id, payout.id), eq(payoutsTable.status, "pendente")))
       .returning();
     return updated[0] ?? payout;

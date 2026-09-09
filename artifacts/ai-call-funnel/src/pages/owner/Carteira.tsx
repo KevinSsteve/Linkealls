@@ -96,7 +96,6 @@ export function Carteira() {
   // Saque form
   const [showSaque, setShowSaque] = useState(false);
   const [amount, setAmount] = useState("");
-  const [destType, setDestType] = useState<"telemovel" | "iban">("telemovel");
   const [destination, setDestination] = useState("");
   const [saqueBusy, setSaqueBusy] = useState(false);
   const [saqueError, setSaqueError] = useState<string | null>(null);
@@ -137,17 +136,13 @@ export function Carteira() {
       return;
     }
     const dest = destination.trim().replace(/[\s-]/g, "");
-    if (destType === "telemovel" && !/^(?:\+?244)?9\d{8}$/.test(dest)) {
-      setSaqueError("Indica um telemóvel válido (9XXXXXXXX).");
-      return;
-    }
-    if (destType === "iban" && !/^AO06\d{21}$/i.test(dest)) {
+    if (!/^AO06\d{21}$/i.test(dest)) {
       setSaqueError("Indica um IBAN angolano válido (AO06 + 21 dígitos).");
       return;
     }
     setSaqueBusy(true);
     try {
-      await api.requestPayout({ amount: value, destinationType: destType, destination: dest });
+      await api.requestPayout({ amount: value, destinationType: "iban", destination: dest });
       setSaqueOk("Saque pedido com sucesso.");
       setAmount("");
       setDestination("");
@@ -159,7 +154,7 @@ export function Carteira() {
       setSaqueBusy(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [api, wallet, amount, destType, destination, load]);
+  }, [api, wallet, amount, destination, load]);
 
   const reconcile = useCallback(async (id: string) => {
     if (!api) return;
@@ -234,31 +229,15 @@ export function Carteira() {
             />
           </label>
 
-          <div className="flex gap-2 mb-3">
-            {(["telemovel", "iban"] as const).map((t) => (
-              <button
-                key={t}
-                onClick={() => setDestType(t)}
-                className="flex-1 py-2 rounded-xl text-[13px] font-semibold flex items-center justify-center gap-1.5"
-                style={destType === t
-                  ? { background: C.greenLight, color: C.greenDark, border: `1px solid ${C.successBorder}` }
-                  : { background: C.inputBg, color: C.text2, border: "1px solid transparent" }}
-              >
-                {t === "telemovel" ? <Smartphone size={14} /> : <Landmark size={14} />}
-                {t === "telemovel" ? "Multicaixa Express" : "IBAN"}
-              </button>
-            ))}
-          </div>
-
           <label className="block mb-3">
             <span className="text-[12px] font-medium block mb-1" style={{ color: C.text2 }}>
-              {destType === "telemovel" ? "Telemóvel associado ao Multicaixa Express" : "IBAN (AO06...)"}
+              IBAN KWiK (AO06...)
             </span>
             <input
               value={destination}
               onChange={(e) => setDestination(e.target.value)}
-              placeholder={destType === "telemovel" ? "9XX XXX XXX" : "AO06 0000 0000 0000 0000 0000 0"}
-              inputMode={destType === "telemovel" ? "tel" : "text"}
+              placeholder="AO06 0000 0000 0000 0000 0000 0"
+              inputMode="text"
               className="w-full rounded-xl px-3.5 py-2.5 text-[14px] outline-none"
               style={{ background: C.inputBg, color: C.text }}
             />

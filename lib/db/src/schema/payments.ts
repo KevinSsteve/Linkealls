@@ -149,7 +149,9 @@ export const createOrderSchema = z.object({
 
 export const createPayoutSchema = z.object({
   amount: z.number().positive().max(100_000_000),
-  destinationType: z.enum(["telemovel", "iban"]),
+  // New payouts use KWiK/IBAN only. The "telemovel" value remains in the
+  // database type so historical payouts can still be displayed.
+  destinationType: z.literal("iban"),
   destination: z.string().min(5).max(60),
 });
 
