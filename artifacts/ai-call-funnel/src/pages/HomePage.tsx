@@ -367,6 +367,8 @@ export function HomePage() {
         <div className="home-footer-links">
           <Link href="/registar" className="home-footer-link" data-testid="link-register-footer">Criar presença</Link>
           <Link href="/login" className="home-footer-link" data-testid="link-login-footer">Entrar</Link>
+          <Link href="/termos" className="home-footer-link" data-testid="link-terms-footer">Termos</Link>
+          <Link href="/privacidade" className="home-footer-link" data-testid="link-privacy-footer">Privacidade</Link>
         </div>
       </footer>
     </main>

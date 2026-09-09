@@ -9,6 +9,7 @@ import { Catalogo } from "@/pages/Catalogo";
 import { LoginPage } from "@/pages/LoginPage";
 import { RegisterPage } from "@/pages/RegisterPage";
 import { ChooseHandle } from "@/pages/ChooseHandle";
+import { LegalPage } from "@/pages/LegalPage";
 import { OwnerGate } from "@/components/owner/OwnerGate";
 import { Owner } from "@/pages/Owner";
 import { Leads } from "@/pages/owner/Leads";
@@ -111,6 +112,8 @@ export default function App() {
           <Route path="/login" component={LoginPage} />
           <Route path="/registar" component={RegisterPage} />
           <Route path="/escolher-handle" component={ChooseHandle} />
+          <Route path="/termos" component={() => <LegalPage kind="terms" />} />
+          <Route path="/privacidade" component={() => <LegalPage kind="privacy" />} />
           <Route path="/dono"><LegacyOwnerRedirect /></Route>
           <Route path="/conversas">
             <div className="w-full flex flex-col overflow-hidden" style={{ height: "var(--vh, 100dvh)" }}>

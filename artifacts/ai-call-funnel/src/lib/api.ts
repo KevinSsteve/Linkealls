@@ -50,6 +50,15 @@ export async function userLogout(token: string) {
   });
 }
 
+export async function deleteUserAccount(token: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/user-auth/account`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const body = (await res.json()) as { error?: string };
+  if (!res.ok) throw new Error(body.error ?? "Não foi possível eliminar a conta");
+}
+
 /** Resolve a private object path using the same artifact-aware API base as uploads. */
 export function getStorageObjectUrl(objectPath: string): string {
   if (objectPath.startsWith("http://") || objectPath.startsWith("https://")) return objectPath;

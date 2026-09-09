@@ -15,9 +15,22 @@
  */
 import { Router } from "express";
 import { createHash, randomUUID } from "crypto";
-import { eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
-import { db, usersTable, businessProfilesTable } from "@workspace/db";
+import {
+  db,
+  usersTable,
+  businessProfilesTable,
+  leadsTable,
+  assistantMessagesTable,
+  campaignsTable,
+  campaignPaymentAttemptsTable,
+  ordersTable,
+  orderEventsTable,
+  subscriptionsTable,
+  walletLedgerTable,
+  payoutsTable,
+} from "@workspace/db";
 import { logger } from "../lib/logger.js";
 
 const router = Router();
@@ -207,6 +220,87 @@ router.post("/user-auth/logout", async (req, res) => {
     } catch { /* ignore */ }
   }
   res.json({ ok: true });
+});
+
+// ─── account deletion ────────────────────────────────────────────────────────
+//
+// The account is also the owner of a business profile. Deletion is deliberately
+// authenticated by the current opaque session and performed in one transaction.
+// Pending gateway operations are refused so a late callback cannot settle into
+// a half-deleted business.
+router.delete("/user-auth/account", async (req, res) => {
+  const user = await getUserByToken(requestToken(req));
+  if (!user) {
+    res.status(401).json({ error: "Sessão inválida — inicia sessão novamente" });
+    return;
+  }
+
+  try {
+    const profileRows = user.handle
+      ? await db
+          .select({ id: businessProfilesTable.id })
+          .from(businessProfilesTable)
+          .where(eq(businessProfilesTable.slug, user.handle))
+          .limit(1)
+      : [];
+    const businessId = profileRows[0]?.id;
+
+    if (businessId !== undefined) {
+      const [pendingOrders, pendingSubscriptions, pendingPayouts, pendingCampaignAttempts] =
+        await Promise.all([
+          db.select({ id: ordersTable.id }).from(ordersTable)
+            .where(and(eq(ordersTable.status, "pendente"), eq(ordersTable.businessId, businessId))).limit(1),
+          db.select({ id: subscriptionsTable.id }).from(subscriptionsTable)
+            .where(and(eq(subscriptionsTable.status, "pendente"), eq(subscriptionsTable.businessId, businessId))).limit(1),
+          db.select({ id: payoutsTable.id }).from(payoutsTable)
+            .where(and(eq(payoutsTable.status, "pendente"), eq(payoutsTable.businessId, businessId))).limit(1),
+          db.select({ id: campaignPaymentAttemptsTable.id })
+            .from(campaignPaymentAttemptsTable)
+            .innerJoin(campaignsTable, eq(campaignPaymentAttemptsTable.campaignId, campaignsTable.id))
+            .where(and(
+              eq(campaignPaymentAttemptsTable.status, "pendente"),
+              eq(campaignsTable.businessId, businessId),
+            )).limit(1),
+        ]);
+      // Any existing transaction may still be reconciled by a gateway callback.
+      // Refuse deletion rather than silently orphaning a financial operation.
+      if (pendingOrders.length || pendingSubscriptions.length || pendingPayouts.length || pendingCampaignAttempts.length) {
+        res.status(409).json({
+          error: "Não podes eliminar a conta enquanto existirem operações financeiras pendentes.",
+        });
+        return;
+      }
+
+      await db.transaction(async (tx) => {
+        const campaignRows = await tx
+          .select({ id: campaignsTable.id })
+          .from(campaignsTable)
+          .where(eq(campaignsTable.businessId, businessId));
+        if (campaignRows.length > 0) {
+          await tx.delete(campaignPaymentAttemptsTable)
+            .where(inArray(campaignPaymentAttemptsTable.campaignId, campaignRows.map((row) => row.id)));
+        }
+
+        await tx.delete(orderEventsTable).where(eq(orderEventsTable.businessId, businessId));
+        await tx.delete(ordersTable).where(eq(ordersTable.businessId, businessId));
+        await tx.delete(subscriptionsTable).where(eq(subscriptionsTable.businessId, businessId));
+        await tx.delete(walletLedgerTable).where(eq(walletLedgerTable.businessId, businessId));
+        await tx.delete(payoutsTable).where(eq(payoutsTable.businessId, businessId));
+        await tx.delete(leadsTable).where(eq(leadsTable.businessId, businessId));
+        await tx.delete(assistantMessagesTable).where(eq(assistantMessagesTable.businessId, businessId));
+        await tx.delete(campaignsTable).where(eq(campaignsTable.businessId, businessId));
+        await tx.delete(businessProfilesTable).where(eq(businessProfilesTable.id, businessId));
+        await tx.delete(usersTable).where(eq(usersTable.id, user.id));
+      });
+    } else {
+      await db.delete(usersTable).where(eq(usersTable.id, user.id));
+    }
+
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err, userId: user.id }, "account deletion failed");
+    res.status(500).json({ error: "Não foi possível eliminar a conta" });
+  }
 });
 
 // ─── handle check (public) ──────────────────────────────────────────────────

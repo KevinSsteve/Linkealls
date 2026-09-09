@@ -4,13 +4,13 @@ import {
   Globe, Sparkles, Loader2, AlertCircle, CheckCircle2,
   Zap, Grid3x3, Megaphone, Users, ChevronRight, X, Store,
   MessageSquare, Phone, RefreshCw, Edit2, Share2, MoreVertical,
-  MapPin, Clock, Mail, Image, ShoppingCart, PackageCheck, Wallet, Crown, LogOut,
+  MapPin, Clock, Mail, Image, ShoppingCart, PackageCheck, Wallet, Crown, LogOut, Trash2,
 } from "lucide-react";
 import { OwnerNav } from "../components/owner/OwnerNav";
 import {
   businessApi,
   getStorageObjectUrl,
-  userLogout,
+  userLogout, deleteUserAccount,
   type BusinessProfile,
   type ProfileDraft,
   type Offering,
@@ -110,6 +110,70 @@ function ActionRow({ icon: Icon, title, description, onClick, loading = false, l
   );
 }
 
+function DeleteAccountDialog({
+  open,
+  loading,
+  onClose,
+  onConfirm,
+}: {
+  open: boolean;
+  loading: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  const [confirmation, setConfirmation] = useState("");
+
+  useEffect(() => {
+    if (open) setConfirmation("");
+  }, [open]);
+
+  if (!open) return null;
+  const ready = confirmation.trim().toUpperCase() === "APAGAR";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#0A2540]/45 p-4 sm:items-center" role="presentation">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="delete-account-title"
+        className="w-full max-w-[420px] rounded-[24px] bg-white p-5 shadow-2xl"
+      >
+        <div className="mb-4 flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#FEF2F2] text-[#DC2626]">
+            <Trash2 size={19} />
+          </div>
+          <div>
+            <h2 id="delete-account-title" className="text-[18px] font-bold text-[#0A2540]">Eliminar a conta?</h2>
+            <p className="mt-1 text-[13px] leading-5 text-[#425466]">
+              Esta acção elimina definitivamente o perfil, catálogo, leads, conversas, campanhas e histórico de pagamentos deste negócio.
+            </p>
+          </div>
+        </div>
+        <label className="block text-[12px] font-semibold uppercase tracking-[0.08em] text-[#8898AA]" htmlFor="delete-account-confirmation">
+          Escreve APAGAR para confirmar
+        </label>
+        <input
+          id="delete-account-confirmation"
+          value={confirmation}
+          onChange={(event) => setConfirmation(event.target.value)}
+          className="mt-2 w-full rounded-xl border border-[#E6EBF1] bg-[#F6F9FC] px-3 py-3 text-[15px] outline-none focus:border-[#DC2626]"
+          autoFocus
+          autoComplete="off"
+          disabled={loading}
+        />
+        <div className="mt-5 flex gap-2">
+          <button type="button" onClick={onClose} disabled={loading} className="min-h-11 flex-1 rounded-xl border border-[#E6EBF1] px-4 text-[14px] font-semibold text-[#425466] disabled:opacity-50">
+            Cancelar
+          </button>
+          <button type="button" onClick={onConfirm} disabled={!ready || loading} className="min-h-11 flex-1 rounded-xl bg-[#DC2626] px-4 text-[14px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40">
+            {loading ? "A eliminar…" : "Eliminar conta"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Info field (section row) — continuous content style ─────────────────────
 function InfoField({
   label, value, placeholder, link = false, onAdd, last = false,
@@ -165,7 +229,7 @@ function CatalogRow({ offering, last = false }: { offering: Offering; last?: boo
 
 // ─── Profile View (main view of the owner panel) ──────────────────────────────
 function ProfileView({
-  profile, slug, onEdit, onReanalyze, reanalyzing, onLogout,
+  profile, slug, onEdit, onReanalyze, reanalyzing, onLogout, onDeleteAccount, deletingAccount,
 }: {
   profile: BusinessProfile;
   slug: string;
@@ -173,7 +237,10 @@ function ProfileView({
   onReanalyze: (url: string) => void;
   reanalyzing: boolean;
   onLogout: () => void;
+  onDeleteAccount: () => void;
+  deletingAccount: boolean;
 }) {
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const pal = avatarPalette(profile.name || "N");
   const inits = initials(profile.name);
   const isActive = profile.catalogEnabled && profile.offerings.length > 0;
@@ -380,7 +447,20 @@ function ProfileView({
           onClick={onLogout}
           last
         />
+        <ActionRow
+          icon={Trash2}
+          title="Eliminar conta"
+          description="Apagar definitivamente o espaço e os dados"
+          onClick={() => setDeleteDialogOpen(true)}
+          last
+        />
       </div>
+      <DeleteAccountDialog
+        open={deleteDialogOpen}
+        loading={deletingAccount}
+        onClose={() => setDeleteDialogOpen(false)}
+        onConfirm={onDeleteAccount}
+      />
     </div>
   );
 }
@@ -407,6 +487,7 @@ export function Owner() {
   const [editorKey, setEditorKey] = useState(0);
   const [promoVisible, setPromoVisible] = useState(true);
   const [productFocus, setProductFocus] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
 
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -507,6 +588,20 @@ export function Owner() {
     } finally {
       logout();
       window.location.assign(`${import.meta.env.BASE_URL}login`);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!token) return;
+    setDeletingAccount(true);
+    setError(null);
+    try {
+      await deleteUserAccount(token);
+      logout();
+      window.location.assign(import.meta.env.BASE_URL);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível eliminar a conta");
+      setDeletingAccount(false);
     }
   };
 
@@ -757,6 +852,8 @@ export function Owner() {
             onReanalyze={handleReanalyze}
             reanalyzing={reanalyzing}
             onLogout={() => { void handleLogout(); }}
+            onDeleteAccount={() => { void handleDeleteAccount(); }}
+            deletingAccount={deletingAccount}
           />
         )}
 
