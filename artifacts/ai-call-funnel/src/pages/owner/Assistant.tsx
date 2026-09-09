@@ -267,7 +267,7 @@ export function Assistant() {
         title="Assistente Vivo"
         subtitle="● online · Powered by Gemini"
         leading={
-          <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: "#16A34A" }}>
+          <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: C.green }}>
             <Zap size={17} className="text-white" strokeWidth={2} />
           </div>
         }

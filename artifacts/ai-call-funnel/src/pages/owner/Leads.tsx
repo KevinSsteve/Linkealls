@@ -17,16 +17,16 @@ const STATE_LABELS: Record<LeadState, string> = {
   qualificado: "Qualificado", entregue: "Entregue", perdido: "Perdido",
 };
 const STATE_DOT: Record<LeadState, string> = {
-  novo: "#29B6F6", em_atendimento: "#FFA726",
-  qualificado: "#00A884", entregue: "#26C6DA", perdido: "#EF5350",
+  novo: "#4F8CFF", em_atendimento: "#D9902F",
+  qualificado: "#2E8B72", entregue: "#1597A5", perdido: "#D9485F",
 };
 const STATE_PILL_BG: Record<LeadState, string> = {
   novo: "#E3F2FD", em_atendimento: "#FFF8E1",
-  qualificado: "#E8F5E9", entregue: "#E0F7FA", perdido: "#FFEBEE",
+  qualificado: "#E8F7F1", entregue: "#E5FAFC", perdido: "#FFF0F2",
 };
 const STATE_PILL_COLOR: Record<LeadState, string> = {
   novo: "#0277BD", em_atendimento: "#E65100",
-  qualificado: "#1B5E20", entregue: "#006064", perdido: "#C62828",
+  qualificado: "#176B55", entregue: "#0E7480", perdido: "#B9384A",
 };
 const STATE_ORDER: LeadState[] = ["novo","em_atendimento","qualificado","entregue","perdido"];
 
@@ -191,7 +191,7 @@ function LeadDetail({ lead: initialLead, onBack, onStateChange, api }: {
             {waUrl && (
               <a href={waUrl} target="_blank" rel="noopener noreferrer"
                 className="flex-1 flex items-center justify-center gap-2 text-white font-semibold text-[14px] py-2.5 px-4 rounded-xl"
-                style={{ background: "#25D366" }}>
+                style={{ background: C.green }}>
                 <MessageCircle size={16} /> Enviar WhatsApp <ExternalLink size={12} />
               </a>
             )}
@@ -264,7 +264,7 @@ function LeadDetail({ lead: initialLead, onBack, onStateChange, api }: {
                 <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                   <span className="text-[13px] px-3 py-2 rounded-xl max-w-[80%]"
                     style={{
-                      background: m.role === "user" ? "#D9FDD3" : C.bg,
+                      background: m.role === "user" ? "#EEECFF" : C.bg,
                       color: C.text,
                       boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
                     }}>
@@ -374,11 +374,11 @@ export function Leads() {
   }
 
   return (
-    <div className="flex flex-col h-full" style={{ background: "#F8F9FA" }}>
+    <div className="flex flex-col h-full" style={{ background: C.bg }}>
       {/* Header */}
-      <div className="shrink-0" style={{ background: "#FFFFFF", borderBottom: "1px solid #E5E7EB" }}>
+      <div className="shrink-0" style={{ background: "#FFFFFF", borderBottom: `1px solid ${C.border}` }}>
         <div className="flex items-center justify-between" style={{ padding: "16px 16px 12px" }}>
-          <h1 style={{ color: "#111111", fontSize: 22, fontWeight: 700, letterSpacing: "-0.3px" }}>Leads</h1>
+          <h1 style={{ color: C.text, fontSize: 22, fontWeight: 700, letterSpacing: "-0.3px" }}>Leads</h1>
           <button
             onClick={() => void loadLeads()}
             className="flex items-center justify-center rounded-full transition-opacity active:opacity-60"
@@ -394,22 +394,22 @@ export function Leads() {
           <div
             className="flex items-center gap-2"
             style={{
-              background: "#F3F4F6",
-              border: "1px solid #E5E7EB",
+              background: C.inputBg,
+              border: `1px solid ${C.border}`,
               borderRadius: 12,
               height: 44,
               paddingLeft: 12,
               paddingRight: 12,
             }}
           >
-            <Search size={16} style={{ color: "#9CA3AF" }} strokeWidth={1.75} className="shrink-0" />
+            <Search size={16} style={{ color: C.text3 }} strokeWidth={1.75} className="shrink-0" />
             <input
               type="text"
               placeholder="Pesquisar leads..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="flex-1 bg-transparent outline-none"
-              style={{ color: "#111111", fontSize: 15 }}
+              style={{ color: C.text, fontSize: 15 }}
             />
           </div>
         </div>
@@ -429,9 +429,9 @@ export function Leads() {
                 fontWeight: filterState === key ? 600 : 400,
                 padding: "5px 12px",
                 borderRadius: 8,
-                background: filterState === key ? "#111111" : "#F3F4F6",
-                color: filterState === key ? "#FFFFFF" : "#6B7280",
-                border: `1px solid ${filterState === key ? "#111111" : "#E5E7EB"}`,
+                background: filterState === key ? C.green : C.inputBg,
+                color: filterState === key ? "#FFFFFF" : C.text2,
+                border: `1px solid ${filterState === key ? C.green : C.border}`,
               }}
             >
               {label}

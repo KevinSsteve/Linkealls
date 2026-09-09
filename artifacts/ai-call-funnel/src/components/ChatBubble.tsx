@@ -27,10 +27,10 @@ export function ChatBubble({ role, text, isTyping }: ChatBubbleProps) {
 
   const isUser = role === "user";
 
-  /* WA Business exact colors */
-  const bubbleBg    = isUser ? "#D9FDD3" : "#FFFFFF";
-  const textColor   = "#111B21";
-  const tailColor   = isUser ? "#D9FDD3" : "#FFFFFF";
+  /* WhatsApp interaction pattern with Stripe-inspired colors */
+  const bubbleBg    = isUser ? "#EEECFF" : "#FFFFFF";
+  const textColor   = "#0A2540";
+  const tailColor   = isUser ? "#EEECFF" : "#FFFFFF";
 
   return (
     <div className={`flex message-enter mb-1 ${isUser ? "justify-end" : "justify-start"}`}>

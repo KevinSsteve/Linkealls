@@ -171,7 +171,7 @@ export function Carteira() {
   }, [api, load]);
 
   return (
-    <div className="flex flex-col h-full" style={{ background: "#F8F9FA" }}>
+    <div className="flex flex-col h-full" style={{ background: C.bg }}>
       {/* Header */}
       <div className="shrink-0" style={{ background: "#FFFFFF", borderBottom: "1px solid #E5E7EB" }}>
         <AppHeader

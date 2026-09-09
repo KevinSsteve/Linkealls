@@ -7,13 +7,13 @@ import { ArrowLeft } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { userLogin } from "@/lib/api";
 
-const G = "#16A34A";      // brand green
+const G = "#635BFF";      // Stripe-inspired primary accent
 const BG = "#FFFFFF";
-const SUBTLE = "#F3F4F6";
-const INK = "#111111";
-const SOFT = "#6B7280";
-const FAINT = "#9CA3AF";
-const BORDER = "#E5E7EB";
+const SUBTLE = "#F1F5F9";
+const INK = "#0A2540";
+const SOFT = "#425466";
+const FAINT = "#8898AA";
+const BORDER = "#E6EBF1";
 
 function PinDots({ value }: { value: string }) {
   return (

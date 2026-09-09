@@ -80,10 +80,10 @@ function CaptacaoProductOverlay({
     >
       <div className="flex items-center justify-between mb-3">
         <div>
-          <p className="text-[15px] font-bold" style={{ color: "#111B21" }}>
+          <p className="text-[15px] font-bold" style={{ color: "#0A2540" }}>
             Produtos disponíveis
           </p>
-          <p className="text-[12px] mt-0.5" style={{ color: "#8696A0" }}>
+          <p className="text-[12px] mt-0.5" style={{ color: "#8898AA" }}>
             Escolhe um produto para saber mais
           </p>
         </div>
@@ -95,11 +95,11 @@ function CaptacaoProductOverlay({
             onClick={() => onSelect(product)}
             className="overflow-hidden rounded-2xl text-left transition-transform active:scale-[0.98]"
             style={{
-              background: "#F7F8F8",
-              border: "1px solid #E9EDEF",
+              background: "#FFFFFF",
+              border: "1px solid #E6EBF1",
             }}
           >
-            <div className="h-24 flex items-center justify-center" style={{ background: "#F0F2F5" }}>
+            <div className="h-24 flex items-center justify-center" style={{ background: "#F1F5F9" }}>
               {product.imageUrl ? (
                 <img
                   src={product.imageUrl}
@@ -112,15 +112,15 @@ function CaptacaoProductOverlay({
               )}
             </div>
             <div className="p-2.5">
-              <p className="text-[13px] font-semibold leading-tight line-clamp-2" style={{ color: "#111B21" }}>
+                <p className="text-[13px] font-semibold leading-tight line-clamp-2" style={{ color: "#0A2540" }}>
                 {product.name}
               </p>
               {product.price && (
-                <p className="mt-1 text-[12px] font-bold" style={{ color: "#16A34A" }}>
+                <p className="mt-1 text-[12px] font-bold" style={{ color: "#635BFF" }}>
                   {product.price}
                 </p>
               )}
-              <span className="mt-2 block rounded-xl py-1.5 text-center text-[11px] font-semibold" style={{ background: "#25D366", color: "#FFFFFF" }}>
+              <span className="mt-2 block rounded-xl py-1.5 text-center text-[11px] font-semibold" style={{ background: "#635BFF", color: "#FFFFFF" }}>
                 Quero saber mais
               </span>
             </div>

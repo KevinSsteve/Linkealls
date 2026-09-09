@@ -28,7 +28,7 @@ export function AppHeader({
   return (
     <header
       className={`app-header shrink-0 ${dark ? "app-header-dark" : ""} ${className}`}
-      style={{ background: dark ? "#166534" : "var(--surface)" }}
+      style={{ background: dark ? "var(--header-bg, #0A2540)" : "var(--surface)" }}
     >
       <div className="app-header-inner">
         {onBack && (

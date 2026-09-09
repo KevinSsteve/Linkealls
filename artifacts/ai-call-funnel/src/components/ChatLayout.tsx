@@ -14,7 +14,7 @@ interface ChatLayoutProps {
 
 // Avatar palette derived from business name
 const PALETTES = [
-  { bg: "#D9FDD3", text: "#128C7E" },
+  { bg: "#EEECFF", text: "#635BFF" },
   { bg: "#E3F2FD", text: "#0D47A1" },
   { bg: "#FCE4EC", text: "#880E4F" },
   { bg: "#FFF3E0", text: "#E65100" },
@@ -32,7 +32,7 @@ export function ChatLayout({ children, onBack, onCall, businessName, businessSlu
   const initials = businessName
     ? businessName.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase()
     : "A";
-  const pal = businessName ? palFor(businessName) : { bg: "#25D366", text: "#FFFFFF" };
+  const pal = businessName ? palFor(businessName) : { bg: "#635BFF", text: "#FFFFFF" };
 
   function handleMoreVertical() {
     if (isLoggedIn && businessSlug) {
@@ -69,7 +69,7 @@ export function ChatLayout({ children, onBack, onCall, businessName, businessSlu
             </div>
             <span
               className="absolute bottom-0 right-0 w-[10px] h-[10px] rounded-full border-2"
-              style={{ backgroundColor: "#16A34A", borderColor: "#166534" }}
+              style={{ backgroundColor: "#2E8B72", borderColor: "#0A2540" }}
             />
           </button>
         }

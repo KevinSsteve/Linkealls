@@ -27,13 +27,13 @@ import { SimpleMetaAdsWizard } from "./SimpleMetaAdsWizard";
 
 // ─── Colours ─────────────────────────────────────────────────────────────────
 const C = {
-  bg:     "#F8F9FA",
+  bg:     "#F6F9FC",
   white:  "#FFFFFF",
-  text:   "#111111",
-  text2:  "#6B7280",
-  text3:  "#9CA3AF",
-  green:  "#16A34A",
-  border: "#E5E7EB",
+  text:   "#0A2540",
+  text2:  "#425466",
+  text3:  "#8898AA",
+  green:  "#635BFF",
+  border: "#E6EBF1",
 };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -215,7 +215,7 @@ function WRadio({ selected, onSelect, label, description, green }: {
       </div>
       <div className="flex-1 min-w-0">
         <p style={{ fontSize: 15, fontWeight: 600, color: "#111", lineHeight: 1.3 }}>{label}</p>
-        <p style={{ fontSize: 13, color: green ? "#16A34A" : "#6B7280", marginTop: 4, lineHeight: 1.5 }}>{description}</p>
+        <p style={{ fontSize: 13, color: green ? "#635BFF" : "#425466", marginTop: 4, lineHeight: 1.5 }}>{description}</p>
       </div>
     </button>
   );
@@ -409,9 +409,9 @@ function WTargetingSheet({
         {kind === "interests" && selectedInterests.length > 0 && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 10 }}>
             {selectedInterests.map((item) => (
-              <span key={item} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 9px", borderRadius: 16, background: "#F0FDF4", color: "#166534", fontSize: 12, fontWeight: 600 }}>
+              <span key={item} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 9px", borderRadius: 16, background: "#EEECFF", color: "#5046E5", fontSize: 12, fontWeight: 600 }}>
                 {item}
-                <button type="button" aria-label={`Remover ${item}`} onClick={() => onToggleInterest({ id: "", name: item, type: "interest" })} style={{ border: 0, background: "transparent", padding: 0, color: "#166534", display: "flex" }}>
+                <button type="button" aria-label={`Remover ${item}`} onClick={() => onToggleInterest({ id: "", name: item, type: "interest" })} style={{ border: 0, background: "transparent", padding: 0, color: "#5046E5", display: "flex" }}>
                   <X size={13} />
                 </button>
               </span>
@@ -424,7 +424,7 @@ function WTargetingSheet({
             placeholder={kind === "location" ? "Pesquisar cidade" : "Pesquisar interesse"}
             style={{ width: "100%", height: 42, borderRadius: 12, border: "1px solid #E5E7EB", background: "#F9FAFB", padding: "0 14px 0 40px", fontSize: 14, outline: "none", boxSizing: "border-box" }} />
         </div>
-        {loading && <div style={{ display: "flex", justifyContent: "center", padding: 20 }}><Loader2 size={20} className="animate-spin" style={{ color: "#16A34A" }} /></div>}
+         {loading && <div style={{ display: "flex", justifyContent: "center", padding: 20 }}><Loader2 size={20} className="animate-spin" style={{ color: "#635BFF" }} /></div>}
         {!loading && error && <p style={{ color: "#C62828", fontSize: 13, padding: "12px 4px" }}>{error}</p>}
         {!loading && !error && query.trim().length < 2 && <p style={{ color: "#9CA3AF", fontSize: 13, padding: "12px 4px" }}>Escreve pelo menos 2 letras para pesquisar.</p>}
         {!loading && !error && query.trim().length >= 2 && results.length === 0 && <p style={{ color: "#6B7280", fontSize: 13, padding: "12px 4px" }}>Nenhum resultado encontrado.</p>}
@@ -432,8 +432,8 @@ function WTargetingSheet({
           const selected = kind === "interests" && selectedInterests.includes(item.name);
           return (
             <button type="button" key={`${item.type}-${item.id}`} onClick={() => kind === "location" ? onSelectLocation(item) : onToggleInterest(item)}
-              style={{ width: "100%", border: 0, borderBottom: "1px solid #F0F0F0", background: selected ? "#F0FDF4" : "#FFF", minHeight: 52, display: "flex", alignItems: "center", gap: 12, padding: "10px 4px", textAlign: "left", cursor: "pointer" }}>
-              {kind === "location" ? <MapPin size={18} style={{ color: "#16A34A", flexShrink: 0 }} /> : <span style={{ width: 18, height: 18, borderRadius: "50%", border: `1.5px solid ${selected ? "#16A34A" : "#D1D5DB"}`, background: selected ? "#16A34A" : "#FFF", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{selected && <Check size={12} color="#FFF" />}</span>}
+              style={{ width: "100%", border: 0, borderBottom: "1px solid #E6EBF1", background: selected ? "#EEECFF" : "#FFF", minHeight: 52, display: "flex", alignItems: "center", gap: 12, padding: "10px 4px", textAlign: "left", cursor: "pointer" }}>
+              {kind === "location" ? <MapPin size={18} style={{ color: "#635BFF", flexShrink: 0 }} /> : <span style={{ width: 18, height: 18, borderRadius: "50%", border: `1.5px solid ${selected ? "#635BFF" : "#CBD5E1"}`, background: selected ? "#635BFF" : "#FFF", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{selected && <Check size={12} color="#FFF" />}</span>}
               <span style={{ flex: 1, color: "#111", fontSize: 14, fontWeight: selected ? 600 : 500 }}>{item.name}</span>
             </button>
           );
@@ -866,7 +866,7 @@ function MetaAdsWizard({ api, campaign, onUpdate, onExit }: {
                 placeholder="Descreve o estilo ou mensagem que queres (opcional)"
                 rows={3} style={{ width: "100%", borderRadius: 10, border: "1px solid #E5E7EB", padding: "11px 14px", fontSize: 14, outline: "none", resize: "none", boxSizing: "border-box", marginBottom: 10 }} />
               <button type="button" onClick={() => void generate()} disabled={busy !== null || campaign.creativeStatus === "a_gerar"}
-                style={{ width: "100%", borderRadius: 24, background: "#16A34A", color: "#fff", height: 46, fontSize: 15, fontWeight: 600, border: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, cursor: "pointer", opacity: busy ? 0.7 : 1, marginBottom: 6 }}>
+                style={{ width: "100%", borderRadius: 24, background: "#635BFF", color: "#fff", height: 46, fontSize: 15, fontWeight: 600, border: "none", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, cursor: "pointer", opacity: busy ? 0.7 : 1, marginBottom: 6 }}>
                 {busy === "generate" || campaign.creativeStatus === "a_gerar" ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
                 {campaign.creativeStatus === "a_gerar" ? "A criar…" : creativeReady ? "Gerar nova imagem" : "Gerar imagem com Gemini"}
               </button>

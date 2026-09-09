@@ -7,12 +7,12 @@ import { AtSign, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { checkHandleAvailability, setUserHandle } from "@/lib/api";
 
-const G = "#16A34A";
-const INK = "#111111";
-const SOFT = "#6B7280";
-const FAINT = "#9CA3AF";
-const SUBTLE = "#F3F4F6";
-const BORDER = "#E5E7EB";
+const G = "#635BFF";
+const INK = "#0A2540";
+const SOFT = "#425466";
+const FAINT = "#8898AA";
+const SUBTLE = "#F1F5F9";
+const BORDER = "#E6EBF1";
 
 const HANDLE_RE = /^[a-z0-9-]{3,30}$/;
 type CheckState = "idle" | "checking" | "available" | "taken" | "invalid";
@@ -89,9 +89,9 @@ export function ChooseHandle() {
 
         {/* Icon + heading */}
         <div className="text-center mb-10">
-          <div
+            <div
             className="flex items-center justify-center mx-auto mb-5"
-            style={{ width: 64, height: 64, borderRadius: 18, background: "#DCFCE7" }}
+              style={{ width: 64, height: 64, borderRadius: 18, background: "#EEECFF" }}
           >
             <AtSign size={26} style={{ color: G }} strokeWidth={2.25} />
           </div>

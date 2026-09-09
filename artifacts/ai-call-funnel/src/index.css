@@ -2,17 +2,19 @@
 @import 'tw-animate-css';
 
 :root {
-  --bg: #F8F9FA;
+  --bg: #F6F9FC;
   --surface: #FFFFFF;
-  --ink: #111111;
-  --ink-soft: #6B7280;
-  --ink-faint: #9CA3AF;
-  --border: #E5E7EB;
-  --border-soft: #F3F4F6;
-  --subtle: #F3F4F6;
-  --green: #16A34A;
-  --green-dark: #15803D;
-  --green-light: #DCFCE7;
+  --ink: #0A2540;
+  --ink-soft: #425466;
+  --ink-faint: #8898AA;
+  --border: #E6EBF1;
+  --border-soft: #F1F4F8;
+  --subtle: #F1F5F9;
+  --green: #635BFF;
+  --green-dark: #5046E5;
+  --green-light: #EEECFF;
+  --success: #2E8B72;
+  --header-bg: #0A2540;
   --page-padding-mobile: 20px;
   --page-padding-tablet: 20px;
   --space-1: 4px;
@@ -28,32 +30,32 @@
   --radius-xl: 20px;
   --control-height: 44px;
   --header-height: 80px;
-  --focus-ring: 0 0 0 3px rgba(22, 163, 74, 0.18);
-  --shadow-soft: 0 1px 2px rgba(17, 24, 39, 0.05);
+  --focus-ring: 0 0 0 3px rgba(99, 91, 255, 0.20);
+  --shadow-soft: 0 1px 2px rgba(10, 37, 64, 0.06);
 }
 
 @theme inline {
   --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 
   /* Linkealls design tokens */
-  --color-app-bg:          #F9FAFB;
+  --color-app-bg:          #F6F9FC;
   --color-surface:         #FFFFFF;
-  --color-chat-bg:         #E5DDD5;
+  --color-chat-bg:         #F6F9FC;
   --color-header-bg:       #FFFFFF;
-  --color-input-bg:        #F3F4F6;
+  --color-input-bg:        #F1F5F9;
   --color-input-field:     #FFFFFF;
-  --color-input-border:    #E5E7EB;
-  --color-bubble-user-bg:  #D9FDD3;
-  --color-bubble-user-text:#111827;
+  --color-input-border:    #E6EBF1;
+  --color-bubble-user-bg:  #EEECFF;
+  --color-bubble-user-text:#0A2540;
   --color-bubble-bot-bg:   #FFFFFF;
   --color-bubble-bot-text: #111827;
-  --color-accent:          #16A34A;
-  --color-accent-hover:    #15803D;
-  --color-online:          #16A34A;
-  --color-text-primary:    #111827;
-  --color-text-secondary:  #6B7280;
-  --color-text-muted:      #9CA3AF;
-  --color-divider:         #E5E7EB;
+  --color-accent:          #635BFF;
+  --color-accent-hover:    #5046E5;
+  --color-online:          #2E8B72;
+  --color-text-primary:    #0A2540;
+  --color-text-secondary:  #425466;
+  --color-text-muted:      #8898AA;
+  --color-divider:         #E6EBF1;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -78,10 +80,10 @@ body {
   min-height: 100dvh;
 }
 
-/* ─── Chat background — WA wallpaper (intentional for chat pages) ─── */
+/* ─── Chat background — WhatsApp rhythm with Stripe palette ─── */
 .chat-bg {
-  background-color: #E5DDD5;
-  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23C9BDB5' fill-opacity='0.2'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  background-color: #F6F9FC;
+  background-image: url("data:image/svg+xml,%3Csvg width='72' height='72' viewBox='0 0 72 72' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%23635BFF' stroke-opacity='.055' stroke-width='1.2'%3E%3Cpath d='M12 18h12M18 12v12M49 48h12M55 42v12M31 61h10M36 56v10'/%3E%3C/g%3E%3C/svg%3E");
 }
 
 /* ─── Message entrance ─── */

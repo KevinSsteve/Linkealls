@@ -12,7 +12,7 @@ import { getPublicUserProfile } from "@/lib/api";
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const PALETTES = [
   { bg: "#DFE5E7", text: "#54656F" },
-  { bg: "#D9FDD3", text: "#25D366" },
+  { bg: "#EEECFF", text: "#635BFF" },
   { bg: "#FFE8CC", text: "#F97316" },
   { bg: "#E8D9FD", text: "#7C3AED" },
   { bg: "#D9F0FD", text: "#0EA5E9" },
@@ -44,7 +44,7 @@ function PublicProfile({ handle, name }: { handle: string; name: string }) {
       </div>
       <div>
         <h1 className="text-[22px] font-bold mb-1" style={{ color: "#111B21" }}>{name}</h1>
-        <p className="text-[14px] font-medium" style={{ color: "#25D366" }}>@{handle}</p>
+        <p className="text-[14px] font-medium" style={{ color: "#635BFF" }}>@{handle}</p>
       </div>
       <p className="text-[14px] leading-relaxed" style={{ color: "#667781" }}>
         Membro do Linkealls — a plataforma de negócios angolanos com assistente IA.
@@ -52,7 +52,7 @@ function PublicProfile({ handle, name }: { handle: string; name: string }) {
       <Link href={`/e/${handle}`}>
         <button
           className="flex items-center gap-2 px-6 py-3 rounded-full font-semibold text-[15px]"
-          style={{ background: "#25D366", color: "#FFFFFF" }}
+          style={{ background: "#635BFF", color: "#FFFFFF" }}
         >
           <MessageSquare size={16} /> Falar com o negócio
         </button>
@@ -60,7 +60,7 @@ function PublicProfile({ handle, name }: { handle: string; name: string }) {
       <Link href="/">
         <button
           className="flex items-center gap-2 px-5 py-2.5 rounded-full font-semibold text-[14px]"
-          style={{ background: "#F0F2F5", color: "#667781" }}
+          style={{ background: "#F1F5F9", color: "#425466" }}
         >
           <Building2 size={14} /> Explorar negócios
         </button>
@@ -102,7 +102,7 @@ export function UserProfile() {
   if (loadingPub) {
     return (
       <div className="flex items-center justify-center h-full" style={{ background: "#FFFFFF" }}>
-        <Loader2 size={28} className="animate-spin" style={{ color: "#25D366" }} />
+        <Loader2 size={28} className="animate-spin" style={{ color: "#635BFF" }} />
       </div>
     );
   }

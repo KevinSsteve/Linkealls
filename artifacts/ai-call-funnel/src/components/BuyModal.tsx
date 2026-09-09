@@ -15,14 +15,14 @@ import { businessApi, simulatePayment, type Offering, type OrderStatus } from ".
 
 // ─── Tokens locais (mesmos valores que T em Catalogo.tsx) ─────────────────────
 const M = {
-  bg:       "#F6F6F4",
+  bg:       "#F6F9FC",
   surface:  "#FFFFFF",
-  ink:      "#14171A",
-  inkSoft:  "#6B7280",
-  inkFaint: "#9CA3AF",
-  line:     "#E7E7E3",
-  lineSoft: "#F0F0EC",
-  subtle:   "#F2F2EF",
+  ink:      "#0A2540",
+  inkSoft:  "#425466",
+  inkFaint: "#8898AA",
+  line:     "#E6EBF1",
+  lineSoft: "#F1F4F8",
+  subtle:   "#F1F5F9",
   // Multicaixa Express — manter verde de marca só no CTA de pagamento
   mcGreen:  "#16A34A",
   mcLight:  "#F0FDF4",

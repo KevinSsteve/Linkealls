@@ -19,6 +19,7 @@ export function OwnerNav() {
       className="app-bottom-nav flex-shrink-0 flex items-stretch"
       style={{
         background: "var(--surface)",
+        boxShadow: "0 -6px 20px rgba(10, 37, 64, 0.06)",
       }}
       aria-label="Navegação principal"
     >

@@ -21,7 +21,7 @@ const API_BASE = import.meta.env.DEV
   : "/api";
 
 const PALETTES = [
-  { bg: "#DCFCE7", text: "#15803D" },
+  { bg: "#EEECFF", text: "#5046E5" },
   { bg: "#DBEAFE", text: "#1D4ED8" },
   { bg: "#FEF3C7", text: "#B45309" },
   { bg: "#EDE9FE", text: "#6D28D9" },

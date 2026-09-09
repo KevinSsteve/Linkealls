@@ -13,16 +13,16 @@ import { AppHeader, AppIconButton } from "../../components/app/AppHeader";
 import { StatCard } from "../../components/app/StatCard";
 
 const D = {
-  bg:       "#F8F9FA",
+  bg:       "#F6F9FC",
   surface:  "#FFFFFF",
-  ink:      "#111111",
-  inkSoft:  "#6B7280",
-  inkFaint: "#9CA3AF",
-  border:   "#E5E7EB",
-  borderS:  "#F3F4F6",
-  green:    "#16A34A",
-  greenDk:  "#15803D",
-  greenLt:  "#DCFCE7",
+  ink:      "#0A2540",
+  inkSoft:  "#425466",
+  inkFaint: "#8898AA",
+  border:   "#E6EBF1",
+  borderS:  "#F1F4F8",
+  green:    "#2E8B72",
+  greenDk:  "#176B55",
+  greenLt:  "#E8F7F1",
   px:       16,
 } as const;
 

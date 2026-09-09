@@ -21,17 +21,17 @@ import { FilterChips } from "../../components/app/FilterChips";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const D = {
-  bg:         "#F8F9FA",
+  bg:         "#F6F9FC",
   surface:    "#FFFFFF",
-  ink:        "#111111",
-  inkSoft:    "#6B7280",
-  inkFaint:   "#9CA3AF",
-  border:     "#E5E7EB",
-  borderSoft: "#F3F4F6",
-  subtle:     "#F3F4F6",
-  green:      "#16A34A",
-  greenDk:    "#15803D",
-  greenLt:    "#DCFCE7",
+  ink:        "#0A2540",
+  inkSoft:    "#425466",
+  inkFaint:   "#8898AA",
+  border:     "#E6EBF1",
+  borderSoft: "#F1F4F8",
+  subtle:     "#F1F5F9",
+  green:      "#635BFF",
+  greenDk:    "#5046E5",
+  greenLt:    "#EEECFF",
 } as const;
 
 // ─── State config ─────────────────────────────────────────────────────────────
@@ -41,15 +41,15 @@ const STATE_LABELS: Record<LeadState, string> = {
 };
 const STATE_DOT: Record<LeadState, string> = {
   novo: "#3B82F6", em_atendimento: "#F59E0B",
-  qualificado: "#16A34A", entregue: "#06B6D4", perdido: "#EF4444",
+  qualificado: "#2E8B72", entregue: "#06B6D4", perdido: "#EF4444",
 };
 const STATE_PILL_BG: Record<LeadState, string> = {
   novo: "#EFF6FF", em_atendimento: "#FFFBEB",
-  qualificado: "#F0FDF4", entregue: "#ECFEFF", perdido: "#FEF2F2",
+  qualificado: "#E8F7F1", entregue: "#ECFEFF", perdido: "#FEF2F2",
 };
 const STATE_PILL_COLOR: Record<LeadState, string> = {
   novo: "#1D4ED8", em_atendimento: "#B45309",
-  qualificado: "#15803D", entregue: "#0E7490", perdido: "#B91C1C",
+  qualificado: "#176B55", entregue: "#0E7490", perdido: "#B91C1C",
 };
 const STATE_ORDER: LeadState[] = ["novo","em_atendimento","qualificado","entregue","perdido"];
 
@@ -392,7 +392,7 @@ function ConversationDetail({ lead: initialLead, onBack, onStateChange, api }: {
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 font-semibold text-white transition-opacity hover:opacity-90"
-              style={{ background: "#25D366", borderRadius: 12, minHeight: 44, fontSize: 14 }}
+              style={{ background: C.green, borderRadius: 12, minHeight: 44, fontSize: 14 }}
             >
               <MessageCircle size={16} strokeWidth={1.75} /> Continuar no WhatsApp <ExternalLink size={12} />
             </a>

@@ -31,7 +31,7 @@ export function ChatInput({ value, onChange, onSend, disabled }: ChatInputProps)
     <div
       className="flex items-end gap-2 flex-shrink-0 px-2 py-2"
       style={{
-        background: "#F0F2F5",
+        background: "#F1F5F9",
         paddingBottom: "calc(8px + env(safe-area-inset-bottom, 0px))",
       }}
     >
@@ -55,8 +55,8 @@ export function ChatInput({ value, onChange, onSend, disabled }: ChatInputProps)
           placeholder="Mensagem"
           className="flex-1 bg-transparent outline-none resize-none leading-[1.4] py-[11px]"
           style={{
-            color: "#111B21",
-            caretColor: "#25D366",
+            color: "#0A2540",
+            caretColor: "#635BFF",
             maxHeight: "120px",
             scrollbarWidth: "none",
             fontSize: "16px",
@@ -71,8 +71,8 @@ export function ChatInput({ value, onChange, onSend, disabled }: ChatInputProps)
         disabled={disabled}
         className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-90 disabled:opacity-40"
         style={{
-          background: "#25D366",
-          boxShadow: isEmpty ? "none" : "0 2px 8px rgba(37,211,102,0.35)",
+          background: "#635BFF",
+          boxShadow: isEmpty ? "none" : "0 2px 8px rgba(99,91,255,0.30)",
           color: "#FFFFFF",
         }}
       >

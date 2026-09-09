@@ -6,9 +6,10 @@ import { Link, useLocation } from "wouter";
 import { ArrowLeft, CheckCircle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { userRegister } from "@/lib/api";
+import { C } from "../theme";
 
 function PinDots({ value, confirmed }: { value: string; confirmed?: boolean }) {
-  const activeColor = confirmed ? "#25D366" : "#075E54";
+  const activeColor = confirmed ? C.success : C.stripe;
   return (
     <div className="flex justify-center gap-5 my-6">
       {[0, 1, 2, 3].map((i) => (
@@ -40,8 +41,8 @@ function Keypad({ onKey }: { onKey: (k: string) => void }) {
             onPointerDown={(e) => { e.preventDefault(); onKey(k); }}
             className="h-[60px] rounded-full text-xl font-semibold flex items-center justify-center active:scale-90 transition-transform select-none"
             style={{
-              background: k === "⌫" ? "transparent" : "#F0F2F5",
-              color: k === "⌫" ? "#667781" : "#111B21",
+              background: k === "⌫" ? "transparent" : C.subtle,
+              color: k === "⌫" ? C.inkSoft : C.ink,
               fontSize: k === "⌫" ? 22 : undefined,
             }}
           >
@@ -64,22 +65,22 @@ function Steps({ current }: { current: number }) {
             <div
               className="w-7 h-7 rounded-full flex items-center justify-center text-[12px] font-bold"
               style={{
-                background: i < current ? "#25D366" : i === current ? "#D9FDD3" : "#F0F2F5",
-                border: `2px solid ${i <= current ? "#25D366" : "#E9EDEF"}`,
-                color: i < current ? "#FFFFFF" : i === current ? "#128C7E" : "#8696A0",
+                background: i < current ? C.stripe : i === current ? C.greenLight : C.subtle,
+                border: `2px solid ${i <= current ? C.stripe : C.border}`,
+                color: i < current ? "#FFFFFF" : i === current ? C.greenDark : C.inkFaint,
               }}
             >
               {i < current ? "✓" : i + 1}
             </div>
             <span className="text-[10px] font-semibold whitespace-nowrap"
-              style={{ color: i <= current ? "#128C7E" : "#8696A0" }}>
+               style={{ color: i <= current ? C.greenDark : C.inkFaint }}>
               {label}
             </span>
           </div>
           {i < STEPS.length - 1 && (
             <div
               className="flex-1 mb-4"
-              style={{ height: 2, background: i < current ? "#25D366" : "#E9EDEF", width: 32, borderRadius: 1 }}
+               style={{ height: 2, background: i < current ? C.stripe : C.border, width: 32, borderRadius: 1 }}
             />
           )}
         </div>
@@ -173,7 +174,7 @@ export function RegisterPage() {
       <button
         onClick={back}
         className="flex items-center justify-center rounded-full transition-opacity active:opacity-60 self-start"
-        style={{ width: 40, height: 40, background: "#F3F4F6", color: "#6B7280", marginBottom: 28 }}
+        style={{ width: 40, height: 40, background: C.subtle, color: C.inkSoft, marginBottom: 28 }}
         aria-label="Voltar"
       >
         <ArrowLeft size={20} strokeWidth={1.75} />
@@ -183,12 +184,12 @@ export function RegisterPage() {
       <div className="mb-6">
         <div
           className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5"
-          style={{ background: "#075E54" }}
+          style={{ background: C.navy }}
         >
           <span className="text-white font-bold text-[28px]">L</span>
         </div>
-        <h1 className="text-[24px] font-bold text-center" style={{ color: "#111B21" }}>Criar conta</h1>
-        <p className="text-[15px] mt-1.5 text-center" style={{ color: "#667781" }}>
+        <h1 className="text-[24px] font-bold text-center" style={{ color: C.ink }}>Criar conta</h1>
+        <p className="text-[15px] mt-1.5 text-center" style={{ color: C.inkSoft }}>
           {step === "name"    && "Como te chamas?"}
           {step === "phone"   && "Qual é o teu número?"}
           {step === "pin"     && "Escolhe um PIN de 4 dígitos"}
@@ -217,13 +218,13 @@ export function RegisterPage() {
             placeholder="Ex: João Ferreira"
             autoFocus
             className="w-full h-14 px-4 rounded-xl text-[16px] outline-none mb-5"
-            style={{ background: "#F0F2F5", color: "#111B21", caretColor: "#25D366" }}
+            style={{ background: C.subtle, color: C.ink, caretColor: C.stripe }}
             onKeyDown={(e) => e.key === "Enter" && handleNameNext()}
           />
           <button
             onClick={handleNameNext}
             className="w-full h-[54px] rounded-full font-bold text-[16px]"
-            style={{ background: "#25D366", color: "#FFFFFF" }}
+            style={{ background: C.stripe, color: "#FFFFFF" }}
           >
             Continuar
           </button>
@@ -234,11 +235,11 @@ export function RegisterPage() {
         <>
           <div
             className="flex items-center gap-3 px-4 rounded-xl mb-5"
-            style={{ background: "#F0F2F5", height: 56 }}
+            style={{ background: C.subtle, height: 56 }}
           >
             <span className="text-[18px]">🇦🇴</span>
-            <span className="text-[15px] font-semibold" style={{ color: "#667781" }}>+244</span>
-            <div style={{ width: 1, height: 22, background: "#E9EDEF" }} />
+            <span className="text-[15px] font-semibold" style={{ color: C.inkSoft }}>+244</span>
+            <div style={{ width: 1, height: 22, background: C.border }} />
             <input
               type="tel"
               inputMode="numeric"
@@ -247,14 +248,14 @@ export function RegisterPage() {
               placeholder="9XX XXX XXX"
               autoFocus
               className="flex-1 bg-transparent outline-none text-[16px]"
-              style={{ color: "#111B21", caretColor: "#25D366" }}
+              style={{ color: C.ink, caretColor: C.stripe }}
               onKeyDown={(e) => e.key === "Enter" && handlePhoneNext()}
             />
           </div>
           <button
             onClick={handlePhoneNext}
             className="w-full h-[54px] rounded-full font-bold text-[16px]"
-            style={{ background: "#25D366", color: "#FFFFFF" }}
+            style={{ background: C.stripe, color: "#FFFFFF" }}
           >
             Continuar
           </button>
@@ -265,7 +266,7 @@ export function RegisterPage() {
         <div className="flex flex-col items-center">
           <PinDots value={step === "pin" ? pin : confirmPin} confirmed={step === "confirm"} />
           {loading
-            ? <p className="text-[13px] mb-5 flex items-center gap-2" style={{ color: "#25D366" }}>
+             ? <p className="text-[13px] mb-5 flex items-center gap-2" style={{ color: C.stripe }}>
                 <CheckCircle size={14} /> A criar conta…
               </p>
             : <p className="text-[13px] mb-5 opacity-0">·</p>}
@@ -273,9 +274,9 @@ export function RegisterPage() {
         </div>
       )}
 
-      <p className="mt-auto pt-8 text-center text-[15px]" style={{ color: "#667781", paddingBottom: 16 }}>
+       <p className="mt-auto pt-8 text-center text-[15px]" style={{ color: C.inkSoft, paddingBottom: 16 }}>
         Já tens conta?{" "}
-        <Link href={`/login${window.location.search}`} className="font-semibold" style={{ color: "#25D366" }}>
+         <Link href={`/login${window.location.search}`} className="font-semibold" style={{ color: C.stripe }}>
           Entrar
         </Link>
       </p>

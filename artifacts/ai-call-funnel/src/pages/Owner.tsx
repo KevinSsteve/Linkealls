@@ -28,31 +28,31 @@ const POLL_MS = 2500;
 
 // ─── Design tokens (alinhados com o brief premium) ───────────────────────────
 const D = {
-  bg:            "#F8F9FA",
+  bg:            "#F6F9FC",
   surface:       "#FFFFFF",
-  ink:           "#111111",
-  inkSoft:       "#6B7280",
-  inkFaint:      "#9CA3AF",
-  border:        "#E5E7EB",
-  borderSoft:    "#F3F4F6",
-  subtle:        "#F3F4F6",
-  green:         "#16A34A",
-  greenDk:       "#15803D",
-  greenLt:       "#DCFCE7",
-  greenMuted:    "#F0FDF4",
+  ink:           "#0A2540",
+  inkSoft:       "#425466",
+  inkFaint:      "#8898AA",
+  border:        "#E6EBF1",
+  borderSoft:    "#F1F4F8",
+  subtle:        "#F1F5F9",
+  green:         "#635BFF",
+  greenDk:       "#5046E5",
+  greenLt:       "#EEECFF",
+  greenMuted:    "#F6F4FF",
   errorBg:       "#FEF2F2",
   errorText:     "#DC2626",
   errorBorder:   "#FECACA",
-  successBg:     "#F0FDF4",
-  successText:   "#15803D",
-  successBorder: "#BBF7D0",
+  successBg:     "#E8F7F1",
+  successText:   "#176B55",
+  successBorder: "#B8E5D5",
   rCard:         16,   // px number for template literals
   rInput:        12,
 } as const;
 
 // ─── Avatar palette ───────────────────────────────────────────────────────────
 const PALETTES = [
-  { bg: "#DCFCE7", text: "#15803D" },
+  { bg: "#EEECFF", text: "#5046E5" },
   { bg: "#DBEAFE", text: "#1D4ED8" },
   { bg: "#FEE2E2", text: "#B91C1C" },
   { bg: "#FEF3C7", text: "#B45309" },

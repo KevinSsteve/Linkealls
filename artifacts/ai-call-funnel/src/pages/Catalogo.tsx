@@ -28,16 +28,16 @@ const BASE = import.meta.env.BASE_URL;
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
 const T = {
-  bg:        "#F6F6F4",   // fundo da página
+  bg:        "#F6F9FC",   // fundo da página
   surface:   "#FFFFFF",   // cartões e containers
-  ink:       "#14171A",   // texto principal
-  inkSoft:   "#6B7280",   // texto secundário / cinza
-  inkFaint:  "#9CA3AF",   // texto muito suave
-  line:      "#E7E7E3",   // bordas
-  lineSoft:  "#F0F0EC",   // separadores internos
-  accent:    "#14171A",   // botão/acção principal
+  ink:       "#0A2540",   // texto principal
+  inkSoft:   "#425466",   // texto secundário / cinza
+  inkFaint:  "#8898AA",   // texto muito suave
+  line:      "#E6EBF1",   // bordas
+  lineSoft:  "#F1F4F8",   // separadores internos
+  accent:    "#635BFF",   // botão/acção principal
   accentInk: "#FFFFFF",
-  subtle:    "#F2F2EF",   // superfícies suaves (placeholder imagem, hover)
+  subtle:    "#F1F5F9",   // superfícies suaves (placeholder imagem, hover)
   // Escala de radius
   rCard:  "20px",         // cards de produto e containers FAQ/diferencias
   rBtn:   "999px",        // botões → pill completo

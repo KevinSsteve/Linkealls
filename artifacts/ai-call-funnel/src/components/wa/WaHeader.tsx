@@ -1,5 +1,5 @@
 /**
- * WaHeader — reusable WhatsApp Business–style dark-green page header.
+ * WaHeader — reusable WhatsApp Business–style navy page header.
  * Use on every owner page that needs a top nav bar.
  */
 import { ArrowLeft } from "lucide-react";
@@ -31,7 +31,7 @@ export function WaHeader({
   return (
     <div
       className={`flex items-center gap-3 px-3 shrink-0 ${className}`}
-      style={{ background: "#075E54", height: 56 }}
+        style={{ background: "#0A2540", height: 56 }}
     >
       {onBack && (
         <button

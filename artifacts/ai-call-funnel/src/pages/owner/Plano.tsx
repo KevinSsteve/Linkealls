@@ -105,7 +105,7 @@ export function Plano() {
   const active = info?.active ?? null;
 
   return (
-    <div className="flex flex-col h-full" style={{ background: "#F8F9FA" }}>
+    <div className="flex flex-col h-full" style={{ background: C.bg }}>
       {/* Header */}
       <AppHeader
         title="Plano"

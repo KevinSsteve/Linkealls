@@ -66,7 +66,7 @@ function MinimizedCallBanner({
     <div
       className="flex items-center gap-3 px-4 py-2.5 flex-shrink-0"
       style={{
-        background: "#075E54",
+        background: "#0A2540",
         borderBottom: "1px solid rgba(0,0,0,0.08)",
       }}
     >
@@ -74,11 +74,11 @@ function MinimizedCallBanner({
       <span className="relative flex items-center justify-center shrink-0">
         <span
           className="absolute inline-flex rounded-full opacity-75 animate-ping"
-          style={{ width: 10, height: 10, background: "#25D366", animationDuration: "1.3s" }}
+          style={{ width: 10, height: 10, background: "#2E8B72", animationDuration: "1.3s" }}
         />
         <span
           className="relative inline-flex rounded-full"
-          style={{ width: 8, height: 8, background: "#25D366" }}
+          style={{ width: 8, height: 8, background: "#2E8B72" }}
         />
       </span>
 
@@ -130,16 +130,16 @@ function AgentMsgBubble({ msg, onDismiss }: { msg: AgentMessage; onDismiss: () =
     <div className="flex items-start gap-2 mb-2">
       <div
         className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center mt-0.5"
-        style={{ background: "#D9FDD3" }}
+        style={{ background: "#EEECFF" }}
       >
-        <MessageSquare size={11} style={{ color: "#25D366" }} />
+        <MessageSquare size={11} style={{ color: "#635BFF" }} />
       </div>
       <div
         className="flex-1 rounded-2xl rounded-tl-sm px-3 py-2 text-[13px] leading-relaxed whitespace-pre-line"
         style={{
           background: "#FFFFFF",
           boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
-          color: "#111B21",
+          color: "#0A2540",
         }}
       >
         {msg.text}
@@ -188,16 +188,16 @@ function AgentMessageOverlay({
           <div key={m.id} className="flex items-start gap-2">
             <div
               className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center mt-0.5"
-              style={{ background: "#D9FDD3" }}
+              style={{ background: "#EEECFF" }}
             >
-              <MessageSquare size={11} style={{ color: "#25D366" }} />
+              <MessageSquare size={11} style={{ color: "#635BFF" }} />
             </div>
             <div
               className="flex-1 rounded-2xl rounded-tl-sm px-3 py-2 text-[13px] leading-relaxed whitespace-pre-line"
               style={{
                 background: "rgba(255,255,255,0.92)",
                 boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-                color: "#111B21",
+                color: "#0A2540",
                 backdropFilter: "blur(8px)",
                 WebkitBackdropFilter: "blur(8px)",
               }}
@@ -242,7 +242,7 @@ function ProductCardItem({
     >
       <div
         className="w-full flex items-center justify-center"
-        style={{ height: 110, background: "#F0F2F5", flexShrink: 0 }}
+        style={{ height: 110, background: "#F1F5F9", flexShrink: 0 }}
       >
         {product.imageUrl && !imgError ? (
           <img
@@ -260,16 +260,16 @@ function ProductCardItem({
       </div>
 
       <div className="flex flex-col flex-1 p-2.5 gap-1">
-        <p className="text-[13px] font-semibold leading-tight line-clamp-2" style={{ color: "#111B21" }}>
+        <p className="text-[13px] font-semibold leading-tight line-clamp-2" style={{ color: "#0A2540" }}>
           {product.name}
         </p>
         {product.price && (
-          <p className="text-[12px] font-bold" style={{ color: "#25D366" }}>
+          <p className="text-[12px] font-bold" style={{ color: "#635BFF" }}>
             {product.price}
           </p>
         )}
         {product.description && (
-          <p className="text-[11px] leading-relaxed line-clamp-2" style={{ color: "#667781" }}>
+          <p className="text-[11px] leading-relaxed line-clamp-2" style={{ color: "#425466" }}>
             {product.description}
           </p>
         )}
@@ -278,7 +278,7 @@ function ProductCardItem({
             <button
               onClick={onBuy}
               className="w-full py-1.5 rounded-xl text-[12px] font-semibold transition-colors flex items-center justify-center gap-1"
-              style={{ background: "#25D366", color: "#FFFFFF" }}
+              style={{ background: "#635BFF", color: "#FFFFFF" }}
             >
               <ShoppingCart size={11} />
               Comprar
@@ -288,8 +288,8 @@ function ProductCardItem({
             onClick={onSelect}
             className="w-full py-1.5 rounded-xl text-[12px] font-semibold transition-colors"
             style={{
-              background: canBuy ? "#F0F2F5" : "#25D366",
-              color: canBuy ? "#667781" : "#FFFFFF",
+              background: canBuy ? "#F1F5F9" : "#635BFF",
+              color: canBuy ? "#425466" : "#FFFFFF",
             }}
           >
             {canBuy ? "Perguntar" : "Selecionar"}
@@ -330,7 +330,7 @@ function ProductVitrine({
 
       <div className="flex items-center justify-between px-4 pb-3 flex-shrink-0">
         <div>
-          <p className="text-[15px] font-bold" style={{ color: "#111B21" }}>Escolhe o que queres 👇</p>
+        <p className="text-[15px] font-bold" style={{ color: "#0A2540" }}>Escolhe o que queres 👇</p>
           <p className="text-[12px] mt-0.5" style={{ color: "#8696A0" }}>
             {products.length} produto{products.length !== 1 ? "s" : ""} disponíve
             {products.length !== 1 ? "is" : "l"}
@@ -339,9 +339,9 @@ function ProductVitrine({
         <button
           onClick={onClose}
           className="w-8 h-8 rounded-full flex items-center justify-center"
-          style={{ background: "#F0F2F5" }}
+          style={{ background: "#F1F5F9" }}
         >
-          <X size={15} style={{ color: "#667781" }} />
+          <X size={15} style={{ color: "#425466" }} />
         </button>
       </div>
 
@@ -378,11 +378,11 @@ function InlineProductShelf({
       style={{
         background: "#FFFFFF",
         boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-        border: "1px solid #E9EDEF",
+        border: "1px solid #E6EBF1",
       }}
     >
       <div className="flex items-center justify-between px-3 py-2.5">
-        <p className="text-[13px] font-semibold" style={{ color: "#111B21" }}>
+        <p className="text-[13px] font-semibold" style={{ color: "#0A2540" }}>
           Produtos disponíveis
         </p>
         <button onClick={onClose}>

@@ -105,7 +105,7 @@ export default function App() {
           <Route>
             {() => (
               <div
-                className="w-full bg-[#080E18] flex flex-col overflow-hidden"
+                  className="w-full bg-[#F6F9FC] flex flex-col overflow-hidden"
                 style={{ height: "var(--vh, 100dvh)" }}
               >
                 <Switch>
