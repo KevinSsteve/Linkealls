@@ -53,7 +53,13 @@ export async function userLogout(token: string) {
 /** Resolve a private object path using the same artifact-aware API base as uploads. */
 export function getStorageObjectUrl(objectPath: string): string {
   if (objectPath.startsWith("http://") || objectPath.startsWith("https://")) return objectPath;
+  const legacyMarker = "/api/objects/";
+  const legacyIndex = objectPath.indexOf(legacyMarker);
+  if (legacyIndex >= 0) {
+    return `${API_BASE}/storage/objects/${objectPath.slice(legacyIndex + legacyMarker.length)}`;
+  }
   if (objectPath.startsWith("/api/") || objectPath.includes("/api/")) return objectPath;
+  if (objectPath.startsWith("/storage/objects/")) return `${API_BASE}${objectPath}`;
   return `${API_BASE}/storage${objectPath}`;
 }
 
