@@ -294,17 +294,20 @@ export function sendKwikToCustomer(params: { iban: string; amount: number; opera
   );
 }
 
-/** Check the state of a pending KWiK payout. */
+/** Check the state of a pending KWiK payout. The provider endpoint is GET. */
 export async function getKwikPayoutStatus(externalReferenceId: string): Promise<"processed" | "processing" | "cancelled" | "voided" | "unknown"> {
   if (IS_SIMULATION) return "processed";
   try {
     const res = await fetch(
       `${EKWANZA_OPERATIONS_BASE_URL}/Operations/SendKWiKToCustomerStatus?ExternalReferenceId=${encodeURIComponent(externalReferenceId)}`,
-      { method: "POST", headers: { "X-API-Key": EKWANZA_API_KEY } },
+      { method: "GET", headers: { Accept: "application/json", "X-API-Key": EKWANZA_API_KEY } },
     );
     if (!res.ok) return "unknown";
-    const raw = (await res.json().catch(() => ({}))) as { OperationStatus?: string };
-    const s = (raw.OperationStatus ?? "").toLowerCase();
+    const raw = (await res.json().catch(() => ({}))) as {
+      OperationStatus?: string;
+      operationStatus?: string;
+    };
+    const s = (raw.OperationStatus ?? raw.operationStatus ?? "").toLowerCase();
     if (s === "processed" || s === "processing" || s === "cancelled" || s === "voided") return s;
     return "unknown";
   } catch (err) {
