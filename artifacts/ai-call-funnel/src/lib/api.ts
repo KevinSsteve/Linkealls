@@ -54,7 +54,7 @@ export async function userLogout(token: string) {
 export function getStorageObjectUrl(objectPath: string): string {
   if (objectPath.startsWith("http://") || objectPath.startsWith("https://")) return objectPath;
   if (objectPath.startsWith("/api/") || objectPath.includes("/api/")) return objectPath;
-  return `${API_BASE}${objectPath}`;
+  return `${API_BASE}/storage${objectPath}`;
 }
 
 /** Public: real display name for a user handle (used by /u/:handle). */
