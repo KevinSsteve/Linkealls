@@ -10,8 +10,6 @@ import { LoginPage } from "@/pages/LoginPage";
 import { RegisterPage } from "@/pages/RegisterPage";
 import { ChooseHandle } from "@/pages/ChooseHandle";
 import { LegalPage } from "@/pages/LegalPage";
-import { ReplitEntryPage } from "@/pages/ReplitEntryPage";
-import { LinkAccountPage } from "@/pages/LinkAccountPage";
 import { OwnerGate } from "@/components/owner/OwnerGate";
 import { Owner } from "@/pages/Owner";
 import { Leads } from "@/pages/owner/Leads";
@@ -112,10 +110,10 @@ export default function App() {
           <Route path="/c/:slug" component={Catalogo} />
 
           {/* ── One-segment public/reserved routes must precede /:handle ─────── */}
-          <Route path="/login">{() => <ReplitEntryPage mode="login" />}</Route>
-          <Route path="/registar">{() => <ReplitEntryPage mode="register" />}</Route>
+          <Route path="/login" component={LoginPage} />
+          <Route path="/registar" component={RegisterPage} />
           <Route path="/escolher-handle" component={ChooseHandle} />
-          <Route path="/ligar-conta" component={LinkAccountPage} />
+          <Route path="/ligar-conta">{() => <Redirect to="/login" />}</Route>
           <Route path="/termos" component={() => <LegalPage kind="terms" />} />
           <Route path="/privacidade" component={() => <LegalPage kind="privacy" />} />
           <Route path="/dono"><LegacyOwnerRedirect /></Route>
