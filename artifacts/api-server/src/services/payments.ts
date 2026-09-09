@@ -28,7 +28,6 @@ import {
 } from "@workspace/db";
 import {
   createGpoCharge,
-  sendToCustomer,
   sendKwikToCustomer,
   getKwikPayoutStatus,
   payoutErrorMessage,

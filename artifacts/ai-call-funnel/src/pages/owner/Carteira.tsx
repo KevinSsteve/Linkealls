@@ -1,6 +1,6 @@
 /**
  * Carteira — owner wallet: balance from immutable ledger, statement,
- * saque (payout) request via Multicaixa Express / IBAN, payout history.
+ * saque (payout) request via KWiK/IBAN, payout history.
  */
 import { useState, useEffect, useCallback } from "react";
 import {
