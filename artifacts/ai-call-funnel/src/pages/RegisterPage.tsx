@@ -12,19 +12,19 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { userRegister } from "@/lib/api";
+import brandLogo from "@assets/1000379740_1788938201385.png";
 
 const COLORS = {
-  page: "#f7f8f3",
-  panel: "#e4f0e5",
-  panelDeep: "#1c4039",
-  ink: "#183a35",
-  soft: "#5f746e",
-  muted: "#879893",
-  line: "#d7e2dc",
-  field: "#fbfcf8",
-  accent: "#1f6b5c",
-  accentSoft: "#dff1e5",
-  coral: "#ed8f6c",
+  page: "#fbfaff",
+  panel: "#f1edff",
+  panelDeep: "#2d176d",
+  ink: "#0a2540",
+  soft: "#425466",
+  muted: "#8898aa",
+  line: "#e6ebf1",
+  field: "#ffffff",
+  accent: "#635bff",
+  accentSoft: "#eeecff",
   error: "#b34235",
   errorBg: "#fff0eb",
 };
@@ -36,31 +36,18 @@ type Step = "name" | "phone" | "pin" | "confirm";
 function BrandMark({ compact = false }: { compact?: boolean }) {
   return (
     <div className="flex items-center gap-3" style={{ color: COLORS.ink }} data-testid="brand-linkealls">
-      <span
-        className="relative flex shrink-0 items-center justify-center"
+      <img
+        src={brandLogo}
+        alt="Linkealls"
+        className="shrink-0 object-cover"
         style={{
           width: compact ? 40 : 48,
           height: compact ? 40 : 48,
           borderRadius: compact ? 14 : 16,
-          background: COLORS.accent,
-          boxShadow: `6px 6px 0 ${COLORS.coral}`,
+          background: "#ffffff",
+          boxShadow: "0 10px 24px rgba(99, 91, 255, 0.2)",
         }}
-        aria-hidden="true"
-      >
-        <span
-          style={{
-            color: "#f8fff8",
-            fontFamily: "'Avenir Next', 'Trebuchet MS', sans-serif",
-            fontSize: compact ? 21 : 25,
-            fontWeight: 800,
-            letterSpacing: "-0.08em",
-            transform: "translateX(-1px)",
-          }}
-        >
-          L
-        </span>
-        <span className="absolute" style={{ right: 7, top: 8, width: 5, height: 5, borderRadius: "50%", background: "#f9c6a9" }} />
-      </span>
+      />
       <span style={{ fontFamily: "'Avenir Next', 'Trebuchet MS', sans-serif", fontSize: compact ? 18 : 20, fontWeight: 800, letterSpacing: "-0.04em" }}>
         linkealls
       </span>
@@ -121,7 +108,7 @@ function TextField({
 }) {
   return (
     <div
-      className="rounded-[18px] border px-4 py-3 transition-colors duration-200 focus-within:border-[#1f6b5c] focus-within:bg-white"
+      className="rounded-[18px] border px-4 py-3 transition-colors duration-200 focus-within:border-[#635bff] focus-within:bg-white"
       style={{ borderColor: COLORS.line, background: COLORS.field }}
     >
       <label htmlFor={id} className="mb-1 block text-[11px] font-bold uppercase tracking-[0.13em]" style={{ color: COLORS.muted }}>
@@ -154,7 +141,7 @@ function PhoneField({
 }) {
   return (
     <div
-      className="group flex min-h-[62px] items-center gap-3 rounded-[18px] border px-4 transition-colors duration-200 focus-within:border-[#1f6b5c] focus-within:bg-white"
+      className="group flex min-h-[62px] items-center gap-3 rounded-[18px] border px-4 transition-colors duration-200 focus-within:border-[#635bff] focus-within:bg-white"
       style={{ borderColor: COLORS.line, background: COLORS.field }}
     >
       <Phone size={19} strokeWidth={1.8} style={{ color: COLORS.accent }} aria-hidden="true" />
@@ -192,9 +179,9 @@ function PinDots({ value, confirmed }: { value: string; confirmed?: boolean }) {
               width: filled ? 15 : 13,
               height: filled ? 15 : 13,
               borderRadius: "50%",
-              border: `2px solid ${filled ? (confirmed ? COLORS.coral : COLORS.accent) : COLORS.muted}`,
-              background: filled ? (confirmed ? COLORS.coral : COLORS.accent) : "transparent",
-              boxShadow: filled ? `0 0 0 4px ${confirmed ? "#fce3d9" : COLORS.accentSoft}` : "none",
+              border: `2px solid ${filled ? COLORS.accent : COLORS.muted}`,
+              background: filled ? COLORS.accent : "transparent",
+              boxShadow: filled ? `0 0 0 4px ${COLORS.accentSoft}` : "none",
             }}
           />
         );
@@ -370,8 +357,8 @@ export function RegisterPage() {
               <p className="flex items-center gap-3"><span className="flex h-6 w-6 items-center justify-center rounded-full" style={{ background: COLORS.accent, color: "#fff" }}><Check size={14} /></span> Um link para partilhar</p>
             </div>
           </div>
-          <div className="absolute -right-20 top-24 h-64 w-64 rounded-full border-[34px]" style={{ borderColor: "rgba(31,107,92,0.12)" }} aria-hidden="true" />
-          <div className="absolute -bottom-20 -left-16 h-72 w-72 rounded-full" style={{ background: "rgba(237,143,108,0.19)" }} aria-hidden="true" />
+          <div className="absolute -right-20 top-24 h-64 w-64 rounded-full border-[34px]" style={{ borderColor: "rgba(99,91,255,0.14)" }} aria-hidden="true" />
+          <div className="absolute -bottom-20 -left-16 h-72 w-72 rounded-full" style={{ background: "rgba(155,140,255,0.18)" }} aria-hidden="true" />
         </aside>
 
         <section className="flex min-w-0 flex-col">
@@ -404,7 +391,7 @@ export function RegisterPage() {
                     type="button"
                     onClick={handleNameNext}
                     className="mt-4 flex min-h-[60px] w-full items-center justify-between rounded-[18px] px-5 text-left font-bold transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.99]"
-                    style={{ background: COLORS.accent, color: "#f8fff8", boxShadow: "0 12px 24px rgba(31,107,92,0.16)" }}
+                    style={{ background: COLORS.accent, color: "#ffffff", boxShadow: "0 12px 24px rgba(99,91,255,0.2)" }}
                     data-testid="button-register-name-continue"
                   >
                     <span>Continuar</span><ArrowRight size={19} strokeWidth={2.3} />
@@ -419,7 +406,7 @@ export function RegisterPage() {
                     type="button"
                     onClick={handlePhoneNext}
                     className="mt-4 flex min-h-[60px] w-full items-center justify-between rounded-[18px] px-5 text-left font-bold transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.99]"
-                    style={{ background: COLORS.accent, color: "#f8fff8", boxShadow: "0 12px 24px rgba(31,107,92,0.16)" }}
+                    style={{ background: COLORS.accent, color: "#ffffff", boxShadow: "0 12px 24px rgba(99,91,255,0.2)" }}
                     data-testid="button-register-phone-continue"
                   >
                     <span>Continuar</span><ArrowRight size={19} strokeWidth={2.3} />
@@ -430,7 +417,7 @@ export function RegisterPage() {
               {pinStep && (
                 <div className="max-w-[460px]">
                   <div className="mb-7 flex flex-col items-center rounded-[24px] border px-5 py-6" style={{ borderColor: COLORS.line, background: "rgba(255,255,255,0.48)" }}>
-                    <div className="mb-5 flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.14em]" style={{ color: step === "confirm" ? COLORS.coral : COLORS.accent }}>
+                    <div className="mb-5 flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.14em]" style={{ color: COLORS.accent }}>
                       <LockKeyhole size={15} strokeWidth={2} />
                       {step === "confirm" ? "Repetir PIN" : "PIN privado"}
                     </div>
