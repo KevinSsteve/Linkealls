@@ -50,6 +50,13 @@ export async function userLogout(token: string) {
   });
 }
 
+/** Resolve a private object path using the same artifact-aware API base as uploads. */
+export function getStorageObjectUrl(objectPath: string): string {
+  if (objectPath.startsWith("http://") || objectPath.startsWith("https://")) return objectPath;
+  if (objectPath.startsWith("/api/") || objectPath.includes("/api/")) return objectPath;
+  return `${API_BASE}${objectPath}`;
+}
+
 /** Public: real display name for a user handle (used by /u/:handle). */
 export async function getPublicUserProfile(
   handle: string,
@@ -109,6 +116,7 @@ export type AnalysisStatus = "idle" | "running" | "done" | "error";
 export interface BusinessProfile {
   id: number;
   name: string;
+  avatarUrl: string | null;
   websiteUrl: string | null;
   sector: string;
   description: string;
@@ -132,6 +140,7 @@ export interface BusinessProfile {
 
 export interface ProfileDraft {
   name?: string;
+  avatarUrl?: string | null;
   sector?: string;
   description?: string;
   targetAudience?: string;
@@ -451,6 +460,7 @@ export interface LeadsAnalytics {
 export interface CatalogData {
   businessSlug: string | null;
   name: string;
+  avatarUrl: string | null;
   sector: string;
   description: string;
   differentials: string[];

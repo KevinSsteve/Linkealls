@@ -12,7 +12,7 @@ import {
   Send, ShoppingBag, ArrowRight, Loader2, ImageOff, Store, ArrowLeft, Smartphone,
 } from "lucide-react";
 import {
-  getCatalogBySlug, businessApi,
+  getCatalogBySlug, businessApi, getStorageObjectUrl,
   type CatalogData, type Offering, type FaqItem,
 } from "../lib/api";
 import { BuyModal, parsePriceAoa } from "../components/BuyModal";
@@ -699,7 +699,9 @@ export function Catalogo() {
             className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-[11px] font-semibold"
             style={{ background: T.surface, color: T.ink, border: `1px solid ${T.line}` }}
           >
-            {initials(catalog.name) || <Store size={14} />}
+            {catalog.avatarUrl ? (
+              <img src={getStorageObjectUrl(catalog.avatarUrl)} alt="" className="h-full w-full rounded-full object-cover" />
+            ) : initials(catalog.name) || <Store size={14} />}
           </div>
 
           <p
@@ -746,7 +748,9 @@ export function Catalogo() {
               border: `1px solid ${T.line}`,
             }}
           >
-            {initials(catalog.name) || <Store size={26} />}
+            {catalog.avatarUrl ? (
+              <img src={getStorageObjectUrl(catalog.avatarUrl)} alt={`Foto de ${catalog.name}`} className="h-full w-full rounded-[20px] object-cover" />
+            ) : initials(catalog.name) || <Store size={26} />}
           </div>
 
           {/* Nome do negócio */}

@@ -58,7 +58,9 @@
   --color-divider:         #E6EBF1;
 }
 
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+/* Tailwind's preflight already resets margins and padding. Keep this rule to
+ * establish sizing without overriding utility classes such as px-5/py-6. */
+*, *::before, *::after { box-sizing: border-box; }
 
 html {
   height: 100%;

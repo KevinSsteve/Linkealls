@@ -26,7 +26,7 @@ import { AppHeader } from "../../components/app/AppHeader";
 import { EditorSection } from "../../components/app/EditorSection";
 import { useNotifications } from "../../hooks/useNotifications";
 import { useBusinessSlug } from "../../hooks/useBusinessSlug";
-import { businessApi, checkSlugAvailability } from "../../lib/api";
+import { businessApi, checkSlugAvailability, getStorageObjectUrl, uploadPrivateImage } from "../../lib/api";
 import type { BusinessProfile, FaqItem, Offering, ProfileDraft } from "../../lib/api";
 
 interface Props {
@@ -386,26 +386,7 @@ function NotificationsSection({ slug }: { slug: string }) {
   );
 }
 
-async function requestUploadUrl(file: File): Promise<{ uploadURL: string; objectPath: string }> {
-  const response = await fetch("/api/storage/uploads/request-url", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type || "image/jpeg" }),
-  });
-  if (!response.ok) throw new Error("Erro ao obter URL de upload");
-  return response.json() as Promise<{ uploadURL: string; objectPath: string }>;
-}
-
-async function uploadToGcs(file: File, uploadURL: string) {
-  const response = await fetch(uploadURL, {
-    method: "PUT",
-    body: file,
-    headers: { "Content-Type": file.type || "image/jpeg" },
-  });
-  if (!response.ok) throw new Error("Erro ao enviar imagem");
-}
-
-function ImageUploader({ offering, onChange }: { offering: Offering; onChange: (offering: Offering) => void }) {
+function ImageUploader({ offering, businessSlug, onChange }: { offering: Offering; businessSlug: string; onChange: (offering: Offering) => void }) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -417,16 +398,15 @@ function ImageUploader({ offering, onChange }: { offering: Offering; onChange: (
     setUploading(true);
     setError(null);
     try {
-      const { uploadURL, objectPath } = await requestUploadUrl(file);
-      await uploadToGcs(file, uploadURL);
-      onChange({ ...offering, imageUrl: `/api/storage${objectPath}` });
+      const objectPath = await uploadPrivateImage(file, businessSlug);
+      onChange({ ...offering, imageUrl: getStorageObjectUrl(objectPath) });
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : "Falha no upload");
     } finally {
       setUploading(false);
       if (inputRef.current) inputRef.current.value = "";
     }
-  }, [offering, onChange]);
+  }, [businessSlug, offering, onChange]);
 
   return (
     <div className="flex items-center gap-3">
@@ -459,6 +439,80 @@ function ImageUploader({ offering, onChange }: { offering: Offering; onChange: (
   );
 }
 
+function AvatarUploader({
+  avatarUrl,
+  businessSlug,
+  onChange,
+}: {
+  avatarUrl: string | null;
+  businessSlug: string;
+  onChange: (url: string | null) => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const pick = useCallback(async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setError(null);
+    try {
+      const objectPath = await uploadPrivateImage(file, businessSlug);
+       onChange(objectPath);
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : "Falha no upload");
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  }, [businessSlug, onChange]);
+
+  return (
+    <div className="flex items-center gap-4 rounded-[var(--radius-lg)] border border-[var(--border-soft)] bg-[var(--subtle)] p-3">
+      <div className="relative flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--green-light)] text-[var(--green-dark)]">
+        {avatarUrl ? (
+          <img src={getStorageObjectUrl(avatarUrl)} alt="Foto de perfil" className="h-full w-full object-cover" />
+        ) : (
+          <Camera size={24} />
+        )}
+        {uploading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-white/80">
+            <Loader2 size={20} className="animate-spin text-[var(--green)]" />
+          </div>
+        )}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[14px] font-semibold text-[var(--ink)]">Foto de perfil</p>
+        <p className="mt-1 text-[12px] leading-5 text-[var(--ink-soft)]">Aparece no teu perfil e no catálogo público.</p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            disabled={uploading}
+            className="inline-flex min-h-[38px] items-center gap-2 rounded-[var(--radius-md)] bg-[var(--green-light)] px-3 text-[13px] font-semibold text-[var(--green-dark)] hover:bg-[var(--green)] hover:text-white disabled:opacity-50"
+            data-testid="button-profile-photo"
+          >
+            <Camera size={15} /> {avatarUrl ? "Alterar foto" : "Adicionar foto"}
+          </button>
+          {avatarUrl && (
+            <button
+              type="button"
+              onClick={() => { onChange(null); setError(null); }}
+              className="inline-flex min-h-[38px] items-center rounded-[var(--radius-md)] px-2 text-[12px] font-semibold text-[#B91C1C] hover:bg-[#FEF2F2]"
+              data-testid="button-remove-profile-photo"
+            >
+              Remover
+            </button>
+          )}
+        </div>
+        {error && <p className="mt-1.5 text-[12px] text-[#DC2626]" data-testid="error-profile-photo">{error}</p>}
+      </div>
+      <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={pick} data-testid="input-profile-photo" />
+    </div>
+  );
+}
+
 function ProductFocusEditor({
   mode,
   offering,
@@ -467,6 +521,7 @@ function ProductFocusEditor({
   onCommit,
   onDelete,
   onCancel,
+  businessSlug,
 }: {
   mode: "add" | "edit";
   offering: Offering;
@@ -475,6 +530,7 @@ function ProductFocusEditor({
   onCommit: (offering: Offering) => void;
   onDelete: () => void;
   onCancel: () => void;
+  businessSlug: string;
 }) {
   const [draft, setDraft] = useState<Offering>(offering);
   const canFeature = offering.featured || featuredCount < 3;
@@ -501,7 +557,7 @@ function ProductFocusEditor({
         }
       />
       <div className="min-w-0 space-y-5 px-5 pb-8 pt-5">
-        <ImageUploader offering={draft} onChange={setDraft} />
+        <ImageUploader offering={draft} businessSlug={businessSlug} onChange={setDraft} />
         <Field label="Nome do produto" value={draft.name} onChange={(name) => update({ name })} placeholder="Ex.: Disjuntor 4P 80A" testId="input-focus-product-name" />
         <Field label="Preço" value={draft.price} onChange={(price) => update({ price })} placeholder="Ex.: 45.000 Kz, sob consulta" testId="input-focus-product-price" />
         <TextAreaField label="Descrição" value={draft.description} onChange={(description) => update({ description })} placeholder="Explica este produto em poucas palavras" testId="input-focus-product-description" minHeight="88px" />
@@ -690,6 +746,7 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
     (draft?.[key] ?? (profile[key as keyof BusinessProfile] as ProfileDraft[K]) ?? fallback) as NonNullable<ProfileDraft[K]>;
 
   const [name, setName] = useState<string>(init("name", ""));
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(profile.avatarUrl ?? null);
   const [sector, setSector] = useState<string>(init("sector", ""));
   const [description, setDescription] = useState<string>(init("description", ""));
   const [targetAudience, setTargetAudience] = useState<string>(init("targetAudience", ""));
@@ -712,8 +769,8 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
     onFocusModeChange?.(focusedProduct !== null);
   }, [focusedProduct, onFocusModeChange]);
 
-  const currentValue = useMemo(() => JSON.stringify({ name, sector, description, targetAudience, toneOfVoice, differentials, offerings, faq, qualificationGoals, siteUrl, address, hours, phone, email }), [address, description, differentials, email, faq, hours, name, offerings, phone, qualificationGoals, sector, siteUrl, targetAudience, toneOfVoice]);
-  const initialValue = useMemo(() => JSON.stringify({ name: init("name", ""), sector: init("sector", ""), description: init("description", ""), targetAudience: init("targetAudience", ""), toneOfVoice: init("toneOfVoice", ""), differentials: init("differentials", []), offerings: init("offerings", []), faq: init("faq", []), qualificationGoals: init("qualificationGoals", []), siteUrl: profile.websiteUrl ?? "", address: profile.address ?? "", hours: profile.hours ?? "", phone: profile.phone ?? "", email: profile.email ?? "" }), [draft, profile]);
+  const currentValue = useMemo(() => JSON.stringify({ name, avatarUrl, sector, description, targetAudience, toneOfVoice, differentials, offerings, faq, qualificationGoals, siteUrl, address, hours, phone, email }), [address, avatarUrl, description, differentials, email, faq, hours, name, offerings, phone, qualificationGoals, sector, siteUrl, targetAudience, toneOfVoice]);
+  const initialValue = useMemo(() => JSON.stringify({ name: init("name", ""), avatarUrl: profile.avatarUrl ?? null, sector: init("sector", ""), description: init("description", ""), targetAudience: init("targetAudience", ""), toneOfVoice: init("toneOfVoice", ""), differentials: init("differentials", []), offerings: init("offerings", []), faq: init("faq", []), qualificationGoals: init("qualificationGoals", []), siteUrl: profile.websiteUrl ?? "", address: profile.address ?? "", hours: profile.hours ?? "", phone: profile.phone ?? "", email: profile.email ?? "" }), [draft, profile]);
   const dirty = currentValue !== initialValue;
 
   const beginProductFocus = () => {
@@ -737,6 +794,7 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
 
   const save = () => onSave({
     name: name.trim(),
+    avatarUrl,
     sector: sector.trim(),
     description: description.trim(),
     targetAudience: targetAudience.trim(),
@@ -795,6 +853,7 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
         onCommit={commitProduct}
         onDelete={deleteFocusedProduct}
         onCancel={exitProductFocus}
+        businessSlug={slug ?? ""}
       />
     );
   }
@@ -805,6 +864,7 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
 
       <EditorSection id="identity" title="Identidade" description="A base que o assistente usa para apresentar o teu negócio." open={openIdentity} onToggle={() => setOpenIdentity((value) => !value)}>
         <div className="space-y-4">
+          {slug && <AvatarUploader avatarUrl={avatarUrl} businessSlug={slug} onChange={setAvatarUrl} />}
           <Field label="Nome do negócio" value={name} onChange={setName} placeholder="Ex.: Óptica Luanda Premium" testId="input-business-name" />
           <Field label="Setor" value={sector} onChange={setSector} placeholder="Ex.: Óptica e saúde visual" testId="input-business-sector" />
           <TextAreaField label="Descrição" value={description} onChange={setDescription} placeholder="O que fazes, para quem e onde?" testId="input-business-description" minHeight="128px" />

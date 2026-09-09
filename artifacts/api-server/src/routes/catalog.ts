@@ -16,6 +16,7 @@ function buildCatalogPayload(profile: Awaited<ReturnType<typeof getOrCreateProfi
   return {
     businessSlug: profile.slug ?? null,
     name: profile.name,
+    avatarUrl: profile.avatarUrl ?? null,
     sector: profile.sector,
     description: profile.description,
     differentials: profile.differentials,

@@ -32,6 +32,8 @@ export const businessProfilesTable = pgTable("business_profiles", {
   /** URL slug that identifies this business in multi-tenant routes, e.g. "electropanga". */
   slug: text("slug").unique(),
   name: text("name").notNull().default(""),
+  /** Optional avatar/logo used on the owner's public business profile. */
+  avatarUrl: text("avatar_url"),
   websiteUrl: text("website_url"),
   sector: text("sector").notNull().default(""),
   description: text("description").notNull().default(""),
@@ -85,6 +87,7 @@ export const faqItemSchema = z.object({
 /** Fields the owner may edit from the profile UI. */
 export const updateBusinessProfileSchema = z.object({
   name: z.string().max(200).optional(),
+  avatarUrl: z.string().max(2000).nullable().optional(),
   websiteUrl: z.string().max(500).nullable().optional(),
   sector: z.string().max(200).optional(),
   description: z.string().max(4000).optional(),

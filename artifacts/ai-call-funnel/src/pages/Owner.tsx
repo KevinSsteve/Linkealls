@@ -4,16 +4,19 @@ import {
   Globe, Sparkles, Loader2, AlertCircle, CheckCircle2,
   Zap, Grid3x3, Megaphone, Users, ChevronRight, X, Store,
   MessageSquare, Phone, RefreshCw, Edit2, Share2, MoreVertical,
-  MapPin, Clock, Mail, Image, ShoppingCart, Wallet, Crown,
+  MapPin, Clock, Mail, Image, ShoppingCart, Wallet, Crown, LogOut,
 } from "lucide-react";
 import { OwnerNav } from "../components/owner/OwnerNav";
 import {
   businessApi,
+  getStorageObjectUrl,
+  userLogout,
   type BusinessProfile,
   type ProfileDraft,
   type Offering,
 } from "../lib/api";
 import { useBusinessSlug } from "../hooks/useBusinessSlug";
+import { useAuth } from "../context/AuthContext";
 import { ProfileEditor } from "../components/owner/ProfileEditor";
 import { WaSkeletonList } from "../components/wa/WaSkeletonList";
 import { AppHeader, AppIconButton } from "../components/app/AppHeader";
@@ -162,13 +165,14 @@ function CatalogRow({ offering, last = false }: { offering: Offering; last?: boo
 
 // ─── Profile View (main view of the owner panel) ──────────────────────────────
 function ProfileView({
-  profile, slug, onEdit, onReanalyze, reanalyzing,
+  profile, slug, onEdit, onReanalyze, reanalyzing, onLogout,
 }: {
   profile: BusinessProfile;
   slug: string;
   onEdit: () => void;
   onReanalyze: (url: string) => void;
   reanalyzing: boolean;
+  onLogout: () => void;
 }) {
   const pal = avatarPalette(profile.name || "N");
   const inits = initials(profile.name);
@@ -206,7 +210,9 @@ function ProfileView({
               border: `1.5px solid ${D.border}`,
             }}
           >
-            {inits}
+            {profile.avatarUrl ? (
+              <img src={getStorageObjectUrl(profile.avatarUrl)} alt={`Foto de ${profile.name}`} className="h-full w-full rounded-full object-cover" />
+            ) : inits}
           </div>
 
           {/* Name + sector + status */}
@@ -363,6 +369,17 @@ function ProfileView({
           />
         )}
       </div>
+
+      <SectionLabel>Conta</SectionLabel>
+      <div style={{ background: D.surface, borderTop: `1px solid ${D.border}`, borderBottom: `1px solid ${D.border}` }}>
+        <ActionRow
+          icon={LogOut}
+          title="Terminar sessão"
+          description="Sair deste dispositivo com segurança"
+          onClick={onLogout}
+          last
+        />
+      </div>
     </div>
   );
 }
@@ -370,6 +387,7 @@ function ProfileView({
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export function Owner() {
   const slug = useBusinessSlug();
+  const { token, logout } = useAuth();
   const api = useMemo(() => (slug ? businessApi(slug) : null), [slug]);
 
   const [view, setView] = useState<View>("loading");
@@ -480,6 +498,15 @@ export function Owner() {
     try { await api.startAnalysis(u); setView("analyzing"); }
     catch (err) { setError(err instanceof Error ? err.message : "Não foi possível iniciar a análise"); }
     finally { setReanalyzing(false); }
+  };
+
+  const handleLogout = async () => {
+    try {
+      if (token) await userLogout(token);
+    } finally {
+      logout();
+      window.location.assign(`${import.meta.env.BASE_URL}login`);
+    }
   };
 
   if (!slug) {
@@ -728,6 +755,7 @@ export function Owner() {
             onEdit={() => setEditing(true)}
             onReanalyze={handleReanalyze}
             reanalyzing={reanalyzing}
+            onLogout={() => { void handleLogout(); }}
           />
         )}
 
