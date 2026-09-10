@@ -1,0 +1,557 @@
+Quero que você redesenhe e implemente a interface do meu projeto seguindo uma estética premium, minimalista e moderna, inspirada em interfaces como Apple, Stripe, Linear, Vercel e apps modernos de social commerce.
+
+IMPORTANTE:
+O design deve ser baseado no conceito visual que estou fornecendo, mas NÃO copie literalmente a interface.
+O objetivo é reproduzir a linguagem visual, hierarquia, espaçamento, cards, tipografia e experiência de usuário.
+
+==================================================
+1. DIREÇÃO VISUAL
+==================================================
+
+A interface inteira deve ter aparência:
+
+- Premium
+- Minimalista
+- Clean
+- Moderna
+- Elegante
+- Mobile-first
+- Muito espaço em branco
+- Bordas arredondadas
+- Sombras extremamente suaves
+- Tipografia limpa
+- Ícones simples
+- Poucos elementos visuais por seção
+- Nada de excesso de cores
+- Nada de gradientes exagerados
+- Nada de aparência "template genérico"
+
+COR PRINCIPAL DO FUNDO:
+#FFFFFF
+
+O fundo geral da aplicação deve ser BRANCO.
+
+NÃO usar fundo bege, castanho, creme ou amarelo como fundo principal.
+
+Pode utilizar pequenos tons neutros quentes em cards, badges ou elementos secundários, mas o background principal deve permanecer branco.
+
+Paleta sugerida:
+
+Background:
+#FFFFFF
+
+Texto principal:
+#111111
+
+Texto secundário:
+#6B6B6B
+
+Bordas:
+#EEEEEE
+
+Cards:
+#FFFFFF
+
+Superfícies secundárias:
+#F8F8F8
+
+Sombras:
+muito suaves e discretas.
+
+Utilize uma cor de destaque apenas quando necessário para ações importantes.
+
+==================================================
+2. PRINCÍPIO DE DESIGN
+==================================================
+
+A interface deve parecer um produto real de uma startup premium.
+
+Evite:
+
+- excesso de bordas
+- excesso de sombras
+- excesso de cores
+- botões gigantes sem necessidade
+- textos muito pequenos
+- elementos apertados
+- cards visualmente pesados
+- gradientes chamativos
+- efeitos 3D desnecessários
+
+Priorize:
+
+- whitespace
+- alinhamento
+- consistência
+- hierarquia visual
+- contraste
+- tipografia
+- microinterações discretas
+
+Tudo deve parecer intencional.
+
+==================================================
+3. PERFIL DO USUÁRIO
+==================================================
+
+Crie uma página de perfil onde o usuário tenha:
+
+- Foto/avatar circular
+- Nome
+- Breve descrição/bio
+- Botões/tabs "Links" e "Shop"
+
+Exemplo:
+
+Chelsea
+
+[ Links ] [ Shop ]
+
+O usuário pode alternar entre as duas seções.
+
+O estado ativo deve ser extremamente clean.
+
+Utilize uma espécie de segmented control:
+
+Links | Shop
+
+Com fundo #F7F7F7 e o item ativo em branco, com sombra extremamente suave.
+
+==================================================
+4. ABA SHOP
+==================================================
+
+Quando o usuário clicar em "Shop", mostrar uma seção:
+
+"Top Sale Picks"
+
+ou
+
+"Produtos em destaque"
+
+Os produtos devem aparecer em uma grid moderna.
+
+Desktop:
+2 ou 3 colunas dependendo da largura.
+
+Mobile:
+2 colunas.
+
+Cada produto deve possuir:
+
+- imagem
+- nome do produto
+- preço
+- eventualmente preço antigo
+- desconto, quando existir
+- botão/ícone discreto para adicionar aos favoritos
+
+Exemplo:
+
+[ IMAGEM ]       [ IMAGEM ]
+
+Wireless         Body Lotion
+Headphones       €32
+€49
+
+[ IMAGEM ]       [ IMAGEM ]
+
+Glow Powder      Sunglasses
+€28              €45
+
+O preço deve ficar visualmente próximo ao nome, mas sem destruir o design clean.
+
+Não criar badges enormes.
+
+Para preços, prefira algo como:
+
+€49
+
+ou:
+
+€49   29% OFF
+
+O desconto pode aparecer em um pequeno badge neutro.
+
+==================================================
+5. PÁGINA DO PRODUTO
+==================================================
+
+Quando o usuário clicar em um produto, abrir uma página de detalhes.
+
+Estrutura:
+
+[ ← ]                         [♡] [share]
+
+              IMAGEM GRANDE
+              DO PRODUTO
+
+            • • • • •
+
+Wireless Headphones
+
+Som de alta qualidade, conforto o dia todo.
+
+★★★★★ 4.8
+124 avaliações
+
+€49
+€69
+
+29% OFF
+
+Cor
+
+○ ○ ○ ○ ○
+
+Quantidade
+
+[-]  1  [+]
+
+[ Adicionar ao carrinho ]
+
+Depois:
+
+Características
+
+Som cristalino
+Bateria de longa duração
+Entrega rápida
+
+Descrição
+
+Texto descritivo do produto.
+
+A imagem do produto deve ser o elemento visual principal.
+
+O layout deve ter muito espaço entre as seções.
+
+==================================================
+6. ABA LINKS
+==================================================
+
+Quando o usuário clicar em "Links", mostrar uma página extremamente clean.
+
+Exemplo:
+
+Chelsea
+
+Links
+
+"Acesse meus principais links."
+
+Depois apresentar os links como cards horizontais.
+
+Instagram
+Siga-me no Instagram
+[ ↗ ]
+
+TikTok
+Veja meus vídeos
+[ ↗ ]
+
+YouTube
+Inscreva-se no canal
+[ ↗ ]
+
+WhatsApp
+Fale comigo
+[ ↗ ]
+
+Meu site
+Acesse meu site
+[ ↗ ]
+
+Cada link deve ter:
+
+- ícone
+- título
+- descrição opcional
+- ícone de abrir/external link
+
+Os cards devem ser grandes o suficiente para serem facilmente clicáveis em dispositivos móveis.
+
+==================================================
+7. RESPONSIVIDADE
+==================================================
+
+Mobile-first é obrigatório.
+
+A interface deve funcionar perfeitamente em:
+
+- 320px
+- 375px
+- 390px
+- 414px
+- tablets
+- desktop
+
+No mobile:
+
+- conteúdo centralizado
+- padding lateral confortável
+- grid de produtos com 2 colunas
+- botões fáceis de tocar
+- tipografia legível
+- nenhuma barra horizontal
+- nenhum elemento ultrapassando a viewport
+
+No desktop:
+
+- aumentar o espaço disponível
+- manter largura máxima do conteúdo
+- não simplesmente esticar os cards
+- utilizar max-width apropriado
+
+Sugestão:
+
+max-width: 1200px
+
+Para o perfil/mobile:
+
+max-width aproximado de 600px quando fizer sentido.
+
+==================================================
+8. TIPOGRAFIA
+==================================================
+
+Utilize uma fonte moderna e limpa.
+
+Preferência:
+
+Inter
+
+ou
+
+SF Pro / sistema equivalente.
+
+Hierarquia:
+
+Nome do usuário:
+32–42px, semibold/bold
+
+Título de seção:
+24–28px, semibold
+
+Nome do produto:
+15–18px, medium/semibold
+
+Preço:
+18–22px, semibold/bold
+
+Descrição:
+14–16px
+
+Evite fontes decorativas.
+
+==================================================
+9. BORDER RADIUS
+==================================================
+
+Use bordas arredondadas consistentes.
+
+Cards:
+20–28px
+
+Imagens:
+16–22px
+
+Botões:
+14–18px
+
+Avatar:
+50%
+
+Segmented control:
+999px
+
+Não exagerar no radius em elementos pequenos.
+
+==================================================
+10. ANIMAÇÕES
+==================================================
+
+Adicionar microinterações muito suaves.
+
+Exemplos:
+
+- hover nos produtos
+- pequena elevação do card
+- scale muito discreto na imagem
+- transição suave entre Links e Shop
+- animação ao adicionar produto ao carrinho
+- feedback visual ao clicar em favoritos
+
+Usar:
+
+transition: 200ms–300ms ease
+
+Evitar animações exageradas.
+
+==================================================
+11. COMPONENTIZAÇÃO
+==================================================
+
+Organize o código em componentes reutilizáveis.
+
+Exemplo:
+
+ProfileHeader
+ProfileTabs
+LinksSection
+LinkCard
+ShopSection
+ProductGrid
+ProductCard
+ProductDetails
+Price
+Rating
+QuantitySelector
+AddToCartButton
+BottomNavigation
+
+Os produtos devem vir de dados/objetos e não ficar hardcoded diretamente no HTML.
+
+Exemplo conceitual:
+
+products = [
+  {
+    name: "Wireless Headphones",
+    price: 49,
+    oldPrice: 69,
+    image: "...",
+    rating: 4.8
+  }
+]
+
+Isso permitirá futuramente que os produtos sejam carregados de uma API/backend.
+
+==================================================
+12. EXPERIÊNCIA DO USUÁRIO
+==================================================
+
+O fluxo deve ser:
+
+Perfil
+   ↓
+Shop
+   ↓
+Produtos
+   ↓
+Produto selecionado
+   ↓
+Adicionar ao carrinho
+
+E:
+
+Perfil
+   ↓
+Links
+   ↓
+Link externo
+
+O usuário deve conseguir voltar facilmente usando o botão de voltar ou navegação.
+
+==================================================
+13. NAVEGAÇÃO MOBILE
+==================================================
+
+Criar uma bottom navigation extremamente discreta.
+
+Exemplo:
+
+⌂       🔍       ＋       ♡       👤
+
+A barra deve:
+
+- ficar fixa no bottom
+- ter fundo branco
+- ter uma linha/borda superior extremamente discreta
+- utilizar ícones minimalistas
+- não ocupar muito espaço
+
+==================================================
+14. PRODUTO / COMÉRCIO
+==================================================
+
+A aplicação deve ser preparada para futuramente suportar:
+
+- carrinho
+- checkout
+- favoritos
+- avaliações
+- estoque
+- diferentes moedas
+- variantes de produto
+- links afiliados
+- produtos patrocinados
+
+Não implementar funcionalidades complexas que ainda não foram solicitadas, mas estruturar o código para permitir expansão.
+
+==================================================
+15. IMPORTANTE SOBRE PREÇOS
+==================================================
+
+O preço deve ser uma informação de destaque, mas sem transformar o card em uma interface pesada.
+
+Exemplo ideal:
+
+Wireless Headphones
+€49
+
+Se houver promoção:
+
+Wireless Headphones
+€49  €69
+       29% OFF
+
+No card, manter compacto.
+
+Na página de produto, o preço pode receber maior destaque.
+
+==================================================
+16. QUALIDADE VISUAL
+==================================================
+
+Antes de considerar o trabalho concluído, revise toda a interface procurando:
+
+- alinhamentos inconsistentes
+- espaçamentos inconsistentes
+- fontes diferentes sem motivo
+- botões desalinhados
+- cards com alturas diferentes
+- imagens deformadas
+- overflow horizontal
+- problemas no mobile
+- excesso de sombras
+- excesso de cores
+- elementos visualmente pesados
+
+A aplicação deve parecer um produto SaaS/e-commerce profissional pronto para apresentação a investidores.
+
+O resultado final deve transmitir:
+
+"premium + social + commerce + creator economy"
+
+e não parecer um simples catálogo de produtos.
+
+==================================================
+17. REGRA MAIS IMPORTANTE
+==================================================
+
+O FUNDO PRINCIPAL É BRANCO.
+
+Não reproduza o fundo bege/castanho da referência.
+
+A referência deve ser utilizada principalmente para:
+
+- estrutura
+- hierarquia
+- espaçamento
+- cards
+- estilo minimalista
+- organização dos produtos
+- experiência Links/Shop
+- aparência premium
+
+Mas adapte tudo para uma interface branca, moderna e clean.
