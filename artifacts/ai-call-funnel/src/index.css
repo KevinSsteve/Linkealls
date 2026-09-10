@@ -989,28 +989,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   line-height: 1.55;
 }
 
-.catalog-profile-chat {
-  min-height: 38px;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  margin-top: 20px;
-  padding: 0 15px;
-  border: 1px solid var(--catalog-line);
-  border-radius: 999px;
-  color: var(--catalog-ink);
-  background: var(--catalog-subtle);
-  font-size: 12px;
-  font-weight: 600;
-  text-decoration: none;
-  transition: background-color 200ms ease, transform 200ms ease;
-}
-
-.catalog-profile-chat:hover {
-  background: #F1F1F1;
-  transform: translateY(-1px);
-}
-
 .catalog-segment {
   width: 100%;
   display: grid;

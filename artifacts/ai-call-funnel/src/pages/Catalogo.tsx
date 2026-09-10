@@ -17,7 +17,6 @@ import {
   Home,
   ImageOff,
   Link2,
-  MessageSquare,
   Minus,
   Phone,
   Plus,
@@ -182,7 +181,7 @@ function ProductCard({
             {offering.price}
           </p>
         ) : (
-          <p className="mt-2 text-[12px]" style={{ color: T.inkFaint }}>Fala com a assistente</p>
+          <p className="mt-2 text-[12px]" style={{ color: T.inkFaint }}>Preço sob consulta</p>
         )}
       </div>
     </button>
@@ -195,14 +194,12 @@ function ProductDetail({
   businessSlug,
   onBack,
   onBuy,
-  chatHref,
 }: {
   offering: Offering;
   catalog: CatalogData;
   businessSlug: string | null;
   onBack: () => void;
   onBuy: (quantity: number) => void;
-  chatHref: string;
 }) {
   const [favorite, setFavorite] = useState(false);
   const [quantity, setQuantity] = useState(1);
@@ -259,22 +256,16 @@ function ProductDetail({
             </div>
           </div>
           <div className="catalog-detail-actions">
-            {canBuy ? (
+            {canBuy && (
               <button type="button" className="catalog-primary-action" onClick={() => onBuy(quantity)}>
                 <Smartphone size={16} /> Comprar
               </button>
-            ) : (
-              <a className="catalog-primary-action" href={chatHref}>
-                <MessageSquare size={16} /> Perguntar à assistente
-              </a>
             )}
             <button type="button" className="catalog-secondary-action" onClick={share}>
               <Share2 size={16} /> {shared ? "Link copiado" : "Partilhar"}
             </button>
           </div>
-          <p className="catalog-detail-note">
-            {canBuy ? "Pagamento seguro através do Multicaixa Express." : "A assistente pode explicar disponibilidade, opções e próximos passos."}
-          </p>
+          {canBuy && <p className="catalog-detail-note">Pagamento seguro através do Multicaixa Express.</p>}
         </div>
       </div>
     </main>
@@ -300,22 +291,14 @@ function SegmentControl({
   );
 }
 
-function LinksSection({ catalog, chatHref }: { catalog: CatalogData; chatHref: string }) {
+function LinksSection({ catalog }: { catalog: CatalogData }) {
   return (
     <section className="catalog-tab-panel wa-page" aria-label="Links">
       <div className="catalog-section-heading">
         <p className="catalog-kicker">Perfil</p>
-        <h2>Fala com {catalog.name}</h2>
-        <p>Descobre mais sobre este negócio ou conversa directamente com a assistente.</p>
+        <h2>Descobre {catalog.name}</h2>
+        <p>Encontra os links públicos e as formas de contacto deste negócio.</p>
       </div>
-      <a className="catalog-link-card" href={chatHref}>
-        <span className="catalog-link-icon"><MessageSquare size={18} /></span>
-        <span className="min-w-0 flex-1 text-left">
-          <strong>Fala com a assistente</strong>
-          <small>Respostas sobre produtos, serviços e disponibilidade</small>
-        </span>
-        <ArrowRight size={17} style={{ color: T.inkSoft }} />
-      </a>
       <a className="catalog-link-card" href={captacaoUrl(catalog.businessSlug)}>
         <span className="catalog-link-icon"><Phone size={18} /></span>
         <span className="min-w-0 flex-1">
@@ -485,7 +468,6 @@ export function Catalogo() {
               setBuyOffering(selectedOffering);
               setSelectedQuantity(quantity);
             }}
-            chatHref={chatUrl(resolvedBusinessSlug, selectedOffering.name)}
           />
         ) : (
           <>
@@ -493,13 +475,10 @@ export function Catalogo() {
               <ProfileAvatar catalog={catalog} />
               <h1>{catalog.name}</h1>
               {catalog.sector && <p className="catalog-sector">{catalog.sector}</p>}
-              <a className="catalog-profile-chat" href={chatUrl(resolvedBusinessSlug)}>
-                <MessageSquare size={15} /> Fala com a assistente
-              </a>
             </section>
             <SegmentControl tab={tab} onChange={setTab} />
             {tab === "links" ? (
-              <LinksSection catalog={catalog} chatHref={chatUrl(resolvedBusinessSlug)} />
+              <LinksSection catalog={catalog} />
             ) : catalog.offerings.length > 0 ? (
               <ShopSection catalog={catalog} offerings={offerings} onOpen={openOffering} />
             ) : (
@@ -507,8 +486,7 @@ export function Catalogo() {
                 <div className="catalog-empty-shop">
                   <ShoppingBag size={20} />
                   <h2>Shop em actualização</h2>
-                  <p>Este negócio ainda não publicou produtos. Fala com a assistente para saber mais.</p>
-                  <a className="catalog-primary-action" href={chatUrl(resolvedBusinessSlug)}><MessageSquare size={15} /> Falar com IA</a>
+                  <p>Este negócio ainda não publicou produtos.</p>
                 </div>
               </section>
             )}
@@ -537,13 +515,11 @@ export function Catalogo() {
         )}
       </div>
 
-      {!selectedOffering && (
-        <nav className="catalog-bottom-nav" aria-label="Navegação do perfil">
-          <button type="button" className={tab === "links" ? "is-active" : ""} onClick={() => { setTab("links"); window.scrollTo({ top: 0, behavior: "smooth" }); }}><Home size={18} /><span>Links</span></button>
-          <button type="button" className={tab === "shop" ? "is-active" : ""} onClick={() => { setTab("shop"); window.scrollTo({ top: 0, behavior: "smooth" }); }}><ShoppingBag size={18} /><span>Shop</span></button>
-          <a href={chatUrl(resolvedBusinessSlug)}><UserRound size={18} /><span>Assistente</span></a>
-        </nav>
-      )}
+      <nav className="catalog-bottom-nav" aria-label="Navegação do perfil">
+        <button type="button" className={tab === "links" ? "is-active" : ""} onClick={() => { setSelectedOffering(null); setTab("links"); window.scrollTo({ top: 0, behavior: "smooth" }); }}><Home size={18} /><span>Links</span></button>
+        <button type="button" className={tab === "shop" ? "is-active" : ""} onClick={() => { setSelectedOffering(null); setTab("shop"); window.scrollTo({ top: 0, behavior: "smooth" }); }}><ShoppingBag size={18} /><span>Shop</span></button>
+        <a href={chatUrl(resolvedBusinessSlug)}><UserRound size={18} /><span>Assistente</span></a>
+      </nav>
 
       {buyOffering && resolvedBusinessSlug && (
         <BuyModal
