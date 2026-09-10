@@ -42,3 +42,21 @@ test("repeated fulfillment refreshes do not publish duplicate updates", async ()
   assert.match(payments, /A tua encomenda entrou em preparação/);
   assert.match(payments, /leadMessages|chatMessages/);
 });
+
+test("payment webhook failures notify the right owner while preserving gateway retries", async () => {
+  const [payments, webhookRoute] = await Promise.all([
+    source(path.join(apiServerDir, "src/services/payments.ts")),
+    source(path.join(apiServerDir, "src/routes/payments.ts")),
+  ]);
+
+  assert.match(payments, /export async function notifyPaymentWebhookFailure/);
+  assert.match(payments, /payment-webhook-failure-\$\{merchantTransactionId\}/);
+  assert.match(payments, /ownerUrl\(businessId, destination\)/);
+  assert.match(webhookRoute, /notifyPaymentWebhookFailure\(/);
+  assert.match(webhookRoute, /res\.status\(500\)\.json\(\{ status: "1" \}\)/);
+});
+
+test("subscription checkout exposes the real simulation state to the owner UI", async () => {
+  const payments = await source(path.join(apiServerDir, "src/services/payments.ts"));
+  assert.match(payments, /return \{ subscription, simulated: IS_SIMULATION \};/);
+});

@@ -6,7 +6,7 @@
 import { Router } from "express";
 import { z } from "zod/v4";
 import { verifyNotificationSignature, IS_SIMULATION } from "../services/ekwanza.js";
-import { settleGpoPayment } from "../services/payments.js";
+import { notifyPaymentWebhookFailure, settleGpoPayment } from "../services/payments.js";
 import { logger } from "../lib/logger.js";
 
 const router = Router();
@@ -79,6 +79,15 @@ router.post("/payments/webhook/gpo", async (req, res) => {
     res.status(200).json({ status: known ? "0" : "1" });
   } catch (err) {
     logger.error({ err, merchantTransactionId }, "GPO webhook settlement failed");
+    void notifyPaymentWebhookFailure(
+      merchantTransactionId,
+      err instanceof Error ? err.message : "Erro desconhecido durante a liquidação",
+    ).catch((notifyErr) => {
+      logger.error(
+        { err: notifyErr, merchantTransactionId },
+        "Could not notify owner about payment webhook failure",
+      );
+    });
     // 5xx → gateway retries later
     res.status(500).json({ status: "1" });
   }

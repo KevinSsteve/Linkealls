@@ -18,6 +18,7 @@ import {
   walletLedgerTable,
   payoutsTable,
   businessProfilesTable,
+  campaignsTable,
   type Order,
   type Subscription,
   type Payout,
@@ -601,7 +602,7 @@ export async function createPlanCharge(businessId: number, phone: string): Promi
 
   setImmediate(() => { void fireCharge(); });
 
-  return { subscription, simulated: false };
+  return { subscription, simulated: IS_SIMULATION };
 }
 
 export async function getSubscriptionPublicStatus(id: string, businessId: number): Promise<Subscription | null> {
@@ -794,6 +795,67 @@ export async function settleGpoPayment(
 
   logger.warn({ merchantTransactionId }, "settleGpoPayment: unknown merchantTransactionId");
   return false;
+}
+
+/**
+ * Notify the business owner when a signed gateway callback could not be
+ * settled. The callback endpoint must still return 5xx so the gateway can
+ * retry; this push gives the owner immediate visibility instead of relying on
+ * server logs.
+ */
+export async function notifyPaymentWebhookFailure(
+  merchantTransactionId: string,
+  reason: string,
+): Promise<void> {
+  const [orderRows, subscriptionRows, campaignRows] = await Promise.all([
+    db
+      .select({ businessId: ordersTable.businessId })
+      .from(ordersTable)
+      .where(eq(ordersTable.merchantTransactionId, merchantTransactionId))
+      .limit(1),
+    db
+      .select({ businessId: subscriptionsTable.businessId })
+      .from(subscriptionsTable)
+      .where(eq(subscriptionsTable.merchantTransactionId, merchantTransactionId))
+      .limit(1),
+    db
+      .select({ businessId: campaignsTable.businessId })
+      .from(campaignsTable)
+      .where(eq(campaignsTable.paymentMerchantTransactionId, merchantTransactionId))
+      .limit(1),
+  ]);
+
+  const businessId =
+    orderRows[0]?.businessId ??
+    subscriptionRows[0]?.businessId ??
+    campaignRows[0]?.businessId;
+
+  if (!businessId) {
+    logger.warn(
+      { merchantTransactionId, reason },
+      "Payment webhook failed for an unknown transaction",
+    );
+    return;
+  }
+
+  const destination =
+    orderRows.length > 0
+      ? "/dono/comercio"
+      : subscriptionRows.length > 0
+        ? "/dono/plano"
+        : "/dono/campanhas";
+
+  await sendPushToOwner({
+    title: "Falha na confirmação de pagamento",
+    body: `A confirmação ${merchantTransactionId} não foi processada. O gateway vai tentar novamente. Verifica o estado no painel.`,
+    tag: `payment-webhook-failure-${merchantTransactionId}`,
+    url: await ownerUrl(businessId, destination),
+  }, businessId);
+
+  logger.error(
+    { businessId, merchantTransactionId, reason },
+    "Payment webhook failure notified to owner",
+  );
 }
 
 async function ownerUrl(businessId: number, sub: string): Promise<string> {
