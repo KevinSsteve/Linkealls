@@ -325,10 +325,31 @@ function LinksSection({ catalog, onChat }: { catalog: CatalogData; onChat: () =>
         </span>
         <ExternalLink size={16} style={{ color: T.inkSoft }} />
       </a>
-      <div className="catalog-links-empty">
-        <Link2 size={18} />
-        <p>Este perfil ainda não configurou outros links públicos.</p>
-      </div>
+      {catalog.publicLinks.length > 0 ? (
+        <div className="catalog-public-links">
+          {catalog.publicLinks.map((link) => (
+            <a
+              key={`${link.url}-${link.title}`}
+              className="catalog-link-card"
+              href={link.url}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <span className="catalog-link-icon"><Link2 size={18} /></span>
+              <span className="min-w-0 flex-1">
+                <strong>{link.title}</strong>
+                {link.description && <small>{link.description}</small>}
+              </span>
+              <ExternalLink size={16} style={{ color: T.inkSoft }} />
+            </a>
+          ))}
+        </div>
+      ) : (
+        <div className="catalog-links-empty">
+          <Link2 size={18} />
+          <p>Este perfil ainda não configurou outros links públicos.</p>
+        </div>
+      )}
     </section>
   );
 }

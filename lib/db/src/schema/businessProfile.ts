@@ -21,6 +21,12 @@ export interface FaqItem {
   answer: string;
 }
 
+export interface PublicLink {
+  title: string;
+  description: string;
+  url: string;
+}
+
 export type AnalysisStatus = "idle" | "running" | "done" | "error";
 
 /**
@@ -40,6 +46,8 @@ export const businessProfilesTable = pgTable("business_profiles", {
   targetAudience: text("target_audience").notNull().default(""),
   toneOfVoice: text("tone_of_voice").notNull().default(""),
   differentials: jsonb("differentials").$type<string[]>().notNull().default([]),
+  /** Curated external links shown in the public social-commerce profile. */
+  publicLinks: jsonb("public_links").$type<PublicLink[]>().notNull().default([]),
   offerings: jsonb("offerings").$type<Offering[]>().notNull().default([]),
   faq: jsonb("faq").$type<FaqItem[]>().notNull().default([]),
   /** What the call agent should discover from each lead. */
@@ -84,6 +92,24 @@ export const faqItemSchema = z.object({
   answer: z.string().max(1500),
 });
 
+export const publicLinkSchema = z.object({
+  title: z.string().trim().min(1).max(80),
+  description: z.string().trim().max(160),
+  url: z
+    .string()
+    .trim()
+    .max(1000)
+    .url()
+    .refine((value) => {
+      try {
+        const protocol = new URL(value).protocol;
+        return protocol === "http:" || protocol === "https:";
+      } catch {
+        return false;
+      }
+    }, "O link deve começar por http:// ou https://"),
+});
+
 /** Fields the owner may edit from the profile UI. */
 export const updateBusinessProfileSchema = z.object({
   name: z.string().max(200).optional(),
@@ -94,6 +120,7 @@ export const updateBusinessProfileSchema = z.object({
   targetAudience: z.string().max(2000).optional(),
   toneOfVoice: z.string().max(1000).optional(),
   differentials: z.array(z.string().max(500)).max(30).optional(),
+  publicLinks: z.array(publicLinkSchema).max(20).optional(),
   offerings: z.array(offeringSchema).max(50).optional(),
   faq: z.array(faqItemSchema).max(50).optional(),
   qualificationGoals: z.array(z.string().max(500)).max(20).optional(),

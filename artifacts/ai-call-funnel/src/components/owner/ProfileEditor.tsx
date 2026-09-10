@@ -27,7 +27,7 @@ import { EditorSection } from "../../components/app/EditorSection";
 import { useNotifications } from "../../hooks/useNotifications";
 import { useBusinessSlug } from "../../hooks/useBusinessSlug";
 import { businessApi, checkSlugAvailability, getStorageObjectUrl, uploadPrivateImage } from "../../lib/api";
-import type { BusinessProfile, FaqItem, Offering, ProfileDraft } from "../../lib/api";
+import type { BusinessProfile, FaqItem, Offering, ProfileDraft, PublicLink } from "../../lib/api";
 
 interface Props {
   profile: BusinessProfile;
@@ -699,6 +699,92 @@ function CompactListSection({ id, title, description, items, onChange, onRemove,
   );
 }
 
+function PublicLinksSection({ links, setLinks }: { links: PublicLink[]; setLinks: Dispatch<SetStateAction<PublicLink[]>> }) {
+  const [openIndex, setOpenIndex] = useState<number | null>(links.length ? 0 : null);
+  const [sectionOpen, setSectionOpen] = useState(false);
+
+  const add = () => {
+    setLinks((items) => [...items, { title: "", description: "", url: "" }]);
+    setOpenIndex(links.length);
+    setSectionOpen(true);
+  };
+
+  const update = (index: number, patch: Partial<PublicLink>) => {
+    setLinks((items) => items.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item));
+  };
+
+  const remove = (index: number) => {
+    if (!window.confirm(`Eliminar o link público ${index + 1}?`)) return;
+    setLinks((items) => items.filter((_, itemIndex) => itemIndex !== index));
+    setOpenIndex(null);
+  };
+
+  const move = (index: number, direction: -1 | 1) => {
+    setLinks((items) => {
+      const target = index + direction;
+      if (target < 0 || target >= items.length) return items;
+      const next = [...items];
+      const [moved] = next.splice(index, 1);
+      if (moved) next.splice(target, 0, moved);
+      return next;
+    });
+    setOpenIndex(index + direction);
+  };
+
+  return (
+    <EditorSection
+      id="public-links"
+      title="Links públicos"
+      description="Adiciona os destinos que queres mostrar na aba Links do teu perfil."
+      open={sectionOpen}
+      onToggle={() => setSectionOpen((value) => !value)}
+      action={<AddButton onClick={add} label="Adicionar" testId="button-add-public-links" />}
+    >
+      {links.length === 0 ? (
+        <div className="py-4">
+          <p className="text-[13px] text-[var(--ink-soft)]">Ainda não adicionaste nenhum link público.</p>
+          <AddButton onClick={add} label="Adicionar primeiro link" testId="button-add-first-public-link" />
+        </div>
+      ) : (
+        <div className="divide-y divide-[var(--border-soft)]">
+          {links.map((link, index) => (
+            <div key={`${index}-${link.url}`} className="min-w-0 py-1" data-testid={`row-public-link-${index}`}>
+              <div className="flex min-w-0 items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setOpenIndex(openIndex === index ? null : index)}
+                  className="flex min-h-[58px] min-w-0 flex-1 items-center gap-3 text-left"
+                  data-testid={`button-edit-public-link-${index}`}
+                >
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--green-light)] text-[12px] font-semibold text-[var(--green-dark)]">{index + 1}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block break-words text-[14px] font-medium leading-5 text-[var(--ink)]">{link.title || "Link sem título"}</span>
+                    <span className="block truncate text-[12px] leading-5 text-[var(--ink-soft)]">{link.url || "Adiciona um endereço web"}</span>
+                  </span>
+                  <ChevronDown size={16} className={`shrink-0 text-[var(--ink-faint)] transition-transform ${openIndex === index ? "" : "-rotate-90"}`} />
+                </button>
+                <div className="flex shrink-0 items-center gap-0.5">
+                  <button type="button" onClick={() => move(index, -1)} disabled={index === 0} className="min-h-[40px] min-w-[32px] rounded-[var(--radius-md)] text-[var(--ink-soft)] hover:bg-[var(--subtle)] disabled:opacity-30" aria-label={`Mover link ${index + 1} para cima`} data-testid={`button-move-public-link-up-${index}`}>↑</button>
+                  <button type="button" onClick={() => move(index, 1)} disabled={index === links.length - 1} className="min-h-[40px] min-w-[32px] rounded-[var(--radius-md)] text-[var(--ink-soft)] hover:bg-[var(--subtle)] disabled:opacity-30" aria-label={`Mover link ${index + 1} para baixo`} data-testid={`button-move-public-link-down-${index}`}>↓</button>
+                </div>
+              </div>
+              {openIndex === index && (
+                <div className="space-y-3 pb-4 pl-9">
+                  <Field label="Título" value={link.title} onChange={(title) => update(index, { title })} placeholder="Ex.: Instagram" testId={`input-public-link-title-${index}`} />
+                  <TextAreaField label="Descrição (opcional)" value={link.description} onChange={(description) => update(index, { description })} placeholder="Ex.: Vê as novidades e bastidores." testId={`input-public-link-description-${index}`} minHeight="64px" />
+                  <Field label="URL" value={link.url} onChange={(url) => update(index, { url })} placeholder="https://instagram.com/o-teu-negocio" type="url" inputMode="url" testId={`input-public-link-url-${index}`} />
+                  <p className="text-[12px] leading-5 text-[var(--ink-soft)]">Usa um endereço completo que comece por <strong>https://</strong> ou <strong>http://</strong>.</p>
+                  <RemoveButton onClick={() => remove(index)} label={`Eliminar link público ${index + 1}`} testId={`button-remove-public-link-${index}`} />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </EditorSection>
+  );
+}
+
 function FaqSection({ faq, setFaq }: { faq: FaqItem[]; setFaq: Dispatch<SetStateAction<FaqItem[]>> }) {
   const [openIndex, setOpenIndex] = useState<number | null>(faq.length ? 0 : null);
   const [sectionOpen, setSectionOpen] = useState(false);
@@ -758,6 +844,7 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
   const [targetAudience, setTargetAudience] = useState<string>(init("targetAudience", ""));
   const [toneOfVoice, setToneOfVoice] = useState<string>(init("toneOfVoice", ""));
   const [differentials, setDifferentials] = useState<string[]>(init("differentials", []));
+  const [publicLinks, setPublicLinks] = useState<PublicLink[]>(init("publicLinks", []));
   const [offerings, setOfferings] = useState<Offering[]>(init("offerings", []));
   const [faq, setFaq] = useState<FaqItem[]>(init("faq", []));
   const [qualificationGoals, setQualificationGoals] = useState<string[]>(init("qualificationGoals", []));
@@ -775,9 +862,10 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
     onFocusModeChange?.(focusedProduct !== null);
   }, [focusedProduct, onFocusModeChange]);
 
-  const currentValue = useMemo(() => JSON.stringify({ name, avatarUrl, sector, description, targetAudience, toneOfVoice, differentials, offerings, faq, qualificationGoals, siteUrl, address, hours, phone, email }), [address, avatarUrl, description, differentials, email, faq, hours, name, offerings, phone, qualificationGoals, sector, siteUrl, targetAudience, toneOfVoice]);
-  const initialValue = useMemo(() => JSON.stringify({ name: init("name", ""), avatarUrl: profile.avatarUrl ?? null, sector: init("sector", ""), description: init("description", ""), targetAudience: init("targetAudience", ""), toneOfVoice: init("toneOfVoice", ""), differentials: init("differentials", []), offerings: init("offerings", []), faq: init("faq", []), qualificationGoals: init("qualificationGoals", []), siteUrl: profile.websiteUrl ?? "", address: profile.address ?? "", hours: profile.hours ?? "", phone: profile.phone ?? "", email: profile.email ?? "" }), [draft, profile]);
+  const currentValue = useMemo(() => JSON.stringify({ name, avatarUrl, sector, description, targetAudience, toneOfVoice, differentials, publicLinks, offerings, faq, qualificationGoals, siteUrl, address, hours, phone, email }), [address, avatarUrl, description, differentials, email, faq, hours, name, offerings, phone, publicLinks, qualificationGoals, sector, siteUrl, targetAudience, toneOfVoice]);
+  const initialValue = useMemo(() => JSON.stringify({ name: init("name", ""), avatarUrl: profile.avatarUrl ?? null, sector: init("sector", ""), description: init("description", ""), targetAudience: init("targetAudience", ""), toneOfVoice: init("toneOfVoice", ""), differentials: init("differentials", []), publicLinks: init("publicLinks", []), offerings: init("offerings", []), faq: init("faq", []), qualificationGoals: init("qualificationGoals", []), siteUrl: profile.websiteUrl ?? "", address: profile.address ?? "", hours: profile.hours ?? "", phone: profile.phone ?? "", email: profile.email ?? "" }), [draft, profile]);
   const dirty = currentValue !== initialValue;
+  const hasInvalidPublicLink = publicLinks.some((link) => !link.title.trim() || !/^https?:\/\/\S+/i.test(link.url.trim()));
 
   const beginProductFocus = () => {
     const scrollContainer = document.querySelector("main");
@@ -806,6 +894,9 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
     targetAudience: targetAudience.trim(),
     toneOfVoice: toneOfVoice.trim(),
     differentials: differentials.map((item) => item.trim()).filter(Boolean),
+    publicLinks: publicLinks
+      .filter((item) => item.title.trim() && item.url.trim())
+      .map((item) => ({ title: item.title.trim(), description: item.description.trim(), url: item.url.trim() })),
     offerings: offerings.filter((item) => item.name.trim()),
     faq: faq.filter((item) => item.question.trim()),
     qualificationGoals: qualificationGoals.map((item) => item.trim()).filter(Boolean),
@@ -888,6 +979,7 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
         </div>
       </EditorSection>
 
+      <PublicLinksSection links={publicLinks} setLinks={setPublicLinks} />
       <OfferingsSection offerings={offerings} setOfferings={setOfferings} onAdd={openNewProduct} onEdit={openProduct} />
       <CompactListSection id="differentials" title="Diferenciais" description="O que torna este negócio uma escolha melhor." items={differentials} onAdd={() => setDifferentials((items) => [...items, ""])} onChange={(index, value) => setDifferentials((items) => items.map((item, itemIndex) => itemIndex === index ? value : item))} onRemove={(index) => setDifferentials((items) => items.filter((_, itemIndex) => itemIndex !== index))} placeholder="Ex.: Entrega em 24h em Luanda" />
       <FaqSection faq={faq} setFaq={setFaq} />
@@ -913,7 +1005,7 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
         <div className="fixed bottom-0 left-0 right-0 z-20 border-t border-[var(--border)] bg-[var(--surface)] px-5 py-3 pb-[calc(12px+env(safe-area-inset-bottom,0px))] shadow-[0_-4px_14px_rgba(17,24,39,0.06)]" data-testid="editor-save-bar">
           <div className="mx-auto flex max-w-2xl items-center gap-3">
             <p className="min-w-0 flex-1 text-[13px] font-semibold text-[var(--ink)]" data-testid="status-editor-changes">Alterações não guardadas</p>
-            <button type="button" onClick={save} disabled={saving || !name.trim()} className="inline-flex min-h-[44px] shrink-0 items-center justify-center gap-2 rounded-[var(--radius-md)] bg-[var(--green)] px-4 text-[14px] font-semibold text-white transition-colors hover:bg-[var(--green-dark)] disabled:opacity-40" data-testid="button-save-profile">
+            <button type="button" onClick={save} disabled={saving || !name.trim() || hasInvalidPublicLink} className="inline-flex min-h-[44px] shrink-0 items-center justify-center gap-2 rounded-[var(--radius-md)] bg-[var(--green)] px-4 text-[14px] font-semibold text-white transition-colors hover:bg-[var(--green-dark)] disabled:opacity-40" data-testid="button-save-profile">
               {saving ? <Loader2 size={17} className="animate-spin" /> : <Save size={17} />} {saving ? "A guardar…" : "Guardar"}
             </button>
           </div>

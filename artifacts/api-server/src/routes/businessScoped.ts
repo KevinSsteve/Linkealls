@@ -475,6 +475,7 @@ export function createBusinessScopedRouter(): Router {
         sector: profile.sector,
         description: profile.description,
         differentials: profile.differentials,
+        publicLinks: profile.publicLinks,
         offerings: profile.offerings.map(withOfferingAnalyticsKey),
         faq: profile.faq,
         catalogEnabled: profile.catalogEnabled,

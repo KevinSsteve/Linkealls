@@ -58,6 +58,7 @@ function buildCatalogPayload(profile: Awaited<ReturnType<typeof getOrCreateProfi
     sector: profile.sector,
     description: profile.description,
     differentials: profile.differentials,
+    publicLinks: profile.publicLinks,
     offerings: profile.offerings.map(withOfferingAnalyticsKey),
     faq: profile.faq,
     catalogEnabled: profile.catalogEnabled,

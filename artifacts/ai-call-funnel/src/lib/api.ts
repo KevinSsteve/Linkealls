@@ -212,6 +212,12 @@ export interface FaqItem {
 
 export type AnalysisStatus = "idle" | "running" | "done" | "error";
 
+export interface PublicLink {
+  title: string;
+  description: string;
+  url: string;
+}
+
 export interface BusinessProfile {
   id: number;
   name: string;
@@ -222,6 +228,7 @@ export interface BusinessProfile {
   targetAudience: string;
   toneOfVoice: string;
   differentials: string[];
+  publicLinks: PublicLink[];
   offerings: Offering[];
   faq: FaqItem[];
   qualificationGoals: string[];
@@ -245,6 +252,7 @@ export interface ProfileDraft {
   targetAudience?: string;
   toneOfVoice?: string;
   differentials?: string[];
+  publicLinks?: PublicLink[];
   offerings?: Offering[];
   faq?: FaqItem[];
   qualificationGoals?: string[];
@@ -564,6 +572,7 @@ export interface CatalogData {
   sector: string;
   description: string;
   differentials: string[];
+  publicLinks: PublicLink[];
   offerings: Offering[];
   faq: FaqItem[];
   catalogEnabled: boolean;
