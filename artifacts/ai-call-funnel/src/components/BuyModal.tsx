@@ -237,12 +237,15 @@ export function BuyModal({
       <div
         className="w-full flex flex-col overflow-hidden"
         style={{
-          maxWidth: 400,
-          maxHeight: "calc(100svh - 40px)",
+          maxWidth: 420,
+          maxHeight: "calc(100svh - 28px)",
           background: M.surface,
           borderRadius: M.rModal,
           boxShadow: "0 24px 64px rgba(20,23,26,0.20), 0 4px 16px rgba(20,23,26,0.08)",
         }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="checkout-dialog-title"
         onClick={(e) => e.stopPropagation()}
       >
         {/* ── Header ─────────────────────────────────────────────────────────── */}
@@ -258,6 +261,7 @@ export function BuyModal({
             <span
               className="font-semibold truncate"
               style={{ color: M.ink, fontSize: 14.5 }}
+              id="checkout-dialog-title"
             >
               Pagar com Multicaixa Express
             </span>
@@ -280,89 +284,154 @@ export function BuyModal({
         {/* ── Conteúdo com scroll interno ────────────────────────────────────── */}
         <div
           className="overflow-y-auto"
-          style={{ padding: "20px 20px 24px" }}
+          style={{ padding: "18px 20px 24px" }}
         >
           {/* Resumo do produto */}
           <div
-            className="flex items-start justify-between gap-3"
+            className="rounded-2xl"
             style={{
-              marginBottom: 20,
-              paddingBottom: 18,
-              borderBottom: `1px solid ${M.lineSoft}`,
+              marginBottom: 16,
+              padding: "14px",
+              background: M.subtle,
+              border: `1px solid ${M.line}`,
             }}
           >
-            <div className="min-w-0 flex-1">
-              <p
-                className="font-semibold leading-snug"
-                style={{ color: M.ink, fontSize: 14 }}
-              >
-                {offering.name}
-              </p>
-              <p
-                className="mt-1 tabular-nums"
-                style={{ color: M.inkSoft, fontSize: 12.5 }}
-              >
-                {formatAoa(unitPrice)} / unidade
-              </p>
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <p
+                  className="font-bold uppercase tracking-[0.08em]"
+                  style={{ color: M.inkFaint, fontSize: 9.5 }}
+                >
+                  Resumo do pedido
+                </p>
+                <p
+                  className="mt-2 font-semibold leading-snug"
+                  style={{ color: M.ink, fontSize: 14 }}
+                >
+                  {offering.name}
+                </p>
+                <p
+                  className="mt-1 tabular-nums"
+                  style={{ color: M.inkSoft, fontSize: 12.5 }}
+                >
+                  {formatAoa(unitPrice)} <span style={{ color: M.inkFaint }}>/ unidade</span>
+                </p>
+              </div>
+              <div className="shrink-0 text-right">
+                <p
+                  className="font-bold uppercase tracking-[0.08em]"
+                  style={{ color: M.inkFaint, fontSize: 9.5 }}
+                >
+                  Total
+                </p>
+                <p
+                  className="mt-2 font-extrabold tabular-nums"
+                  style={{ color: M.mcGreen, fontSize: 18 }}
+                >
+                  {formatAoa(total)}
+                </p>
+              </div>
             </div>
-            <p
-              className="font-extrabold tabular-nums shrink-0"
-              style={{ color: M.mcGreen, fontSize: 17 }}
-            >
-              {formatAoa(total)}
-            </p>
-          </div>
-
-          {/* ── STEP: form ─────────────────────────────────────────────────── */}
-          {step === "form" && (
-            <>
-              {/* Quantidade */}
+            {step === "form" && (
               <div
-                className="flex items-center justify-between"
-                style={{ marginBottom: 18 }}
+                className="flex items-center justify-between gap-3"
+                style={{
+                  marginTop: 13,
+                  paddingTop: 12,
+                  borderTop: `1px solid ${M.line}`,
+                }}
               >
                 <span
                   className="font-medium"
-                  style={{ color: M.ink, fontSize: 13.5 }}
+                  style={{ color: M.ink, fontSize: 13 }}
                 >
                   Quantidade
                 </span>
                 <div className="flex items-center gap-3">
                   <button
+                    type="button"
                     onClick={() => setQty((q) => Math.max(1, q - 1))}
-                    className="flex items-center justify-center transition-colors hover:bg-black/5"
+                    className="flex items-center justify-center transition-colors hover:bg-white"
                     style={{
-                      width: 36,
-                      height: 36,
+                      width: 34,
+                      height: 34,
                       borderRadius: M.rBtn,
-                      background: M.subtle,
+                      background: M.surface,
                       border: `1px solid ${M.line}`,
                       color: M.ink,
                     }}
+                    aria-label="Diminuir quantidade"
                   >
                     <Minus size={14} />
                   </button>
                   <span
                     className="font-bold tabular-nums text-center"
-                    style={{ color: M.ink, fontSize: 16, minWidth: 24 }}
+                    style={{ color: M.ink, fontSize: 15, minWidth: 22 }}
                   >
                     {qty}
                   </span>
                   <button
+                    type="button"
                     onClick={() => setQty((q) => Math.min(99, q + 1))}
-                    className="flex items-center justify-center transition-colors hover:bg-black/5"
+                    className="flex items-center justify-center transition-colors hover:bg-white"
                     style={{
-                      width: 36,
-                      height: 36,
+                      width: 34,
+                      height: 34,
                       borderRadius: M.rBtn,
-                      background: M.subtle,
+                      background: M.surface,
                       border: `1px solid ${M.line}`,
                       color: M.ink,
                     }}
+                    aria-label="Aumentar quantidade"
                   >
                     <Plus size={14} />
                   </button>
                 </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── STEP: form ─────────────────────────────────────────────────── */}
+          {step === "form" && (
+            <>
+              {/* Método de pagamento */}
+              <div
+                className="flex items-center gap-3 rounded-2xl"
+                style={{
+                  marginBottom: 18,
+                  padding: "12px 14px",
+                  background: M.mcLight,
+                  border: `1px solid ${M.mcBorder}`,
+                }}
+              >
+                <div
+                  className="flex items-center justify-center rounded-xl shrink-0"
+                  style={{ width: 38, height: 38, color: M.mcGreen, background: M.surface }}
+                >
+                  <Smartphone size={18} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold" style={{ color: "#166534", fontSize: 13 }}>
+                    Multicaixa Express
+                  </p>
+                  <p className="mt-0.5" style={{ color: "#3F7A55", fontSize: 11.5 }}>
+                    Aprovação segura por notificação no telemóvel
+                  </p>
+                </div>
+                <ShieldCheck size={17} style={{ color: M.mcGreen, flexShrink: 0 }} />
+              </div>
+
+              {/* Dados do comprador */}
+              <div style={{ marginBottom: 12 }}>
+                <p
+                  className="font-bold uppercase tracking-[0.08em]"
+                  style={{ color: M.inkFaint, fontSize: 9.5 }}
+                >
+                  Dados para pagamento
+                </p>
+                <p className="mt-1" style={{ color: M.inkSoft, fontSize: 12 }}>
+                  Usa os dados associados à tua conta Multicaixa Express.
+                </p>
               </div>
 
               {/* Nome (opcional) */}
@@ -386,8 +455,8 @@ export function BuyModal({
                   className="flex items-center gap-1.5 mt-2"
                   style={{ color: M.inkFaint, fontSize: 11.5 }}
                 >
-                  <ShieldCheck size={12} style={{ flexShrink: 0 }} />
-                  Vais receber uma notificação na app Multicaixa Express para aprovar.
+                  <ShieldCheck size={12} style={{ color: M.mcGreen, flexShrink: 0 }} />
+                  Vais receber uma notificação para aprovar o pagamento.
                 </p>
               </Field>
 

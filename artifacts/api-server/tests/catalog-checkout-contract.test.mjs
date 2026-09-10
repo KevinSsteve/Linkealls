@@ -30,7 +30,7 @@ test("catalog purchase button opens a visible responsive checkout modal", async 
   assert.match(styles, /\.catalog-page > \.catalog-buy-modal-overlay \{\s*position: fixed !important;\s*z-index: 50 !important;/);
 
   // Mobile checkout stays usable through a bounded card and an internal scroll.
-  assert.match(modal, /maxHeight: "calc\(100svh - 40px\)"/);
+  assert.match(modal, /maxHeight: "calc\(100svh - 28px\)"/);
   assert.match(modal, /className="overflow-y-auto"/);
 });
 
