@@ -112,15 +112,17 @@ export function BuyModal({
   onClose,
   leadId,
   onOrderPaid,
+  initialQuantity = 1,
 }: {
   businessSlug: string;
   offering: Offering;
   onClose: () => void;
   leadId?: string | null;
   onOrderPaid?: (orderId: string, leadId: string) => void;
+  initialQuantity?: number;
 }) {
   const unitPrice = parsePriceAoa(offering.price) ?? 0;
-  const [qty, setQty] = useState(1);
+  const [qty, setQty] = useState(() => Math.min(99, Math.max(1, Math.round(initialQuantity))));
   const [phone, setPhone] = useState("");
   const [buyerName, setBuyerName] = useState("");
   const [step, setStep] = useState<Step>("form");
