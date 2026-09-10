@@ -248,6 +248,20 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .app-header-dark .app-icon-button { color: rgba(255,255,255,0.86); }
 .app-header-dark .app-icon-button:hover { background: rgba(255,255,255,0.1); color: #FFFFFF; }
 
+.chat-header .app-header-inner {
+  min-height: 64px;
+}
+
+.chat-header .app-header-title {
+  font-size: 15px;
+  letter-spacing: 0;
+}
+
+.chat-header .app-header-subtitle {
+  margin-top: 1px;
+  font-size: 11px;
+}
+
 .app-page-content {
   padding: var(--space-4) var(--page-padding-mobile);
 }

@@ -50,7 +50,8 @@ export function ChatLayout({ children, onBack, onCall, businessName, businessSlu
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <AppHeader
-        variant="dark"
+        variant="light"
+        className="chat-header"
         title={businessName ?? "Assistente IA"}
         subtitle={businessName ? "toca para ver o catálogo" : "online"}
         onBack={onBack ?? (() => window.history.back())}
