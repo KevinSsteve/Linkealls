@@ -140,11 +140,24 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 2px; }
 
-/* Keep controls tappable while allowing visitors to copy visible labels. */
+/* The app behaves like a mobile interface: visible UI labels are not selectable.
+ * Form controls remain selectable so users can edit and correct their input. */
+body,
+body * {
+  -webkit-user-select: none !important;
+  user-select: none !important;
+}
+
+input,
+textarea,
+select,
+[contenteditable="true"] {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+}
+
 button {
   -webkit-tap-highlight-color: transparent;
-  -webkit-user-select: text;
-  user-select: text;
 }
 
 button, a, input, textarea, select {
