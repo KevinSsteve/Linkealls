@@ -229,7 +229,7 @@ export function BuyModal({
   return (
     // Overlay — foco no modal, página ao fundo
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
+      className="catalog-buy-modal-overlay fixed inset-0 z-50 flex items-center justify-center"
       style={{ background: "rgba(20,23,26,0.48)", padding: "20px 16px" }}
       onClick={onClose}
     >

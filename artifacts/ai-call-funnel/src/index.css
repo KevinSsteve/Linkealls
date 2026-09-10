@@ -140,8 +140,12 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #E5E7EB; border-radius: 2px; }
 
-/* ─── Prevent text selection on buttons ─── */
-button { -webkit-tap-highlight-color: transparent; user-select: none; }
+/* Keep controls tappable while allowing visitors to copy visible labels. */
+button {
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: text;
+  user-select: text;
+}
 
 button, a, input, textarea, select {
   -webkit-tap-highlight-color: transparent;
@@ -693,6 +697,13 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 }
 
 .catalog-page > * { position: relative; z-index: 1; }
+
+/* The checkout overlay is a direct child of the catalog page. Keep it fixed
+ * instead of letting the page layering rule turn it into normal content. */
+.catalog-page > .catalog-buy-modal-overlay {
+  position: fixed !important;
+  z-index: 50 !important;
+}
 
 .catalog-header {
   box-shadow: 0 1px 0 rgba(20, 43, 61, 0.015);
