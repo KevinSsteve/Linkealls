@@ -36,7 +36,7 @@ import {
   type FaqItem,
   type Offering,
 } from "../lib/api";
-import { BuyModal, parsePriceAoa } from "../components/BuyModal";
+import { BuyModal, formatAoa, parsePriceAoa } from "../components/BuyModal";
 
 const BASE = import.meta.env.BASE_URL;
 const VISITOR_ID_KEY = "linkealls_catalog_visitor_id";
@@ -90,6 +90,12 @@ function initials(name: string) {
     .slice(0, 2)
     .map((word) => word[0]?.toUpperCase() ?? "")
     .join("");
+}
+
+function formatCatalogPrice(price: string): string {
+  const value = price.trim();
+  const parsed = parsePriceAoa(value);
+  return parsed !== null ? formatAoa(parsed) : value;
 }
 
 function ProfileAvatar({
@@ -155,6 +161,11 @@ function ProductImage({
           Destaque
         </span>
       )}
+      {offering.price && (
+        <span className="catalog-product-price">
+          {formatCatalogPrice(offering.price)}
+        </span>
+      )}
     </div>
   );
 }
@@ -171,18 +182,17 @@ function ProductCard({
       <ProductImage offering={offering} className="catalog-grid-image" />
       <div className="catalog-product-copy">
         <div className="flex items-start justify-between gap-2">
-          <h3 className="line-clamp-2 text-[14px] font-semibold leading-snug" style={{ color: T.ink }}>
+          <h3 className="truncate text-[14px] font-semibold leading-snug" style={{ color: T.ink }}>
             {offering.name}
           </h3>
           <ArrowRight className="mt-0.5 shrink-0 opacity-0 transition-opacity duration-200 group-hover:opacity-100" size={14} style={{ color: T.inkSoft }} />
         </div>
-        {offering.price ? (
-          <p className="mt-2 text-[13px] font-semibold tabular-nums" style={{ color: T.ink }}>
-            {offering.price}
+        {offering.description && (
+          <p className="catalog-product-description" title={offering.description}>
+            {offering.description}
           </p>
-        ) : (
-          <p className="mt-2 text-[12px]" style={{ color: T.inkFaint }}>Preço sob consulta</p>
         )}
+        {!offering.price && <p className="catalog-product-description">Preço sob consulta</p>}
       </div>
     </button>
   );
@@ -240,7 +250,7 @@ function ProductDetail({
           <p className="catalog-kicker">{catalog.name}</p>
           <h1>{offering.name}</h1>
           {offering.price ? (
-            <p className="catalog-detail-price">{offering.price}</p>
+            <p className="catalog-detail-price">{formatCatalogPrice(offering.price)}</p>
           ) : (
             <p className="catalog-detail-contact">Preço sob consulta</p>
           )}
