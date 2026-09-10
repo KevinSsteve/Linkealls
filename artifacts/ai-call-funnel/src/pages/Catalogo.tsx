@@ -44,16 +44,16 @@ function getCatalogVisitorId(): string {
 
 // ─── Design tokens ─────────────────────────────────────────────────────────────
 const T = {
-  bg:        "#F6F9FC",   // fundo da página
-  surface:   "#FFFFFF",   // cartões e containers
-  ink:       "#0A2540",   // texto principal
-  inkSoft:   "#425466",   // texto secundário / cinza
-  inkFaint:  "#8898AA",   // texto muito suave
-  line:      "#E6EBF1",   // bordas
-  lineSoft:  "#F1F4F8",   // separadores internos
+  bg:        "#F7F6F2",   // fundo de papel quente
+  surface:   "#FFFDF9",   // cartões e containers
+  ink:       "#142B3D",   // texto principal
+  inkSoft:   "#536878",   // texto secundário / cinza
+  inkFaint:  "#8797A0",   // texto muito suave
+  line:      "#E0E5E3",   // bordas
+  lineSoft:  "#EDF0EE",   // separadores internos
   accent:    "#635BFF",   // botão/acção principal
   accentInk: "#FFFFFF",
-  subtle:    "#F1F5F9",   // superfícies suaves (placeholder imagem, hover)
+  subtle:    "#EEF2F0",   // superfícies suaves (placeholder imagem, hover)
   // Escala de radius
   rCard:  "20px",         // cards de produto e containers FAQ/diferencias
   rBtn:   "999px",        // botões → pill completo
@@ -126,27 +126,28 @@ function ProductCard({
 
   return (
     <div
-      className="relative overflow-hidden flex flex-col"
+      className="catalog-product-card group relative overflow-hidden flex flex-col"
       style={{
         background: T.surface,
-        borderRadius: T.rCard,
-        border: `1px solid rgba(20,23,26,0.08)`,
+        borderRadius: "18px",
+        border: `1px solid ${T.line}`,
+        boxShadow: "0 3px 0 rgba(20,43,61,0.025)",
       }}
     >
       {/* Imagem — hero visual do produto, não domina o card */}
       <div
         className="relative w-full overflow-hidden shrink-0"
         style={{
-          height: 124,
+          height: 172,
           background: T.subtle,
-          borderRadius: `${T.rCard} ${T.rCard} 0 0`,
+          borderRadius: "18px 18px 0 0",
         }}
       >
         {offering.imageUrl && !imgError ? (
           <img
             src={offering.imageUrl}
             alt={offering.name}
-            className="w-full h-full object-cover"
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
             onError={() => setImgError(true)}
           />
         ) : (
@@ -157,7 +158,10 @@ function ProductCard({
                 <ImageOff size={11} />
               </div>
             ) : (
-              <ShoppingBag size={22} style={{ color: "#C4C4BE" }} />
+              <div className="flex flex-col items-center gap-2" style={{ color: T.inkFaint }}>
+                <ShoppingBag size={24} strokeWidth={1.5} />
+                <span className="text-[10px] font-medium uppercase tracking-[0.14em]">Sem imagem</span>
+              </div>
             )}
           </div>
         )}
@@ -186,14 +190,14 @@ function ProductCard({
       {/* Área de conteúdo — hierarquia clara: nome → preço → descrição → CTAs */}
       <div
         className="flex flex-col flex-1"
-        style={{ padding: "13px 13px 14px" }}
+        style={{ padding: "18px 18px 19px" }}
       >
         {/* 1º — Nome: elemento textual mais importante */}
         <h3
           className="font-semibold line-clamp-3"
           style={{
             color: T.ink,
-            fontSize: 12.5,
+            fontSize: 16,
             lineHeight: 1.3,
           }}
         >
@@ -206,8 +210,8 @@ function ProductCard({
             className="font-bold tabular-nums"
             style={{
               color: T.ink,
-              fontSize: 13.5,
-              marginTop: 8,
+               fontSize: 14,
+               marginTop: 10,
             }}
           >
             {offering.price}
@@ -220,9 +224,9 @@ function ProductCard({
             className="line-clamp-2"
             style={{
               color: T.inkSoft,
-              fontSize: 10.5,
-              lineHeight: 1.55,
-              marginTop: 5,
+               fontSize: 12.5,
+               lineHeight: 1.55,
+               marginTop: 8,
               flexGrow: 1,
             }}
           >
@@ -233,7 +237,7 @@ function ProductCard({
         {/* 4º / 5º — CTAs: empurrados para o fundo para alinhamento entre cards */}
         <div
           className="flex flex-col"
-          style={{ marginTop: 14, gap: 8 }}
+           style={{ marginTop: 18, gap: 9 }}
         >
           {onBuy && (
             <button
@@ -243,8 +247,8 @@ function ProductCard({
                 background: T.accent,
                 color: T.accentInk,
                 borderRadius: T.rBtn,
-                fontSize: 12.5,
-                minHeight: 40,
+                 fontSize: 13,
+                 minHeight: 44,
               }}
             >
               <Smartphone size={12} />
@@ -259,8 +263,8 @@ function ProductCard({
               color: T.ink,
               border: `1px solid ${T.line}`,
               borderRadius: T.rBtn,
-              fontSize: 12.5,
-              minHeight: 40,
+               fontSize: 13,
+               minHeight: 44,
             }}
           >
             Saber mais <ArrowRight size={12} />
@@ -349,8 +353,8 @@ function CatalogChat({
   useEffect(() => {
     if (open && messages.length === 0) {
       const greeting = catalog.name
-        ? `Olá! 👋 Sou a assistente virtual de *${catalog.name}*. Posso ajudar-te a escolher o produto certo, responder às tuas dúvidas e muito mais. Como posso ajudar?`
-        : "Olá! 👋 Como posso ajudar?";
+         ? `Olá! Sou a assistente virtual de *${catalog.name}*. Posso ajudar-te a escolher o produto certo, responder às tuas dúvidas e muito mais. Como posso ajudar?`
+         : "Olá! Como posso ajudar?";
       setMessages([{ id: "greeting", role: "bot", text: greeting }]);
     }
   }, [open, catalog.name, messages.length]);
@@ -649,6 +653,7 @@ export function Catalogo() {
   const [catalog, setCatalog] = useState<CatalogData | null>(null);
   const [loading, setLoading] = useState(true);
   const [buyOffering, setBuyOffering] = useState<Offering | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
 
   useEffect(() => {
     let fetch: Promise<CatalogData>;
@@ -705,26 +710,26 @@ export function Catalogo() {
 
   // ── Catálogo completo ──
   return (
-    <div className="min-h-screen" style={{ background: T.bg, color: T.ink }}>
+    <div className="catalog-page min-h-screen" style={{ background: T.bg, color: T.ink }}>
 
       {/* ══ CABEÇALHO FIXO ══════════════════════════════════════════════════════ */}
       <header
-        className="sticky top-0 z-30"
+        className="catalog-header sticky top-0 z-30"
         style={{
-          background: "rgba(246,246,244,0.88)",
-          backdropFilter: "blur(12px)",
+          background: "rgba(247,246,242,0.88)",
+          backdropFilter: "blur(18px)",
           borderBottom: `1px solid ${T.line}`,
         }}
       >
         {/* Largura máxima + margens laterais confortáveis */}
         <div
           className="mx-auto flex items-center gap-3"
-          style={{ maxWidth: 680, padding: "0 24px", height: 60 }}
+          style={{ maxWidth: 1040, padding: "0 24px", height: 68 }}
         >
           {typeof window !== "undefined" && window.history.length > 1 && (
             <button
               onClick={() => window.history.back()}
-              className="shrink-0 w-8 h-8 -ml-1 flex items-center justify-center rounded-full"
+              className="catalog-icon-button shrink-0 w-9 h-9 -ml-1 flex items-center justify-center rounded-full"
               style={{ color: T.inkSoft }}
               aria-label="Voltar"
             >
@@ -733,8 +738,8 @@ export function Catalogo() {
           )}
 
           {/* Avatar pequeno — apenas identificação, não elemento dominante */}
-          <div
-            className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-[11px] font-semibold"
+           <div
+             className="w-9 h-9 rounded-[12px] flex items-center justify-center shrink-0 text-[11px] font-semibold"
             style={{ background: T.surface, color: T.ink, border: `1px solid ${T.line}` }}
           >
             {catalog.avatarUrl ? (
@@ -744,14 +749,14 @@ export function Catalogo() {
 
           <p
             className="flex-1 min-w-0 font-semibold truncate"
-            style={{ color: T.ink, fontSize: 15 }}
+             style={{ color: T.ink, fontSize: 15, letterSpacing: "-0.01em" }}
           >
             {catalog.name}
           </p>
 
           <a
             href={captacaoUrl(catalog.businessSlug)}
-            className="shrink-0 inline-flex items-center gap-1.5 font-semibold"
+             className="catalog-header-cta shrink-0 inline-flex items-center gap-1.5 font-semibold transition-transform hover:-translate-y-0.5"
             style={{
               background: T.accent,
               color: T.accentInk,
@@ -759,7 +764,7 @@ export function Catalogo() {
               fontSize: 13,
               paddingLeft: 16,
               paddingRight: 16,
-              height: 36,
+               height: 40,
             }}
           >
             <Phone size={13} />
@@ -769,19 +774,19 @@ export function Catalogo() {
       </header>
 
       {/* ══ HERO — apresentação do negócio ══════════════════════════════════════ */}
-      <section>
+      <section className="catalog-hero">
         <div
           className="mx-auto flex flex-col items-center text-center"
-          style={{ maxWidth: 680, padding: "56px 24px 0" }}
+          style={{ maxWidth: 1040, padding: "72px 24px 0" }}
         >
           {/* Avatar grande centralizado */}
           <div
             className="flex items-center justify-center text-[20px] font-semibold"
             style={{
-              width: 72,
-              height: 72,
-              borderRadius: 20,
-              background: T.surface,
+               width: 88,
+               height: 88,
+               borderRadius: 26,
+               background: T.subtle,
               color: T.ink,
               border: `1px solid ${T.line}`,
             }}
@@ -793,8 +798,8 @@ export function Catalogo() {
 
           {/* Nome do negócio */}
           <h1
-            className="font-bold leading-tight tracking-tight"
-            style={{ color: T.ink, fontSize: 30, marginTop: 20 }}
+             className="font-bold leading-tight tracking-tight"
+             style={{ color: T.ink, fontSize: "clamp(34px, 5vw, 54px)", marginTop: 24, letterSpacing: "-0.055em" }}
           >
             {catalog.name}
           </h1>
@@ -802,7 +807,7 @@ export function Catalogo() {
           {/* Sector / categoria */}
           {catalog.sector && (
             <p
-              style={{ color: T.inkSoft, fontSize: 14, marginTop: 8 }}
+               style={{ color: T.accent, fontSize: 13, marginTop: 12, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}
             >
               {catalog.sector}
             </p>
@@ -820,7 +825,7 @@ export function Catalogo() {
               paddingLeft: 12,
               paddingRight: 12,
               height: 28,
-              marginTop: 16,
+               marginTop: 18,
             }}
           >
             <span
@@ -836,9 +841,9 @@ export function Catalogo() {
               className="leading-7"
               style={{
                 color: T.inkSoft,
-                fontSize: 14,
-                maxWidth: 360,
-                marginTop: 20,
+               fontSize: 16,
+               maxWidth: 560,
+               marginTop: 22,
                 textAlign: "center",
               }}
             >
@@ -850,8 +855,8 @@ export function Catalogo() {
 
           {/* CTAs principais — grande espaço, pill, cheios de ar */}
           <div
-            className="flex flex-col w-full"
-            style={{ maxWidth: 340, gap: 12, marginTop: 32 }}
+             className="catalog-hero-actions flex flex-col w-full"
+             style={{ maxWidth: 520, gap: 12, marginTop: 34 }}
           >
             <a
               href={captacaoUrl(catalog.businessSlug)}
@@ -861,7 +866,7 @@ export function Catalogo() {
                 color: T.accentInk,
                 borderRadius: T.rBtn,
                 fontSize: 15,
-                minHeight: 52,
+                 minHeight: 54,
               }}
             >
               <MessageSquare size={17} />
@@ -876,7 +881,7 @@ export function Catalogo() {
                 border: `1px solid ${T.line}`,
                 borderRadius: T.rBtn,
                 fontSize: 15,
-                minHeight: 52,
+                 minHeight: 54,
               }}
             >
               <Phone size={17} />
@@ -889,17 +894,17 @@ export function Catalogo() {
       {/* ══ PRODUTOS & SERVIÇOS ══════════════════════════════════════════════════ */}
       {catalog.offerings.length > 0 && (
         <section>
-          <div
-            className="mx-auto"
-            style={{ maxWidth: 680, padding: "64px 24px 0" }}
+           <div
+             className="catalog-section mx-auto"
+             style={{ maxWidth: 1040, padding: "88px 24px 0" }}
           >
             <SectionLabel hint="Fala com o agente IA — responde em segundos.">
               Produtos &amp; Serviços
             </SectionLabel>
 
             {/* Grid — gap horizontal 14px, vertical 20px */}
-            <div
-              className="grid grid-cols-2"
+             <div
+               className="catalog-offerings-grid grid"
               style={{ columnGap: 14, rowGap: 20 }}
             >
               {[...catalog.offerings]
@@ -935,7 +940,7 @@ export function Catalogo() {
 
       {catalog.offerings.length === 0 && (
         <section>
-          <div className="mx-auto" style={{ maxWidth: 680, padding: "64px 24px 0" }}>
+           <div className="catalog-section mx-auto" style={{ maxWidth: 1040, padding: "88px 24px 0" }}>
             <div
               className="flex flex-col items-center px-6 py-10 text-center"
               style={{ background: T.surface, border: `1px solid ${T.line}`, borderRadius: T.rCard }}
@@ -962,9 +967,9 @@ export function Catalogo() {
       {/* ══ PORQUÊ ESCOLHER-NOS ══════════════════════════════════════════════════ */}
       {catalog.differentials.length > 0 && (
         <section>
-          <div
-            className="mx-auto"
-            style={{ maxWidth: 680, padding: "64px 24px 0" }}
+           <div
+             className="catalog-section mx-auto"
+             style={{ maxWidth: 1040, padding: "88px 24px 0" }}
           >
             <SectionLabel>Porquê escolher-nos</SectionLabel>
 
@@ -1014,9 +1019,9 @@ export function Catalogo() {
       {/* ══ PERGUNTAS FREQUENTES ═════════════════════════════════════════════════ */}
       {catalog.faq.length > 0 && (
         <section>
-          <div
-            className="mx-auto"
-            style={{ maxWidth: 680, padding: "64px 24px 0" }}
+           <div
+             className="catalog-section mx-auto"
+             style={{ maxWidth: 1040, padding: "88px 24px 0" }}
           >
             <SectionLabel>Perguntas Frequentes</SectionLabel>
             <FaqAccordion faq={catalog.faq} />
@@ -1026,9 +1031,9 @@ export function Catalogo() {
 
       {/* ══ FOOTER CTA ═══════════════════════════════════════════════════════════ */}
       <section>
-        <div
-          className="mx-auto"
-          style={{ maxWidth: 680, padding: "64px 24px 48px" }}
+           <div
+             className="catalog-section mx-auto"
+             style={{ maxWidth: 1040, padding: "88px 24px 56px" }}
         >
           <div
             className="flex flex-col items-center text-center px-6 py-10"
@@ -1091,7 +1096,7 @@ export function Catalogo() {
       {/* ══ RODAPÉ ════════════════════════════════════════════════════════════════ */}
       <div className="text-center pb-32 pt-2">
         <p style={{ fontSize: 11, color: "rgba(20,23,26,0.32)" }}>
-          Catálogo gerado por AI Call Funnel
+           Catálogo público Linkealls
         </p>
       </div>
 
@@ -1103,6 +1108,14 @@ export function Catalogo() {
           onClose={() => setBuyOffering(null)}
         />
       )}
+
+      <CatalogChat
+        catalog={catalog}
+        open={chatOpen}
+        onOpen={() => setChatOpen(true)}
+        onClose={() => setChatOpen(false)}
+        initialProduct={null}
+      />
 
     </div>
   );
