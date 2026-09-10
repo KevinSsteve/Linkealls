@@ -4,7 +4,7 @@
  * A página intencionalmente funciona como um perfil social com uma pequena
  * loja: primeiro contexto, depois descoberta, depois conversa ou compra.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "wouter";
 import {
   ArrowLeft,
@@ -21,13 +21,11 @@ import {
   Minus,
   Phone,
   Plus,
-  Send,
   Share2,
   ShoppingBag,
   Smartphone,
   Store,
   UserRound,
-  X,
 } from "lucide-react";
 import {
   businessApi,
@@ -41,11 +39,6 @@ import {
 } from "../lib/api";
 import { BuyModal, parsePriceAoa } from "../components/BuyModal";
 
-const CATALOG_ORIGIN = {
-  source: "catalogo",
-  campaign: "catalogo-publico",
-  medium: "organico",
-} as const;
 const BASE = import.meta.env.BASE_URL;
 const VISITOR_ID_KEY = "linkealls_catalog_visitor_id";
 
@@ -83,6 +76,14 @@ function captacaoUrl(businessSlug: string | null): string {
     : BASE;
 }
 
+function chatUrl(businessSlug: string | null, productName?: string): string {
+  if (!businessSlug) return BASE;
+  const message = productName
+    ? `Quero saber mais sobre ${productName}`
+    : undefined;
+  return `${BASE}e/${encodeURIComponent(businessSlug)}${message ? `?message=${encodeURIComponent(message)}` : ""}`;
+}
+
 function initials(name: string) {
   return (name || "")
     .split(/\s+/)
@@ -90,10 +91,6 @@ function initials(name: string) {
     .slice(0, 2)
     .map((word) => word[0]?.toUpperCase() ?? "")
     .join("");
-}
-
-function makeId() {
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
 function ProfileAvatar({
@@ -195,20 +192,22 @@ function ProductCard({
 function ProductDetail({
   offering,
   catalog,
+  businessSlug,
   onBack,
   onBuy,
-  onChat,
+  chatHref,
 }: {
   offering: Offering;
   catalog: CatalogData;
+  businessSlug: string | null;
   onBack: () => void;
   onBuy: (quantity: number) => void;
-  onChat: () => void;
+  chatHref: string;
 }) {
   const [favorite, setFavorite] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [shared, setShared] = useState(false);
-  const canBuy = Boolean(catalog.businessSlug && offering.price && parsePriceAoa(offering.price) !== null);
+  const canBuy = Boolean(businessSlug && offering.price && parsePriceAoa(offering.price) !== null);
 
   const share = async () => {
     const shareData = { title: offering.name, text: offering.description || offering.name, url: window.location.href };
@@ -265,9 +264,9 @@ function ProductDetail({
                 <Smartphone size={16} /> Comprar
               </button>
             ) : (
-              <button type="button" className="catalog-primary-action" onClick={onChat}>
+              <a className="catalog-primary-action" href={chatHref}>
                 <MessageSquare size={16} /> Perguntar à assistente
-              </button>
+              </a>
             )}
             <button type="button" className="catalog-secondary-action" onClick={share}>
               <Share2 size={16} /> {shared ? "Link copiado" : "Partilhar"}
@@ -301,7 +300,7 @@ function SegmentControl({
   );
 }
 
-function LinksSection({ catalog, onChat }: { catalog: CatalogData; onChat: () => void }) {
+function LinksSection({ catalog, chatHref }: { catalog: CatalogData; chatHref: string }) {
   return (
     <section className="catalog-tab-panel wa-page" aria-label="Links">
       <div className="catalog-section-heading">
@@ -309,14 +308,14 @@ function LinksSection({ catalog, onChat }: { catalog: CatalogData; onChat: () =>
         <h2>Fala com {catalog.name}</h2>
         <p>Descobre mais sobre este negócio ou conversa directamente com a assistente.</p>
       </div>
-      <button type="button" className="catalog-link-card" onClick={onChat}>
+      <a className="catalog-link-card" href={chatHref}>
         <span className="catalog-link-icon"><MessageSquare size={18} /></span>
         <span className="min-w-0 flex-1 text-left">
           <strong>Fala com a assistente</strong>
           <small>Respostas sobre produtos, serviços e disponibilidade</small>
         </span>
         <ArrowRight size={17} style={{ color: T.inkSoft }} />
-      </button>
+      </a>
       <a className="catalog-link-card" href={captacaoUrl(catalog.businessSlug)}>
         <span className="catalog-link-icon"><Phone size={18} /></span>
         <span className="min-w-0 flex-1">
@@ -398,115 +397,6 @@ function FaqAccordion({ faq }: { faq: FaqItem[] }) {
   );
 }
 
-interface MsgItem {
-  id: string;
-  role: "user" | "bot";
-  text: string;
-}
-
-function CatalogChat({
-  catalog,
-  open,
-  onOpen,
-  onClose,
-  initialProduct,
-}: {
-  catalog: CatalogData;
-  open: boolean;
-  onOpen: () => void;
-  onClose: () => void;
-  initialProduct: string | null;
-}) {
-  const [messages, setMessages] = useState<MsgItem[]>([]);
-  const [input, setInput] = useState("");
-  const [leadId, setLeadId] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [firstMessage, setFirstMessage] = useState(true);
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (open && messages.length === 0) {
-      setMessages([{
-        id: "greeting",
-        role: "bot",
-        text: catalog.name
-          ? `Olá! Sou a assistente de ${catalog.name}. Posso ajudar-te a escolher um produto ou esclarecer uma dúvida.`
-          : "Olá! Como posso ajudar?",
-      }]);
-    }
-  }, [catalog.name, messages.length, open]);
-
-  useEffect(() => {
-    if (open && initialProduct) {
-      setInput(`Tenho interesse em ${initialProduct}. Pode dizer-me mais?`);
-      window.setTimeout(() => inputRef.current?.focus(), 100);
-    }
-  }, [initialProduct, open]);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [busy, messages]);
-
-  const sendMessage = useCallback(async () => {
-    const text = input.trim();
-    if (!text || busy || !catalog.businessSlug) return;
-    setInput("");
-    setBusy(true);
-    setMessages((current) => [...current, { id: makeId(), role: "user", text }]);
-    try {
-      const api = businessApi(catalog.businessSlug);
-      let currentLeadId = leadId;
-      if (firstMessage) {
-        const result = await api.createLeadSession({ ...CATALOG_ORIGIN, url: window.location.href }, []);
-        currentLeadId = result.leadId;
-        setLeadId(currentLeadId);
-        setFirstMessage(false);
-      }
-      if (!currentLeadId) throw new Error("Sessão indisponível");
-      const { reply } = await api.sendLeadChat(currentLeadId, text);
-      setMessages((current) => [...current, { id: makeId(), role: "bot", text: reply }]);
-    } catch {
-      setMessages((current) => [...current, { id: makeId(), role: "bot", text: "Desculpa, ocorreu um erro. Tenta de novo." }]);
-    } finally {
-      setBusy(false);
-    }
-  }, [busy, catalog.businessSlug, firstMessage, input, leadId]);
-
-  if (!open) {
-    return (
-      <button type="button" className="catalog-chat-fab" onClick={onOpen}>
-        <MessageSquare size={17} /> Falar com IA
-      </button>
-    );
-  }
-
-  return (
-    <div className="catalog-chat-panel">
-      <div className="catalog-chat-header">
-        <ProfileAvatar catalog={catalog} size="small" />
-        <div className="min-w-0 flex-1">
-          <strong>{catalog.name || "Assistente"}</strong>
-          <small><span /> Responde em segundos</small>
-        </div>
-        <button type="button" className="catalog-icon-button" onClick={onClose} aria-label="Fechar chat"><X size={18} /></button>
-      </div>
-      <div className="catalog-chat-messages">
-        {messages.map((message) => (
-          <div key={message.id} className={`catalog-message ${message.role === "user" ? "is-user" : ""}`}>{message.text}</div>
-        ))}
-        {busy && <div className="catalog-message is-typing"><span /><span /><span /></div>}
-        <div ref={bottomRef} />
-      </div>
-      <a className="catalog-chat-call" href={captacaoUrl(catalog.businessSlug)}><Phone size={13} /> Preferes uma chamada?</a>
-      <div className="catalog-chat-input">
-        <input ref={inputRef} value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void sendMessage(); } }} placeholder="Escreve uma mensagem" disabled={busy} />
-        <button type="button" onClick={() => void sendMessage()} disabled={!input.trim() || busy} aria-label="Enviar mensagem"><Send size={16} /></button>
-      </div>
-    </div>
-  );
-}
-
 function ComingSoon({ name, reason }: { name: string; reason: "disabled" | "not_ready" }) {
   return (
     <div className="catalog-state">
@@ -542,8 +432,6 @@ export function Catalogo() {
   const [selectedOffering, setSelectedOffering] = useState<Offering | null>(null);
   const [selectedQuantity, setSelectedQuantity] = useState(1);
   const [buyOffering, setBuyOffering] = useState<Offering | null>(null);
-  const [chatOpen, setChatOpen] = useState(false);
-  const [chatProduct, setChatProduct] = useState<string | null>(null);
   const offerings = useMemo(
     () => [...(catalog?.offerings ?? [])].sort((a, b) => {
       if (a.featured && !b.featured) return -1;
@@ -572,6 +460,7 @@ export function Catalogo() {
   if (!catalog.catalogEnabled) return <ComingSoon name={catalog.name} reason="disabled" />;
   if (!catalog.isReady) return <ComingSoon name={catalog.name} reason="not_ready" />;
 
+  const resolvedBusinessSlug = catalog.businessSlug ?? businessSlug ?? handle;
   const trackProductClick = (offering: Offering) => {
     if (!catalog.businessSlug || !offering.analyticsKey) return;
     void recordCatalogEvent({ businessSlug: catalog.businessSlug, eventType: "click", offeringKey: offering.analyticsKey, visitorId: getCatalogVisitorId() }).catch(() => {});
@@ -583,11 +472,6 @@ export function Catalogo() {
     setTab("shop");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
-  const openChatFor = (name?: string) => {
-    setChatProduct(name ?? null);
-    setChatOpen(true);
-  };
-
   return (
     <div className="catalog-page">
       <div className="catalog-shell">
@@ -595,12 +479,13 @@ export function Catalogo() {
           <ProductDetail
             offering={selectedOffering}
             catalog={catalog}
+            businessSlug={resolvedBusinessSlug}
             onBack={() => setSelectedOffering(null)}
             onBuy={(quantity) => {
               setBuyOffering(selectedOffering);
               setSelectedQuantity(quantity);
             }}
-            onChat={() => openChatFor(selectedOffering.name)}
+            chatHref={chatUrl(resolvedBusinessSlug, selectedOffering.name)}
           />
         ) : (
           <>
@@ -608,13 +493,13 @@ export function Catalogo() {
               <ProfileAvatar catalog={catalog} />
               <h1>{catalog.name}</h1>
               {catalog.sector && <p className="catalog-sector">{catalog.sector}</p>}
-              <button type="button" className="catalog-profile-chat" onClick={() => openChatFor()}>
+              <a className="catalog-profile-chat" href={chatUrl(resolvedBusinessSlug)}>
                 <MessageSquare size={15} /> Fala com a assistente
-              </button>
+              </a>
             </section>
             <SegmentControl tab={tab} onChange={setTab} />
             {tab === "links" ? (
-              <LinksSection catalog={catalog} onChat={() => openChatFor()} />
+              <LinksSection catalog={catalog} chatHref={chatUrl(resolvedBusinessSlug)} />
             ) : catalog.offerings.length > 0 ? (
               <ShopSection catalog={catalog} offerings={offerings} onOpen={openOffering} />
             ) : (
@@ -623,7 +508,7 @@ export function Catalogo() {
                   <ShoppingBag size={20} />
                   <h2>Shop em actualização</h2>
                   <p>Este negócio ainda não publicou produtos. Fala com a assistente para saber mais.</p>
-                  <button type="button" className="catalog-primary-action" onClick={() => openChatFor()}><MessageSquare size={15} /> Falar com IA</button>
+                  <a className="catalog-primary-action" href={chatUrl(resolvedBusinessSlug)}><MessageSquare size={15} /> Falar com IA</a>
                 </div>
               </section>
             )}
@@ -656,19 +541,18 @@ export function Catalogo() {
         <nav className="catalog-bottom-nav" aria-label="Navegação do perfil">
           <button type="button" className={tab === "links" ? "is-active" : ""} onClick={() => { setTab("links"); window.scrollTo({ top: 0, behavior: "smooth" }); }}><Home size={18} /><span>Links</span></button>
           <button type="button" className={tab === "shop" ? "is-active" : ""} onClick={() => { setTab("shop"); window.scrollTo({ top: 0, behavior: "smooth" }); }}><ShoppingBag size={18} /><span>Shop</span></button>
-          <button type="button" onClick={() => openChatFor()}><UserRound size={18} /><span>Assistente</span></button>
+          <a href={chatUrl(resolvedBusinessSlug)}><UserRound size={18} /><span>Assistente</span></a>
         </nav>
       )}
 
-      {buyOffering && catalog.businessSlug && (
+      {buyOffering && resolvedBusinessSlug && (
         <BuyModal
-          businessSlug={catalog.businessSlug}
+          businessSlug={resolvedBusinessSlug}
           offering={buyOffering}
           initialQuantity={selectedQuantity}
           onClose={() => setBuyOffering(null)}
         />
       )}
-      <CatalogChat catalog={catalog} open={chatOpen} onOpen={() => setChatOpen(true)} onClose={() => setChatOpen(false)} initialProduct={chatProduct} />
     </div>
   );
 }
