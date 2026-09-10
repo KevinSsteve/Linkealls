@@ -590,16 +590,6 @@ export function Catalogo() {
 
   return (
     <div className="catalog-page">
-      <header className="catalog-header">
-        <div className="catalog-header-inner">
-          <a className="catalog-brand" href={BASE} aria-label="Linkealls"><span className="catalog-brand-mark">L</span><span>linkealls</span></a>
-          <div className="ml-auto flex items-center gap-2">
-            <span className="catalog-header-name hidden sm:block">{catalog.name}</span>
-            <a href={captacaoUrl(catalog.businessSlug)} className="catalog-header-contact"><Phone size={14} /> <span>Falar</span></a>
-          </div>
-        </div>
-      </header>
-
       <div className="catalog-shell">
         {selectedOffering ? (
           <ProductDetail
@@ -618,7 +608,6 @@ export function Catalogo() {
               <ProfileAvatar catalog={catalog} />
               <h1>{catalog.name}</h1>
               {catalog.sector && <p className="catalog-sector">{catalog.sector}</p>}
-              {catalog.description && <p className="catalog-bio">{catalog.description.length > 240 ? `${catalog.description.slice(0, 240)}…` : catalog.description}</p>}
               <button type="button" className="catalog-profile-chat" onClick={() => openChatFor()}>
                 <MessageSquare size={15} /> Fala com a assistente
               </button>
