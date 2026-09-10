@@ -53,6 +53,7 @@ try {
       "--test",
       path.join(artifactDir, "tests/ekwanza-contract.test.mjs"),
       path.join(artifactDir, "tests/orders-chat-contract.test.mjs"),
+      path.join(artifactDir, "tests/catalog-checkout-contract.test.mjs"),
     ],
     { env: testEnv, stdio: "inherit" },
   );
