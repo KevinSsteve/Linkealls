@@ -6,11 +6,12 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   ArrowLeft, User, Phone, ExternalLink,
-  DollarSign, Clock, MapPin, MessageCircle, RefreshCw, Zap, Send, Target,
+  DollarSign, Clock, MapPin, MessageCircle, RefreshCw, Zap, Send, Target, PackageCheck,
 } from "lucide-react";
 import { Link } from "wouter";
 import {
   businessApi, type Lead, type LeadState,
+  type Order, type OrderEvent, type OrderFulfillmentStatus,
 } from "../../lib/api";
 import { useBusinessSlug } from "../../hooks/useBusinessSlug";
 import { OwnerNav } from "../../components/owner/OwnerNav";
@@ -92,6 +93,102 @@ function parseTranscript(raw: string): Array<{ role: "user" | "ai"; text: string
     else return null;
   }
   return parsed.length ? parsed : null;
+}
+
+const FULFILLMENT_LABELS: Record<OrderFulfillmentStatus, string> = {
+  novo: "Novo",
+  em_preparacao: "Em preparação",
+  pronto: "Pronto",
+  entregue: "Entregue",
+  cancelado: "Cancelado",
+};
+
+function OwnerOrderPanel({
+  orders,
+  events,
+  loading,
+  updatingId,
+  error,
+  onRefresh,
+  onUpdate,
+}: {
+  orders: Order[];
+  events: Record<string, OrderEvent[]>;
+  loading: boolean;
+  updatingId: string | null;
+  error: string | null;
+  onRefresh: () => void;
+  onUpdate: (orderId: string, status: OrderFulfillmentStatus) => void;
+}) {
+  if (loading && orders.length === 0) {
+    return <div className="px-4 py-3 text-[12px]" style={{ color: D.inkFaint }}>A carregar encomendas desta conversa…</div>;
+  }
+  if (orders.length === 0) return null;
+  return (
+    <div className="px-3 py-3" style={{ background: "#F8FAFC", borderBottom: `1px solid ${D.border}` }}>
+      <div className="mb-2 flex items-center justify-between">
+        <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-widest" style={{ color: D.inkSoft }}>
+          <PackageCheck size={13} style={{ color: D.green }} /> Encomendas
+        </p>
+        <button onClick={onRefresh} disabled={loading} className="rounded-full p-1.5 disabled:opacity-40" aria-label="Actualizar encomendas">
+          <RefreshCw size={14} className={loading ? "animate-spin" : ""} style={{ color: D.inkSoft }} />
+        </button>
+      </div>
+      {error && <p className="mb-2 text-[12px]" style={{ color: "#B91C1C" }}>{error}</p>}
+      <div className="space-y-2">
+        {orders.map((order) => (
+          <div key={order.id} className="rounded-xl p-3" style={{ background: D.surface, border: `1px solid ${D.border}` }}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="truncate text-[13px] font-semibold" style={{ color: D.ink }}>{order.offeringName}</p>
+                <p className="mt-0.5 text-[12px]" style={{ color: D.inkSoft }}>
+                  {order.quantity} unidade{order.quantity !== 1 ? "s" : ""} · {Number(order.amount).toLocaleString("pt-AO")} Kz
+                </p>
+              </div>
+              <span className="shrink-0 rounded-full px-2 py-1 text-[11px] font-semibold" style={{
+                background: order.status === "paga" ? "#E8F7F1" : "#FFF7ED",
+                color: order.status === "paga" ? "#176B55" : "#B45309",
+              }}>
+                {order.status === "paga" ? "Pago" : order.status}
+              </span>
+            </div>
+            <p className="mt-2 text-[12px]" style={{ color: D.inkSoft }}>
+              Estado operacional: <strong style={{ color: D.ink }}>{FULFILLMENT_LABELS[order.fulfillmentStatus]}</strong>
+            </p>
+            <div className="mt-2 flex gap-1.5 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+              {(Object.keys(FULFILLMENT_LABELS) as OrderFulfillmentStatus[]).map((status) => (
+                <button
+                  key={status}
+                  disabled={status === order.fulfillmentStatus || updatingId === order.id}
+                  onClick={() => onUpdate(order.id, status)}
+                  className="shrink-0 rounded-lg px-2 py-1 text-[11px] font-medium disabled:opacity-40"
+                  style={{
+                    background: status === order.fulfillmentStatus ? D.greenLt : D.subtle,
+                    color: status === order.fulfillmentStatus ? D.greenDk : D.inkSoft,
+                    border: `1px solid ${status === order.fulfillmentStatus ? `${D.green}50` : D.border}`,
+                  }}
+                >
+                  {FULFILLMENT_LABELS[status]}
+                </button>
+              ))}
+            </div>
+            {(events[order.id] ?? []).length > 0 && (
+              <div className="mt-3 border-t pt-2" style={{ borderColor: D.borderSoft }}>
+                {(events[order.id] ?? []).slice(0, 4).map((event) => (
+                  <div key={event.id} className="mb-1.5 text-[11px]" style={{ color: D.inkSoft }}>
+                    <span>{event.content}</span>
+                    <span className="ml-1" style={{ color: D.inkFaint }}>
+                      · {new Date(event.createdAt).toLocaleDateString("pt-AO", { day: "2-digit", month: "short" })}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 // ─── Conversation Row — 72-80px, compact ─────────────────────────────────────
@@ -204,11 +301,57 @@ function ConversationDetail({ lead: initialLead, onBack, onStateChange, api }: {
   const [updating, setUpdating] = useState(false);
   const [replyText, setReplyText] = useState("");
   const [replying, setReplying] = useState(false);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [orderEvents, setOrderEvents] = useState<Record<string, OrderEvent[]>>({});
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [orderUpdatingId, setOrderUpdatingId] = useState<string | null>(null);
+  const [ordersError, setOrdersError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const replyInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, []);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [lead.chatMessages.length]);
+
+  const loadOrders = useCallback(async () => {
+    setOrdersLoading(true);
+    setOrdersError(null);
+    try {
+      const { orders: allOrders } = await api.listOrders();
+      const linked = allOrders.filter((order) => order.leadId === lead.id);
+      setOrders(linked);
+      const entries = await Promise.all(linked.map(async (order) => {
+        const { events } = await api.listOrderEvents(order.id);
+        return [order.id, events] as const;
+      }));
+      setOrderEvents(Object.fromEntries(entries));
+    } catch {
+      setOrdersError("Não foi possível carregar as encomendas.");
+    } finally {
+      setOrdersLoading(false);
+    }
+  }, [api, lead.id]);
+
+  useEffect(() => { void loadOrders(); }, [loadOrders]);
+
+  async function handleOrderUpdate(orderId: string, status: OrderFulfillmentStatus) {
+    setOrderUpdatingId(orderId);
+    setOrdersError(null);
+    try {
+      const { order: updated } = await api.updateOrderFulfillment(orderId, status);
+      setOrders((current) => current.map((order) => order.id === updated.id ? updated : order));
+      const [{ events }, { lead: updatedLead }] = await Promise.all([
+        api.listOrderEvents(orderId),
+        api.getLeadDetail(lead.id),
+      ]);
+      setOrderEvents((current) => ({ ...current, [orderId]: events }));
+      setLead(updatedLead);
+      onStateChange(updatedLead);
+    } catch {
+      setOrdersError("Não foi possível actualizar a encomenda.");
+    } finally {
+      setOrderUpdatingId(null);
+    }
+  }
 
   async function handleOwnerReply() {
     const text = replyText.trim();
@@ -293,6 +436,15 @@ function ConversationDetail({ lead: initialLead, onBack, onStateChange, api }: {
         {lead.chatMessages.map((m, i) => (
           <Bubble key={i} role={m.role} text={m.text} ts={m.ts} />
         ))}
+        <OwnerOrderPanel
+          orders={orders}
+          events={orderEvents}
+          loading={ordersLoading}
+          updatingId={orderUpdatingId}
+          error={ordersError}
+          onRefresh={() => void loadOrders()}
+          onUpdate={(orderId, status) => void handleOrderUpdate(orderId, status)}
+        />
         {lead.callTranscript && (
           <>
             <div className="flex items-center gap-3 my-5">

@@ -8,7 +8,7 @@ import { CallScreen } from "../components/CallScreen";
 import { InlineCheckout } from "../components/InlineCheckout";
 import { BuyModal, parsePriceAoa } from "../components/BuyModal";
 import { useGeminiLive, type ProductCard, type AgentMessage } from "../hooks/useGeminiLive";
-import { businessApi, type ChatMessage } from "../lib/api";
+import { businessApi, type ChatMessage, type OrderTracking } from "../lib/api";
 import { useBusinessSlug } from "../hooks/useBusinessSlug";
 import { recordVisit } from "../lib/visitedBusinesses";
 import { useAuth } from "@/context/AuthContext";
@@ -20,6 +20,10 @@ import {
   Phone,
   ChevronUp,
   ShoppingCart,
+  CheckCircle2,
+  Clock3,
+  PackageCheck,
+  RefreshCw,
 } from "lucide-react";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
@@ -45,6 +49,86 @@ function formatTime(s: number) {
   const m = String(Math.floor(s / 60)).padStart(2, "0");
   const ss = String(s % 60).padStart(2, "0");
   return `${m}:${ss}`;
+}
+
+const FULFILLMENT_LABELS: Record<OrderTracking["fulfillmentStatus"], string> = {
+  novo: "Nova",
+  em_preparacao: "Em preparação",
+  pronto: "Pronta",
+  entregue: "Entregue",
+  cancelado: "Cancelada",
+};
+
+function formatOrderAmount(amount: string): string {
+  return `${Number(amount).toLocaleString("pt-AO", { maximumFractionDigits: 2 })} Kz`;
+}
+
+function OrderTrackingCard({
+  tracking,
+  loading,
+  error,
+  onRefresh,
+}: {
+  tracking: OrderTracking | null;
+  loading: boolean;
+  error: string | null;
+  onRefresh: () => void;
+}) {
+  if (loading && !tracking) {
+    return (
+      <div className="mx-1 mb-3 rounded-2xl p-4" style={{ background: "#FFFFFF", border: "1px solid #E6EBF1" }}>
+        <div className="flex items-center gap-2 text-[13px]" style={{ color: "#667781" }}>
+          <RefreshCw size={14} className="animate-spin" /> A carregar o estado da encomenda…
+        </div>
+      </div>
+    );
+  }
+  if (error && !tracking) {
+    return (
+      <div className="mx-1 mb-3 rounded-2xl p-4" style={{ background: "#FEF2F2", border: "1px solid #FECACA", color: "#991B1B" }}>
+        <p className="text-[13px]">{error}</p>
+        <button onClick={onRefresh} className="mt-2 text-[12px] font-semibold underline">Tentar novamente</button>
+      </div>
+    );
+  }
+  if (!tracking) return null;
+
+  const paid = tracking.status === "paga";
+  return (
+    <div className="mx-1 mb-3 rounded-2xl overflow-hidden" style={{ background: "#FFFFFF", border: "1px solid #D8E1EA", boxShadow: "0 2px 8px rgba(10,37,64,0.06)" }}>
+      <div className="flex items-start justify-between gap-3 px-4 py-3" style={{ background: "#F8FAFC", borderBottom: "1px solid #E6EBF1" }}>
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "#8898AA" }}>A tua encomenda</p>
+          <p className="mt-1 truncate text-[14px] font-semibold" style={{ color: "#0A2540" }}>{tracking.offeringName}</p>
+          <p className="mt-0.5 text-[12px]" style={{ color: "#667781" }}>{tracking.quantity} unidade{tracking.quantity !== 1 ? "s" : ""} · {formatOrderAmount(tracking.amount)}</p>
+        </div>
+        <button onClick={onRefresh} disabled={loading} className="shrink-0 rounded-full p-2 disabled:opacity-40" aria-label="Actualizar estado">
+          <RefreshCw size={15} className={loading ? "animate-spin" : ""} style={{ color: "#0A2540" }} />
+        </button>
+      </div>
+      <div className="px-4 py-3">
+        <div className="flex items-center gap-2 text-[13px] font-semibold" style={{ color: paid ? "#166534" : "#B45309" }}>
+          {paid ? <CheckCircle2 size={16} /> : <Clock3 size={16} />}
+          {paid ? "Pagamento confirmado" : "Pagamento ainda não confirmado"}
+        </div>
+        <div className="mt-2 flex items-center gap-2 text-[13px]" style={{ color: "#0A2540" }}>
+          <PackageCheck size={16} style={{ color: "#635BFF" }} />
+          <span>Estado: <strong>{FULFILLMENT_LABELS[tracking.fulfillmentStatus]}</strong></span>
+        </div>
+        <div className="mt-3 space-y-2 border-l-2 pl-3" style={{ borderColor: "#D8E1EA" }}>
+          {tracking.events.map((event, index) => (
+            <div key={`${event.createdAt}-${event.type}-${index}`} className="relative">
+              <span className="absolute -left-[19px] top-1.5 h-2 w-2 rounded-full" style={{ background: index === tracking.events.length - 1 ? "#635BFF" : "#AAB7C4" }} />
+              <p className="text-[12px] leading-relaxed" style={{ color: "#425466" }}>{event.content}</p>
+              <p className="mt-0.5 text-[10px]" style={{ color: "#8898AA" }}>
+                {new Date(event.createdAt).toLocaleString("pt-AO", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ─── Minimised call banner ─────────────────────────────────────────────────
@@ -406,6 +490,14 @@ function InlineProductShelf({
 // ─── Main Chat component ───────────────────────────────────────────────────
 
 export function Chat() {
+  const initialParams = (() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      return { leadId: params.get("leadId"), orderId: params.get("orderId") };
+    } catch {
+      return { leadId: null, orderId: null };
+    }
+  })();
   const initialMessage = (() => {
     try {
       return new URLSearchParams(window.location.search).get("message") ?? "Quero saber mais sobre isso";
@@ -419,7 +511,11 @@ export function Chat() {
   const [stage, setStage] = useState<Stage>("chat");
   const [isBusy, setIsBusy] = useState(false);
   const [callTriggered, setCallTriggered] = useState(false);
-  const [leadId, setLeadId] = useState<string | null>(null);
+  const [leadId, setLeadId] = useState<string | null>(initialParams.leadId);
+  const [trackingOrderId, setTrackingOrderId] = useState<string | null>(initialParams.orderId);
+  const [tracking, setTracking] = useState<OrderTracking | null>(null);
+  const [trackingLoading, setTrackingLoading] = useState(false);
+  const [trackingError, setTrackingError] = useState<string | null>(null);
 
   // ── Call minimize state ──────────────────────────────────────────────────
   const [isCallMinimized, setIsCallMinimized] = useState(false);
@@ -445,6 +541,65 @@ export function Chat() {
   // Auth context — detect B2B mode (logged-in owner chatting with another business)
   const { user, isLoggedIn } = useAuth();
   const isB2BMode = isLoggedIn && !!user && user.handle !== businessSlug;
+
+  // Reopen the exact conversation after a paid checkout. The lead UUID is the
+  // public session capability; no owner data is returned by this endpoint.
+  useEffect(() => {
+    if (!businessSlug || !initialParams.leadId) return;
+    const api = businessApi(businessSlug);
+    setCallTriggered(true);
+    api.getLeadSession(initialParams.leadId)
+      .then((session) => {
+        const restored = session.chatMessages.map((message, index) => ({
+          id: `restored-${index}-${message.ts}`,
+          role: message.role === "user" ? "user" as const : "bot" as const,
+          text: message.text,
+          ts: message.ts,
+        }));
+        setMessages(restored);
+        chatMsgsRef.current = session.chatMessages;
+      })
+      .catch(() => {
+        setTrackingError("Não foi possível reabrir esta conversa.");
+      });
+  }, [businessSlug, initialParams.leadId]);
+
+  const refreshTracking = useCallback(async () => {
+    if (!businessSlug || !leadId || !trackingOrderId) return;
+    setTrackingLoading(true);
+    setTrackingError(null);
+    try {
+      const { tracking: next } = await businessApi(businessSlug).getOrderTracking(trackingOrderId, leadId);
+      setTracking(next);
+    } catch {
+      setTrackingError("Não foi possível actualizar o estado da encomenda.");
+    } finally {
+      setTrackingLoading(false);
+    }
+  }, [businessSlug, leadId, trackingOrderId]);
+
+  useEffect(() => {
+    if (!trackingOrderId || !leadId) return;
+    void refreshTracking();
+    const interval = window.setInterval(() => void refreshTracking(), 10000);
+    return () => window.clearInterval(interval);
+  }, [leadId, refreshTracking, trackingOrderId]);
+
+  const handleOrderPaid = useCallback((orderId: string, orderLeadId: string) => {
+    setLeadId(orderLeadId);
+    setCallTriggered(true);
+    setTrackingOrderId(orderId);
+    setTracking(null);
+    setBuyModalOffering(null);
+  }, []);
+
+  const handleInlineOrderPaid = useCallback((orderId: string) => {
+    if (leadId) {
+      setTrackingOrderId(orderId);
+      setTracking(null);
+    }
+    gemini.clearCheckout();
+  }, [gemini, leadId]);
 
   // Fetch business name to show in header
   const [businessName, setBusinessName] = useState<string | null>(null);
@@ -747,6 +902,7 @@ export function Chat() {
           offering={buyModalOfferingAsOffering}
           onClose={() => setBuyModalOffering(null)}
           leadId={leadId}
+          onOrderPaid={handleOrderPaid}
         />
       )}
 
@@ -801,6 +957,7 @@ export function Chat() {
                     handlePaymentResult(orderId, status, offeringName);
                   }}
                   onDismiss={gemini.clearCheckout}
+                   onOrderPaid={handleInlineOrderPaid}
                 />
               </div>
             )}
@@ -837,6 +994,14 @@ export function Chat() {
               {messages.map((m) => (
                 <ChatBubble key={m.id} role={m.role} text={m.text} />
               ))}
+              {(trackingOrderId || trackingLoading || trackingError) && (
+                <OrderTrackingCard
+                  tracking={tracking}
+                  loading={trackingLoading}
+                  error={trackingError}
+                  onRefresh={() => void refreshTracking()}
+                />
+              )}
 
               {/* Agent messages as chat bubbles when call is minimised */}
               {isCallActive && isCallMinimized && visibleAgentMessages.length > 0 && (
@@ -885,6 +1050,7 @@ export function Chat() {
                   handlePaymentResult(orderId, status, offeringName);
                 }}
                 onDismiss={gemini.clearCheckout}
+                onOrderPaid={handleInlineOrderPaid}
               />
             )}
 

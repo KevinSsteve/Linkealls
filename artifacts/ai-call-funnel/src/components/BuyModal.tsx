@@ -12,7 +12,6 @@ import {
   X, Smartphone, Loader2, CheckCircle2, XCircle, Minus, Plus, ShieldCheck, FlaskConical,
 } from "lucide-react";
 import { businessApi, simulatePayment, type Offering, type OrderStatus } from "../lib/api";
-import { OrderProofUpload } from "./OrderProofUpload";
 
 // ─── Tokens locais (mesmos valores que T em Catalogo.tsx) ─────────────────────
 const M = {
@@ -112,11 +111,13 @@ export function BuyModal({
   offering,
   onClose,
   leadId,
+  onOrderPaid,
 }: {
   businessSlug: string;
   offering: Offering;
   onClose: () => void;
   leadId?: string | null;
+  onOrderPaid?: (orderId: string, leadId: string) => void;
 }) {
   const unitPrice = parsePriceAoa(offering.price) ?? 0;
   const [qty, setQty] = useState(1);
@@ -126,12 +127,44 @@ export function BuyModal({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [orderId, setOrderId] = useState<string | null>(null);
+  const [sessionLeadId, setSessionLeadId] = useState<string | null>(leadId ?? null);
   const [mtid, setMtid] = useState<string | null>(null);
   const [simulated, setSimulated] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const total = unitPrice * qty;
   const api = businessApi(businessSlug);
+
+  async function ensureLeadSession(): Promise<string> {
+    if (sessionLeadId) return sessionLeadId;
+    const { leadId: createdLeadId } = await api.createLeadSession(
+      { source: "catalogo", url: window.location.href },
+      [],
+    );
+    setSessionLeadId(createdLeadId);
+    return createdLeadId;
+  }
+
+  useEffect(() => {
+    if (leadId && leadId !== sessionLeadId) setSessionLeadId(leadId);
+  }, [leadId, sessionLeadId]);
+
+  useEffect(() => {
+    if (step !== "paid" || !orderId || !sessionLeadId) return;
+    const timer = window.setTimeout(() => {
+      if (onOrderPaid) {
+        onOrderPaid(orderId, sessionLeadId);
+        return;
+      }
+      const base = import.meta.env.BASE_URL.endsWith("/")
+        ? import.meta.env.BASE_URL
+        : `${import.meta.env.BASE_URL}/`;
+      window.location.assign(
+        `${base}e/${encodeURIComponent(businessSlug)}?leadId=${encodeURIComponent(sessionLeadId)}&orderId=${encodeURIComponent(orderId)}`,
+      );
+    }, 1200);
+    return () => window.clearTimeout(timer);
+  }, [businessSlug, onOrderPaid, orderId, sessionLeadId, step]);
 
   // Bloquear scroll da página atrás enquanto modal está aberto
   useEffect(() => {
@@ -164,12 +197,13 @@ export function BuyModal({
     if (!/^9\d{8}$/.test(p)) { setError("Indica um número válido (9XXXXXXXX)"); return; }
     setBusy(true);
     try {
+      const checkoutLeadId = await ensureLeadSession();
       const res = await api.createOrder({
         offeringName: offering.name,
         quantity: qty,
         phone: p,
         ...(buyerName.trim() ? { buyerName: buyerName.trim() } : {}),
-        ...(leadId ? { leadId } : {}),
+        leadId: checkoutLeadId,
       });
       setOrderId(res.orderId);
       setMtid(res.merchantTransactionId);
@@ -181,7 +215,7 @@ export function BuyModal({
     } finally {
       setBusy(false);
     }
-  }, [api, phone, buyerName, qty, offering.name, leadId, startPolling]);
+  }, [api, phone, buyerName, qty, offering.name, ensureLeadSession, startPolling]);
 
   const approveSimulated = useCallback(async () => {
     if (!mtid) return;
@@ -485,8 +519,8 @@ export function BuyModal({
                 className="leading-relaxed"
                 style={{ color: M.inkSoft, fontSize: 13, maxWidth: 280 }}
               >
-                A tua encomenda de <strong style={{ color: M.ink }}>{offering.name}</strong> foi paga.{" "}
-                O negócio foi notificado e vai entrar em contacto.
+                 A tua encomenda de <strong style={{ color: M.ink }}>{offering.name}</strong> foi paga.{" "}
+                 O negócio foi notificado. O acompanhamento será feito no chat da loja.
               </p>
               {orderId && (
                 <p
@@ -496,9 +530,12 @@ export function BuyModal({
                   Ref: {orderId.slice(0, 8).toUpperCase()}
                 </p>
               )}
-              {orderId && (
-                <OrderProofUpload businessSlug={businessSlug} orderId={orderId} />
-              )}
+              <div
+                className="w-full rounded-xl px-3 py-3"
+                style={{ background: M.mcLight, border: `1px solid ${M.mcBorder}`, color: "#166534", fontSize: 12 }}
+              >
+                Vamos abrir a conversa para veres o estado da encomenda e receberes as actualizações.
+              </div>
               <button
                 onClick={onClose}
                 className="w-full font-bold transition-opacity hover:opacity-90"

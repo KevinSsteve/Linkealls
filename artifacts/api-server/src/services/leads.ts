@@ -344,10 +344,17 @@ export async function chatWithLead(
     .where(eq(ordersTable.leadId, leadId))
     .orderBy(desc(ordersTable.createdAt))
     .limit(5);
+  const fulfillmentLabels: Record<string, string> = {
+    novo: "nova",
+    em_preparacao: "em preparação",
+    pronto: "pronta",
+    entregue: "entregue",
+    cancelado: "cancelada",
+  };
   const ordersText = relatedOrders.length
     ? relatedOrders.map((order) => [
       `- ${order.offeringName} — ${Number(order.amount).toLocaleString("pt-AO")} Kz`,
-      `pagamento: ${order.status}, preparação: ${order.fulfillmentStatus}, comprovativo: ${order.proofStatus}`,
+      `pagamento: ${order.status}, estado operacional: ${fulfillmentLabels[order.fulfillmentStatus] ?? order.fulfillmentStatus}`,
       `telefone usado no pagamento: ${order.buyerPhone}${order.paidAt ? `, pago em ${new Date(order.paidAt).toLocaleString("pt-AO")}` : ""}`,
     ].join(" | ")).join("\n")
     : "(sem pedido associado)";
@@ -370,8 +377,8 @@ REGRAS:
 - Não repitas a descrição do negócio nem faças introduções longas. Responde directamente ao que o cliente perguntou.
 - NÃO uses formatação markdown (sem asteriscos, sem #, sem bullets).
 - Quando fizer sentido, sugere ligar de volta ao cliente.
-- Depois de um pagamento confirmado, faz follow-up: confirma que o número usado no Multicaixa Express (${relatedOrders.find((order) => order.status === "paga")?.buyerPhone ?? "ainda não confirmado"}) é o correcto e recolhe os dados em falta para entrega (localização, endereço, pessoa a receber e horário).
-- Se o comprovativo estiver pendente ou rejeitado, pede-o de forma clara. Se já foi recebido ou aprovado, confirma que está em revisão/validado e não o peças novamente.
+  - Depois de um pagamento confirmado, explica que o acompanhamento da encomenda será feito nesta conversa, confirma que o número usado no Multicaixa Express (${relatedOrders.find((order) => order.status === "paga")?.buyerPhone ?? "ainda não confirmado"}) é o correcto e recolhe os dados em falta para entrega (localização, endereço, pessoa a receber e horário).
+  - Responde sobre o estado operacional apenas com os dados acima. Se não houver dados suficientes, diz isso claramente e encaminha a dúvida para o dono.
 - Não inventes estados, prazos de entrega ou confirmação de dados que não estejam no contexto.
 - Escreve em Português de Angola (tratamento informal mas respeitoso).
 - Se não souberes uma resposta, diz honestamente e oferece alternativa.`;

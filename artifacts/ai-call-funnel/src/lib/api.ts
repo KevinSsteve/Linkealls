@@ -617,6 +617,7 @@ export type OrderProofStatus = "nao_pedido" | "pendente" | "recebido" | "aprovad
 
 export interface OrderCheckout {
   orderId: string;
+  leadId?: string | null;
   merchantTransactionId: string;
   amount: number;
   status: OrderStatus;
@@ -692,6 +693,24 @@ export interface OrderEvent {
   content: string;
   meta: Record<string, unknown>;
   createdAt: string;
+}
+
+export interface OrderTracking {
+  id: string;
+  offeringName: string;
+  quantity: number;
+  amount: string;
+  status: OrderStatus;
+  fulfillmentStatus: OrderFulfillmentStatus;
+  paidAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  events: Array<{
+    type: string;
+    actor: string;
+    content: string;
+    createdAt: string;
+  }>;
 }
 
 export type PayoutStatus = "pendente" | "processado" | "falhado" | "revertido";
@@ -783,6 +802,13 @@ export function businessApi(slug: string) {
       bRequest<{ leadId: string }>("/leads/session", {
         method: "POST", body: JSON.stringify({ origin, chatMessages }),
       }),
+    getLeadSession: (id: string) =>
+      bRequest<{
+        leadId: string;
+        chatMessages: ChatMessage[];
+        createdAt: string;
+        updatedAt: string;
+      }>(`/leads/${encodeURIComponent(id)}/session`),
     listLeads: () =>
       bRequest<{ leads: Lead[] }>("/leads"),
     getLeadDetail: (id: string) =>
@@ -832,6 +858,10 @@ export function businessApi(slug: string) {
       bRequest<OrderCheckout>("/orders", { method: "POST", body: JSON.stringify(data) }),
     getOrderStatus: (orderId: string) =>
       bRequest<OrderPublicStatus>(`/orders/${orderId}/status`),
+    getOrderTracking: (orderId: string, leadId: string) =>
+      bRequest<{ tracking: OrderTracking }>(
+        `/orders/${encodeURIComponent(orderId)}/tracking?leadId=${encodeURIComponent(leadId)}`,
+      ),
 
     // Payments — owner
     listOrders: () =>

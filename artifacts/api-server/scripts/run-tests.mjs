@@ -49,7 +49,11 @@ try {
 
   const child = spawn(
     process.execPath,
-    ["--test", path.join(artifactDir, "tests/ekwanza-contract.test.mjs")],
+    [
+      "--test",
+      path.join(artifactDir, "tests/ekwanza-contract.test.mjs"),
+      path.join(artifactDir, "tests/orders-chat-contract.test.mjs"),
+    ],
     { env: testEnv, stdio: "inherit" },
   );
 

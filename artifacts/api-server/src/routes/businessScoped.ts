@@ -335,6 +335,30 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
+  router.get("/leads/:id/session", publicRateLimit, async (req, res) => {
+    const id = String(req.params["id"] ?? "");
+    if (!/^[0-9a-f-]{36}$/i.test(id)) {
+      res.status(404).json({ error: "Conversa não encontrada" });
+      return;
+    }
+    try {
+      const lead = await getLead(id, bid(res));
+      if (!lead) {
+        res.status(404).json({ error: "Conversa não encontrada" });
+        return;
+      }
+      res.json({
+        leadId: lead.id,
+        chatMessages: lead.chatMessages,
+        createdAt: lead.createdAt,
+        updatedAt: lead.updatedAt,
+      });
+    } catch (err) {
+      logger.error({ err, id }, "GET /leads/:id/session failed");
+      res.status(500).json({ error: "Erro ao carregar conversa" });
+    }
+  });
+
   router.get("/leads", requireOwner, async (_req, res) => {
     try {
       const leads = await listLeads(bid(res));

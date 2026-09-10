@@ -8,7 +8,7 @@
  *  - Wallet balance is ALWAYS derived from SUM(wallet_ledger.amount).
  */
 import { randomUUID } from "crypto";
-import { and, desc, eq, sql, gt } from "drizzle-orm";
+import { and, asc, desc, eq, sql, gt } from "drizzle-orm";
 import {
   db,
   ordersTable,
@@ -112,16 +112,33 @@ export async function createProductOrder(
 
   const offering = profile.offerings.find((o) => o.name === input.offeringName);
   if (!offering) throw new PaymentError("Produto não encontrado no catálogo", 404);
-  if (input.leadId) {
+  const unitPrice = parseOfferingPrice(offering.price);
+  if (unitPrice === null) throw new PaymentError("Este produto não tem preço fixo — fala com o negócio", 400);
+
+  let resolvedLeadId = input.leadId;
+  if (resolvedLeadId) {
     const lead = await db
       .select({ id: leadsTable.id })
       .from(leadsTable)
-      .where(and(eq(leadsTable.id, input.leadId), eq(leadsTable.businessId, businessId)))
+      .where(and(eq(leadsTable.id, resolvedLeadId), eq(leadsTable.businessId, businessId)))
       .limit(1);
     if (!lead[0]) throw new PaymentError("Conversa não encontrada", 400);
+  } else {
+    const leadRows = await db
+      .insert(leadsTable)
+      .values({
+        businessId,
+        origin: { source: "checkout-direct" },
+        qualificationData: {
+          ...(input.buyerName ? { name: input.buyerName } : {}),
+          phone: input.phone,
+        },
+        chatMessages: [],
+      })
+      .returning({ id: leadsTable.id });
+    resolvedLeadId = leadRows[0]?.id;
+    if (!resolvedLeadId) throw new PaymentError("Não foi possível iniciar a conversa da encomenda", 500);
   }
-  const unitPrice = parseOfferingPrice(offering.price);
-  if (unitPrice === null) throw new PaymentError("Este produto não tem preço fixo — fala com o negócio", 400);
 
   const amount = Math.round(unitPrice * input.quantity * 100) / 100;
   const merchantTransactionId = newMerchantTransactionId("LKO");
@@ -136,7 +153,7 @@ export async function createProductOrder(
       amount: amount.toFixed(2),
       buyerPhone: input.phone,
       buyerName: input.buyerName ?? null,
-      leadId: input.leadId ?? null,
+      leadId: resolvedLeadId,
       customerNotes: input.customerNotes ?? null,
       merchantTransactionId,
     })
@@ -193,6 +210,70 @@ export async function getOrderPublicStatus(orderId: string): Promise<Order | nul
   const order = rows[0] ?? null;
   if (!order) return null;
   return maybeExpire(order);
+}
+
+export interface PublicOrderTracking {
+  id: string;
+  offeringName: string;
+  quantity: number;
+  amount: string;
+  status: Order["status"];
+  fulfillmentStatus: OrderFulfillmentStatus;
+  paidAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+  events: Array<{
+    type: string;
+    actor: string;
+    content: string;
+    createdAt: Date;
+  }>;
+}
+
+/** Returns only safe tracking fields for the customer who owns the lead session. */
+export async function getOrderTracking(
+  orderId: string,
+  businessId: number,
+  leadId: string,
+): Promise<PublicOrderTracking | null> {
+  const rows = await db
+    .select()
+    .from(ordersTable)
+    .where(and(
+      eq(ordersTable.id, orderId),
+      eq(ordersTable.businessId, businessId),
+      eq(ordersTable.leadId, leadId),
+    ))
+    .limit(1);
+  const order = rows[0];
+  if (!order) return null;
+
+  const events = await db
+    .select({
+      type: orderEventsTable.type,
+      actor: orderEventsTable.actor,
+      content: orderEventsTable.content,
+      createdAt: orderEventsTable.createdAt,
+    })
+    .from(orderEventsTable)
+    .where(and(
+      eq(orderEventsTable.orderId, order.id),
+      eq(orderEventsTable.businessId, businessId),
+    ))
+    .orderBy(asc(orderEventsTable.createdAt));
+
+  return {
+    id: order.id,
+    offeringName: order.offeringName,
+    quantity: order.quantity,
+    amount: order.amount,
+    status: order.status,
+    fulfillmentStatus: order.fulfillmentStatus,
+    paidAt: order.paidAt,
+    createdAt: order.createdAt,
+    updatedAt: order.updatedAt,
+    events,
+  };
 }
 
 async function maybeExpire(order: Order): Promise<Order> {
@@ -563,7 +644,6 @@ export async function settleGpoPayment(
           .set({
             status: "paga",
             paidAt: new Date(),
-            proofStatus: "pendente",
             lastFollowUpAt: order.leadId ? new Date() : null,
             ekwanzaTransactionId: ekwanzaTransactionId ?? null,
             updatedAt: new Date(),
@@ -582,23 +662,13 @@ export async function settleGpoPayment(
             })
             .onConflictDoNothing();
           if (updated.length > 0) {
-            await tx.insert(orderEventsTable).values([
-              {
-                orderId: order.id,
-                businessId: order.businessId,
-                type: "pagamento_confirmado",
-                actor: "sistema",
-                content: `Pagamento confirmado: ${order.offeringName} x${order.quantity}.`,
-              },
-              {
-                orderId: order.id,
-                businessId: order.businessId,
-                type: "prova_pedida",
-                actor: "ia",
-                content: "Foi pedido ao cliente o envio do comprovativo no chat.",
-                meta: { proofStatus: "pendente" },
-              },
-            ]);
+           await tx.insert(orderEventsTable).values({
+             orderId: order.id,
+             businessId: order.businessId,
+             type: "pagamento_confirmado",
+             actor: "sistema",
+             content: `Pagamento confirmado: ${order.offeringName} x${order.quantity}.`,
+           });
           }
         }
         return { firstSettle: updated.length > 0 };
@@ -612,11 +682,11 @@ export async function settleGpoPayment(
             .limit(1);
           const lead = leadRows[0];
           if (lead) {
-            const followUp = [
-              `Pagamento confirmado para ${order.offeringName} (${Number(order.amount).toLocaleString("pt-AO")} Kz).`,
-              "Para o negócio preparar a tua encomenda, envia aqui o comprovativo de pagamento.",
-              "Se houver algum detalhe de entrega ou dado que ainda não tenhamos, podes enviar também nesta conversa.",
-            ].join(" ");
+             const followUp = [
+               `Pagamento confirmado para ${order.offeringName} (${Number(order.amount).toLocaleString("pt-AO")} Kz).`,
+               "A tua encomenda ficou registada e vamos fazer o acompanhamento por aqui.",
+               "Envia nesta conversa a localização, endereço, pessoa que vai receber e horário, se ainda faltar algum dado.",
+             ].join(" ");
             await db.update(leadsTable)
               .set({
                 chatMessages: [

@@ -33,6 +33,7 @@ import {
   listPayouts,
   requestPayout,
   reconcilePayout,
+  getOrderTracking,
   getSubscriptionInfo,
   createPlanCharge,
   getSubscriptionPublicStatus,
@@ -74,6 +75,7 @@ export function createPaymentsScopedRouter(
       const { order, simulated } = await createProductOrder(bid(res), parsed.data);
       res.status(201).json({
         orderId: order.id,
+        leadId: order.leadId,
         merchantTransactionId: order.merchantTransactionId,
         amount: Number(order.amount),
         status: order.status,
@@ -109,6 +111,25 @@ export function createPaymentsScopedRouter(
       });
     } catch (err) {
       handleError(res, err, "GET /orders/:id/status failed");
+    }
+  });
+
+  router.get("/orders/:id/tracking", publicRateLimit, async (req, res) => {
+    const id = String(req.params["id"] ?? "");
+    const leadId = String(req.query["leadId"] ?? "");
+    if (!/^[0-9a-f-]{36}$/i.test(id) || !/^[0-9a-f-]{36}$/i.test(leadId)) {
+      res.status(404).json({ error: "Encomenda não encontrada" });
+      return;
+    }
+    try {
+      const tracking = await getOrderTracking(id, bid(res), leadId);
+      if (!tracking) {
+        res.status(404).json({ error: "Encomenda não encontrada" });
+        return;
+      }
+      res.json({ tracking });
+    } catch (err) {
+      handleError(res, err, "GET /orders/:id/tracking failed");
     }
   });
 

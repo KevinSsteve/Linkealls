@@ -17,7 +17,6 @@ import {
 } from "lucide-react";
 import { businessApi, simulatePayment } from "../lib/api";
 import type { CheckoutInfo } from "../hooks/useGeminiLive";
-import { OrderProofUpload } from "./OrderProofUpload";
 
 function formatAoa(v: number): string {
   return `${v.toLocaleString("pt-AO", { maximumFractionDigits: 2 })} Kz`;
@@ -30,9 +29,10 @@ interface Props {
   checkout: CheckoutInfo;
   onDone: (orderId: string, status: string, offeringName: string) => void;
   onDismiss: () => void;
+  onOrderPaid?: (orderId: string) => void;
 }
 
-export function InlineCheckout({ businessSlug, checkout, onDone, onDismiss }: Props) {
+export function InlineCheckout({ businessSlug, checkout, onDone, onDismiss, onOrderPaid }: Props) {
   const [step, setStep] = useState<PayStep>("waiting");
   const [busy, setBusy] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -46,6 +46,9 @@ export function InlineCheckout({ businessSlug, checkout, onDone, onDismiss }: Pr
       if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
       setStep(status === "paga" ? "paid" : "failed");
       onDone(checkout.orderId, status, checkout.offeringName);
+      if (status === "paga") {
+        window.setTimeout(() => onOrderPaid?.(checkout.orderId), 1200);
+      }
     },
     [checkout.orderId, checkout.offeringName, onDone],
   );
@@ -223,13 +226,12 @@ export function InlineCheckout({ businessSlug, checkout, onDone, onDismiss }: Pr
                 Pagamento confirmado!
               </p>
               <p className="text-[12px] mt-1 leading-relaxed" style={{ color: T.inkSoft }}>
-                O negócio foi notificado e vai entrar em contacto.
+                O negócio foi notificado. O acompanhamento será feito nesta conversa.
               </p>
             </div>
             <p className="text-[11px] tabular-nums" style={{ color: T.inkFaint }}>
               Ref: {checkout.orderId.slice(0, 8).toUpperCase()}
             </p>
-            <OrderProofUpload businessSlug={businessSlug} orderId={checkout.orderId} compact />
           </div>
         )}
 
