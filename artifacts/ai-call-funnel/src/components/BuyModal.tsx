@@ -23,10 +23,10 @@ const M = {
   line:     "#E6EBF1",
   lineSoft: "#F1F4F8",
   subtle:   "#F1F5F9",
-  // Multicaixa Express — manter verde de marca só no CTA de pagamento
-  mcGreen:  "#16A34A",
-  mcLight:  "#F0FDF4",
-  mcBorder: "#BBF7D0",
+  // Checkout catalogue uses the same neutral palette as the public profile.
+  mcGreen:  "#111111",
+  mcLight:  "#F8F8F8",
+  mcBorder: "#E5E5E5",
   // Erro
   errBg:    "#FEF2F2",
   errText:  "#DC2626",
@@ -411,10 +411,10 @@ export function BuyModal({
                   <Smartphone size={18} />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="font-bold" style={{ color: "#166534", fontSize: 13 }}>
+                  <p className="font-bold" style={{ color: M.ink, fontSize: 13 }}>
                     Multicaixa Express
                   </p>
-                  <p className="mt-0.5" style={{ color: "#3F7A55", fontSize: 11.5 }}>
+                  <p className="mt-0.5" style={{ color: M.inkSoft, fontSize: 11.5 }}>
                     Aprovação segura por notificação no telemóvel
                   </p>
                 </div>
@@ -603,7 +603,7 @@ export function BuyModal({
               )}
               <div
                 className="w-full rounded-xl px-3 py-3"
-                style={{ background: M.mcLight, border: `1px solid ${M.mcBorder}`, color: "#166534", fontSize: 12 }}
+                style={{ background: M.mcLight, border: `1px solid ${M.mcBorder}`, color: M.inkSoft, fontSize: 12 }}
               >
                 Vamos abrir a conversa para veres o estado da encomenda e receberes as actualizações.
               </div>
