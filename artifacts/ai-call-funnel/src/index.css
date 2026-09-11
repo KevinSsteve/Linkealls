@@ -2009,14 +2009,17 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .linkealls-home {
   --page-cream: #f8f5ee;
   --page-ink: #17131f;
-  --page-purple: #6c42c7;
-  --page-purple-deep: #4b2b8e;
+  --page-purple: #7138e5;
+  --page-purple-deep: #4a258c;
   --page-lilac: #cdb7ff;
   --page-pink: #f7a6c3;
   --page-yellow: #f4d25e;
   --page-mint: #b7ead8;
   --page-coral: #f17e67;
+  width: 100%;
+  max-width: none;
   min-width: 0;
+  margin: 0;
   overflow: hidden;
   color: var(--page-ink);
   background: var(--page-cream);
@@ -2061,13 +2064,16 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 
 .home-hero {
   position: relative;
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
   min-height: 850px;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 170px 24px 94px;
   color: #fff;
-  background: var(--page-purple);
+  background: #7138e5;
 }
 .home-hero::before { content: ""; position: absolute; inset: 0; opacity: .14; pointer-events: none; background-image: radial-gradient(rgba(255,255,255,.22) .7px, transparent .7px); background-size: 13px 13px; }
 .home-hero::after { content: ""; position: absolute; top: -320px; right: -180px; width: 700px; height: 700px; border: 1px solid rgba(255,255,255,.16); border-radius: 50%; box-shadow: 0 0 0 50px rgba(255,255,255,.035), 0 0 0 110px rgba(255,255,255,.025); pointer-events: none; }
