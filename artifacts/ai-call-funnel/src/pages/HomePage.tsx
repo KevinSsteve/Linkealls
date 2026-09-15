@@ -8,6 +8,17 @@ import { ArrowLeft, ArrowRight, ArrowUpRight, BarChart3, Check, Globe2, Menu, Se
 import { SiFacebook, SiInstagram, SiWhatsapp, SiYoutube } from "react-icons/si";
 import { Link, Redirect, useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
+import heroImage from "@/assets/landing/hero.jpg";
+import profileCustomizationImage from "@/assets/landing/profile-customization.jpg";
+import socialSharingImage from "@/assets/landing/social-sharing.jpg";
+import audienceAnalyticsImage from "@/assets/landing/audience-analytics.jpg";
+import proofCreatorImage from "@/assets/landing/proof-creator.jpg";
+import proofCommunityImage from "@/assets/landing/proof-community.jpg";
+import proofBusinessImage from "@/assets/landing/proof-business.jpg";
+import contentCreationImage from "@/assets/landing/content-creation.jpg";
+import commerceOrdersImage from "@/assets/landing/commerce-orders.jpg";
+import pressPartnersImage from "@/assets/landing/press-partners.jpg";
+import testimonialOwnerImage from "@/assets/landing/testimonial-owner.jpg";
 
 interface Business {
   id: number;
@@ -86,11 +97,21 @@ function BusinessSkeleton() {
   );
 }
 
-function MediaSlot({ label, className = "" }: { label: string; className?: string }) {
+function LandingMedia({
+  src,
+  alt,
+  className = "",
+  eager = false,
+}: {
+  src: string;
+  alt: string;
+  className?: string;
+  eager?: boolean;
+}) {
   return (
-    <div className={`home-media-slot ${className}`} role="img" aria-label={`Espaço para imagem: ${label}`}>
-      <span>{label}</span>
-    </div>
+    <figure className={`home-media-slot ${className}`}>
+      <img src={src} alt={alt} loading={eager ? "eager" : "lazy"} decoding="async" />
+    </figure>
   );
 }
 
@@ -226,7 +247,12 @@ export function HomePage() {
           <p className="home-hero-trust">Grátis para começar · sem cartão · feito para o teu ritmo</p>
           <SocialRow />
           <div className="home-hero-media home-reveal home-reveal-delay-1">
-            <MediaSlot label="slot · imagem hero · 16:5" className="is-hero" />
+            <LandingMedia
+              src={heroImage}
+              alt="Empreendedora angolana rodeada por produtos de pequenos negócios"
+              className="is-hero"
+              eager
+            />
           </div>
         </div>
       </section>
@@ -250,7 +276,11 @@ export function HomePage() {
             <a href="#para-negocios" className="home-story-link" data-testid="link-customize-presence">Ver como funciona <ArrowRight size={15} /></a>
           </div>
           <div className="home-story-media">
-            <MediaSlot label="slot · página de perfil · 4:5" className="is-portrait is-light" />
+            <LandingMedia
+              src={profileCustomizationImage}
+              alt="Criador angolano a personalizar a presença visual do seu negócio"
+              className="is-portrait is-light"
+            />
           </div>
         </div>
       </section>
@@ -258,7 +288,11 @@ export function HomePage() {
       <section id="partilhar" className="home-story-section is-burgundy" aria-labelledby="share-title">
         <div className="home-story-inner home-story-grid">
           <div className="home-story-media is-left">
-            <MediaSlot label="slot · partilha social · 3:4" className="is-tall is-light" />
+            <LandingMedia
+              src={socialSharingImage}
+              alt="Criadora angolana a partilhar o seu negócio através do telemóvel"
+              className="is-tall is-light"
+            />
           </div>
           <div className="home-story-copy is-right">
             <span className="home-story-number">02 / ALCANCE</span>
@@ -280,7 +314,11 @@ export function HomePage() {
             <div className="home-story-link"><BarChart3 size={15} /> Métricas feitas para pessoas</div>
           </div>
           <div className="home-story-media">
-            <MediaSlot label="slot · insights · 4:5" className="is-portrait is-light" />
+            <LandingMedia
+              src={audienceAnalyticsImage}
+              alt="Empreendedores angolanos a analisar o crescimento do negócio"
+              className="is-portrait is-light"
+            />
           </div>
         </div>
       </section>
@@ -288,10 +326,22 @@ export function HomePage() {
       <section className="home-proof-section" aria-labelledby="proof-title">
         <p className="home-proof-kicker">Já está a acontecer</p>
         <h2 id="proof-title" className="home-proof-title">Pequenos negócios. <em>Grandes movimentos.</em></h2>
-        <div className="home-proof-collage" aria-label="Espaços reservados para imagens de criadores">
-          <MediaSlot label="slot · criador · 1:1" className="is-square is-light" />
-          <MediaSlot label="slot · comunidade · 4:5" className="is-portrait is-light" />
-          <MediaSlot label="slot · negócio · 1:1" className="is-square is-light" />
+        <div className="home-proof-collage" aria-label="Criadores e negócios da comunidade Linkealls">
+          <LandingMedia
+            src={proofCreatorImage}
+            alt="Criadora angolana de beleza com um produto da sua marca"
+            className="is-square is-light"
+          />
+          <LandingMedia
+            src={proofCommunityImage}
+            alt="Comunidade de jovens criadores e empreendedores angolanos"
+            className="is-portrait is-light"
+          />
+          <LandingMedia
+            src={proofBusinessImage}
+            alt="Dono de um pequeno café angolano a preparar uma encomenda"
+            className="is-square is-light"
+          />
         </div>
         <div className="home-quotes">
           <article className="home-quote is-purple">
@@ -310,7 +360,11 @@ export function HomePage() {
       <section className="home-story-section is-lilac" aria-labelledby="content-title">
         <div className="home-story-inner home-story-grid">
           <div className="home-story-media is-left">
-            <MediaSlot label="slot · conteúdo · 3:4" className="is-tall is-light" />
+            <LandingMedia
+              src={contentCreationImage}
+              alt="Criadora angolana a produzir conteúdo para apresentar os seus produtos"
+              className="is-tall is-light"
+            />
           </div>
           <div className="home-story-copy is-right">
             <span className="home-story-number">04 / CONTEÚDO</span>
@@ -336,7 +390,11 @@ export function HomePage() {
             </ul>
           </div>
           <div className="home-story-media">
-            <MediaSlot label="slot · comércio · 4:5" className="is-portrait is-light" />
+            <LandingMedia
+              src={commerceOrdersImage}
+              alt="Dona de negócio angolana a preparar uma encomenda recebida pelo telemóvel"
+              className="is-portrait is-light"
+            />
           </div>
         </div>
       </section>
@@ -351,7 +409,11 @@ export function HomePage() {
           </div>
           <div className="home-press-panel">
             <p className="home-press-label">Onde o teu negócio pode aparecer</p>
-            <MediaSlot label="slot · imprensa e logos · 3:2" className="is-landscape is-light" />
+            <LandingMedia
+              src={pressPartnersImage}
+              alt="Composição editorial que representa imprensa, reconhecimento e parcerias"
+              className="is-landscape is-light"
+            />
             <p className="home-press-note">Área reservada para imprensa, parceiros e provas sociais.</p>
           </div>
         </div>
@@ -360,7 +422,11 @@ export function HomePage() {
       <section className="home-testimonial-section" aria-labelledby="testimonial-title">
         <div className="home-testimonial-inner">
           <div className="home-testimonial-media">
-            <MediaSlot label="slot · retrato de cliente · 4:5" className="is-portrait is-light" />
+            <LandingMedia
+              src={testimonialOwnerImage}
+              alt="Empreendedora angolana no seu atelier de moda"
+              className="is-portrait is-light"
+            />
           </div>
           <div className="home-testimonial-copy">
             <p className="home-proof-kicker">Palavra de quem faz</p>

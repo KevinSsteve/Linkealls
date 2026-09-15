@@ -7,3 +7,18 @@ uri = "file://downloads/Catalogo.tsx"
 type = "unspecified"
 title = "Catalogo.tsx"
 description = "Código completo da página pública do catálogo do negócio (design, layout e lógica do chat)."
+logical_id = "62f84cee-e590-4aea-a2cf-da3f843cfbf6"
+
+[[outputs]]
+id = "ByzaSXerV6nkIDdoP0Oct"
+uri = "file://attached_assets/generated_images/linkealls-landing-contact-sheet.jpg"
+type = "image"
+title = "Colecção final de imagens Linkealls"
+description = "Folha de contacto com as 11 imagens originais integradas na landing page."
+logical_id = "2069b7dd-f63e-4e83-a0a3-d0df743d73d7"
+content_hash = "sha256:41951bdc53955fa1a4b206816078a8b03b8fa1a466b45cf17245f8627c2c619b"
+size = 270448
+mtime_ms = 1789511899185
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:e8edc1f7-bf08-4354-b065-21c3bb034ab4/2069b7dd-f63e-4e83-a0a3-d0df743d73d7/28d707e2-5ec6-48dc-98a6-e632fdfb59fd"
+storage_version_token = "1789511953089405"
+content_type = "image/jpeg"

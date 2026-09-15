@@ -17,3 +17,4 @@
 - [Order commerce flow](order-commerce-flow.md) — payment confirmation, operational fulfillment, conversation follow-up, and private proof review must stay separate but linked.
 - [Account deletion](account-deletion.md) — self-service deletion requires an authenticated session, explicit confirmation, and no pending gateway operation.
 - [Catalog checkout layering](catalog-checkout-layering.md) — the checkout overlay is a direct catalog child; page-wide child layering must not override its fixed positioning.
+- [Generated image ratios](generated-image-ratios.md) — generated images may remain square despite ratio prompts; preserve originals and make explicit non-distorting crops for final slots.
