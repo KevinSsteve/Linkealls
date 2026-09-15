@@ -19,6 +19,50 @@ import contentCreationImage from "@/assets/landing/content-creation.jpg";
 import commerceOrdersImage from "@/assets/landing/commerce-orders.jpg";
 import pressPartnersImage from "@/assets/landing/press-partners.jpg";
 import testimonialOwnerImage from "@/assets/landing/testimonial-owner.jpg";
+import heroAvif480 from "@/assets/landing/hero-480.avif";
+import heroAvif1024 from "@/assets/landing/hero-1024.avif";
+import heroWebp480 from "@/assets/landing/hero-480.webp";
+import heroWebp1024 from "@/assets/landing/hero-1024.webp";
+import profileCustomizationAvif480 from "@/assets/landing/profile-customization-480.avif";
+import profileCustomizationAvif819 from "@/assets/landing/profile-customization-819.avif";
+import profileCustomizationWebp480 from "@/assets/landing/profile-customization-480.webp";
+import profileCustomizationWebp819 from "@/assets/landing/profile-customization-819.webp";
+import socialSharingAvif480 from "@/assets/landing/social-sharing-480.avif";
+import socialSharingAvif768 from "@/assets/landing/social-sharing-768.avif";
+import socialSharingWebp480 from "@/assets/landing/social-sharing-480.webp";
+import socialSharingWebp768 from "@/assets/landing/social-sharing-768.webp";
+import audienceAnalyticsAvif480 from "@/assets/landing/audience-analytics-480.avif";
+import audienceAnalyticsAvif819 from "@/assets/landing/audience-analytics-819.avif";
+import audienceAnalyticsWebp480 from "@/assets/landing/audience-analytics-480.webp";
+import audienceAnalyticsWebp819 from "@/assets/landing/audience-analytics-819.webp";
+import proofCreatorAvif480 from "@/assets/landing/proof-creator-480.avif";
+import proofCreatorAvif1024 from "@/assets/landing/proof-creator-1024.avif";
+import proofCreatorWebp480 from "@/assets/landing/proof-creator-480.webp";
+import proofCreatorWebp1024 from "@/assets/landing/proof-creator-1024.webp";
+import proofCommunityAvif480 from "@/assets/landing/proof-community-480.avif";
+import proofCommunityAvif819 from "@/assets/landing/proof-community-819.avif";
+import proofCommunityWebp480 from "@/assets/landing/proof-community-480.webp";
+import proofCommunityWebp819 from "@/assets/landing/proof-community-819.webp";
+import proofBusinessAvif480 from "@/assets/landing/proof-business-480.avif";
+import proofBusinessAvif1024 from "@/assets/landing/proof-business-1024.avif";
+import proofBusinessWebp480 from "@/assets/landing/proof-business-480.webp";
+import proofBusinessWebp1024 from "@/assets/landing/proof-business-1024.webp";
+import contentCreationAvif480 from "@/assets/landing/content-creation-480.avif";
+import contentCreationAvif768 from "@/assets/landing/content-creation-768.avif";
+import contentCreationWebp480 from "@/assets/landing/content-creation-480.webp";
+import contentCreationWebp768 from "@/assets/landing/content-creation-768.webp";
+import commerceOrdersAvif480 from "@/assets/landing/commerce-orders-480.avif";
+import commerceOrdersAvif819 from "@/assets/landing/commerce-orders-819.avif";
+import commerceOrdersWebp480 from "@/assets/landing/commerce-orders-480.webp";
+import commerceOrdersWebp819 from "@/assets/landing/commerce-orders-819.webp";
+import pressPartnersAvif480 from "@/assets/landing/press-partners-480.avif";
+import pressPartnersAvif1024 from "@/assets/landing/press-partners-1024.avif";
+import pressPartnersWebp480 from "@/assets/landing/press-partners-480.webp";
+import pressPartnersWebp1024 from "@/assets/landing/press-partners-1024.webp";
+import testimonialOwnerAvif480 from "@/assets/landing/testimonial-owner-480.avif";
+import testimonialOwnerAvif819 from "@/assets/landing/testimonial-owner-819.avif";
+import testimonialOwnerWebp480 from "@/assets/landing/testimonial-owner-480.webp";
+import testimonialOwnerWebp819 from "@/assets/landing/testimonial-owner-819.webp";
 
 interface Business {
   id: number;
@@ -59,6 +103,40 @@ const TESTIMONIALS = [
   },
 ];
 
+interface LandingImage {
+  fallback: string;
+  avif: string;
+  webp: string;
+}
+
+const responsiveImage = (
+  fallback: string,
+  avifSmall: string,
+  avifLarge: string,
+  webpSmall: string,
+  webpLarge: string,
+  smallWidth: number,
+  largeWidth: number,
+): LandingImage => ({
+  fallback,
+  avif: `${avifSmall} ${smallWidth}w, ${avifLarge} ${largeWidth}w`,
+  webp: `${webpSmall} ${smallWidth}w, ${webpLarge} ${largeWidth}w`,
+});
+
+const LANDING_IMAGES = {
+  hero: responsiveImage(heroImage, heroAvif480, heroAvif1024, heroWebp480, heroWebp1024, 480, 1024),
+  profileCustomization: responsiveImage(profileCustomizationImage, profileCustomizationAvif480, profileCustomizationAvif819, profileCustomizationWebp480, profileCustomizationWebp819, 480, 819),
+  socialSharing: responsiveImage(socialSharingImage, socialSharingAvif480, socialSharingAvif768, socialSharingWebp480, socialSharingWebp768, 480, 768),
+  audienceAnalytics: responsiveImage(audienceAnalyticsImage, audienceAnalyticsAvif480, audienceAnalyticsAvif819, audienceAnalyticsWebp480, audienceAnalyticsWebp819, 480, 819),
+  proofCreator: responsiveImage(proofCreatorImage, proofCreatorAvif480, proofCreatorAvif1024, proofCreatorWebp480, proofCreatorWebp1024, 480, 1024),
+  proofCommunity: responsiveImage(proofCommunityImage, proofCommunityAvif480, proofCommunityAvif819, proofCommunityWebp480, proofCommunityWebp819, 480, 819),
+  proofBusiness: responsiveImage(proofBusinessImage, proofBusinessAvif480, proofBusinessAvif1024, proofBusinessWebp480, proofBusinessWebp1024, 480, 1024),
+  contentCreation: responsiveImage(contentCreationImage, contentCreationAvif480, contentCreationAvif768, contentCreationWebp480, contentCreationWebp768, 480, 768),
+  commerceOrders: responsiveImage(commerceOrdersImage, commerceOrdersAvif480, commerceOrdersAvif819, commerceOrdersWebp480, commerceOrdersWebp819, 480, 819),
+  pressPartners: responsiveImage(pressPartnersImage, pressPartnersAvif480, pressPartnersAvif1024, pressPartnersWebp480, pressPartnersWebp1024, 480, 1024),
+  testimonialOwner: responsiveImage(testimonialOwnerImage, testimonialOwnerAvif480, testimonialOwnerAvif819, testimonialOwnerWebp480, testimonialOwnerWebp819, 480, 819),
+} as const;
+
 function palette(name: string) {
   let hash = 0;
   for (const character of name) hash = hash * 31 + character.charCodeAt(0);
@@ -98,19 +176,31 @@ function BusinessSkeleton() {
 }
 
 function LandingMedia({
-  src,
+  image,
   alt,
   className = "",
   eager = false,
+  sizes = "(max-width: 640px) calc(100vw - 32px), 550px",
 }: {
-  src: string;
+  image: LandingImage;
   alt: string;
   className?: string;
   eager?: boolean;
+  sizes?: string;
 }) {
   return (
     <figure className={`home-media-slot ${className}`}>
-      <img src={src} alt={alt} loading={eager ? "eager" : "lazy"} decoding="async" />
+      <picture>
+        <source type="image/avif" srcSet={image.avif} sizes={sizes} />
+        <source type="image/webp" srcSet={image.webp} sizes={sizes} />
+        <img
+          src={image.fallback}
+          alt={alt}
+          loading={eager ? "eager" : "lazy"}
+          fetchPriority={eager ? "high" : "auto"}
+          decoding="async"
+        />
+      </picture>
     </figure>
   );
 }
@@ -248,10 +338,11 @@ export function HomePage() {
           <SocialRow />
           <div className="home-hero-media home-reveal home-reveal-delay-1">
             <LandingMedia
-              src={heroImage}
+              image={LANDING_IMAGES.hero}
               alt="Empreendedora angolana rodeada por produtos de pequenos negócios"
               className="is-hero"
               eager
+              sizes="(max-width: 640px) calc(100vw - 32px), 1024px"
             />
           </div>
         </div>
@@ -277,7 +368,7 @@ export function HomePage() {
           </div>
           <div className="home-story-media">
             <LandingMedia
-              src={profileCustomizationImage}
+              image={LANDING_IMAGES.profileCustomization}
               alt="Criador angolano a personalizar a presença visual do seu negócio"
               className="is-portrait is-light"
             />
@@ -289,7 +380,7 @@ export function HomePage() {
         <div className="home-story-inner home-story-grid">
           <div className="home-story-media is-left">
             <LandingMedia
-              src={socialSharingImage}
+              image={LANDING_IMAGES.socialSharing}
               alt="Criadora angolana a partilhar o seu negócio através do telemóvel"
               className="is-tall is-light"
             />
@@ -315,7 +406,7 @@ export function HomePage() {
           </div>
           <div className="home-story-media">
             <LandingMedia
-              src={audienceAnalyticsImage}
+              image={LANDING_IMAGES.audienceAnalytics}
               alt="Empreendedores angolanos a analisar o crescimento do negócio"
               className="is-portrait is-light"
             />
@@ -328,17 +419,17 @@ export function HomePage() {
         <h2 id="proof-title" className="home-proof-title">Pequenos negócios. <em>Grandes movimentos.</em></h2>
         <div className="home-proof-collage" aria-label="Criadores e negócios da comunidade Linkealls">
           <LandingMedia
-            src={proofCreatorImage}
+            image={LANDING_IMAGES.proofCreator}
             alt="Criadora angolana de beleza com um produto da sua marca"
             className="is-square is-light"
           />
           <LandingMedia
-            src={proofCommunityImage}
+            image={LANDING_IMAGES.proofCommunity}
             alt="Comunidade de jovens criadores e empreendedores angolanos"
             className="is-portrait is-light"
           />
           <LandingMedia
-            src={proofBusinessImage}
+            image={LANDING_IMAGES.proofBusiness}
             alt="Dono de um pequeno café angolano a preparar uma encomenda"
             className="is-square is-light"
           />
@@ -361,7 +452,7 @@ export function HomePage() {
         <div className="home-story-inner home-story-grid">
           <div className="home-story-media is-left">
             <LandingMedia
-              src={contentCreationImage}
+              image={LANDING_IMAGES.contentCreation}
               alt="Criadora angolana a produzir conteúdo para apresentar os seus produtos"
               className="is-tall is-light"
             />
@@ -391,7 +482,7 @@ export function HomePage() {
           </div>
           <div className="home-story-media">
             <LandingMedia
-              src={commerceOrdersImage}
+              image={LANDING_IMAGES.commerceOrders}
               alt="Dona de negócio angolana a preparar uma encomenda recebida pelo telemóvel"
               className="is-portrait is-light"
             />
@@ -410,7 +501,7 @@ export function HomePage() {
           <div className="home-press-panel">
             <p className="home-press-label">Onde o teu negócio pode aparecer</p>
             <LandingMedia
-              src={pressPartnersImage}
+              image={LANDING_IMAGES.pressPartners}
               alt="Composição editorial que representa imprensa, reconhecimento e parcerias"
               className="is-landscape is-light"
             />
@@ -423,7 +514,7 @@ export function HomePage() {
         <div className="home-testimonial-inner">
           <div className="home-testimonial-media">
             <LandingMedia
-              src={testimonialOwnerImage}
+              image={LANDING_IMAGES.testimonialOwner}
               alt="Empreendedora angolana no seu atelier de moda"
               className="is-portrait is-light"
             />
