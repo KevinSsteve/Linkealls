@@ -19,6 +19,7 @@ import contentCreationImage from "@/assets/landing/content-creation.jpg";
 import commerceOrdersImage from "@/assets/landing/commerce-orders.jpg";
 import pressPartnersImage from "@/assets/landing/press-partners.jpg";
 import testimonialOwnerImage from "@/assets/landing/testimonial-owner.jpg";
+import navLogoImage from "@/assets/brand/linkealls-nav-logo.png";
 import heroAvif480 from "@/assets/landing/hero-480.avif";
 import heroAvif1024 from "@/assets/landing/hero-1024.avif";
 import heroWebp480 from "@/assets/landing/hero-480.webp";
@@ -303,7 +304,9 @@ export function HomePage() {
     <main className="linkealls-home">
       <header className="home-nav" data-testid="header-home">
         <Link href="/" className="home-logo" data-testid="link-home-logo" aria-label="Linkealls, página inicial">
-          <span className="home-logo-mark" aria-hidden="true"><ArrowUpRight size={18} strokeWidth={2.5} /></span>
+          <span className="home-logo-mark" aria-hidden="true">
+            <img src={navLogoImage} alt="" />
+          </span>
           <span>Linkealls</span>
         </Link>
         <nav className="home-nav-links" aria-label="Navegação principal">

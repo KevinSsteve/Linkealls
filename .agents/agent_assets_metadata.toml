@@ -22,3 +22,17 @@ mtime_ms = 1789511899185
 storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:e8edc1f7-bf08-4354-b065-21c3bb034ab4/2069b7dd-f63e-4e83-a0a3-d0df743d73d7/28d707e2-5ec6-48dc-98a6-e632fdfb59fd"
 storage_version_token = "1789511953089405"
 content_type = "image/jpeg"
+
+[[outputs]]
+id = "NKy2-1HTZ9j8D5sUN1f2i"
+uri = "file://attached_assets/generated_images/linkealls-nav-logo.png"
+type = "image"
+title = "Logo Linkealls adaptado para navegação"
+description = "Versão compacta de alto contraste, optimizada para o cabeçalho roxo da landing page."
+logical_id = "5a6b3c69-a3f8-4580-8be4-31c0a1a2fcee"
+content_hash = "sha256:b4911cfe1365fad7353c1abf43c16d02393b42846eb49fe3d7622abdaa747398"
+size = 42375
+mtime_ms = 1789513240133
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:e8edc1f7-bf08-4354-b065-21c3bb034ab4/5a6b3c69-a3f8-4580-8be4-31c0a1a2fcee/5fad77aa-699b-4742-b29e-bfd7cd202154"
+storage_version_token = "1789513295444360"
+content_type = "image/png"
