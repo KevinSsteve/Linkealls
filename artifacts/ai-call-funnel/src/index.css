@@ -2096,7 +2096,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .home-social-row a { display: inline-flex; align-items: center; justify-content: center; color: currentColor; text-decoration: none; transition: color 180ms ease, transform 180ms ease; }
 .home-social-row a:hover { color: #fff; transform: translateY(-2px); }
 .home-social-row svg { width: 17px; height: 17px; }
-.home-hero-media { width: min(830px, 100%); height: 225px; margin: 70px auto -175px; }
+.home-hero-media { width: min(830px, 100%); aspect-ratio: 1 / 1; height: auto; margin: 70px auto 0; }
 
 .home-media-slot { position: relative; width: 100%; height: 100%; display: block; overflow: hidden; margin: 0; border: 1px solid rgba(23,19,31,.2); background: rgba(255,255,255,.12); }
 .home-media-slot picture { width: 100%; height: 100%; display: block; }
@@ -2220,7 +2220,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   .home-url-prefix { padding-left: 7px; }
   .home-url-input { flex-basis: 120px; }
   .home-url-submit { width: 100%; }
-  .home-hero-media { height: 142px; margin-top: 47px; }
+  .home-hero-media { height: auto; margin-top: 47px; }
   .home-media-slot.is-hero { border-radius: 25px 25px 0 0; }
   .home-marquee-track { padding-block: 15px; }
   .home-story-title { font-size: 48px; }
