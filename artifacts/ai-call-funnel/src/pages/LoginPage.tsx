@@ -6,7 +6,6 @@ import {
   Check,
   Delete,
   LockKeyhole,
-  Phone,
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
@@ -36,20 +35,20 @@ const KEYS: Key[] = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "backspac
 function BrandMark({ compact = false }: { compact?: boolean }) {
   return (
     <div
-      className="flex items-center gap-3"
+      className="auth-brand flex items-center gap-3"
       style={{ color: COLORS.ink }}
       data-testid="brand-linkealls"
     >
       <img
         src={brandLogo}
         alt="Linkealls"
-        className="shrink-0 object-cover"
+        className="auth-brand-logo shrink-0 object-cover"
         style={{
           width: compact ? 40 : 48,
           height: compact ? 40 : 48,
           borderRadius: compact ? 14 : 16,
           background: "#ffffff",
-          boxShadow: "0 10px 24px rgba(99, 91, 255, 0.2)",
+          boxShadow: "none",
         }}
       />
       <span
@@ -110,10 +109,9 @@ function PhoneField({
 }) {
   return (
     <div
-      className="group flex min-h-[62px] items-center gap-3 rounded-[18px] border px-4 transition-colors duration-200 focus-within:border-[#635bff] focus-within:bg-white"
+      className="auth-input-wrap group flex min-h-[62px] items-center gap-3 rounded-[18px] border px-4 transition-colors duration-200 focus-within:border-[#635bff] focus-within:bg-white"
       style={{ borderColor: COLORS.line, background: COLORS.field }}
     >
-      <Phone size={19} strokeWidth={1.8} style={{ color: COLORS.accent }} aria-hidden="true" />
       <span style={{ color: COLORS.ink, fontSize: 15, fontWeight: 750 }}>+244</span>
       <span style={{ width: 1, height: 25, background: COLORS.line }} aria-hidden="true" />
       <label className="sr-only" htmlFor="login-phone">Número de telemóvel</label>
@@ -255,7 +253,7 @@ export function LoginPage() {
 
   return (
     <main
-      className="min-h-[100dvh] overflow-x-hidden"
+      className="auth-clean-page min-h-[100dvh] overflow-x-hidden"
       style={{
         background: COLORS.page,
         color: COLORS.ink,
@@ -304,16 +302,16 @@ export function LoginPage() {
         <section className="flex min-w-0 flex-col">
           <div className="mx-auto flex w-full max-w-[560px] flex-1 flex-col px-5 py-6 sm:px-10 sm:py-9 lg:px-16">
             <div className="flex items-center justify-between">
-              <div className="md:hidden">
+              <div className="auth-mobile-brand md:hidden">
                 <BrandMark compact />
               </div>
-              <div className="hidden md:block">
+              <div className="auth-desktop-back hidden md:block">
                 <BackButton onClick={() => (step === "pin" ? (setStep("phone"), setPin("")) : nav("/"))} />
               </div>
               <StepRail current={step} />
             </div>
 
-            <div className="mt-14 flex-1 sm:mt-20">
+            <div className="auth-content mt-14 flex-1 sm:mt-20">
               <div className="mb-9">
                 <p className="mb-4 text-[13px] font-bold uppercase tracking-[0.15em]" style={{ color: COLORS.accent }}>
                   {step === "phone" ? "Entrar na Linkealls" : "Só mais um passo"}
@@ -336,7 +334,7 @@ export function LoginPage() {
                   <button
                     type="button"
                     onClick={handlePhoneNext}
-                    className="mt-4 flex min-h-[60px] w-full items-center justify-between rounded-[18px] px-5 text-left font-bold transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.99]"
+                    className="auth-primary mt-4 flex min-h-[60px] w-full items-center justify-between rounded-[18px] px-5 text-left font-bold transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.99]"
                     style={{ background: COLORS.accent, color: "#ffffff", boxShadow: "0 12px 24px rgba(99,91,255,0.2)" }}
                     data-testid="button-login-continue"
                   >
@@ -357,7 +355,7 @@ export function LoginPage() {
                 </div>
               ) : (
                 <div className="max-w-[460px]">
-                  <div className="mb-7 flex flex-col items-center rounded-[24px] border px-5 py-6" style={{ borderColor: COLORS.line, background: "rgba(255,255,255,0.48)" }}>
+                  <div className="auth-pin-card mb-7 flex flex-col items-center rounded-[24px] border px-5 py-6" style={{ borderColor: COLORS.line, background: "rgba(255,255,255,0.48)" }}>
                     <div className="mb-5 flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.14em]" style={{ color: COLORS.accent }}>
                       <LockKeyhole size={15} strokeWidth={2} />
                       PIN de acesso
@@ -372,7 +370,7 @@ export function LoginPage() {
                     type="button"
                     disabled={pin.length !== 4 || loading}
                     onClick={() => void submitPin(pin)}
-                    className="mt-4 flex min-h-[58px] w-full items-center justify-between rounded-[18px] px-5 text-left font-bold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-45"
+                    className="auth-primary mt-4 flex min-h-[58px] w-full items-center justify-between rounded-[18px] px-5 text-left font-bold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-45"
                     style={{ background: COLORS.accent, color: "#ffffff" }}
                     data-testid="button-login-submit"
                   >

@@ -3,7 +3,7 @@
  */
 import { useState, useEffect, useRef } from "react";
 import { useLocation, Redirect } from "wouter";
-import { AtSign, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { checkHandleAvailability, setUserHandle } from "@/lib/api";
 import { readBusinessOnboarding } from "@/lib/businessOnboarding";
@@ -103,7 +103,7 @@ export function ChooseHandle() {
 
         {/* Preview URL */}
         <div
-          className="rounded-xl mb-5"
+          className="auth-handle-preview rounded-xl mb-5"
           style={{ background: SUBTLE, border: `1px solid ${BORDER}`, padding: "12px 14px" }}
         >
             <span style={{ color: FAINT, fontSize: 14 }}>linkealls.com/</span>
@@ -114,7 +114,7 @@ export function ChooseHandle() {
 
         {/* Input */}
         <div
-          className="flex items-center gap-2 rounded-xl mb-2"
+          className="auth-input-wrap flex items-center gap-2 rounded-xl mb-2"
           style={{
             background: SUBTLE,
             border: `2px solid ${borderColor}`,

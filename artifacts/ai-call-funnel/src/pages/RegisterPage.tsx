@@ -6,7 +6,6 @@ import {
   Check,
   Delete,
   LockKeyhole,
-  Phone,
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
@@ -35,17 +34,17 @@ type Step = "name" | "phone" | "pin" | "confirm";
 
 function BrandMark({ compact = false }: { compact?: boolean }) {
   return (
-    <div className="flex items-center gap-3" style={{ color: COLORS.ink }} data-testid="brand-linkealls">
+    <div className="auth-brand flex items-center gap-3" style={{ color: COLORS.ink }} data-testid="brand-linkealls">
       <img
         src={brandLogo}
         alt="Linkealls"
-        className="shrink-0 object-cover"
+        className="auth-brand-logo shrink-0 object-cover"
         style={{
           width: compact ? 40 : 48,
           height: compact ? 40 : 48,
           borderRadius: compact ? 14 : 16,
           background: "#ffffff",
-          boxShadow: "0 10px 24px rgba(99, 91, 255, 0.2)",
+          boxShadow: "none",
         }}
       />
       <span style={{ fontFamily: "'Avenir Next', 'Trebuchet MS', sans-serif", fontSize: compact ? 18 : 20, fontWeight: 800, letterSpacing: "-0.04em" }}>
@@ -108,7 +107,7 @@ function TextField({
 }) {
   return (
     <div
-      className="rounded-[18px] border px-4 py-3 transition-colors duration-200 focus-within:border-[#635bff] focus-within:bg-white"
+      className="auth-input-wrap rounded-[18px] border px-4 py-3 transition-colors duration-200 focus-within:border-[#635bff] focus-within:bg-white"
       style={{ borderColor: COLORS.line, background: COLORS.field }}
     >
       <label htmlFor={id} className="mb-1 block text-[11px] font-bold uppercase tracking-[0.13em]" style={{ color: COLORS.muted }}>
@@ -141,10 +140,9 @@ function PhoneField({
 }) {
   return (
     <div
-      className="group flex min-h-[62px] items-center gap-3 rounded-[18px] border px-4 transition-colors duration-200 focus-within:border-[#635bff] focus-within:bg-white"
+      className="auth-input-wrap group flex min-h-[62px] items-center gap-3 rounded-[18px] border px-4 transition-colors duration-200 focus-within:border-[#635bff] focus-within:bg-white"
       style={{ borderColor: COLORS.line, background: COLORS.field }}
     >
-      <Phone size={19} strokeWidth={1.8} style={{ color: COLORS.accent }} aria-hidden="true" />
       <span style={{ color: COLORS.ink, fontSize: 15, fontWeight: 750 }}>+244</span>
       <span style={{ width: 1, height: 25, background: COLORS.line }} aria-hidden="true" />
       <label className="sr-only" htmlFor="register-phone">Número de telemóvel</label>
@@ -244,7 +242,7 @@ function RecoveryCodeNotice({ code, onContinue }: { code: string; onContinue: ()
   }
 
   return (
-    <main className="min-h-[100dvh] overflow-x-hidden" style={{ background: COLORS.page, color: COLORS.ink, fontFamily: "'Avenir Next', 'Trebuchet MS', system-ui, sans-serif" }}>
+    <main className="auth-clean-page min-h-[100dvh] overflow-x-hidden" style={{ background: COLORS.page, color: COLORS.ink, fontFamily: "'Avenir Next', 'Trebuchet MS', system-ui, sans-serif" }}>
       <div className="mx-auto flex min-h-[100dvh] w-full max-w-[620px] flex-col px-5 py-6 sm:px-10 sm:py-10">
         <BrandMark compact />
         <section className="my-auto py-12">
@@ -401,7 +399,7 @@ export function RegisterPage() {
 
   return (
     <main
-      className="min-h-[100dvh] overflow-x-hidden"
+      className="auth-clean-page min-h-[100dvh] overflow-x-hidden"
       style={{
         background: COLORS.page,
         color: COLORS.ink,
@@ -433,12 +431,12 @@ export function RegisterPage() {
         <section className="flex min-w-0 flex-col">
           <div className="mx-auto flex w-full max-w-[560px] flex-1 flex-col px-5 py-6 sm:px-10 sm:py-9 lg:px-16">
             <div className="flex items-center justify-between">
-              <div className="md:hidden"><BrandMark compact /></div>
-              <div className="hidden md:block"><BackButton onClick={back} /></div>
+              <div className="auth-mobile-brand md:hidden"><BrandMark compact /></div>
+              <div className="auth-desktop-back hidden md:block"><BackButton onClick={back} /></div>
               <StepRail current={step} />
             </div>
 
-            <div className="mt-12 flex-1 sm:mt-16">
+            <div className="auth-content mt-12 flex-1 sm:mt-16">
               <div className="mb-9">
                 <p className="mb-4 text-[13px] font-bold uppercase tracking-[0.15em]" style={{ color: COLORS.accent }}>
                   Criar o teu espaço
@@ -459,7 +457,7 @@ export function RegisterPage() {
                   <button
                     type="button"
                     onClick={handleNameNext}
-                    className="mt-4 flex min-h-[60px] w-full items-center justify-between rounded-[18px] px-5 text-left font-bold transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.99]"
+                    className="auth-primary mt-4 flex min-h-[60px] w-full items-center justify-between rounded-[18px] px-5 text-left font-bold transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.99]"
                     style={{ background: COLORS.accent, color: "#ffffff", boxShadow: "0 12px 24px rgba(99,91,255,0.2)" }}
                     data-testid="button-register-name-continue"
                   >
@@ -474,7 +472,7 @@ export function RegisterPage() {
                   <button
                     type="button"
                     onClick={handlePhoneNext}
-                    className="mt-4 flex min-h-[60px] w-full items-center justify-between rounded-[18px] px-5 text-left font-bold transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.99]"
+                    className="auth-primary mt-4 flex min-h-[60px] w-full items-center justify-between rounded-[18px] px-5 text-left font-bold transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.99]"
                     style={{ background: COLORS.accent, color: "#ffffff", boxShadow: "0 12px 24px rgba(99,91,255,0.2)" }}
                     data-testid="button-register-phone-continue"
                   >
@@ -485,7 +483,7 @@ export function RegisterPage() {
 
               {pinStep && (
                 <div className="max-w-[460px]">
-                  <div className="mb-7 flex flex-col items-center rounded-[24px] border px-5 py-6" style={{ borderColor: COLORS.line, background: "rgba(255,255,255,0.48)" }}>
+                  <div className="auth-pin-card mb-7 flex flex-col items-center rounded-[24px] border px-5 py-6" style={{ borderColor: COLORS.line, background: "rgba(255,255,255,0.48)" }}>
                     <div className="mb-5 flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.14em]" style={{ color: COLORS.accent }}>
                       <LockKeyhole size={15} strokeWidth={2} />
                       {step === "confirm" ? "Repetir PIN" : "PIN privado"}

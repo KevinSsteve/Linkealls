@@ -54,7 +54,7 @@ function Field({
   return (
     <label
       htmlFor={id}
-      className="block rounded-[18px] border px-4 py-3 focus-within:border-[#635bff]"
+      className="auth-input-wrap block rounded-[18px] border px-4 py-3 focus-within:border-[#635bff]"
       style={{ borderColor: COLORS.line, background: COLORS.field }}
     >
       <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.13em]" style={{ color: COLORS.muted }}>
