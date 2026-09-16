@@ -20,6 +20,8 @@ import commerceOrdersImage from "@/assets/landing/commerce-orders.jpg";
 import pressPartnersImage from "@/assets/landing/press-partners.jpg";
 import testimonialOwnerImage from "@/assets/landing/testimonial-owner.jpg";
 import navLogoImage from "@/assets/brand/linkealls-nav-logo.png";
+import angelaAvatar from "@/assets/testimonials/angela.webp";
+import joaoAvatar from "@/assets/testimonials/joao.webp";
 import heroAvif480 from "@/assets/landing/hero-480.avif";
 import heroAvif1024 from "@/assets/landing/hero-1024.avif";
 import heroWebp480 from "@/assets/landing/hero-480.webp";
@@ -441,12 +443,18 @@ export function HomePage() {
           <article className="home-quote is-purple">
             <span className="home-quote-mark">“</span>
             <p className="home-quote-text">Agora mando um link e a pessoa já chega a saber o que faço. A conversa começa diferente.</p>
-            <div className="home-quote-by"><span className="home-quote-avatar">AM</span><span>Ângela M. · Luanda</span></div>
+            <div className="home-quote-by">
+              <span className="home-quote-avatar"><img src={angelaAvatar} alt="" /></span>
+              <span>Ângela M. · Luanda</span>
+            </div>
           </article>
           <article className="home-quote home-quote-small">
             <span className="home-quote-mark">“</span>
             <p className="home-quote-text">A montra do meu negócio cabe no bolso do cliente.</p>
-            <div className="home-quote-by"><span className="home-quote-avatar">JC</span><span>João C. · Benguela</span></div>
+            <div className="home-quote-by">
+              <span className="home-quote-avatar"><img src={joaoAvatar} alt="" /></span>
+              <span>João C. · Benguela</span>
+            </div>
           </article>
         </div>
       </section>

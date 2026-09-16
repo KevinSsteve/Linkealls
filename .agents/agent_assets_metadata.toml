@@ -36,3 +36,17 @@ mtime_ms = 1789513240133
 storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:e8edc1f7-bf08-4354-b065-21c3bb034ab4/5a6b3c69-a3f8-4580-8be4-31c0a1a2fcee/5fad77aa-699b-4742-b29e-bfd7cd202154"
 storage_version_token = "1789513295444360"
 content_type = "image/png"
+
+[[outputs]]
+id = "Li6su4LvcNPERfugi73TQ"
+uri = "file://attached_assets/generated_images/linkealls-testimonial-avatars-preview.jpg"
+type = "image"
+title = "Avatares de Ângela e João"
+description = "Pré-visualização dos dois retratos gerados e aplicados aos testemunhos da landing page."
+logical_id = "d8a310ac-e180-41f1-9c65-3ca89beaa65c"
+content_hash = "sha256:a87310d0a9f3a5f2f0349d1927d5c7766274155de40c8c5f5b01aebdbe77097e"
+size = 23388
+mtime_ms = 1789565384791
+storage_uri = "gcs://replit-rams-assets-worf/rams/assets/repl:e8edc1f7-bf08-4354-b065-21c3bb034ab4/d8a310ac-e180-41f1-9c65-3ca89beaa65c/423822b5-dce8-47c9-9ef2-f680311088e5"
+storage_version_token = "1789565405209051"
+content_type = "image/jpeg"
