@@ -7,6 +7,7 @@ import { AtSign, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { checkHandleAvailability, setUserHandle } from "@/lib/api";
 import { readBusinessOnboarding } from "@/lib/businessOnboarding";
+import { AuthBrand } from "@/components/auth/AuthBrand";
 
 const G = "#635BFF";
 const INK = "#0A2540";
@@ -79,7 +80,7 @@ export function ChooseHandle() {
 
   return (
     <div
-      className="flex flex-col h-full overflow-y-auto"
+      className="auth-clean-page flex flex-col h-full overflow-y-auto"
       style={{
         background: "#FFFFFF",
         minHeight: "100dvh",
@@ -87,16 +88,11 @@ export function ChooseHandle() {
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
       }}
     >
-      <div className="flex flex-col flex-1" style={{ padding: "24px 20px 20px" }}>
+      <div className="auth-onboarding-shell flex flex-col flex-1" style={{ padding: "24px 20px 20px" }}>
+        <AuthBrand />
 
         {/* Icon + heading */}
-        <div className="text-center mb-10">
-            <div
-            className="flex items-center justify-center mx-auto mb-5"
-              style={{ width: 64, height: 64, borderRadius: 18, background: "#EEECFF" }}
-          >
-            <AtSign size={26} style={{ color: G }} strokeWidth={2.25} />
-          </div>
+        <div className="auth-content text-center mb-10">
           <h1 style={{ color: INK, fontSize: 24, fontWeight: 700, letterSpacing: "-0.3px" }}>
             Escolhe o teu link
           </h1>
@@ -153,12 +149,12 @@ export function ChooseHandle() {
         )}
 
         {/* CTA */}
-        <button
+          <button
+           className="auth-primary w-full font-bold transition-opacity disabled:opacity-40"
           onClick={handleSubmit}
           disabled={checkState !== "available" || saving}
-          className="w-full font-bold transition-opacity disabled:opacity-40"
           style={{
-            background: G, color: "#fff",
+             background: G, color: "#fff",
             borderRadius: 14, height: 52, fontSize: 16,
             marginTop: 8,
           }}

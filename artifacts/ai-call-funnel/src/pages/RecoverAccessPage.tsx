@@ -26,8 +26,8 @@ function BrandMark() {
       <img
         src={brandLogo}
         alt="Linkealls"
-        className="h-10 w-10 rounded-[13px] object-cover"
-        style={{ boxShadow: "0 10px 24px rgba(99, 91, 255, 0.2)" }}
+        className="auth-brand-logo h-10 w-10 rounded-[13px] object-cover"
+        style={{ boxShadow: "none" }}
       />
       <span className="text-[18px] font-extrabold tracking-[-0.04em]">linkealls</span>
     </div>
@@ -119,7 +119,7 @@ export function RecoverAccessPage() {
 
   return (
     <main
-      className="min-h-[100dvh] overflow-x-hidden"
+      className="auth-clean-page min-h-[100dvh] overflow-x-hidden"
       style={{
         background: COLORS.page,
         color: COLORS.ink,
@@ -171,7 +171,7 @@ export function RecoverAccessPage() {
             <button
             type="submit"
             disabled={loading}
-            className="mt-5 flex min-h-[60px] w-full items-center justify-between rounded-[18px] px-5 text-left font-bold transition-transform hover:-translate-y-0.5 active:scale-[0.99] disabled:opacity-60"
+             className="auth-primary mt-5 flex min-h-[60px] w-full items-center justify-between rounded-[18px] px-5 text-left font-bold transition-transform hover:-translate-y-0.5 active:scale-[0.99] disabled:opacity-60"
             style={{ background: COLORS.accent, color: "#ffffff", boxShadow: "0 12px 24px rgba(99,91,255,0.2)" }}
           >
             <span>{loading ? "A recuperar acesso…" : "Definir novo PIN"}</span>

@@ -3,6 +3,7 @@ import { ArrowLeft, ArrowRight, Globe, Sparkles } from "lucide-react";
 import { Link, Redirect, useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import { saveBusinessOnboarding, type BusinessOnboardingDraft } from "@/lib/businessOnboarding";
+import { AuthBrand } from "@/components/auth/AuthBrand";
 
 const INK = "#0A2540";
 const SOFT = "#425466";
@@ -39,14 +40,15 @@ export function BusinessOnboardingPage() {
 
   return (
     <main
-      className="min-h-[100dvh]"
+      className="auth-clean-page min-h-[100dvh]"
       style={{
         background: "#FFFFFF",
         color: INK,
         fontFamily: "'Avenir Next', 'Trebuchet MS', system-ui, sans-serif",
       }}
     >
-      <div className="mx-auto flex min-h-[100dvh] w-full max-w-[620px] flex-col px-5 py-6 sm:px-10 sm:py-10">
+      <div className="auth-onboarding-shell mx-auto flex min-h-[100dvh] w-full max-w-[620px] flex-col px-5 py-6 sm:px-10 sm:py-10">
+        <AuthBrand />
         <div className="flex items-center justify-between">
           <Link href="/login" className="inline-flex h-11 w-11 items-center justify-center rounded-full" style={{ background: ACCENT_SOFT, color: INK }} aria-label="Voltar">
             <ArrowLeft size={18} />
@@ -56,10 +58,7 @@ export function BusinessOnboardingPage() {
           </span>
         </div>
 
-        <section className="my-auto py-12">
-          <div className="mb-7 flex h-14 w-14 items-center justify-center rounded-[18px]" style={{ background: ACCENT_SOFT, color: ACCENT }}>
-            {mode === "site" ? <Globe size={25} /> : <Sparkles size={25} />}
-          </div>
+        <section className="auth-content my-auto py-12">
           <p className="mb-4 text-[13px] font-bold uppercase tracking-[0.15em]" style={{ color: ACCENT }}>
             Configurar negócio
           </p>
@@ -118,7 +117,7 @@ export function BusinessOnboardingPage() {
           <button
             type="button"
             onClick={continueOnboarding}
-            className="mt-5 flex min-h-[60px] w-full items-center justify-between rounded-[18px] px-5 text-left font-bold transition-transform hover:-translate-y-0.5 active:scale-[0.99]"
+             className="auth-primary mt-5 flex min-h-[60px] w-full items-center justify-between rounded-[18px] px-5 text-left font-bold transition-transform hover:-translate-y-0.5 active:scale-[0.99]"
             style={{ background: ACCENT, color: "#FFFFFF", boxShadow: "0 12px 24px rgba(99,91,255,0.2)" }}
             data-testid="button-onboarding-continue"
           >
