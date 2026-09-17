@@ -15,7 +15,7 @@
  */
 import { Router, type Request, type Response } from "express";
 import { createHash, randomBytes, randomUUID } from "crypto";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, gt, inArray } from "drizzle-orm";
 import { z } from "zod";
 import {
   db,
@@ -41,6 +41,15 @@ function hashPin(pin: string) {
   return createHash("sha256").update(pin).digest("hex");
 }
 
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
+function createSession() {
+  return {
+    token: randomBytes(32).toString("base64url"),
+    expiresAt: new Date(Date.now() + SESSION_TTL_MS),
+  };
+}
+
 function normaliseRecoveryCode(raw: string): string {
   return raw.replace(/[^a-z0-9]/gi, "").toUpperCase();
 }
@@ -55,19 +64,32 @@ function generateRecoveryCode(): string {
 }
 
 const recoveryRateBuckets = new Map<string, { count: number; resetAt: number }>();
-function recoveryRateLimit(req: Request, res: Response, next: () => void): void {
-  const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim()
+const loginRateBuckets = new Map<string, { count: number; resetAt: number }>();
+
+function requestIp(req: Request): string {
+  return (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim()
     ?? req.socket.remoteAddress
     ?? "unknown";
+}
+
+function consumeRateLimit(
+  buckets: Map<string, { count: number; resetAt: number }>,
+  key: string,
+  max: number,
+  windowMs: number,
+): boolean {
   const now = Date.now();
-  const bucket = recoveryRateBuckets.get(ip);
+  const bucket = buckets.get(key);
   if (!bucket || bucket.resetAt < now) {
-    recoveryRateBuckets.set(ip, { count: 1, resetAt: now + 60_000 });
-    next();
-    return;
+    buckets.set(key, { count: 1, resetAt: now + windowMs });
+    return true;
   }
   bucket.count += 1;
-  if (bucket.count > 8) {
+  return bucket.count <= max;
+}
+
+function recoveryRateLimit(req: Request, res: Response, next: () => void): void {
+  if (!consumeRateLimit(recoveryRateBuckets, `recovery:${requestIp(req)}`, 8, 60_000)) {
     res.status(429).json({ error: "Demasiadas tentativas — tenta daqui a pouco" });
     return;
   }
@@ -142,7 +164,10 @@ export async function getUserByToken(token: string | null) {
   const rows = await db
     .select(USER_COLS)
     .from(usersTable)
-    .where(eq(usersTable.sessionToken, token))
+    .where(and(
+      eq(usersTable.sessionToken, token),
+      gt(usersTable.sessionExpiresAt, new Date()),
+    ))
     .limit(1);
   return rows[0] ?? null;
 }
@@ -187,17 +212,18 @@ router.post("/user-auth/register", async (req, res) => {
       return;
     }
 
-    const token = randomUUID();
+    const session = createSession();
     const [row] = await db.insert(usersTable).values({
       phone,
       name,
       pinHash:      hashPin(pin),
       recoveryCodeHash: hashRecoveryCode(recoveryCode),
       recoveryCodeIssuedAt: new Date(),
-      sessionToken: token,
+      sessionToken: session.token,
+      sessionExpiresAt: session.expiresAt,
     }).returning(USER_COLS);
 
-    res.status(201).json({ user: toUserDTO(row!), token, recoveryCode });
+    res.status(201).json({ user: toUserDTO(row!), token: session.token, recoveryCode });
   } catch (err) {
     logger.error({ err }, "register failed");
     res.status(500).json({ error: "Erro ao criar conta" });
@@ -211,7 +237,17 @@ const loginSchema = z.object({
   pin:   z.string().length(4).regex(/^\d{4}$/),
 });
 
-router.post("/user-auth/login", async (req, res) => {
+function loginRateLimit(req: Request, res: Response, next: () => void): void {
+  const rawPhone = typeof req.body?.phone === "string" ? req.body.phone : "";
+  const key = `login:${requestIp(req)}:${normalisePhone(rawPhone)}`;
+  if (!consumeRateLimit(loginRateBuckets, key, 8, 10 * 60_000)) {
+    res.status(429).json({ error: "Demasiadas tentativas de login — tenta daqui a pouco" });
+    return;
+  }
+  next();
+}
+
+router.post("/user-auth/login", loginRateLimit, async (req, res) => {
   const parse = loginSchema.safeParse(req.body);
   if (!parse.success) {
     res.status(400).json({ error: "Dados inválidos" });
@@ -229,12 +265,12 @@ router.post("/user-auth/login", async (req, res) => {
       return;
     }
 
-    const token = randomUUID();
+    const session = createSession();
     await db.update(usersTable)
-      .set({ sessionToken: token })
+      .set({ sessionToken: session.token, sessionExpiresAt: session.expiresAt })
       .where(eq(usersTable.id, rows[0]!.id));
 
-    res.json({ user: toUserDTO(rows[0]!), token });
+    res.json({ user: toUserDTO(rows[0]!), token: session.token });
   } catch (err) {
     logger.error({ err }, "login failed");
     res.status(500).json({ error: "Erro ao fazer login" });
@@ -294,13 +330,14 @@ router.post("/user-auth/recover", recoveryRateLimit, async (req, res) => {
       return;
     }
 
-    const token = randomUUID();
+    const session = createSession();
     const [updated] = await db.update(usersTable)
       .set({
         pinHash: hashPin(parse.data.pin),
         recoveryCodeHash: null,
         recoveryCodeIssuedAt: null,
-        sessionToken: token,
+        sessionToken: session.token,
+        sessionExpiresAt: session.expiresAt,
       })
       .where(and(
         eq(usersTable.id, row.id),
@@ -311,7 +348,7 @@ router.post("/user-auth/recover", recoveryRateLimit, async (req, res) => {
       res.status(401).json({ error: "Código de recuperação inválido ou já utilizado." });
       return;
     }
-    res.json({ user: toUserDTO(updated), token });
+    res.json({ user: toUserDTO(updated), token: session.token });
   } catch (err) {
     logger.error({ err }, "account recovery failed");
     res.status(500).json({ error: "Não foi possível recuperar a conta" });
@@ -339,10 +376,11 @@ router.post("/user-auth/session", async (req, res): Promise<void> => {
     return;
   }
 
-  const token = randomUUID();
+  const session = createSession();
   const [updated] = await db.update(usersTable)
     .set({
-      sessionToken: token,
+      sessionToken: session.token,
+      sessionExpiresAt: session.expiresAt,
       email: replitUser.email,
       firstName: replitUser.firstName,
       lastName: replitUser.lastName,
@@ -350,7 +388,7 @@ router.post("/user-auth/session", async (req, res): Promise<void> => {
     })
     .where(eq(usersTable.id, row.id))
     .returning(USER_COLS);
-  res.json({ user: toUserDTO(updated!), token });
+  res.json({ user: toUserDTO(updated!), token: session.token });
 });
 
 router.post("/user-auth/link-replit", async (req, res): Promise<void> => {
@@ -386,11 +424,12 @@ router.post("/user-auth/link-replit", async (req, res): Promise<void> => {
     return;
   }
 
-  const token = randomUUID();
+  const session = createSession();
   const [updated] = await db.update(usersTable)
     .set({
       replitId: replitUser.id,
-      sessionToken: token,
+      sessionToken: session.token,
+      sessionExpiresAt: session.expiresAt,
       email: replitUser.email,
       firstName: replitUser.firstName,
       lastName: replitUser.lastName,
@@ -398,7 +437,7 @@ router.post("/user-auth/link-replit", async (req, res): Promise<void> => {
     })
     .where(eq(usersTable.id, row.id))
     .returning(USER_COLS);
-  res.json({ user: toUserDTO(updated!), token });
+  res.json({ user: toUserDTO(updated!), token: session.token });
 });
 
 router.post("/user-auth/provision", async (req, res): Promise<void> => {
@@ -412,19 +451,20 @@ router.post("/user-auth/provision", async (req, res): Promise<void> => {
     return;
   }
 
-  const token = randomUUID();
+  const session = createSession();
   const [row] = await db.insert(usersTable).values({
     phone: `replit:${replitUser.id}`,
     name: replitName(replitUser).slice(0, 60),
     pinHash: hashPin(randomUUID()),
-    sessionToken: token,
+    sessionToken: session.token,
+    sessionExpiresAt: session.expiresAt,
     replitId: replitUser.id,
     email: replitUser.email,
     firstName: replitUser.firstName,
     lastName: replitUser.lastName,
     profileImageUrl: replitUser.profileImageUrl,
   }).returning(USER_COLS);
-  res.status(201).json({ user: toUserDTO(row!) , token });
+  res.status(201).json({ user: toUserDTO(row!), token: session.token });
 });
 
 // ─── me ─────────────────────────────────────────────────────────────────────
@@ -434,11 +474,9 @@ router.get("/user-auth/me", async (req, res) => {
   if (!token) { res.status(401).json({ error: "Sem autorização" }); return; }
 
   try {
-    const rows = await db.select(USER_COLS)
-      .from(usersTable).where(eq(usersTable.sessionToken, token)).limit(1);
-
-    if (rows.length === 0) { res.status(401).json({ error: "Sessão inválida" }); return; }
-    res.json({ user: toUserDTO(rows[0]!) });
+    const user = await getUserByToken(token);
+    if (!user) { res.status(401).json({ error: "Sessão inválida" }); return; }
+    res.json({ user: toUserDTO(user) });
   } catch (err) {
     logger.error({ err }, "me failed");
     res.status(500).json({ error: "Erro interno" });
@@ -451,7 +489,8 @@ router.post("/user-auth/logout", async (req, res) => {
   const token = bearerToken(req);
   if (token) {
     try {
-      await db.update(usersTable).set({ sessionToken: null })
+      await db.update(usersTable)
+        .set({ sessionToken: null, sessionExpiresAt: new Date() })
         .where(eq(usersTable.sessionToken, token));
     } catch { /* ignore */ }
   }
@@ -650,7 +689,12 @@ router.put("/user-auth/handle", async (req, res) => {
   try {
     // Load session + current handle (outside tx — needed to distinguish re-submission)
     const rows = await db.select({ id: usersTable.id, name: usersTable.name, handle: usersTable.handle })
-      .from(usersTable).where(eq(usersTable.sessionToken, token)).limit(1);
+      .from(usersTable)
+      .where(and(
+        eq(usersTable.sessionToken, token),
+        gt(usersTable.sessionExpiresAt, new Date()),
+      ))
+      .limit(1);
     if (rows.length === 0) { res.status(401).json({ error: "Sessão inválida" }); return; }
 
     const userId        = rows[0]!.id;

@@ -25,6 +25,14 @@ export interface AuthResponse {
   recoveryCode?: string;
 }
 
+export const AUTH_EXPIRED_EVENT = "linkealls:auth-expired";
+
+function notifyAuthExpired(): void {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
+  }
+}
+
 export interface ReplitAuthUser {
   id: string;
   email: string | null;
@@ -54,6 +62,18 @@ export function userRegister(data: { phone: string; name: string; pin: string })
 
 export function userLogin(data: { phone: string; pin: string }) {
   return authFetch("/user-auth/login", { method: "POST", body: JSON.stringify(data) });
+}
+
+export async function getCurrentUser(token: string): Promise<{ user: AuthUser }> {
+  const res = await fetch(`${API_BASE}/user-auth/me`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const body = (await res.json()) as { user?: AuthUser; error?: string };
+  if (res.status === 401) notifyAuthExpired();
+  if (!res.ok || !body.user) {
+    throw new Error(body.error ?? "Sessão inválida");
+  }
+  return { user: body.user };
 }
 
 export function recoverUserAccess(data: { phone: string; recoveryCode: string; pin: string }) {
@@ -334,6 +354,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const body = (await res.json().catch(() => null)) as
     | (T & { error?: string })
     | null;
+  if (res.status === 401) notifyAuthExpired();
   if (!res.ok) {
     throw new Error(body?.error ?? `Erro do servidor (${res.status})`);
   }

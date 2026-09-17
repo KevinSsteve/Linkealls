@@ -5,8 +5,8 @@
  * Model: every user IS a business — their handle is their business slug.
  * No separate "ownedSlug" field is needed.
  */
-import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
-import type { AuthUser } from "@/lib/api";
+import { createContext, useContext, useState, useCallback, useEffect, useRef, type ReactNode } from "react";
+import { AUTH_EXPIRED_EVENT, getCurrentUser, userLogout, type AuthUser } from "@/lib/api";
 
 interface AuthState {
   user: AuthUser | null;
@@ -35,7 +35,7 @@ function loadInitial(): AuthState {
       return {
         token,
         user: { id, phone, name, handle: handle ?? null },
-        isLoading: false,
+        isLoading: true,
       };
     }
   } catch { /* ignore */ }
@@ -46,6 +46,30 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>(loadInitial);
+  const initialToken = useRef(state.token);
+
+  const clearStoredSession = useCallback(() => {
+    localStorage.removeItem(KEY_TOKEN);
+    localStorage.removeItem(KEY_USER);
+    setState({ user: null, token: null, isLoading: false });
+  }, []);
+
+  useEffect(() => {
+    const handleExpired = () => clearStoredSession();
+    window.addEventListener(AUTH_EXPIRED_EVENT, handleExpired);
+
+    const token = initialToken.current;
+    if (token) {
+      getCurrentUser(token)
+        .then(({ user }) => {
+          localStorage.setItem(KEY_USER, JSON.stringify(user));
+          setState({ user, token, isLoading: false });
+        })
+        .catch(() => clearStoredSession());
+    }
+
+    return () => window.removeEventListener(AUTH_EXPIRED_EVENT, handleExpired);
+  }, [clearStoredSession]);
 
   const login = useCallback((user: AuthUser, token: string) => {
     localStorage.setItem(KEY_TOKEN, token);
@@ -58,10 +82,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(() => {
-    localStorage.removeItem(KEY_TOKEN);
-    localStorage.removeItem(KEY_USER);
-    setState({ user: null, token: null, isLoading: false });
-  }, []);
+    const token = localStorage.getItem(KEY_TOKEN);
+    if (token) void userLogout(token);
+    clearStoredSession();
+  }, [clearStoredSession]);
 
   const setHandle = useCallback((handle: string) => {
     setState((prev) => {
@@ -78,7 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       logout,
       setHandle,
-      isLoggedIn: !!state.user,
+      isLoggedIn: !state.isLoading && !!state.user,
     }}>
       {children}
     </AuthContext.Provider>
