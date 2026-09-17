@@ -32,14 +32,12 @@ import {
   payoutsTable,
 } from "@workspace/db";
 import { logger } from "../lib/logger.js";
+import { clientIp } from "../lib/httpSecurity.js";
+import { hashPin, verifyPin } from "../lib/pinSecurity.js";
 
 const router = Router();
 
 // ─── helpers ────────────────────────────────────────────────────────────────
-
-function hashPin(pin: string) {
-  return createHash("sha256").update(pin).digest("hex");
-}
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const SENSITIVE_AUTH_TTL_MS = 10 * 60 * 1000;
@@ -66,12 +64,9 @@ function generateRecoveryCode(): string {
 
 const recoveryRateBuckets = new Map<string, { count: number; resetAt: number }>();
 const loginRateBuckets = new Map<string, { count: number; resetAt: number }>();
-
-function requestIp(req: Request): string {
-  return (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim()
-    ?? req.socket.remoteAddress
-    ?? "unknown";
-}
+const accountLoginRateBuckets = new Map<string, { count: number; resetAt: number }>();
+const accountRecoveryRateBuckets = new Map<string, { count: number; resetAt: number }>();
+const reauthRateBuckets = new Map<string, { count: number; resetAt: number }>();
 
 function consumeRateLimit(
   buckets: Map<string, { count: number; resetAt: number }>,
@@ -90,7 +85,12 @@ function consumeRateLimit(
 }
 
 function recoveryRateLimit(req: Request, res: Response, next: () => void): void {
-  if (!consumeRateLimit(recoveryRateBuckets, `recovery:${requestIp(req)}`, 8, 60_000)) {
+  const rawPhone = typeof req.body?.phone === "string" ? req.body.phone : "";
+  const phone = normalisePhone(rawPhone);
+  if (
+    !consumeRateLimit(recoveryRateBuckets, `recovery-ip:${clientIp(req)}`, 8, 60_000) ||
+    !consumeRateLimit(accountRecoveryRateBuckets, `recovery-account:${phone}`, 10, 60 * 60_000)
+  ) {
     res.status(429).json({ error: "Demasiadas tentativas — tenta daqui a pouco" });
     return;
   }
@@ -232,7 +232,7 @@ router.post("/user-auth/register", async (req, res) => {
     const [row] = await db.insert(usersTable).values({
       phone,
       name,
-      pinHash:      hashPin(pin),
+      pinHash:      await hashPin(pin),
       recoveryCodeHash: hashRecoveryCode(recoveryCode),
       recoveryCodeIssuedAt: new Date(),
       sessionToken: session.token,
@@ -255,8 +255,11 @@ const loginSchema = z.object({
 
 function loginRateLimit(req: Request, res: Response, next: () => void): void {
   const rawPhone = typeof req.body?.phone === "string" ? req.body.phone : "";
-  const key = `login:${requestIp(req)}:${normalisePhone(rawPhone)}`;
-  if (!consumeRateLimit(loginRateBuckets, key, 8, 10 * 60_000)) {
+  const phone = normalisePhone(rawPhone);
+  if (
+    !consumeRateLimit(loginRateBuckets, `login-ip:${clientIp(req)}:${phone}`, 8, 10 * 60_000) ||
+    !consumeRateLimit(accountLoginRateBuckets, `login-account:${phone}`, 20, 60 * 60_000)
+  ) {
     res.status(429).json({ error: "Demasiadas tentativas de login — tenta daqui a pouco" });
     return;
   }
@@ -270,13 +273,12 @@ router.post("/user-auth/login", loginRateLimit, async (req, res) => {
     return;
   }
   const phone = normalisePhone(parse.data.phone);
-  const pinH  = hashPin(parse.data.pin);
-
   try {
     const rows = await db.select().from(usersTable)
       .where(eq(usersTable.phone, phone)).limit(1);
 
-    if (rows.length === 0 || rows[0]!.pinHash !== pinH) {
+    const pinResult = await verifyPin(parse.data.pin, rows[0]?.pinHash);
+    if (rows.length === 0 || !pinResult.valid) {
       res.status(401).json({ error: "Número ou PIN incorretos" });
       return;
     }
@@ -284,6 +286,7 @@ router.post("/user-auth/login", loginRateLimit, async (req, res) => {
     const session = createSession();
     await db.update(usersTable)
       .set({
+        ...(pinResult.needsUpgrade ? { pinHash: await hashPin(parse.data.pin) } : {}),
         sessionToken: session.token,
         sessionExpiresAt: session.expiresAt,
         sensitiveAuthExpiresAt: null,
@@ -353,7 +356,7 @@ router.post("/user-auth/recover", recoveryRateLimit, async (req, res) => {
     const session = createSession();
     const [updated] = await db.update(usersTable)
       .set({
-        pinHash: hashPin(parse.data.pin),
+        pinHash: await hashPin(parse.data.pin),
         recoveryCodeHash: null,
         recoveryCodeIssuedAt: null,
         sessionToken: session.token,
@@ -423,7 +426,6 @@ router.post("/user-auth/link-replit", async (req, res): Promise<void> => {
     return;
   }
   const phone = normalisePhone(parse.data.phone);
-  const pinHash = hashPin(parse.data.pin);
 
   const [existingReplitLink] = await db
     .select({ id: usersTable.id })
@@ -437,7 +439,8 @@ router.post("/user-auth/link-replit", async (req, res): Promise<void> => {
 
   const [row] = await db.select().from(usersTable)
     .where(eq(usersTable.phone, phone)).limit(1);
-  if (!row || row.pinHash !== pinHash) {
+  const pinResult = await verifyPin(parse.data.pin, row?.pinHash);
+  if (!row || !pinResult.valid) {
     res.status(401).json({ error: "Telefone ou PIN incorrectos." });
     return;
   }
@@ -450,6 +453,7 @@ router.post("/user-auth/link-replit", async (req, res): Promise<void> => {
   const [updated] = await db.update(usersTable)
     .set({
       replitId: replitUser.id,
+      ...(pinResult.needsUpgrade ? { pinHash: await hashPin(parse.data.pin) } : {}),
       sessionToken: session.token,
       sessionExpiresAt: session.expiresAt,
       sensitiveAuthExpiresAt: null,
@@ -478,7 +482,7 @@ router.post("/user-auth/provision", async (req, res): Promise<void> => {
   const [row] = await db.insert(usersTable).values({
     phone: `replit:${replitUser.id}`,
     name: replitName(replitUser).slice(0, 60),
-    pinHash: hashPin(randomUUID()),
+    pinHash: await hashPin(randomUUID()),
     sessionToken: session.token,
     sessionExpiresAt: session.expiresAt,
     replitId: replitUser.id,
@@ -524,6 +528,10 @@ router.post("/user-auth/reauthenticate", async (req, res) => {
       res.json({ ok: true, expiresAt: new Date(Date.now() + SENSITIVE_AUTH_TTL_MS).toISOString() });
       return;
     }
+    if (!consumeRateLimit(reauthRateBuckets, `reauth:${user.id}:${clientIp(req)}`, 8, 10 * 60_000)) {
+      res.status(429).json({ error: "Demasiadas tentativas — tenta daqui a pouco" });
+      return;
+    }
 
     const [[account], [profile]] = await Promise.all([
       db
@@ -548,7 +556,10 @@ router.post("/user-auth/reauthenticate", async (req, res) => {
     // Prefer the business PIN already used by the owner area. Older profiles
     // may not have one yet, so their account PIN remains the bootstrap fallback.
     const storedPinHash = profile?.ownerPin ?? account?.pinHash;
-    const pinConfirmed = suppliedPin.length > 0 && storedPinHash === hashPin(suppliedPin);
+    const pinResult = suppliedPin.length > 0
+      ? await verifyPin(suppliedPin, storedPinHash)
+      : { valid: false, needsUpgrade: false };
+    const pinConfirmed = pinResult.valid;
 
     if (!replitConfirmed && !pinConfirmed) {
       res.status(403).json({
@@ -559,6 +570,18 @@ router.post("/user-auth/reauthenticate", async (req, res) => {
     }
 
     const expiresAt = new Date(Date.now() + SENSITIVE_AUTH_TTL_MS);
+    if (pinResult.needsUpgrade) {
+      const upgradedHash = await hashPin(suppliedPin);
+      if (profile?.ownerPin) {
+        await db.update(businessProfilesTable)
+          .set({ ownerPin: upgradedHash, updatedAt: new Date() })
+          .where(eq(businessProfilesTable.slug, user.handle!));
+      } else {
+        await db.update(usersTable)
+          .set({ pinHash: upgradedHash })
+          .where(eq(usersTable.id, user.id));
+      }
+    }
     await db.update(usersTable)
       .set({ sensitiveAuthExpiresAt: expiresAt })
       .where(and(

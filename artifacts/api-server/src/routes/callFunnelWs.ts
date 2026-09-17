@@ -10,8 +10,13 @@ import { updateLeadOnCallStart, processCallCompletion } from "../services/leads.
 import { createProductOrder, getOrderPublicStatus } from "../services/payments.js";
 import { logger } from "../lib/logger.js";
 import type { Offering } from "@workspace/db";
+import { clientIp, isAllowedBrowserOrigin } from "../lib/httpSecurity.js";
 
 const CALL_VOICE = "Kore";
+const MAX_CONNECTIONS_PER_IP = 3;
+const MAX_CONNECTION_ATTEMPTS_PER_MINUTE = 12;
+const MAX_CALL_MS = 15 * 60_000;
+const IDLE_CALL_MS = 90_000;
 
 /**
  * Resolves the call configuration for a business slug.
@@ -73,11 +78,33 @@ type ServerMessage =
   | { type: "error"; message: string };
 
 export function setupCallFunnelWebSocket(server: Server): void {
-  const wss = new WebSocketServer({ noServer: true });
+  const wss = new WebSocketServer({ noServer: true, maxPayload: 256 * 1024 });
+  const activeByIp = new Map<string, number>();
+  const attemptsByIp = new Map<string, { count: number; resetAt: number }>();
 
   server.on("upgrade", (req, socket, head) => {
     const url = new URL(req.url ?? "/", "http://localhost");
     if (url.pathname === "/api/call-funnel-ws") {
+      const ip = clientIp(req);
+      const now = Date.now();
+      const attempts = attemptsByIp.get(ip);
+      if (!attempts || attempts.resetAt < now) {
+        attemptsByIp.set(ip, { count: 1, resetAt: now + 60_000 });
+      } else if (++attempts.count > MAX_CONNECTION_ATTEMPTS_PER_MINUTE) {
+        socket.write("HTTP/1.1 429 Too Many Requests\r\nConnection: close\r\n\r\n");
+        socket.destroy();
+        return;
+      }
+      if (!isAllowedBrowserOrigin(req.headers.origin)) {
+        socket.write("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n");
+        socket.destroy();
+        return;
+      }
+      if ((activeByIp.get(ip) ?? 0) >= MAX_CONNECTIONS_PER_IP) {
+        socket.write("HTTP/1.1 429 Too Many Requests\r\nConnection: close\r\n\r\n");
+        socket.destroy();
+        return;
+      }
       wss.handleUpgrade(req, socket, head, (ws) => {
         wss.emit("connection", ws, req);
       });
@@ -91,6 +118,16 @@ export function setupCallFunnelWebSocket(server: Server): void {
     const url = new URL(req.url ?? "/", "http://localhost");
     const leadId = url.searchParams.get("leadId") ?? null;
     const businessSlug = url.searchParams.get("businessSlug") ?? null;
+    const ip = clientIp(req);
+    if (
+      !businessSlug ||
+      !/^[a-z0-9-]{3,60}$/.test(businessSlug) ||
+      (leadId !== null && !/^[0-9a-f-]{36}$/i.test(leadId))
+    ) {
+      ws.close(1008, "Invalid call parameters");
+      return;
+    }
+    activeByIp.set(ip, (activeByIp.get(ip) ?? 0) + 1);
 
     logger.info({ leadId, businessSlug }, "Call Funnel WebSocket client connected");
 
@@ -98,6 +135,13 @@ export function setupCallFunnelWebSocket(server: Server): void {
     let closed = false;
     let sessionOfferings: Offering[] = [];
     let resolvedBusinessId: number | null = null;
+    let idleTimer: ReturnType<typeof setTimeout>;
+    const maxCallTimer = setTimeout(() => ws.close(1000, "Call duration limit reached"), MAX_CALL_MS);
+    const resetIdleTimer = () => {
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => ws.close(1000, "Call idle timeout"), IDLE_CALL_MS);
+    };
+    resetIdleTimer();
 
     const transcriptLines: string[] = [];
     let businessName = "o negócio";
@@ -297,6 +341,7 @@ export function setupCallFunnelWebSocket(server: Server): void {
       });
 
     ws.on("message", (data) => {
+      resetIdleTimer();
       try {
         const msg = JSON.parse(data.toString()) as { type: string; data?: string; text?: string; orderId?: string; status?: string; offeringName?: string };
         if (msg.type === "audio" && msg.data && geminiSession) {
@@ -325,6 +370,11 @@ export function setupCallFunnelWebSocket(server: Server): void {
       closed = true;
       geminiSession?.close();
       geminiSession = null;
+      clearTimeout(idleTimer);
+      clearTimeout(maxCallTimer);
+      const remaining = Math.max(0, (activeByIp.get(ip) ?? 1) - 1);
+      if (remaining === 0) activeByIp.delete(ip);
+      else activeByIp.set(ip, remaining);
 
       if (leadId && transcriptLines.length > 0 && resolvedBusinessId !== null) {
         const fullTranscript = transcriptLines.join("\n");

@@ -8,3 +8,5 @@ High-impact owner operations must require a recent confirmation of the existing 
 **Why:** A valid owner session can remain open on a shared or unattended browser, so session ownership alone is not sufficient for account deletion, money movement, campaign publication, PIN changes, or brain/profile mutations. Reusing `ownerPin` avoids creating a second business authentication mechanism.
 
 **How to apply:** Keep the authorization window short, clear it whenever a session token is rotated or invalidated, bind checks to both the session token and its normal expiry, and fail closed when the recent confirmation is absent.
+
+PIN confirmation attempts must be rate-limited independently of the normal login endpoint.

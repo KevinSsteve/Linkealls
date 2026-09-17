@@ -56,3 +56,22 @@ test("owner authorization is enforced server-side and stale browser sessions are
   assert.match(context, /isLoggedIn: !state\.isLoading && !!state\.user/);
   assert.match(api, /if \(res\.status === 401\) notifyAuthExpired\(\)/);
 });
+
+test("production hardening protects PINs, browser origins, voice calls, and autoscale jobs", async () => {
+  const [pinSecurity, app, websocket, notifications, campaignAds] = await Promise.all([
+    source("src/lib/pinSecurity.ts"),
+    source("src/app.ts"),
+    source("src/routes/callFunnelWs.ts"),
+    source("src/services/notifications.ts"),
+    source("src/services/campaignAds.ts"),
+  ]);
+
+  assert.match(pinSecurity, /scrypt\(/);
+  assert.match(pinSecurity, /needsUpgrade: valid/);
+  assert.match(app, /isAllowedBrowserOrigin/);
+  assert.match(app, /express\.json\(\{ limit: "256kb" \}\)/);
+  assert.match(websocket, /maxPayload: 256 \* 1024/);
+  assert.match(websocket, /MAX_CONNECTIONS_PER_IP/);
+  assert.match(notifications, /withScheduledJobLock/);
+  assert.match(campaignAds, /withScheduledJobLock/);
+});

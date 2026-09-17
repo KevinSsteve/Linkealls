@@ -6,6 +6,7 @@ import webPush from "web-push";
 import { db, businessProfilesTable, type PushSubscriptionJSON } from "@workspace/db";
 import { eq, sql } from "drizzle-orm";
 import { logger } from "../lib/logger.js";
+import { withScheduledJobLock } from "../lib/scheduledJobLock.js";
 
 // ─── VAPID setup ──────────────────────────────────────────────────────────────
 
@@ -139,13 +140,15 @@ export function startDailySummaryCron(): void {
     const dateStr = angola.toISOString().slice(0, 10); // "YYYY-MM-DD"
 
     if (hh === 8 && mm === 0 && dateStr !== lastSummaryDate) {
-      lastSummaryDate = dateStr;
-      await sendDailySummary(dateStr);
+      const ran = await withScheduledJobLock(`daily-summary:${dateStr}`, () => sendDailySummary(dateStr));
+      if (ran) lastSummaryDate = dateStr;
     }
   };
 
   // Run once a minute
-  setInterval(() => { void tick(); }, 60_000);
+  setInterval(() => {
+    void tick().catch((err) => logger.error({ err }, "Daily summary cron tick failed"));
+  }, 60_000).unref();
   logger.info("Daily summary cron started (Africa/Luanda WAT 08:00)");
 }
 

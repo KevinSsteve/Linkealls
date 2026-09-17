@@ -25,6 +25,7 @@ import * as zernio from "./zernio.js";
 import { effectiveAoaPerUsd, aoaToWholeUsd } from "./fx.js";
 import { sendPushToOwner } from "./notifications.js";
 import { logger } from "../lib/logger.js";
+import { withScheduledJobLock } from "../lib/scheduledJobLock.js";
 
 export const CAMPAIGN_MIN_BUDGET_AOA = 5_000;
 
@@ -587,7 +588,7 @@ export async function syncPublishedCampaigns(): Promise<void> {
 
 export function startCampaignSyncCron(): void {
   setInterval(() => {
-    void syncPublishedCampaigns().catch((err) => {
+    void withScheduledJobLock("campaign-metrics-sync", syncPublishedCampaigns).catch((err) => {
       logger.error({ err }, "syncPublishedCampaigns crashed");
     });
   }, SYNC_INTERVAL_MS).unref();

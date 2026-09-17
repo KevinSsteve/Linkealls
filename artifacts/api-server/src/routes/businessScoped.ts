@@ -8,7 +8,6 @@
  * continue to exist for backward compatibility during the migration.
  */
 import { Router, type Request, type Response } from "express";
-import { createHash } from "crypto";
 import { z } from "zod/v4";
 import { eq } from "drizzle-orm";
 import {
@@ -87,6 +86,8 @@ import { logger } from "../lib/logger.js";
 import { getUserByToken, hasRecentSensitiveAuth, requestToken } from "./userAuth.js";
 import { createPaymentsScopedRouter } from "./paymentsScoped.js";
 import { getCatalogAnalytics, withOfferingAnalyticsKey } from "../services/catalogAnalytics.js";
+import { clientIp } from "../lib/httpSecurity.js";
+import { hashPin, verifyPin } from "../lib/pinSecurity.js";
 
 function bid(res: Response): number {
   return res.locals["businessId"] as number;
@@ -133,10 +134,6 @@ async function requireRecentReauth(req: Request, res: Response, next: () => void
     logger.error({ err }, "requireRecentReauth failed");
     res.status(500).json({ error: "Não foi possível confirmar a identidade" });
   }
-}
-
-function hashPin(pin: string): string {
-  return createHash("sha256").update(pin).digest("hex");
 }
 
 export function createBusinessScopedRouter(): Router {
@@ -246,13 +243,28 @@ export function createBusinessScopedRouter(): Router {
     const pin = String(req.body?.pin ?? "").trim();
     if (!pin) { res.status(400).json({ ok: false, error: "PIN obrigatório" }); return; }
     try {
+      const pinRateKey = `${bid(res)}:${clientIp(req)}`;
+      const now = Date.now();
+      const bucket = pinRateBuckets.get(pinRateKey);
+      if (!bucket || bucket.resetAt < now) {
+        pinRateBuckets.set(pinRateKey, { count: 1, resetAt: now + 10 * 60_000 });
+      } else if (++bucket.count > 8) {
+        res.status(429).json({ ok: false, error: "Demasiadas tentativas — tenta daqui a pouco" });
+        return;
+      }
       const rows = await db
         .select({ ownerPin: businessProfilesTable.ownerPin })
         .from(businessProfilesTable)
         .where(eq(businessProfilesTable.id, bid(res)));
       const stored = rows[0]?.ownerPin ?? null;
       if (!stored) { res.json({ ok: false, noPin: true }); return; }
-      res.json({ ok: hashPin(pin) === stored });
+      const result = await verifyPin(pin, stored);
+      if (result.valid && result.needsUpgrade) {
+        await db.update(businessProfilesTable)
+          .set({ ownerPin: await hashPin(pin), updatedAt: new Date() })
+          .where(eq(businessProfilesTable.id, bid(res)));
+      }
+      res.json({ ok: result.valid });
     } catch (err) {
       logger.error({ err }, "POST /auth/pin/verify failed");
       res.status(500).json({ ok: false, error: "Erro interno" });
@@ -276,13 +288,13 @@ export function createBusinessScopedRouter(): Router {
         res.status(403).json({ ok: false, error: "PIN actual obrigatório para alterar" });
         return;
       }
-      if (stored && hashPin(currentPin) !== stored) {
+      if (stored && !(await verifyPin(currentPin, stored)).valid) {
         res.status(403).json({ ok: false, error: "PIN actual incorreto" });
         return;
       }
       await db
         .update(businessProfilesTable)
-        .set({ ownerPin: hashPin(pin), updatedAt: new Date() })
+        .set({ ownerPin: await hashPin(pin), updatedAt: new Date() })
         .where(eq(businessProfilesTable.id, bid(res)));
       res.json({ ok: true });
     } catch (err) {
@@ -305,9 +317,9 @@ export function createBusinessScopedRouter(): Router {
   const RATE_WINDOW_MS = 60_000;
   const RATE_MAX = 20;
   const rateBuckets = new Map<string, { count: number; resetAt: number }>();
+  const pinRateBuckets = new Map<string, { count: number; resetAt: number }>();
   function publicRateLimit(req: Request, res: Response, next: () => void): void {
-    const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim()
-      ?? req.socket.remoteAddress ?? "unknown";
+    const ip = clientIp(req);
     const now = Date.now();
     const bucket = rateBuckets.get(ip);
     if (!bucket || bucket.resetAt < now) {

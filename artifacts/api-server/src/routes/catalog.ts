@@ -13,6 +13,7 @@ import {
   withOfferingAnalyticsKey,
 } from "../services/catalogAnalytics.js";
 import { z } from "zod/v4";
+import { clientIp } from "../lib/httpSecurity.js";
 
 const router = Router();
 
@@ -22,9 +23,7 @@ const ANALYTICS_RATE_WINDOW_MS = 60_000;
 const ANALYTICS_RATE_MAX = 60;
 const analyticsRateBuckets = new Map<string, { count: number; resetAt: number }>();
 function catalogAnalyticsRateLimit(req: Request, res: Response, next: () => void): void {
-  const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim()
-    ?? req.socket.remoteAddress
-    ?? "unknown";
+  const ip = clientIp(req);
   const now = Date.now();
   const bucket = analyticsRateBuckets.get(ip);
   if (!bucket || bucket.resetAt < now) {
