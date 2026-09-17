@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import {
   businessApi,
+  confirmSensitiveAction,
   type Campaign,
   type CampaignDestination,
   type CampaignImageVariant,
@@ -216,6 +217,9 @@ function SimpleMetaAdsWizard({ api, campaign, onUpdate, onExit }: {
   }, [setup.creative.suggestedMediaPath]);
 
   const run = async (key: string, action: () => Promise<{ campaign: Campaign }>) => {
+    if (key === "pay" || key === "publish") {
+      if (!(await confirmSensitiveAction())) return;
+    }
     setBusy(key); setError(null);
     try {
       const { campaign: updated } = await action();

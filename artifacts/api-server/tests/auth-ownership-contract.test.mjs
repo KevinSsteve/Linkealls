@@ -24,6 +24,26 @@ test("local sessions expire and login attempts are rate limited", async () => {
   assert.match(auth, /randomBytes\(32\)\.toString\("base64url"\)/);
 });
 
+test("high-impact operations require a recent confirmation of the existing business PIN", async () => {
+  const [auth, scoped, payments, api] = await Promise.all([
+    source("src/routes/userAuth.ts"),
+    source("src/routes/businessScoped.ts"),
+    source("src/routes/paymentsScoped.ts"),
+    readFile(path.join(frontendDir, "src/lib/api.ts"), "utf8"),
+  ]);
+
+  assert.match(auth, /ownerPin: businessProfilesTable\.ownerPin/);
+  assert.match(auth, /sensitiveAuthExpiresAt: timestamp|sensitiveAuthExpiresAt/);
+  assert.match(auth, /router\.post\("\/user-auth\/reauthenticate"/);
+  assert.match(auth, /SENSITIVE_AUTH_REQUIRED/);
+  assert.match(scoped, /async function requireRecentReauth/);
+  assert.match(scoped, /router\.put\("\/profile", requireOwner, requireRecentReauth/);
+  assert.match(scoped, /router\.post\("\/campaigns\/:id\/publish", requireOwner, requireRecentReauth/);
+  assert.match(payments, /router\.post\("\/wallet\/payouts", requireOwner, requireRecentReauth/);
+  assert.match(auth, /router\.delete\("\/user-auth\/account"/);
+  assert.match(api, /export async function confirmSensitiveAction/);
+});
+
 test("owner authorization is enforced server-side and stale browser sessions are revalidated", async () => {
   const [scoped, context, api] = await Promise.all([
     source("src/routes/businessScoped.ts"),

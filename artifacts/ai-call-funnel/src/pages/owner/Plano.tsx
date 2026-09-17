@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { OwnerNav } from "../../components/owner/OwnerNav";
 import { useBusinessSlug } from "../../hooks/useBusinessSlug";
-import { businessApi, simulatePayment, type SubscriptionInfo, type Subscription } from "../../lib/api";
+import { businessApi, confirmSensitiveAction, simulatePayment, type SubscriptionInfo, type Subscription } from "../../lib/api";
 import { C } from "../../theme";
 import { AppHeader, AppIconButton } from "../../components/app/AppHeader";
 
@@ -83,6 +83,10 @@ export function Plano() {
     setResult(null);
     const p = phone.replace(/[\s-]/g, "").replace(/^\+?244/, "");
     if (!/^9\d{8}$/.test(p)) { setCheckoutError("Indica um número válido (9XXXXXXXX)"); return; }
+    if (!(await confirmSensitiveAction())) {
+      setCheckoutError("É necessária uma confirmação para iniciar o pagamento.");
+      return;
+    }
     setBusy(true);
     try {
       const res = await api.checkoutSubscription(p);

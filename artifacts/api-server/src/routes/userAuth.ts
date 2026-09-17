@@ -42,6 +42,7 @@ function hashPin(pin: string) {
 }
 
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+const SENSITIVE_AUTH_TTL_MS = 10 * 60 * 1000;
 
 function createSession() {
   return {
@@ -172,6 +173,21 @@ export async function getUserByToken(token: string | null) {
   return rows[0] ?? null;
 }
 
+/** Whether this session recently passed the account PIN confirmation. */
+export async function hasRecentSensitiveAuth(token: string | null): Promise<boolean> {
+  if (!token) return false;
+  const rows = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(and(
+      eq(usersTable.sessionToken, token),
+      gt(usersTable.sessionExpiresAt, new Date()),
+      gt(usersTable.sensitiveAuthExpiresAt, new Date()),
+    ))
+    .limit(1);
+  return rows.length > 0;
+}
+
 /** Extracts the bearer token from a request (exported for route middleware). */
 export function requestToken(req: { headers: { authorization?: string }; query?: Record<string, unknown> }): string | null {
   const bearer = bearerToken(req);
@@ -267,7 +283,11 @@ router.post("/user-auth/login", loginRateLimit, async (req, res) => {
 
     const session = createSession();
     await db.update(usersTable)
-      .set({ sessionToken: session.token, sessionExpiresAt: session.expiresAt })
+      .set({
+        sessionToken: session.token,
+        sessionExpiresAt: session.expiresAt,
+        sensitiveAuthExpiresAt: null,
+      })
       .where(eq(usersTable.id, rows[0]!.id));
 
     res.json({ user: toUserDTO(rows[0]!), token: session.token });
@@ -338,6 +358,7 @@ router.post("/user-auth/recover", recoveryRateLimit, async (req, res) => {
         recoveryCodeIssuedAt: null,
         sessionToken: session.token,
         sessionExpiresAt: session.expiresAt,
+        sensitiveAuthExpiresAt: null,
       })
       .where(and(
         eq(usersTable.id, row.id),
@@ -381,6 +402,7 @@ router.post("/user-auth/session", async (req, res): Promise<void> => {
     .set({
       sessionToken: session.token,
       sessionExpiresAt: session.expiresAt,
+      sensitiveAuthExpiresAt: null,
       email: replitUser.email,
       firstName: replitUser.firstName,
       lastName: replitUser.lastName,
@@ -430,6 +452,7 @@ router.post("/user-auth/link-replit", async (req, res): Promise<void> => {
       replitId: replitUser.id,
       sessionToken: session.token,
       sessionExpiresAt: session.expiresAt,
+      sensitiveAuthExpiresAt: null,
       email: replitUser.email,
       firstName: replitUser.firstName,
       lastName: replitUser.lastName,
@@ -483,6 +506,73 @@ router.get("/user-auth/me", async (req, res) => {
   }
 });
 
+// ─── recent identity confirmation ────────────────────────────────────────────
+//
+// The normal session proves who is signed in. This short-lived confirmation
+// proves that the person at the keyboard also knows the account PIN. Replit
+// identities may use the already-authenticated Replit identity instead.
+router.post("/user-auth/reauthenticate", async (req, res) => {
+  const token = requestToken(req);
+  const user = await getUserByToken(token);
+  if (!user || !token) {
+    res.status(401).json({ error: "Sessão inválida — inicia sessão novamente" });
+    return;
+  }
+
+  try {
+    if (await hasRecentSensitiveAuth(token)) {
+      res.json({ ok: true, expiresAt: new Date(Date.now() + SENSITIVE_AUTH_TTL_MS).toISOString() });
+      return;
+    }
+
+    const [[account], [profile]] = await Promise.all([
+      db
+        .select({ pinHash: usersTable.pinHash, replitId: usersTable.replitId })
+        .from(usersTable)
+        .where(eq(usersTable.id, user.id))
+        .limit(1),
+      user.handle
+        ? db
+            .select({ ownerPin: businessProfilesTable.ownerPin })
+            .from(businessProfilesTable)
+            .where(eq(businessProfilesTable.slug, user.handle))
+            .limit(1)
+        : Promise.resolve([] as Array<{ ownerPin: string | null }>),
+    ]);
+    const replitConfirmed = Boolean(
+      account?.replitId &&
+      req.isReplitAuthenticated() &&
+      req.replitUser?.id === account.replitId,
+    );
+    const suppliedPin = typeof req.body?.pin === "string" ? req.body.pin.trim() : "";
+    // Prefer the business PIN already used by the owner area. Older profiles
+    // may not have one yet, so their account PIN remains the bootstrap fallback.
+    const storedPinHash = profile?.ownerPin ?? account?.pinHash;
+    const pinConfirmed = suppliedPin.length > 0 && storedPinHash === hashPin(suppliedPin);
+
+    if (!replitConfirmed && !pinConfirmed) {
+      res.status(403).json({
+        error: "Confirma o PIN do teu negócio para continuar",
+        code: "SENSITIVE_AUTH_REQUIRED",
+      });
+      return;
+    }
+
+    const expiresAt = new Date(Date.now() + SENSITIVE_AUTH_TTL_MS);
+    await db.update(usersTable)
+      .set({ sensitiveAuthExpiresAt: expiresAt })
+      .where(and(
+        eq(usersTable.id, user.id),
+        eq(usersTable.sessionToken, token),
+        gt(usersTable.sessionExpiresAt, new Date()),
+      ));
+    res.json({ ok: true, expiresAt: expiresAt.toISOString() });
+  } catch (err) {
+    logger.error({ err, userId: user.id }, "reauthentication failed");
+    res.status(500).json({ error: "Não foi possível confirmar a identidade" });
+  }
+});
+
 // ─── logout ─────────────────────────────────────────────────────────────────
 
 router.post("/user-auth/logout", async (req, res) => {
@@ -490,7 +580,11 @@ router.post("/user-auth/logout", async (req, res) => {
   if (token) {
     try {
       await db.update(usersTable)
-        .set({ sessionToken: null, sessionExpiresAt: new Date() })
+        .set({
+          sessionToken: null,
+          sessionExpiresAt: new Date(),
+          sensitiveAuthExpiresAt: null,
+        })
         .where(eq(usersTable.sessionToken, token));
     } catch { /* ignore */ }
   }
@@ -504,9 +598,17 @@ router.post("/user-auth/logout", async (req, res) => {
 // Pending gateway operations are refused so a late callback cannot settle into
 // a half-deleted business.
 router.delete("/user-auth/account", async (req, res) => {
-  const user = await getUserByToken(requestToken(req));
+  const token = requestToken(req);
+  const user = await getUserByToken(token);
   if (!user) {
     res.status(401).json({ error: "Sessão inválida — inicia sessão novamente" });
+    return;
+  }
+  if (!(await hasRecentSensitiveAuth(token))) {
+    res.status(403).json({
+      error: "Confirma o PIN do teu negócio antes de eliminar a conta",
+      code: "SENSITIVE_AUTH_REQUIRED",
+    });
     return;
   }
 

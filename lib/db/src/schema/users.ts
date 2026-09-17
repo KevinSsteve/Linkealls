@@ -12,6 +12,7 @@ export const usersTable = pgTable("users", {
   recoveryCodeIssuedAt: timestamp("recovery_code_issued_at"),
   sessionToken: text("session_token"),               // opaque token handed to client
   sessionExpiresAt: timestamp("session_expires_at").notNull().default(sql`now() + interval '30 days'`),
+  sensitiveAuthExpiresAt: timestamp("sensitive_auth_expires_at"),
   replitId:     varchar("replit_id").unique(),       // Replit OIDC subject, when linked
   email:        varchar("email"),
   firstName:    varchar("first_name"),

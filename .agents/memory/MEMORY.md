@@ -19,3 +19,4 @@
 - [Catalog checkout layering](catalog-checkout-layering.md) — the checkout overlay is a direct catalog child; page-wide child layering must not override its fixed positioning.
 - [Generated image ratios](generated-image-ratios.md) — generated images may remain square despite ratio prompts; preserve originals and make explicit non-distorting crops for final slots.
 - [Drizzle schema push guardrail](drizzle-schema-push.md) — non-TTY push can stop on unrelated destructive constraint prompts; never force truncation, apply only targeted safe dev DDL.
+- [Sensitive action confirmation](sensitive-auth-confirmation.md) — high-impact owner actions use the business ownerPin with a short authorization window bound to the active session.

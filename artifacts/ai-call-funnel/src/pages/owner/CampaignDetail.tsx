@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { OwnerNav } from "../../components/owner/OwnerNav";
 import {
-  businessApi, type Campaign, type CampaignKit,
+  businessApi, confirmSensitiveAction, type Campaign, type CampaignKit,
   type CampaignMetrics, type CampaignPlatform,
   type AdsQuote, type CampaignPublishStatus,
   type CampaignSetup,
@@ -607,6 +607,9 @@ function MetaAdsWizard({ api, campaign, onUpdate, onExit }: {
   }, [api, campaign.id, onUpdate, polling]);
 
   const run = async (key: string, fn: () => Promise<{ campaign: Campaign }>) => {
+    if (key === "pay" || key === "publish" || key === "control") {
+      if (!(await confirmSensitiveAction())) return;
+    }
     setBusy(key); setWizError(null);
     try { const { campaign: c } = await fn(); onUpdate(c); }
     catch (e) { setWizError(e instanceof Error ? e.message : "Erro inesperado"); }
@@ -1195,6 +1198,9 @@ function LegacyPublishFlow({ api, campaign, onUpdate }: {
   }, [polling, api, campaign.id, onUpdate]);
 
   const run = async (key: string, fn: () => Promise<{ campaign: Campaign }>) => {
+    if (key === "pay" || key === "publish" || key === "control") {
+      if (!(await confirmSensitiveAction())) return;
+    }
     setBusy(key); setErr(null);
     try { const { campaign: c } = await fn(); onUpdate(c); }
     catch (e) { setErr(e instanceof Error ? e.message : "Erro inesperado"); }

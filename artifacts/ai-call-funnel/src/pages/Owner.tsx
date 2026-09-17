@@ -11,6 +11,7 @@ import {
   businessApi,
   getStorageObjectUrl,
   generateRecoveryCode,
+  confirmSensitiveAction,
   userLogout, deleteUserAccount,
   type BusinessProfile,
   type CatalogAnalytics as CatalogAnalyticsData,
@@ -658,6 +659,11 @@ export function Owner() {
         window.history.replaceState(null, "", window.location.pathname);
         if (pendingOnboarding.mode === "site") {
           setUrl(pendingOnboarding.value);
+          if (!(await confirmSensitiveAction())) {
+            setError("É necessária uma confirmação para iniciar a análise.");
+            setView("start");
+            return;
+          }
           await api.startAnalysis(pendingOnboarding.value);
           setView("analyzing");
         } else {
@@ -713,7 +719,11 @@ export function Owner() {
   const handleAnalyze = async () => {
     if (!url.trim() || !api) return;
     setBusy(true); setError(null);
-    try { await api.startAnalysis(url.trim()); setView("analyzing"); }
+    try {
+      if (!(await confirmSensitiveAction())) return;
+      await api.startAnalysis(url.trim());
+      setView("analyzing");
+    }
     catch (err) { setError(err instanceof Error ? err.message : "Não foi possível iniciar a análise"); }
     finally { setBusy(false); }
   };
@@ -737,6 +747,7 @@ export function Owner() {
     if (!api) return;
     setSaving(true); setError(null);
     try {
+      if (!(await confirmSensitiveAction())) return;
       const { profile: p } = await api.saveProfile(fields);
       setProfile(p); setDraft(null);
       setNotice("Perfil guardado com sucesso.");
@@ -748,7 +759,11 @@ export function Owner() {
   const handleReanalyze = async (u: string) => {
     if (!api) return;
     setReanalyzing(true); setError(null); setNotice(null);
-    try { await api.startAnalysis(u); setView("analyzing"); }
+    try {
+      if (!(await confirmSensitiveAction())) return;
+      await api.startAnalysis(u);
+      setView("analyzing");
+    }
     catch (err) { setError(err instanceof Error ? err.message : "Não foi possível iniciar a análise"); }
     finally { setReanalyzing(false); }
   };
@@ -767,6 +782,7 @@ export function Owner() {
     setDeletingAccount(true);
     setError(null);
     try {
+      if (!(await confirmSensitiveAction())) return;
       await deleteUserAccount(token);
       logout();
       window.location.assign(import.meta.env.BASE_URL);

@@ -84,7 +84,7 @@ import {
 } from "../services/notifications.js";
 import type { PushSubscriptionJSON } from "@workspace/db";
 import { logger } from "../lib/logger.js";
-import { getUserByToken, requestToken } from "./userAuth.js";
+import { getUserByToken, hasRecentSensitiveAuth, requestToken } from "./userAuth.js";
 import { createPaymentsScopedRouter } from "./paymentsScoped.js";
 import { getCatalogAnalytics, withOfferingAnalyticsKey } from "../services/catalogAnalytics.js";
 
@@ -116,6 +116,22 @@ async function requireOwner(req: Request, res: Response, next: () => void): Prom
   } catch (err) {
     logger.error({ err }, "requireOwner failed");
     res.status(500).json({ error: "Erro interno" });
+  }
+}
+
+async function requireRecentReauth(req: Request, res: Response, next: () => void): Promise<void> {
+  try {
+    if (!(await hasRecentSensitiveAuth(requestToken(req)))) {
+      res.status(403).json({
+        error: "Confirma o PIN do teu negócio antes de continuar",
+        code: "SENSITIVE_AUTH_REQUIRED",
+      });
+      return;
+    }
+    next();
+  } catch (err) {
+    logger.error({ err }, "requireRecentReauth failed");
+    res.status(500).json({ error: "Não foi possível confirmar a identidade" });
   }
 }
 
@@ -160,7 +176,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.put("/profile", requireOwner, async (req, res) => {
+  router.put("/profile", requireOwner, requireRecentReauth, async (req, res) => {
     const parsed = updateBusinessProfileSchema.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: "Dados inválidos", details: parsed.error.issues });
@@ -175,7 +191,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.post("/profile/analyze", requireOwner, async (req, res) => {
+  router.post("/profile/analyze", requireOwner, requireRecentReauth, async (req, res) => {
     const schema = z.object({ url: z.string().min(4).max(500) });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) {
@@ -243,7 +259,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.post("/auth/pin/set", requireOwner, async (req, res) => {
+  router.post("/auth/pin/set", requireOwner, requireRecentReauth, async (req, res) => {
     const pin = String(req.body?.pin ?? "").trim();
     if (!pin || pin.length < 4) {
       res.status(400).json({ ok: false, error: "O PIN deve ter pelo menos 4 dígitos" });
@@ -312,7 +328,7 @@ export function createBusinessScopedRouter(): Router {
 
   // ── PAYMENTS (Multicaixa Express) ────────────────────────────────────────────
   // Public checkout + owner sales/wallet/subscription — see paymentsScoped.ts.
-  router.use(createPaymentsScopedRouter(requireOwner, bid, publicRateLimit));
+  router.use(createPaymentsScopedRouter(requireOwner, requireRecentReauth, bid, publicRateLimit));
 
   const createSessionSchema = z.object({
     origin: leadOriginSchema.optional(),
@@ -593,7 +609,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.delete("/campaigns/:id", requireOwner, async (req, res) => {
+  router.delete("/campaigns/:id", requireOwner, requireRecentReauth, async (req, res) => {
     const id = String(req.params["id"] ?? "");
     try {
       const deleted = await deleteCampaign(id, bid(res));
@@ -673,7 +689,7 @@ export function createBusinessScopedRouter(): Router {
     });
   });
 
-  router.post("/campaigns/:id/pay", requireOwner, async (req, res) => {
+  router.post("/campaigns/:id/pay", requireOwner, requireRecentReauth, async (req, res) => {
     const id = String(req.params["id"] ?? "");
     const schema = z.discriminatedUnion("method", [
       z.object({ method: z.literal("carteira") }),
@@ -708,7 +724,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.post("/campaigns/:id/publish", requireOwner, async (req, res) => {
+  router.post("/campaigns/:id/publish", requireOwner, requireRecentReauth, async (req, res) => {
     const id = String(req.params["id"] ?? "");
     try {
       const campaign = await publishCampaign(id, bid(res));
@@ -720,7 +736,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.post("/campaigns/:id/control", requireOwner, async (req, res) => {
+  router.post("/campaigns/:id/control", requireOwner, requireRecentReauth, async (req, res) => {
     const id = String(req.params["id"] ?? "");
     const parsed = z.object({ action: z.enum(["pause", "resume", "end"]) }).safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "Ação inválida" }); return; }
@@ -770,7 +786,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.post("/assistant/confirm", requireOwner, async (req, res) => {
+  router.post("/assistant/confirm", requireOwner, requireRecentReauth, async (req, res) => {
     const parsed = confirmActionSchema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "Dados inválidos" }); return; }
     try {

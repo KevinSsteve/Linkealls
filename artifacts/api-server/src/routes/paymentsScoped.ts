@@ -57,6 +57,7 @@ function handleError(res: Response, err: unknown, ctx: string): void {
 
 export function createPaymentsScopedRouter(
   requireOwner: Middleware,
+  requireRecentReauth: Middleware,
   bid: (res: Response) => number,
   publicRateLimit: Middleware,
 ): Router {
@@ -324,7 +325,7 @@ export function createPaymentsScopedRouter(
     }
   });
 
-  router.post("/wallet/payouts", requireOwner, async (req, res) => {
+  router.post("/wallet/payouts", requireOwner, requireRecentReauth, async (req, res) => {
     const parsed = createPayoutSchema.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Dados inválidos" });
@@ -363,7 +364,7 @@ export function createPaymentsScopedRouter(
     }
   });
 
-  router.post("/subscription/checkout", requireOwner, async (req, res) => {
+  router.post("/subscription/checkout", requireOwner, requireRecentReauth, async (req, res) => {
     const schema = z.object({ phone: aoPhoneSchema });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) {

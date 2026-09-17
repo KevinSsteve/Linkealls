@@ -8,7 +8,7 @@ import {
   Zap, Trash2, BarChart2, AlertCircle,
   CheckCircle2, XCircle, Copy, Check, Loader2, Bell, Send,
 } from "lucide-react";
-import { businessApi, type AssistantMessage } from "../../lib/api";
+import { businessApi, confirmSensitiveAction, type AssistantMessage } from "../../lib/api";
 import { useBusinessSlug } from "../../hooks/useBusinessSlug";
 import { OwnerNav } from "../../components/owner/OwnerNav";
 import { C } from "../../theme";
@@ -224,6 +224,7 @@ export function Assistant() {
 
   const handleConfirm = useCallback(async (messageId: string, confirmed: boolean) => {
     if (!api) return;
+    if (confirmed && !(await confirmSensitiveAction())) return;
     setConfirming(messageId);
     try {
       await api.confirmAssistantAction(messageId, confirmed);

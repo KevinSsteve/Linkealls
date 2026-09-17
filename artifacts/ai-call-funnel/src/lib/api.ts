@@ -162,6 +162,41 @@ export async function deleteUserAccount(token: string): Promise<void> {
   if (!res.ok) throw new Error(body.error ?? "Não foi possível eliminar a conta");
 }
 
+/** Confirm the business PIN for the short window used by high-impact actions. */
+export async function reauthenticate(pin?: string): Promise<{ ok: boolean; expiresAt: string }> {
+  const res = await fetch(`${API_BASE}/user-auth/reauthenticate`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      ...(sessionToken() ? { Authorization: `Bearer ${sessionToken()}` } : {}),
+    },
+    body: JSON.stringify(pin ? { pin } : {}),
+  });
+  const body = (await res.json()) as { ok?: boolean; expiresAt?: string; error?: string };
+  if (res.status === 401) notifyAuthExpired();
+  if (!res.ok || !body.ok || !body.expiresAt) {
+    throw new Error(body.error ?? "Não foi possível confirmar a identidade");
+  }
+  return { ok: true, expiresAt: body.expiresAt };
+}
+
+/**
+ * Ask for the existing business PIN only when the session is not already
+ * recently confirmed. Replit-authenticated accounts can pass without a PIN.
+ */
+export async function confirmSensitiveAction(): Promise<boolean> {
+  try {
+    await reauthenticate();
+    return true;
+  } catch {
+    const pin = window.prompt("Confirma o PIN do teu negócio para continuar.");
+    if (!pin) return false;
+    await reauthenticate(pin);
+    return true;
+  }
+}
+
 /** Resolve a private object path using the same artifact-aware API base as uploads. */
 export function getStorageObjectUrl(objectPath: string): string {
   if (objectPath.startsWith("http://") || objectPath.startsWith("https://")) return objectPath;

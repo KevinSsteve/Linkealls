@@ -11,7 +11,7 @@ import { OwnerNav } from "../../components/owner/OwnerNav";
 import { WaSkeletonList } from "../../components/wa/WaSkeletonList";
 import { WaEmptyState } from "../../components/wa/WaEmptyState";
 import { useBusinessSlug } from "../../hooks/useBusinessSlug";
-import { businessApi, type WalletData, type WalletLedgerEntry, type Payout } from "../../lib/api";
+import { businessApi, confirmSensitiveAction, type WalletData, type WalletLedgerEntry, type Payout } from "../../lib/api";
 import { C } from "../../theme";
 import { AppHeader, AppIconButton } from "../../components/app/AppHeader";
 
@@ -157,6 +157,10 @@ export function Carteira() {
       return;
     }
     const dest = `${KWIK_IBAN_PREFIX}${destination}`;
+    if (!(await confirmSensitiveAction())) {
+      setSaqueError("É necessária uma confirmação para pedir o saque.");
+      return;
+    }
     setSaqueBusy(true);
     try {
       await api.requestPayout({ amount: value, destinationType: "iban", destination: dest });
