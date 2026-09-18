@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ArrowLeft, ArrowRight, KeyRound, LockKeyhole, Phone, ShieldCheck } from "lucide-react";
-import { Link, useLocation } from "wouter";
+import { Link, Redirect, useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import { recoverUserAccess } from "@/lib/api";
 import { AuthBrand } from "@/components/auth/AuthBrand";
@@ -68,7 +68,7 @@ function Field({
 
 export function RecoverAccessPage() {
   const [, nav] = useLocation();
-  const { login } = useAuth();
+  const { login, isLoading: isAuthLoading, isLoggedIn, user } = useAuth();
   const [phone, setPhone] = useState("");
   const [recoveryCode, setRecoveryCode] = useState("");
   const [pin, setPin] = useState("");
@@ -106,6 +106,11 @@ export function RecoverAccessPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (isAuthLoading) return null;
+  if (isLoggedIn) {
+    return <Redirect to={user?.handle ? `/e/${user.handle}/dono` : "/configurar-negocio"} />;
   }
 
   return (

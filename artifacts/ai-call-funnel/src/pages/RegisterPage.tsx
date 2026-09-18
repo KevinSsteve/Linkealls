@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, Redirect, useLocation } from "wouter";
 import {
   ArrowLeft,
   ArrowRight,
@@ -244,7 +244,7 @@ function getSafeNext(handle: string | null): string {
 
 export function RegisterPage() {
   const [, nav] = useLocation();
-  const { login } = useAuth();
+  const { login, isLoading: isAuthLoading, isLoggedIn, user } = useAuth();
   const [step, setStep] = useState<Step>("name");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -373,6 +373,11 @@ export function RegisterPage() {
         onContinue={() => nav("/configurar-negocio")}
       />
     );
+  }
+
+  if (isAuthLoading) return null;
+  if (isLoggedIn) {
+    return <Redirect to={user?.handle ? `/e/${user.handle}/dono` : "/configurar-negocio"} />;
   }
 
   return (

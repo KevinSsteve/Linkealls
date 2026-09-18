@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "wouter";
+import { Link, Redirect, useLocation } from "wouter";
 import {
   ArrowLeft,
   ArrowRight,
@@ -128,7 +128,7 @@ function getSafeNext(handle: string | null): string {
 
 export function LoginPage() {
   const [, nav] = useLocation();
-  const { login } = useAuth();
+  const { login, isLoading: isAuthLoading, isLoggedIn, user } = useAuth();
   const [step, setStep] = useState<"phone" | "pin">("phone");
   const [phone, setPhone] = useState("");
   const [pin, setPin] = useState("");
@@ -168,6 +168,11 @@ export function LoginPage() {
     const nextPin = `${pin}${key}`.slice(0, 4);
     setPin(nextPin);
     if (nextPin.length === 4) void submitPin(nextPin);
+  }
+
+  if (isAuthLoading) return null;
+  if (isLoggedIn) {
+    return <Redirect to={user?.handle ? `/e/${user.handle}/dono` : "/configurar-negocio"} />;
   }
 
   return (

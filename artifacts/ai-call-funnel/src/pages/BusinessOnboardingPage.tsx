@@ -74,6 +74,7 @@ export function BusinessOnboardingPage() {
   }
 
   if (!isLoggedIn) return <Redirect to="/login?next=/configurar-negocio" />;
+  if (user?.handle) return <Redirect to={`/e/${user.handle}/dono`} />;
 
   function checkUrl(url: string): { valid: string | null; isInstagram: boolean } {
     if (!url || /\s/.test(url)) return { valid: null, isInstagram: false };
