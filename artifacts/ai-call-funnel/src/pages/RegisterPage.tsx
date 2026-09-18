@@ -5,7 +5,6 @@ import {
   ArrowRight,
   Check,
   Delete,
-  ShieldCheck,
   Loader2,
   Copy
 } from "lucide-react";
@@ -460,10 +459,6 @@ export function RegisterPage() {
                         </p>
                       </div>
                       <Keypad onKey={handlePinKey} disabled={false} />
-                      <div className="mt-5 flex items-start gap-3 text-[14px] font-medium leading-relaxed text-[var(--ink-soft)] bg-[var(--surface)] p-4 rounded-2xl border border-[var(--border-soft)]">
-                        <ShieldCheck size={20} className="shrink-0 text-[#635bff] mt-0.5" />
-                        <p>O teu PIN é privado. Mantém-no em segredo e não o partilhes.</p>
-                      </div>
                     </>
                   )}
                </div>

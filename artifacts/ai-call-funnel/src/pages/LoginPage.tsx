@@ -4,7 +4,6 @@ import {
   ArrowLeft,
   ArrowRight,
   Delete,
-  ShieldCheck,
   Sparkles,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -220,10 +219,6 @@ export function LoginPage() {
                     Continuar <ArrowRight size={20} strokeWidth={2.5} />
                  </button>
 
-                 <div className="mt-6 flex items-start gap-3 text-[14px] font-medium leading-relaxed text-[var(--ink-soft)] bg-[var(--surface)] p-4 rounded-2xl border border-[var(--border-soft)]">
-                   <ShieldCheck size={20} className="shrink-0 text-[#635bff] mt-0.5" />
-                   <p>O teu número e PIN estão seguros e nunca serão partilhados.</p>
-                 </div>
                  <Link href="/recuperar-acesso" className="mt-6 text-center text-[15px] font-bold text-[var(--ink-soft)] underline underline-offset-4 hover:text-[var(--ink)]">
                    Esqueci-me do PIN
                  </Link>
