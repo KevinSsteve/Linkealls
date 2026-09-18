@@ -76,10 +76,19 @@ export function OwnerProfileOverview({
               </p>
             )}
             
-            <div className="mt-2.5 flex items-center gap-2">
-              <button onClick={() => onEdit(visibility.kind === "incomplete" ? "identity" : "catalog")} aria-label={`Configurar catálogo: ${visibility.label}`} data-testid="catalog-status-action" className="flex min-h-11 items-center gap-1.5 px-2.5 py-1 rounded-xl text-left text-[12px] font-semibold" style={{ background: visibility.isPublic ? D.greenMuted : D.subtle, color: visibility.isPublic ? D.greenDk : D.inkSoft }}>
+            <div className="mt-2.5 flex flex-wrap items-center gap-2">
+              <span data-testid="catalog-status" className="flex min-h-8 items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] font-semibold" style={{ background: visibility.isPublic ? D.greenMuted : D.subtle, color: visibility.isPublic ? D.greenDk : D.inkSoft }}>
                 {visibility.isPublic ? <Eye size={14} /> : <EyeOff size={14} />}
                 {visibility.label}
+              </span>
+              <button
+                onClick={() => onEdit("identity")}
+                className="inline-flex min-h-8 items-center gap-1 rounded-lg px-2 text-[12px] font-semibold"
+                style={{ color: D.green }}
+                data-testid="edit-identity-action"
+              >
+                <Edit2 size={14} />
+                Editar dados
               </button>
             </div>
           </div>
@@ -104,17 +113,7 @@ export function OwnerProfileOverview({
         )}
 
         {/* Action Toolbar */}
-        <div className="grid grid-cols-3 gap-3 mt-6">
-          <button 
-            onClick={() => onEdit("identity")}
-            className="flex flex-col items-center gap-1.5 p-3 rounded-[12px] border transition-colors active:opacity-50"
-            style={{ background: D.bg, borderColor: D.border, color: D.inkSoft }}
-            data-testid="edit-identity-action"
-          >
-            <Edit2 size={18} strokeWidth={2} />
-            <span className="text-[12px] font-semibold">Editar</span>
-          </button>
-          
+        <div className="grid grid-cols-2 gap-3 mt-6">
           {visibility.isPublic ? (
              <Link 
                href={`/${slug}`}
@@ -133,7 +132,7 @@ export function OwnerProfileOverview({
                data-testid="visibility-catalog-action"
              >
                <AlertTriangle size={18} strokeWidth={2} />
-               <span className="text-[12px] font-semibold">Publicar</span>
+                <span className="text-[12px] font-semibold">Configurar publicação</span>
              </button>
           )}
 
@@ -147,12 +146,6 @@ export function OwnerProfileOverview({
             <Share2 size={18} strokeWidth={2} />
              <span className="text-[12px] font-semibold">{sharing ? "A abrir…" : "Partilhar"}</span>
           </button>
-        </div>
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <button onClick={() => onEdit("offerings")} data-testid="manage-offerings-action" className="min-h-11 rounded-lg px-2 text-[13px] font-semibold" style={{ color: D.green }}>
-            {profile.offerings.length ? `Gerir produtos (${profile.offerings.length})` : "Adicionar produtos"}
-          </button>
-          <button onClick={() => onEdit("links")} data-testid="manage-links-action" className="min-h-11 rounded-lg px-2 text-[13px] font-semibold" style={{ color: D.green }}>Gerir links públicos</button>
         </div>
       </div>
 

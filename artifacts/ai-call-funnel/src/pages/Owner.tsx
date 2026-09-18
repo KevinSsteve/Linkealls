@@ -2,9 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import {
   Globe, Sparkles, Loader2, AlertCircle, CheckCircle2,
-  Zap, Grid3x3, Megaphone, Users, ChevronRight, X, Store,
-  MessageSquare, Phone, RefreshCw, Edit2, Share2, MoreVertical,
-  MapPin, Clock, Mail, Image, ShoppingCart, PackageCheck, Wallet, Crown, LogOut, Trash2, UserRound, KeyRound,
+  Zap, Megaphone, Users, ChevronRight, X,
+  Phone, Link2, SlidersHorizontal, ClipboardList,
+  PackageCheck, Crown, LogOut, Trash2, KeyRound,
 } from "lucide-react";
 import { OwnerNav } from "../components/owner/OwnerNav";
 import {
@@ -27,8 +27,6 @@ import { AppHeader, AppIconButton } from "../components/app/AppHeader";
 import { ViewField } from "../components/app/ViewField";
 import { SettingsSectionHeader } from "../components/app/Section";
 import { SettingsListItem } from "../components/app/SettingsListItem";
-import { ProductListItem } from "../components/app/ProductListItem";
-import { ListFooterAction } from "../components/app/ListFooterAction";
 import { clearBusinessOnboarding, readBusinessOnboarding, saveBusinessOnboarding } from "../lib/businessOnboarding";
 
 import { OwnerProfileOverview } from "../components/owner/OwnerProfileOverview";
@@ -37,7 +35,7 @@ import type { ProfileEditorTarget, CatalogSettingsPatch } from "../lib/profilePr
 type View = "loading" | "start" | "analyzing" | "editor";
 const POLL_MS = 2500;
 
-import { D, avatarPalette, initials } from "../components/owner/profileTheme";
+import { D, initials } from "../components/owner/profileTheme";
 
 // ─── Section header — small caps label ───────────────────────────────────────
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -161,36 +159,6 @@ function InfoField({
       href={link && value ? (value.startsWith("http") ? value : `https://${value}`) : undefined}
     />
   );
-}
-
-// ─── Offering tile (featured) ─────────────────────────────────────────────────
-function FeaturedTile({ offering }: { offering: Offering }) {
-  const pal = avatarPalette(offering.name);
-  return (
-    <div className="flex flex-col items-center gap-2" style={{ width: 72 }}>
-      <div
-        className="flex items-center justify-center overflow-hidden"
-        style={{
-          width: 60, height: 60,
-          borderRadius: 14,
-          background: offering.imageUrl ? "transparent" : pal.bg,
-          border: `1px solid ${D.border}`,
-        }}
-      >
-        {offering.imageUrl
-          ? <img src={offering.imageUrl} alt={offering.name} className="w-full h-full object-cover" />
-          : <span style={{ color: pal.text, fontSize: 20, fontWeight: 700 }}>{offering.name[0]?.toUpperCase()}</span>}
-      </div>
-      <p style={{ color: D.inkSoft, fontSize: 11, textAlign: "center", lineHeight: 1.3 }} className="line-clamp-2">
-        {offering.name}
-      </p>
-    </div>
-  );
-}
-
-// ─── Catalog row ──────────────────────────────────────────────────────────────
-function CatalogRow({ offering, last = false }: { offering: Offering; last?: boolean }) {
-  return <ProductListItem name={offering.name} price={offering.price} imageUrl={offering.imageUrl} last={last} />;
 }
 
 function CatalogAnalyticsCard({ slug, offerings }: { slug: string; offerings: Offering[] }) {
@@ -335,133 +303,60 @@ import { getCatalogVisibility } from "../lib/profilePresentation";
 
 // ─── Profile View (main view of the owner panel) ──────────────────────────────
 function ProfileView({
-  profile, slug, onEdit, onReanalyze, reanalyzing, onLogout, onDeleteAccount, deletingAccount,
+  profile, slug, onEdit, onLogout, onDeleteAccount, deletingAccount,
 }: {
   profile: BusinessProfile;
   slug: string;
   onEdit: (target?: ProfileEditorTarget) => void;
-  onReanalyze: (url: string) => void;
-  reanalyzing: boolean;
   onLogout: () => void;
   onDeleteAccount: () => void;
   deletingAccount: boolean;
 }) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const featured = profile.offerings.filter((o) => o.featured);
-  const previewOfferings = profile.offerings.slice(0, 4);
   const visibility = getCatalogVisibility(profile);
-  const isPublic = visibility.isPublic;
+  const offeringCount = profile.offerings.length;
+  const linkCount = profile.publicLinks?.length ?? 0;
 
   return (
     <div style={{ paddingBottom: 32 }}>
 
       <OwnerProfileOverview profile={profile} slug={slug} onEdit={onEdit} />
 
-      {/* ─── Destaques ───────────────────────────────────────────────────────── */}
-      {featured.length > 0 && (
-        <>
-          <div className="flex items-center justify-between" style={{ padding: "28px 20px 8px" }}>
-            <p style={{ color: D.inkFaint, fontSize: 11, fontWeight: 600, letterSpacing: "0.09em", textTransform: "uppercase" }}>
-              Destaques
-            </p>
-            <button onClick={() => onEdit("offerings")} style={{ color: D.green, fontSize: 13, fontWeight: 600 }}>Gerir</button>
-          </div>
-          <div style={{ background: D.surface, borderTop: `1px solid ${D.border}`, borderBottom: `1px solid ${D.border}` }}>
-            <div className="flex gap-4 px-5 py-4 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
-              {featured.map((o, i) => <FeaturedTile key={i} offering={o} />)}
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* ─── Catálogo preview ─────────────────────────────────────────────────── */}
-      {previewOfferings.length > 0 && (
-        <>
-          <div className="flex items-center justify-between" style={{ padding: "28px 20px 8px" }}>
-            <p style={{ color: D.inkFaint, fontSize: 11, fontWeight: 600, letterSpacing: "0.09em", textTransform: "uppercase" }}>
-              Catálogo
-            </p>
-            {isPublic ? (
-              <Link href={`/${slug}`}>
-                <span style={{ color: D.green, fontSize: 13, fontWeight: 600 }}>Ver tudo</span>
-              </Link>
-            ) : (
-              <button onClick={() => onEdit("catalog")} style={{ color: D.green, fontSize: 13, fontWeight: 600 }}>
-                Publicar
-              </button>
-            )}
-          </div>
-          <div style={{ background: D.surface, borderTop: `1px solid ${D.border}`, borderBottom: `1px solid ${D.border}` }}>
-            {previewOfferings.map((o, i) => (
-              <CatalogRow key={i} offering={o} last={i === previewOfferings.length - 1} />
-            ))}
-            {isPublic ? (
-              <ListFooterAction href={`/${slug}`}>Ver catálogo completo</ListFooterAction>
-            ) : (
-              <button
-                onClick={() => onEdit("catalog")}
-                className="w-full flex items-center justify-center p-3 text-[13px] font-semibold transition-colors hover:bg-[var(--subtle)]"
-                style={{ color: D.green, borderTop: `1px solid ${D.borderSoft}` }}
-              >
-                Publicar para ver catálogo
-              </button>
-            )}
-          </div>
-        </>
-      )}
-
-      {/* ─── O teu negócio ───────────────────────────────────────────────────── */}
-      <SectionLabel>O teu negócio</SectionLabel>
+      <SectionLabel>Conteúdo da página pública</SectionLabel>
       <div style={{ background: D.surface, borderTop: `1px solid ${D.border}`, borderBottom: `1px solid ${D.border}` }}>
-        {isPublic ? (
-          <ToolRow icon={Grid3x3} title="Catálogo"      description="Exibe produtos e serviços"                         href={`/${slug}`} />
-        ) : (
-          <ActionRow icon={Grid3x3} title="Catálogo" description="Exibe produtos e serviços (Oculto)" onClick={() => onEdit("catalog")} />
-        )}
-        <ToolRow icon={Zap}     title="Assistente IA" description="Configura o atendimento por voz e chat"           href={`/e/${slug}/dono/assistente`} last />
-      </div>
-
-      <SectionLabel>Histórico</SectionLabel>
-      <div style={{ background: D.surface, borderTop: `1px solid ${D.border}`, borderBottom: `1px solid ${D.border}` }}>
-        <ToolRow icon={Megaphone} title="Campanhas antigas" description="Consulta estados e compromissos anteriores" href={`/e/${slug}/dono/campanhas`} last />
-      </div>
-
-      {/* ─── Pagamentos ──────────────────────────────────────────────────────── */}
-      <SectionLabel>Pagamentos</SectionLabel>
-      <div style={{ background: D.surface, borderTop: `1px solid ${D.border}`, borderBottom: `1px solid ${D.border}` }}>
-        <ToolRow icon={ShoppingCart} title="Vendas"   description="Encomendas pagas no catálogo"               href={`/e/${slug}/dono/vendas`} />
-        <ToolRow icon={PackageCheck} title="Comércio" description="Pedidos, follow-up e comprovativos"        href={`/e/${slug}/dono/comercio`} />
-        <ToolRow icon={Wallet}       title="Carteira" description="Saldo, extracto e saques"                   href={`/e/${slug}/dono/carteira`} />
-        <ToolRow icon={Crown}        title="Plano"    description="Subscrição Linkealls — 10.000 Kz / 30 dias" href={`/e/${slug}/dono/plano`} last />
-      </div>
-
-      {/* ─── Leads & Conversas ───────────────────────────────────────────────── */}
-      <SectionLabel>Leads &amp; Conversas</SectionLabel>
-      <div style={{ background: D.surface, borderTop: `1px solid ${D.border}`, borderBottom: `1px solid ${D.border}` }}>
-        <ToolRow icon={Users}         title="Leads"     description="Todos os contactos qualificados"       href={`/e/${slug}/dono/leads`} />
-        <ToolRow icon={MessageSquare} title="Conversas" description="Historial de conversas com clientes"   href={`/e/${slug}/dono/conversas`} last />
-      </div>
-
-      {/* ─── Configurar ──────────────────────────────────────────────────────── */}
-      <SectionLabel>Configurar</SectionLabel>
-      <div style={{ background: D.surface, borderTop: `1px solid ${D.border}`, borderBottom: `1px solid ${D.border}` }}>
-        <ToolRow
-          icon={Phone}
-          title="Testar chamada"
-          description="Fala com o assistente IA como um cliente"
-          href={`/e/${slug}`}
-          last={!profile.websiteUrl}
+        <ActionRow
+          icon={PackageCheck}
+          title="Produtos e serviços"
+          description={offeringCount ? `${offeringCount} ${offeringCount === 1 ? "item no catálogo" : "itens no catálogo"}` : "Adiciona o que o teu negócio vende"}
+          onClick={() => onEdit("offerings")}
         />
-        {profile.websiteUrl && (
-          <ActionRow
-            icon={RefreshCw}
-            title="Reanalisar site"
-            description="Actualiza o perfil com info do site"
-            onClick={() => onReanalyze(profile.websiteUrl ?? "")}
-            loading={reanalyzing}
-            last
-          />
-        )}
+        <ActionRow
+          icon={Link2}
+          title="Links públicos"
+          description={linkCount ? `${linkCount} ${linkCount === 1 ? "link adicionado" : "links adicionados"}` : "Adiciona redes sociais e outros destinos"}
+          onClick={() => onEdit("links")}
+        />
+        <ActionRow
+          icon={SlidersHorizontal}
+          title="Visibilidade e link público"
+          description={visibility.label}
+          onClick={() => onEdit(visibility.kind === "incomplete" ? "identity" : "catalog")}
+          last
+        />
+      </div>
+
+      <SectionLabel>Assistente IA</SectionLabel>
+      <div style={{ background: D.surface, borderTop: `1px solid ${D.border}`, borderBottom: `1px solid ${D.border}` }}>
+        <ToolRow icon={Zap} title="Configurar assistente" description="Define como a IA atende os clientes" href={`/e/${slug}/dono/assistente`} />
+        <ToolRow icon={Phone} title="Testar atendimento" description="Fala com a IA como se fosses um cliente" href={`/e/${slug}`} last />
+      </div>
+
+      <SectionLabel>Outras ferramentas</SectionLabel>
+      <div style={{ background: D.surface, borderTop: `1px solid ${D.border}`, borderBottom: `1px solid ${D.border}` }}>
+        <ToolRow icon={Users} title="Leads" description="Contactos qualificados pelo assistente" href={`/e/${slug}/dono/leads`} />
+        <ToolRow icon={ClipboardList} title="Pedidos e pós-venda" description="Acompanha entregas e comprovativos" href={`/e/${slug}/dono/comercio`} />
+        <ToolRow icon={Megaphone} title="Campanhas" description="Consulta campanhas anteriores" href={`/e/${slug}/dono/campanhas`} />
+        <ToolRow icon={Crown} title="Plano Linkealls" description="Consulta e gere a subscrição" href={`/e/${slug}/dono/plano`} last />
       </div>
 
       <SectionLabel>Conta</SectionLabel>
@@ -724,12 +619,7 @@ export function Owner() {
       {!productFocus && (
         <header className="owner-header">
           {!editing ? (
-            <>
-              <h1 className="owner-header-title">Perfil<span className="hidden min-[400px]:inline"> do negócio</span></h1>
-              <Link href={`/e/${slug}`} className="owner-icon-btn flex items-center justify-center rounded-full text-[var(--ink-soft)] hover:bg-[var(--subtle)] hover:text-[var(--ink)]" style={{ width: 44 }} aria-label="Testar chamada" data-testid="link-test-call">
-                <Phone size={19} strokeWidth={1.75} />
-              </Link>
-            </>
+            <h1 className="owner-header-title">Perfil<span className="hidden min-[400px]:inline"> do negócio</span></h1>
           ) : (
             <>
               <button
@@ -968,8 +858,6 @@ export function Owner() {
             profile={profile}
             slug={slug}
             onEdit={openEditor}
-            onReanalyze={handleReanalyze}
-            reanalyzing={reanalyzing}
             onLogout={() => { void handleLogout(); }}
             onDeleteAccount={() => { void handleDeleteAccount(); }}
             deletingAccount={deletingAccount}
