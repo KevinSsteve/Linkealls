@@ -3,9 +3,7 @@ import { Link, useLocation } from "wouter";
 import {
   ArrowLeft,
   ArrowRight,
-  Check,
   Delete,
-  LockKeyhole,
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
@@ -13,56 +11,20 @@ import { useAuth } from "@/context/AuthContext";
 import { userLogin } from "@/lib/api";
 import { AuthBrand } from "@/components/auth/AuthBrand";
 
-const COLORS = {
-  page: "#fbfaff",
-  panel: "#f1edff",
-  panelDeep: "#2d176d",
-  ink: "#0a2540",
-  soft: "#344558", // Darkened for better contrast
-  muted: "#5b6e82", // Darkened for better contrast
-  line: "#e6ebf1",
-  field: "#ffffff",
-  accent: "#635bff",
-  accentDark: "#5046e5",
-  accentSoft: "#eeecff",
-  error: "#b34235",
-  errorBg: "#fff0eb",
-};
-
 type Key = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "0" | "backspace";
 const KEYS: Key[] = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "backspace"];
-
 
 function BackButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex h-11 w-11 items-center justify-center rounded-full transition-transform duration-200 hover:-translate-x-0.5 active:scale-95"
-      style={{ color: COLORS.ink, background: COLORS.accentSoft }}
+      className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-[var(--border-soft)] text-[var(--ink)] transition-transform hover:scale-105 active:scale-95"
       aria-label="Voltar"
       data-testid="button-back"
     >
-      <ArrowLeft size={18} strokeWidth={2} />
+      <ArrowLeft size={20} strokeWidth={2.5} />
     </button>
-  );
-}
-
-function StepRail({ current }: { current: "phone" | "pin" }) {
-  return (
-    <div className="flex items-center gap-2" aria-label={`Passo ${current === "phone" ? "1" : "2"} de 2`}>
-      <span
-        className="h-1.5 rounded-full transition-all duration-300"
-        style={{ width: current === "phone" ? 42 : 18, background: COLORS.accent }}
-      />
-      <span
-        className="h-1.5 rounded-full transition-all duration-300"
-        style={{ width: current === "pin" ? 42 : 18, background: current === "pin" ? COLORS.accent : COLORS.line }}
-      />
-      <span style={{ marginLeft: 5, color: COLORS.muted, fontSize: 12, fontWeight: 700 }}>
-        {current === "phone" ? "1 / 2" : "2 / 2"}
-      </span>
-    </div>
   );
 }
 
@@ -78,12 +40,9 @@ function PhoneField({
   errorId?: string;
 }) {
   return (
-    <div
-      className="auth-input-wrap group flex min-h-[56px] items-center gap-3 rounded-[16px] border px-4 transition-colors duration-200 focus-within:border-[#635bff] focus-within:bg-white"
-      style={{ borderColor: COLORS.line, background: COLORS.field }}
-    >
-      <span style={{ color: COLORS.ink, fontSize: 15, fontWeight: 750 }}>+244</span>
-      <span style={{ width: 1, height: 25, background: COLORS.line }} aria-hidden="true" />
+    <div className="flex min-h-[64px] items-center gap-3 rounded-[20px] border border-[var(--border)] bg-[var(--surface)] px-5 transition-colors focus-within:border-[#635bff] focus-within:ring-2 focus-within:ring-[#635bff]/20 shadow-sm">
+      <span className="text-[18px] font-bold text-[var(--ink)]" style={{ fontFamily: "var(--font-display)" }}>+244</span>
+      <span className="h-7 w-px bg-[var(--border)]" aria-hidden="true" />
       <label className="sr-only" htmlFor="login-phone">Número de telemóvel</label>
       <input
         id="login-phone"
@@ -94,8 +53,7 @@ function PhoneField({
         onChange={(event) => onChange(event.target.value.replace(/[^\d\s]/g, ""))}
         onKeyDown={(event) => event.key === "Enter" && onEnter()}
         placeholder="9XX XXX XXX"
-        className="min-w-0 flex-1 bg-transparent text-[16px] outline-none"
-        style={{ color: COLORS.ink, caretColor: COLORS.accent }}
+        className="min-w-0 flex-1 bg-transparent text-[18px] font-bold text-[var(--ink)] outline-none placeholder:text-[var(--ink-faint)] placeholder:font-medium"
         autoFocus
         data-testid="input-login-phone"
         aria-invalid={!!errorId}
@@ -107,21 +65,15 @@ function PhoneField({
 
 function PinDots({ value }: { value: string }) {
   return (
-    <div className="flex items-center justify-center gap-3" aria-label={`${value.length} de 4 dígitos preenchidos`} aria-live="polite" role="status">
+    <div className="flex items-center justify-center gap-5 py-4" aria-label={`${value.length} de 4 dígitos preenchidos`} aria-live="polite" role="status">
       {[0, 1, 2, 3].map((index) => {
         const filled = index < value.length;
         return (
           <span
             key={index}
-            className="transition-all duration-200"
-            style={{
-              width: filled ? 15 : 13,
-              height: filled ? 15 : 13,
-              borderRadius: "50%",
-              border: `2px solid ${filled ? COLORS.accent : COLORS.muted}`,
-              background: filled ? COLORS.accent : "transparent",
-              boxShadow: filled ? `0 0 0 4px ${COLORS.accentSoft}` : "none",
-            }}
+            className={`transition-all duration-200 rounded-full ${
+              filled ? "w-4 h-4 bg-[#635bff] shadow-[0_0_0_4px_rgba(99,91,255,0.15)] scale-110" : "w-3.5 h-3.5 border-2 border-[var(--ink-faint)]"
+            }`}
           />
         );
       })}
@@ -131,7 +83,7 @@ function PinDots({ value }: { value: string }) {
 
 function Keypad({ value, onKey, disabled }: { value: string; onKey: (key: Key) => void; disabled: boolean }) {
   return (
-    <div className="grid w-full max-w-[304px] grid-cols-3 gap-2.5" aria-label="Teclado numérico">
+    <div className="grid w-full max-w-[300px] grid-cols-3 gap-2.5 mx-auto" aria-label="Teclado numérico">
       {KEYS.map((key) => (
         <button
           key={key}
@@ -141,16 +93,12 @@ function Keypad({ value, onKey, disabled }: { value: string; onKey: (key: Key) =
             event.preventDefault();
             onKey(key);
           }}
-          className="flex h-[54px] items-center justify-center rounded-[17px] border text-[18px] font-bold transition-transform duration-150 hover:-translate-y-0.5 active:scale-95 disabled:cursor-wait disabled:opacity-50"
-          style={{
-            borderColor: key === "backspace" ? "transparent" : COLORS.line,
-            background: key === "backspace" ? "transparent" : COLORS.field,
-            color: key === "backspace" ? COLORS.soft : COLORS.ink,
-          }}
-          aria-label={key === "backspace" ? "Apagar último dígito" : `Dígito ${key}`}
+          className="flex h-[56px] items-center justify-center rounded-2xl bg-[var(--surface)] border border-[var(--border)] text-[22px] font-bold transition-transform hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
+          style={{ fontFamily: "var(--font-display)", color: key === "backspace" ? "var(--ink-soft)" : "var(--ink)", background: key === "backspace" ? "transparent" : "", border: key === "backspace" ? "none" : "", boxShadow: key === "backspace" ? "none" : "" }}
+          aria-label={key === "backspace" ? "Apagar" : `Dígito ${key}`}
           data-testid={`button-pin-${key}`}
         >
-          {key === "backspace" ? <Delete size={20} strokeWidth={1.8} /> : key}
+          {key === "backspace" ? <Delete size={22} strokeWidth={2.5} /> : key}
         </button>
       ))}
     </div>
@@ -162,14 +110,13 @@ function ErrorNotice({ message }: { message: string }) {
   return (
     <div
       id="login-error"
-      className="mb-5 flex items-start gap-2.5 rounded-2xl border px-3.5 py-3 text-[13px] leading-5"
-      style={{ borderColor: "#f4c6bc", background: COLORS.errorBg, color: COLORS.error }}
+      className="mb-6 flex items-start gap-3 rounded-2xl bg-[#fff0eb] border border-[#f4c6bc] p-4 text-[14px] leading-snug text-[#b34235]"
       role="alert"
       aria-live="polite"
       data-testid="status-login-error"
     >
-      <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full" style={{ background: COLORS.error }} aria-hidden="true" />
-      <span>{message}</span>
+      <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#b34235]" aria-hidden="true" />
+      <span className="font-semibold">{message}</span>
     </div>
   );
 }
@@ -191,7 +138,7 @@ export function LoginPage() {
 
   function handlePhoneNext() {
     if (phone.replace(/\D/g, "").length < 7) {
-      setError("Confirma o teu número de telemóvel para continuar.");
+      setError("Verifica o teu número para continuar.");
       return;
     }
     setError("");
@@ -225,116 +172,67 @@ export function LoginPage() {
   }
 
   return (
-    <main
-      className="auth-clean-page min-h-[100dvh] overflow-x-hidden"
-      style={{
-        background: COLORS.page,
-        color: COLORS.ink,
-        fontFamily: "'Avenir Next', 'Trebuchet MS', system-ui, sans-serif",
-        paddingTop: "env(safe-area-inset-top, 0px)",
-        paddingBottom: "env(safe-area-inset-bottom, 0px)",
-      }}
-    >
-      <div className="grid min-h-[100dvh] lg:grid-cols-[minmax(330px,0.82fr)_minmax(480px,1.18fr)]">
-        <aside
-          className="relative hidden overflow-hidden px-10 py-10 lg:flex lg:flex-col lg:px-16"
-          style={{ background: COLORS.panel }}
-        >
-          <AuthBrand />
-          <div className="relative z-10 mt-auto max-w-[420px] pb-8">
-            <p className="mb-5 text-[12px] font-bold uppercase tracking-[0.18em]" style={{ color: COLORS.accent }}>
-              O teu negócio, num só lugar
-            </p>
-            <h2
-              className="text-[clamp(38px,4.4vw,64px)] font-extrabold leading-[0.96] tracking-[-0.06em]"
-              style={{ color: COLORS.panelDeep }}
-            >
-              Conversas que viram negócio.
-            </h2>
-            <p className="mt-6 max-w-[340px] text-[15px] leading-6" style={{ color: COLORS.soft }}>
-              Fala com clientes, mostra o que vendes e deixa o teu link trabalhar por ti.
-            </p>
-          </div>
-          <div
-            className="absolute -right-20 top-24 h-64 w-64 rounded-full border-[34px]"
-            style={{ borderColor: "rgba(99,91,255,0.14)" }}
-            aria-hidden="true"
-          />
-          <div
-            className="absolute -bottom-20 -left-16 h-72 w-72 rounded-full"
-            style={{ background: "rgba(155,140,255,0.18)" }}
-            aria-hidden="true"
-          />
-          <div
-            className="absolute right-16 top-28 h-3 w-3 rounded-full"
-            style={{ background: "#9b8cff" }}
-            aria-hidden="true"
-          />
-        </aside>
-
-        <section className="flex min-w-0 flex-col justify-center">
-          <div className="mx-auto flex w-full max-w-[560px] flex-col px-5 py-6 sm:px-10 sm:py-9 lg:px-16">
-            <div className="flex items-center justify-between">
-              <div className="auth-mobile-brand lg:hidden">
-                <AuthBrand />
-              </div>
-              <div className="auth-desktop-back hidden lg:block">
-                <BackButton onClick={() => (step === "pin" ? (setStep("phone"), setPin("")) : nav("/"))} />
-              </div>
-              <StepRail current={step} />
+    <main className="min-h-[100dvh] bg-[var(--bg)] text-[var(--ink)] flex flex-col lg:flex-row overflow-x-hidden font-sans" style={{ paddingTop: "env(safe-area-inset-top, 0px)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+      <div className="hidden lg:flex flex-col justify-between w-[40%] max-w-[500px] p-12 bg-[#2d176d] text-white">
+        <AuthBrand style={{ color: "#fff" }} />
+        <div>
+          <p className="text-[13px] font-bold uppercase tracking-[0.18em] text-[#9b8cff] mb-4">
+            O teu negócio num só lugar
+          </p>
+          <h2 className="text-[44px] font-bold leading-[1.05] tracking-tight mb-5" style={{ fontFamily: "var(--font-display)" }}>
+            Conversas que viram negócio.
+          </h2>
+          <p className="text-white/80 text-[17px] font-medium leading-relaxed max-w-[340px]">
+            Fala com clientes, mostra o que vendes e deixa o teu link trabalhar por ti.
+          </p>
+        </div>
+      </div>
+      <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-12 relative w-full">
+         <div className="w-full max-w-[420px] flex flex-col" aria-label={`Passo ${step === "phone" ? "1" : "2"} de 2`}>
+            <div className="lg:hidden mb-12 flex items-center justify-between">
+               <AuthBrand />
+               {step === "pin" && <BackButton onClick={() => { setStep("phone"); setPin(""); }} />}
+            </div>
+            <div className="hidden lg:block absolute top-12 left-12">
+               {step === "pin" ? <BackButton onClick={() => { setStep("phone"); setPin(""); }} /> : <BackButton onClick={() => nav("/")} />}
             </div>
 
-            <div className="auth-content mt-10 sm:mt-16">
-              <div className="mb-7">
-                <p className="mb-3 text-[13px] font-extrabold uppercase tracking-[0.12em]" style={{ color: COLORS.accent }}>
-                  {step === "phone" ? "Entrar na Linkealls" : "Só mais um passo"}
-                </p>
-                <h1 className="max-w-[460px] text-[clamp(32px,8vw,48px)] font-extrabold leading-[1.05] tracking-[-0.04em]" style={{ color: COLORS.ink }}>
-                  {step === "phone" ? "Bom ter-te de volta." : "Confirma que és tu."}
-                </h1>
-                <p className="mt-4 max-w-[400px] text-[16px] leading-relaxed" style={{ color: COLORS.soft }}>
-                  {step === "phone"
-                    ? "Entra para continuares a cuidar das tuas conversas e clientes."
-                    : `Introduz o PIN de 4 dígitos associado a ${phone}.`}
-                </p>
-              </div>
+            <div className="mb-8">
+               <h1 className="text-[clamp(40px,9vw,48px)] font-bold leading-[1.05] tracking-tight" style={{ fontFamily: "var(--font-display)" }}>
+                 {step === "phone" ? "Entrar." : "O teu PIN."}
+               </h1>
+               <p className="mt-4 text-[17px] text-[var(--ink-soft)] font-medium">
+                 {step === "phone" ? "Coloca o teu número para continuar." : `Código de 4 dígitos para ${phone}.`}
+               </p>
+            </div>
 
-              <ErrorNotice message={error} />
+            <ErrorNotice message={error} />
 
-              {step === "phone" ? (
-                <div className="max-w-[460px]">
-                  <PhoneField value={phone} onChange={setPhone} onEnter={handlePhoneNext} errorId={error ? "login-error" : undefined} />
-                  <button
+            {step === "phone" ? (
+               <div className="flex flex-col gap-4">
+                 <PhoneField value={phone} onChange={setPhone} onEnter={handlePhoneNext} errorId={error ? "login-error" : undefined} />
+                 <button
                     type="button"
                     onClick={handlePhoneNext}
-                    className="auth-primary mt-4 flex min-h-[56px] w-full items-center justify-between rounded-[16px] px-5 text-left font-bold transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.99]"
-                    style={{ background: COLORS.accent, color: "#ffffff", boxShadow: "0 8px 20px rgba(99,91,255,0.15)" }}
+                    className="mt-2 flex h-[60px] w-full items-center justify-center gap-2 rounded-2xl bg-[#635bff] text-white text-[17px] font-bold transition-transform hover:-translate-y-0.5 active:scale-95 shadow-[0_8px_20px_rgba(99,91,255,0.18)]"
                     data-testid="button-login-continue"
-                  >
-                    <span>Continuar</span>
-                    <ArrowRight size={19} strokeWidth={2.3} />
-                  </button>
-                  <div className="mt-5 flex items-start gap-2 text-[13px] leading-relaxed" style={{ color: COLORS.muted }}>
-                    <ShieldCheck size={18} strokeWidth={1.8} className="mt-0.5 shrink-0" style={{ color: COLORS.accent }} />
-                    <p>O teu número e PIN ficam protegidos. Não partilhamos os teus dados.</p>
-                  </div>
-                   <Link
-                     href="/recuperar-acesso"
-                     className="mt-6 inline-flex min-h-[44px] items-center text-[14px] font-bold underline underline-offset-4 transition-colors hover:text-[#0a2540]"
-                     style={{ color: COLORS.soft }}
-                   >
-                     Esqueci-me do PIN
-                   </Link>
-                </div>
-              ) : (
-                <div className="max-w-[460px]">
-                  <div className="auth-pin-card mb-6 flex flex-col items-center rounded-[20px] border px-5 py-5" style={{ borderColor: COLORS.line, background: "rgba(255,255,255,0.7)" }}>
-                    <div className="mb-4 flex items-center gap-2 text-[12px] font-extrabold uppercase tracking-[0.1em]" style={{ color: COLORS.accent }}>
-                      <LockKeyhole size={15} strokeWidth={2} />
-                      PIN de acesso
-                    </div>
+                 >
+                    Continuar <ArrowRight size={20} strokeWidth={2.5} />
+                 </button>
+
+                 <div className="mt-6 flex items-start gap-3 text-[14px] font-medium leading-relaxed text-[var(--ink-soft)] bg-[var(--surface)] p-4 rounded-2xl border border-[var(--border-soft)]">
+                   <ShieldCheck size={20} className="shrink-0 text-[#635bff] mt-0.5" />
+                   <p>O teu número e PIN estão seguros e nunca serão partilhados.</p>
+                 </div>
+                 <Link href="/recuperar-acesso" className="mt-6 text-center text-[15px] font-bold text-[var(--ink-soft)] underline underline-offset-4 hover:text-[var(--ink)]">
+                   Esqueci-me do PIN
+                 </Link>
+               </div>
+            ) : (
+               <div className="flex flex-col gap-6 items-center">
+                  <div className="w-full bg-[var(--surface)] border border-[var(--border)] rounded-[24px] p-6 flex flex-col items-center shadow-sm">
                     <PinDots value={pin} />
-                    <p className="mt-4 h-5 text-[13px] font-medium" style={{ color: loading ? COLORS.accent : COLORS.muted }} aria-live="polite" data-testid="status-login-loading">
+                    <p className="mt-2 text-[15px] font-bold text-[var(--ink-soft)]" aria-live="polite" data-testid="status-login-loading">
                       {loading ? "A abrir o teu espaço…" : "Quatro dígitos"}
                     </p>
                   </div>
@@ -343,37 +241,25 @@ export function LoginPage() {
                     type="button"
                     disabled={pin.length !== 4 || loading}
                     onClick={() => void submitPin(pin)}
-                    className="auth-primary mt-4 flex min-h-[56px] w-full items-center justify-between rounded-[16px] px-5 text-left font-bold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-45"
-                    style={{ background: COLORS.accent, color: "#ffffff", boxShadow: pin.length === 4 ? "0 8px 20px rgba(99,91,255,0.15)" : "none" }}
+                    className="mt-2 flex h-[60px] w-full items-center justify-center gap-2 rounded-2xl bg-[#635bff] text-white text-[17px] font-bold transition-all hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_8px_20px_rgba(99,91,255,0.18)]"
                     data-testid="button-login-submit"
                   >
-                    <span>{loading ? "A entrar…" : "Continuar"}</span>
-                    {loading ? <Sparkles size={18} className="animate-pulse" /> : <Check size={19} strokeWidth={2.4} />}
+                    {loading ? <Sparkles size={20} className="animate-pulse" /> : "Entrar"}
                   </button>
-                </div>
+               </div>
+            )}
+
+            <div className="mt-12 border-t border-[var(--border-soft)] pt-8 text-center flex flex-col items-center gap-5">
+              <p className="text-[16px] text-[var(--ink-soft)] font-medium">
+                 Ainda não tens conta? <Link href={`/registar${window.location.search}`} className="font-bold text-[#635bff] underline underline-offset-4 hover:text-[#5046e5]" data-testid="link-login-register">Criar conta</Link>
+              </p>
+              {step === "pin" && (
+                <button onClick={() => { setStep("phone"); setPin(""); setError(""); }} className="text-[15px] font-bold text-[var(--ink-soft)] hover:text-[var(--ink)]" data-testid="button-login-back">
+                  Trocar de número
+                </button>
               )}
             </div>
-
-            <div className="mt-10 flex flex-col gap-4 border-t pt-5 sm:flex-row sm:items-center sm:justify-between" style={{ borderColor: COLORS.line }}>
-              <p className="text-[14px]" style={{ color: COLORS.soft }}>
-                Ainda não tens conta?{" "}
-                <Link href={`/registar${window.location.search}`} className="font-bold underline decoration-2 underline-offset-4 transition-colors hover:text-[#0a2540]" style={{ color: COLORS.accent }} data-testid="link-login-register">
-                  Criar conta
-                </Link>
-              </p>
-              <button
-                type="button"
-                className="inline-flex min-h-[44px] items-center gap-2 self-start text-[14px] font-bold transition-colors hover:text-[#0a2540]"
-                style={{ color: COLORS.muted }}
-                onClick={() => (step === "pin" ? (setStep("phone"), setPin(""), setError("")) : nav("/"))}
-                data-testid="button-login-back"
-              >
-                <ArrowLeft size={16} />
-                {step === "pin" ? "Trocar número" : "Voltar ao início"}
-              </button>
-            </div>
-          </div>
-        </section>
+         </div>
       </div>
     </main>
   );

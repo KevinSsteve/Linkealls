@@ -7,13 +7,6 @@ import { AuthBrand, AuthMark } from "@/components/auth/AuthBrand";
 import { analyzeBusinessOnboarding, AuthApiError, type BusinessAnalysisResult, type BusinessAnalysisInput } from "@/lib/api";
 import { processAnalysisImage } from "@/lib/imageProcessor";
 
-const INK = "#0A2540";
-const SOFT = "#344558";
-const FAINT = "#5b6e82";
-const LINE = "#E6EBF1";
-const SUBTLE = "#F1F5F9";
-const ACCENT = "#635BFF";
-
 type Mode = "site" | "image" | "description";
 
 export function BusinessOnboardingPage() {
@@ -74,9 +67,8 @@ export function BusinessOnboardingPage() {
 
   if (isLoading) {
     return (
-      <main className="auth-clean-page min-h-[100dvh] flex flex-col items-center justify-center gap-4 bg-[#FBFAFF]">
+      <main className="min-h-[100dvh] flex flex-col items-center justify-center gap-4 bg-[var(--bg)] text-[var(--ink)]">
         <AuthMark size={64} className="animate-pulse" />
-        <p role="status" className="text-sm text-[#344558]">A abrir a configuração…</p>
       </main>
     );
   }
@@ -153,31 +145,31 @@ export function BusinessOnboardingPage() {
       }
       const { valid, isInstagram } = checkUrl(trimmedSite);
       if (isInstagram) {
-        setError("Para o Instagram, usa a opção 'Imagem' e carrega um screenshot do teu perfil ou dos serviços.");
+        setError("Para o Instagram, usa 'Imagem' e carrega um screenshot.");
         submitGuardRef.current = false;
         return;
       }
       if (!valid) {
-        setError("O endereço do site não parece ser válido.");
+        setError("Link inválido.");
         submitGuardRef.current = false;
         return;
       }
       input = { mode: "site", url: valid };
     } else if (mode === "description") {
       if (trimmedDesc.length < 20) {
-        setError("Descreve o teu negócio com pelo menos 20 caracteres.");
+        setError("Descreve o negócio com mais detalhe (mín 20 letras).");
         submitGuardRef.current = false;
         return;
       }
       if (trimmedDesc.length > 6000) {
-        setError("A descrição não pode ter mais de 6000 caracteres.");
+        setError("Texto muito longo.");
         submitGuardRef.current = false;
         return;
       }
       input = { mode: "description", description: trimmedDesc };
     } else {
       if (!imageFile) {
-        setError("Carrega uma imagem ou escolhe outra opção.");
+        setError("Carrega uma imagem primeiro.");
         submitGuardRef.current = false;
         return;
       }
@@ -207,16 +199,15 @@ export function BusinessOnboardingPage() {
       try {
         saveBusinessOnboarding({ mode, value, analysis: result, userId: user?.id });
       } catch (saveErr) {
-        setError(saveErr instanceof Error ? saveErr.message : "Erro ao guardar o rascunho na sessão.");
+        setError(saveErr instanceof Error ? saveErr.message : "Erro ao guardar.");
       }
     } catch (err) {
       if (err instanceof AuthApiError && err.status === 401) {
         setIsAuthExpired(true);
       }
-      const msg = err instanceof Error ? err.message : "Erro ao analisar o material.";
+      const msg = err instanceof Error ? err.message : "Erro a analisar. Confere os teus dados.";
       setError(msg);
 
-      // Preserve safe drafts even on error
       try {
         if (input.mode === "site") saveBusinessOnboarding({ mode, value: input.url, userId: user?.id });
         if (input.mode === "description" && input.description) {
@@ -226,7 +217,7 @@ export function BusinessOnboardingPage() {
           saveBusinessOnboarding({ mode, value: imageDesc.trim() || imageFile?.name || "Imagem carregada", userId: user?.id });
         }
       } catch {
-        setError(`${msg} O navegador também não conseguiu guardar o rascunho. Mantém esta página aberta para não perderes os dados.`);
+        setError(`${msg} O navegador também não conseguiu guardar o rascunho. Mantém a página aberta.`);
       }
     } finally {
       setIsAnalyzing(false);
@@ -253,7 +244,7 @@ export function BusinessOnboardingPage() {
       });
       nav(user?.handle ? `/e/${user.handle}/dono?onboarding=1` : "/escolher-handle");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível guardar o rascunho. Tenta novamente.");
+      setError(err instanceof Error ? err.message : "Erro a guardar. Tenta de novo.");
     }
   }
 
@@ -263,57 +254,51 @@ export function BusinessOnboardingPage() {
   }
 
   return (
-    <main
-      className="auth-clean-page flex min-h-[100dvh] justify-center"
-      style={{
-        background: "#FBFAFF",
-        color: INK,
-      }}
-    >
-      <div className="mx-auto flex min-h-[100dvh] w-full max-w-[560px] flex-col px-5 py-6 sm:px-10 sm:py-10">
+    <main className="min-h-[100dvh] bg-[var(--bg)] text-[var(--ink)] flex flex-col items-center p-6 sm:p-12 font-sans" style={{ paddingTop: "max(32px, env(safe-area-inset-top, 32px))", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+      <div className="w-full max-w-[500px] flex flex-col">
         <div className="mb-12 flex items-center justify-between">
           <AuthBrand />
-          <span className="text-[13px] font-bold uppercase tracking-[0.14em]" style={{ color: FAINT }}>
+          <span className="text-[13px] font-bold uppercase tracking-[0.14em] text-[#635BFF]">
             1 de 2
           </span>
         </div>
 
         {analysisResult ? (
-          <section className="auth-content my-auto pb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <h1 className="max-w-[520px] text-[clamp(28px,7vw,40px)] font-extrabold leading-[1.05] tracking-[-0.04em]">
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 flex flex-col pb-12">
+            <h1 className="text-[clamp(36px,9vw,48px)] font-bold leading-[1.05] tracking-tight mb-4" style={{ fontFamily: "var(--font-display)" }}>
               Análise concluída.
             </h1>
-            <p className="mt-4 max-w-[490px] text-[16px] leading-relaxed" style={{ color: SOFT }}>
-              Aqui está o resumo do teu negócio estruturado pela IA. Revê e avança para o editor.
+            <p className="text-[17px] text-[var(--ink-soft)] font-medium leading-relaxed">
+              Vê o resumo gerado pela IA e avança. Podes ajustar tudo depois.
             </p>
 
-            <div className="mt-8 rounded-[16px] border bg-white p-6 text-left shadow-sm" style={{ borderColor: LINE }}>
-              <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-[#EEECFF] px-3 py-1 text-[12px] font-bold text-[#635BFF]">
-                <Check size={14} strokeWidth={2.5} /> Preparado com sucesso
+            <div className="mt-8 rounded-[24px] border border-[var(--border)] bg-[var(--surface)] p-8 shadow-sm">
+              <div className="mb-5 inline-flex items-center gap-2 rounded-xl bg-[#dff1e9] px-3.5 py-1.5 text-[14px] font-bold text-[#246a59]">
+                <Check size={18} strokeWidth={3} /> Preparado com sucesso
               </div>
-              <h2 className="text-[20px] font-extrabold leading-tight tracking-tight" style={{ color: INK }}>
+              <h2 className="text-[28px] font-bold leading-tight" style={{ fontFamily: "var(--font-display)" }}>
                 {analysisResult.draft.name || "Negócio sem nome"}
               </h2>
               {analysisResult.draft.sector && (
-                <p className="mt-1 text-[12px] font-bold uppercase tracking-wider text-[#635BFF]">
+                <p className="mt-2 text-[14px] font-bold uppercase tracking-wider text-[#635BFF]">
                   {analysisResult.draft.sector}
                 </p>
               )}
-              <p className="mt-3 text-[15px] leading-relaxed" style={{ color: SOFT }}>
-                {analysisResult.draft.description || "Não foi possível gerar uma descrição."}
+              <p className="mt-5 text-[16px] font-medium leading-relaxed text-[var(--ink-soft)]">
+                {analysisResult.draft.description || "Sem descrição disponível."}
               </p>
 
               {analysisResult.draft.offerings && analysisResult.draft.offerings.length > 0 && (
-                <div className="mt-6 border-t pt-5" style={{ borderColor: LINE }}>
-                  <h3 className="text-[12px] font-bold uppercase tracking-wider" style={{ color: FAINT }}>
-                    Principais Serviços ({analysisResult.draft.offerings.length})
+                <div className="mt-8 border-t border-[var(--border-soft)] pt-6">
+                  <h3 className="text-[13px] font-bold uppercase tracking-widest text-[var(--ink-faint)] mb-5">
+                    Serviços extraídos ({analysisResult.draft.offerings.length})
                   </h3>
-                  <ul className="mt-3 flex flex-col gap-4">
+                  <ul className="flex flex-col gap-5">
                     {analysisResult.draft.offerings.slice(0, 3).map((offering, i) => (
-                      <li key={i} className="flex flex-col gap-1">
-                        <span className="text-[14px] font-bold" style={{ color: INK }}>{offering.name}</span>
+                      <li key={i} className="flex flex-col gap-1.5">
+                        <span className="text-[16px] font-bold text-[var(--ink)]">{offering.name}</span>
                         {offering.description && (
-                          <span className="text-[13px] leading-relaxed" style={{ color: SOFT }}>
+                          <span className="text-[15px] font-medium text-[var(--ink-soft)] leading-relaxed">
                             {offering.description.length > 90 ? offering.description.substring(0, 90) + "..." : offering.description}
                           </span>
                         )}
@@ -325,73 +310,63 @@ export function BusinessOnboardingPage() {
             </div>
 
             {error && (
-              <div className="mt-4 rounded-xl border border-[#FCA5A5] bg-[#FEF2F2] p-3">
-                <p className="text-[13px] font-medium text-[#B34235]" role="alert">{error}</p>
+              <div className="mt-6 rounded-2xl bg-[#fff0eb] border border-[#f4c6bc] p-5 text-[15px] font-medium text-[#b34235]" role="alert">
+                <p id="onboarding-error">{error}</p>
               </div>
             )}
 
-            <div className="mt-8 flex flex-col gap-3">
+            <div className="mt-8 flex flex-col gap-4">
               <button
                 onClick={saveAndContinue}
-                className="auth-primary flex min-h-[56px] w-full items-center justify-between rounded-[16px] px-5 text-left font-bold transition-transform hover:-translate-y-0.5 active:scale-[0.99]"
-                style={{ background: ACCENT, color: "#FFFFFF", boxShadow: "0 8px 20px rgba(99,91,255,0.15)" }}
+                className="flex h-[60px] w-full items-center justify-center gap-2 rounded-2xl bg-[#635bff] text-white text-[17px] font-bold transition-transform hover:-translate-y-0.5 active:scale-95 shadow-[0_8px_20px_rgba(99,91,255,0.18)]"
               >
-                <span>Rever e Continuar</span>
-                <ArrowRight size={19} strokeWidth={2.3} />
+                Rever e Continuar <ArrowRight size={20} strokeWidth={2.5} />
               </button>
               <button
                 onClick={resetAnalysis}
-                className="flex min-h-[56px] w-full items-center justify-center rounded-[16px] font-bold transition-colors"
-                style={{ color: FAINT, background: SUBTLE }}
+                className="flex h-[60px] w-full items-center justify-center rounded-2xl font-bold text-[var(--ink-soft)] transition-colors hover:bg-[var(--surface)] hover:text-[var(--ink)] text-[16px]"
               >
-                Alterar fonte e analisar novamente
+                Voltar e alterar a fonte
               </button>
             </div>
-          </section>
+          </div>
         ) : (
-          <section className="auth-content my-auto pb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <p className="mb-3 text-[13px] font-extrabold uppercase tracking-[0.12em]" style={{ color: ACCENT }}>
-              Configurar negócio
-            </p>
-            <h1 className="max-w-[520px] text-[clamp(32px,8vw,48px)] font-extrabold leading-[1.05] tracking-[-0.04em]">
-              Vamos preparar o teu perfil.
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 flex flex-col pb-12">
+            <h1 className="text-[clamp(40px,9vw,48px)] font-bold leading-[1.05] tracking-tight mb-4" style={{ fontFamily: "var(--font-display)" }}>
+              O teu perfil.
             </h1>
-            <p className="mt-4 max-w-[490px] text-[16px] leading-relaxed" style={{ color: SOFT }}>
-              Partilha material que já tens. A IA lê e estrutura um rascunho de perfil pronto para tu reveres.
+            <p className="text-[17px] text-[var(--ink-soft)] font-medium leading-relaxed mb-8">
+              Diz-nos o que já tens. A IA lê e cria o teu catálogo.
             </p>
 
-            <div className="mt-8 flex overflow-x-auto rounded-[16px] border p-1" style={{ borderColor: LINE, background: SUBTLE }}>
+            <div className="flex p-1.5 rounded-[20px] bg-[var(--surface)] border border-[var(--border)] shadow-sm overflow-x-auto mb-8">
               {(["site", "image", "description"] as const).map((opt) => (
                 <button
                   key={opt}
                   type="button"
                   onClick={() => handleModeChange(opt)}
                   disabled={isProcessingImage}
-                  className="flex min-h-[44px] min-w-[100px] flex-1 items-center justify-center gap-2 rounded-[12px] text-[14px] font-bold transition-colors disabled:opacity-50"
-                  style={{
-                    background: mode === opt ? "#FFFFFF" : "transparent",
-                    color: mode === opt ? INK : FAINT,
-                    boxShadow: mode === opt ? "0 2px 8px rgba(10,37,64,0.07)" : "none",
-                  }}
+                  className={`flex h-[52px] min-w-[110px] flex-1 items-center justify-center gap-2 rounded-[16px] text-[15px] font-bold transition-all disabled:opacity-50 ${
+                    mode === opt ? "bg-white text-[var(--ink)] shadow-[0_2px_12px_rgba(0,0,0,0.06)]" : "text-[var(--ink-faint)] hover:text-[var(--ink-soft)]"
+                  }`}
                 >
-                  {opt === "site" && <><Globe size={16} /> Site</>}
-                  {opt === "image" && <><Camera size={16} /> Imagem</>}
-                  {opt === "description" && <><AlignLeft size={16} /> Texto</>}
+                  {opt === "site" && <><Globe size={18} /> Site</>}
+                  {opt === "image" && <><Camera size={18} /> Imagem</>}
+                  {opt === "description" && <><AlignLeft size={18} /> Texto</>}
                 </button>
               ))}
             </div>
 
             {mode === "site" && (
-              <div className="mt-4">
+              <div>
                 <input
                   value={siteValue}
                   onChange={(e) => { setSiteValue(e.target.value); setError(""); setIsAuthExpired(false); }}
                   onKeyDown={(e) => { if (e.key === "Enter") continueOnboarding(); }}
-                  placeholder="https://oteusite.co.ao"
+                  placeholder="https://oteusite.com"
                   inputMode="url"
                   autoCapitalize="none"
-                  className="min-h-[56px] w-full rounded-[16px] border px-4 text-[16px] outline-none focus:border-[#635BFF]"
-                  style={{ borderColor: LINE, background: "#FFFFFF", color: INK }}
+                  className="h-[64px] w-full rounded-[20px] border border-[var(--border)] bg-[var(--surface)] px-5 text-[18px] font-bold text-[var(--ink)] outline-none focus:border-[#635bff] focus:ring-2 focus:ring-[#635bff]/20 placeholder:text-[var(--ink-faint)] placeholder:font-medium shadow-sm"
                   data-testid="input-onboarding-website"
                   aria-invalid={!!error}
                   disabled={isAnalyzing || isProcessingImage}
@@ -400,14 +375,13 @@ export function BusinessOnboardingPage() {
             )}
 
             {mode === "description" && (
-              <div className="mt-4">
+              <div>
                 <textarea
                   value={descValue}
                   onChange={(e) => { setDescValue(e.target.value); setError(""); setIsAuthExpired(false); }}
-                  placeholder="Ex.: Tenho uma pastelaria em Luanda. Vendemos bolos, salgados e fazemos entregas..."
+                  placeholder="Ex: Tenho uma loja de roupa e acessórios para senhora. Fazemos entregas ao domicílio..."
                   autoFocus
-                  className="min-h-[150px] w-full resize-y rounded-[16px] border px-4 py-4 text-[16px] leading-relaxed outline-none focus:border-[#635BFF]"
-                  style={{ borderColor: LINE, background: "#FFFFFF", color: INK }}
+                  className="min-h-[160px] w-full resize-y rounded-[20px] border border-[var(--border)] bg-[var(--surface)] px-5 py-5 text-[17px] font-medium leading-relaxed text-[var(--ink)] outline-none focus:border-[#635bff] focus:ring-2 focus:ring-[#635bff]/20 placeholder:text-[var(--ink-faint)] shadow-sm"
                   data-testid="input-onboarding-description"
                   aria-invalid={!!error}
                   disabled={isAnalyzing || isProcessingImage}
@@ -416,21 +390,21 @@ export function BusinessOnboardingPage() {
             )}
 
             {mode === "image" && (
-              <div className="mt-4">
+              <div>
                 {isProcessingImage ? (
-                  <div className="flex flex-col items-center justify-center rounded-[16px] border-2 border-dashed p-6 text-center transition-colors bg-[#F8FAFC]" style={{ borderColor: LINE }}>
-                    <Loader2 size={24} className="animate-spin mb-3" style={{ color: ACCENT }} />
-                    <p className="text-[14px] leading-relaxed text-[#344558]">A preparar imagem...</p>
+                  <div className="flex flex-col items-center justify-center rounded-[24px] border-2 border-dashed border-[var(--border)] bg-[var(--surface)] p-10 text-center">
+                    <Loader2 size={32} className="animate-spin mb-5 text-[#635bff]" />
+                    <p className="text-[16px] font-medium text-[var(--ink-soft)]">A preparar imagem...</p>
                   </div>
                 ) : !imageFile ? (
-                  <div className="flex flex-col items-center justify-center rounded-[16px] border-2 border-dashed p-6 text-center transition-colors hover:bg-[#F8FAFC]" style={{ borderColor: LINE }}>
-                    <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[#F1F5F9] text-[#5b6e82]">
-                      <Camera size={24} strokeWidth={1.5} />
+                  <div className="flex flex-col items-center justify-center rounded-[24px] border-2 border-dashed border-[var(--border)] bg-[var(--surface)] p-10 text-center transition-colors hover:bg-[var(--subtle)]">
+                    <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-[#f4efe8] text-[var(--ink-faint)]">
+                      <Camera size={30} strokeWidth={1.5} />
                     </div>
-                    <p className="mb-4 text-[14px] leading-relaxed text-[#344558]">
-                      Para Instagram: abre o teu perfil, tira screenshot da bio e dos serviços, volta aqui e carrega a imagem. Se não tens Instagram, escolhe uma foto dos teus serviços ou descreve o negócio em Texto.
+                    <p className="mb-8 text-[16px] leading-relaxed text-[var(--ink-soft)] font-medium">
+                      Carrega um screenshot do teu Instagram ou um folheto digital com os teus serviços.
                     </p>
-                    <label className="cursor-pointer rounded-[12px] bg-white px-5 py-2.5 text-[14px] font-bold text-[#0A2540] shadow-[0_2px_8px_rgba(10,37,64,0.08)] transition-transform hover:bg-[#F8FAFC] active:scale-95">
+                    <label className="cursor-pointer rounded-[20px] bg-white px-8 py-4 text-[16px] font-bold text-[var(--ink)] shadow-sm border border-[var(--border)] transition-transform hover:bg-[#fafafa] active:scale-95">
                       Escolher Imagem
                       <input
                         type="file"
@@ -440,30 +414,26 @@ export function BusinessOnboardingPage() {
                         disabled={isAnalyzing || isProcessingImage}
                       />
                     </label>
-                    <p className="mt-4 text-[12px] text-[#5b6e82]">
-                      A imagem serve apenas para extrair informação. Não será guardada nem publicada.
-                    </p>
                   </div>
                 ) : (
-                  <div className="flex flex-col gap-4">
-                    <div className="relative overflow-hidden rounded-[16px] border bg-[#F8FAFC]" style={{ borderColor: LINE }}>
-                      <img src={imageFile.objectUrl} alt="Preview" className="w-full max-h-[220px] object-cover" />
+                  <div className="flex flex-col gap-5">
+                    <div className="relative overflow-hidden rounded-[20px] border border-[var(--border)] bg-[var(--surface)] p-2">
+                      <img src={imageFile.objectUrl} alt="Preview" className="w-full max-h-[300px] object-cover rounded-[14px]" />
                       {!isAnalyzing && (
                         <button
                           onClick={() => setImageFile(null)}
-                          className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-md transition-colors hover:bg-black/80"
+                          className="absolute right-5 top-5 flex h-10 w-10 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-md transition-transform hover:scale-105"
                           title="Remover imagem"
                         >
-                          <X size={16} strokeWidth={2.5} />
+                          <X size={20} strokeWidth={2.5} />
                         </button>
                       )}
                     </div>
                     <textarea
                       value={imageDesc}
                       onChange={(e) => { setImageDesc(e.target.value); setError(""); setIsAuthExpired(false); }}
-                      placeholder="Informação adicional que não está na imagem (opcional)..."
-                      className="min-h-[100px] w-full resize-y rounded-[16px] border px-4 py-4 text-[15px] leading-relaxed outline-none focus:border-[#635BFF]"
-                      style={{ borderColor: LINE, background: "#FFFFFF", color: INK }}
+                      placeholder="Mais alguma coisa a acrescentar? (Opcional)"
+                      className="min-h-[120px] w-full resize-y rounded-[20px] border border-[var(--border)] bg-[var(--surface)] px-5 py-5 text-[17px] font-medium leading-relaxed text-[var(--ink)] outline-none focus:border-[#635bff] focus:ring-2 focus:ring-[#635bff]/20 placeholder:text-[var(--ink-faint)] shadow-sm"
                       disabled={isAnalyzing || isProcessingImage}
                     />
                   </div>
@@ -472,12 +442,10 @@ export function BusinessOnboardingPage() {
             )}
 
             {error && (
-              <div className="mt-4 rounded-xl border border-[#FCA5A5] bg-[#FEF2F2] p-3">
-                <p id="onboarding-error" className="text-[13px] font-medium text-[#B34235]" role="alert">
-                  {error}
-                </p>
+              <div className="mt-8 rounded-2xl bg-[#fff0eb] border border-[#f4c6bc] p-5 text-[15px] font-semibold leading-relaxed text-[#b34235]" role="alert">
+                <p id="onboarding-error">{error}</p>
                 {isAuthExpired && (
-                  <Link href="/login?next=/configurar-negocio" className="mt-2 inline-block text-[13px] font-bold text-[#B34235] underline underline-offset-2">
+                  <Link href="/login?next=/configurar-negocio" className="mt-3 inline-block text-[15px] font-bold underline underline-offset-4 hover:text-[#8a2f24]">
                     Fazer login novamente
                   </Link>
                 )}
@@ -488,38 +456,36 @@ export function BusinessOnboardingPage() {
               type="button"
               onClick={continueOnboarding}
               disabled={isAnalyzing || isProcessingImage || (mode === "image" && !imageFile)}
-              className="auth-primary mt-4 flex min-h-[56px] w-full items-center justify-between rounded-[16px] px-5 text-left font-bold transition-transform hover:-translate-y-0.5 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-75"
-              style={{ background: ACCENT, color: "#FFFFFF", boxShadow: "0 8px 20px rgba(99,91,255,0.15)" }}
+              className="mt-8 flex h-[60px] w-full items-center justify-center gap-2 rounded-2xl bg-[#635bff] text-white text-[17px] font-bold transition-transform hover:-translate-y-0.5 active:scale-95 disabled:pointer-events-none disabled:opacity-50 shadow-[0_8px_20px_rgba(99,91,255,0.18)]"
               data-testid="button-onboarding-continue"
             >
               {isAnalyzing ? (
-                <div className="flex w-full items-center justify-center gap-2">
-                  <Loader2 size={19} className="animate-spin" />
-                  <span role="status">{isSlow ? "Ainda a analisar. Aguarda a resposta…" : "A analisar o teu negócio…"}</span>
-                </div>
+                <>
+                  <Loader2 size={22} className="animate-spin" />
+                  <span role="status">{isSlow ? "Quase pronto..." : "A analisar..."}</span>
+                </>
               ) : (
                 <>
                   <span>
-                    {mode === "site" ? "Analisar site" : mode === "image" ? "Extrair informação" : "Estruturar com IA"}
+                    {mode === "site" ? "Analisar site" : mode === "image" ? "Extrair" : "Estruturar com IA"}
                   </span>
-                  <ArrowRight size={19} strokeWidth={2.3} />
+                  <ArrowRight size={20} strokeWidth={2.5} />
                 </>
               )}
             </button>
 
             {!isAnalyzing && !isProcessingImage && (
-              <div className="mt-6 text-center">
+              <div className="mt-10 text-center">
                 <Link
                   href="/escolher-handle"
                   onClick={() => clearBusinessOnboarding()}
-                  className="text-[14px] font-bold text-center underline underline-offset-4 decoration-[#E6EBF1] transition-colors hover:text-[#0A2540]"
-                  style={{ color: FAINT }}
+                  className="text-[15px] font-bold text-[var(--ink-soft)] underline underline-offset-4 hover:text-[var(--ink)]"
                 >
-                  Saltar e configurar depois
+                  Saltar por agora
                 </Link>
               </div>
             )}
-          </section>
+          </div>
         )}
       </div>
     </main>

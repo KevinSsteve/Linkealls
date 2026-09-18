@@ -20,12 +20,11 @@ export function ChooseHandle() {
   const [error, setError] = useState("");
   const [expired, setExpired] = useState(false);
   const submitting = useRef(false);
+
   const handle = raw.trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
   const checkState: CheckState = check.handle === handle ? check.state : handle ? "checking" : "idle";
   const ownerPath = (slug: string) => `/e/${slug}/dono${readBusinessOnboarding(user?.id) ? "?onboarding=1" : ""}`;
 
-  // All hooks precede authentication redirects. The result belongs to one exact
-  // input, so an older request cannot enable Continue for a different handle.
   useEffect(() => {
     if (!isLoggedIn || user?.handle) return;
     let current = true;
@@ -40,7 +39,7 @@ export function ChooseHandle() {
       } catch (err) {
         if (current) setCheck({
           handle, state: "error",
-          reason: err instanceof Error ? err.message : "Não foi possível verificar o link.",
+          reason: err instanceof Error ? err.message : "Erro ao verificar.",
         });
       }
     }, 400);
@@ -64,18 +63,16 @@ export function ChooseHandle() {
     } catch (err) {
       if (err instanceof AuthApiError && err.status === 401) {
         setExpired(true);
-        setError("A tua sessão expirou. Entra novamente para guardar este link.");
+        setError("Sessão expirada. Entra novamente.");
       } else if (err instanceof AuthApiError && (err.status === 409 || err.status === 400)) {
         setCheck({ handle: target, state: "taken", reason: err.message });
         setError(err.message);
       } else {
-        // A lost response does not prove the write failed. Recover a completed
-        // claim before offering a retry; never automatically repeat the PUT.
         try {
           const result = await getCurrentUser();
           if (result.user.handle === target) { finish(result.user); return; }
-        } catch { /* Keep the original actionable error. */ }
-        setError(err instanceof Error ? err.message : "Não foi possível guardar. Tenta novamente.");
+        } catch {}
+        setError(err instanceof Error ? err.message : "Erro ao guardar.");
       }
     } finally {
       submitting.current = false;
@@ -84,39 +81,49 @@ export function ChooseHandle() {
   }
 
   if (isLoading) return (
-    <main className="auth-clean-page flex min-h-[100dvh] flex-col items-center justify-center gap-6 bg-[#FBFAFF] px-6">
+    <main className="min-h-[100dvh] flex flex-col items-center justify-center gap-4 bg-[var(--bg)] text-[var(--ink)] font-sans">
       <AuthBrand />
-      <p role="status" className="flex items-center gap-3 text-[#344558]"><Loader2 className="animate-spin" size={22} /> A abrir o teu espaço…</p>
+      <p role="status" className="flex items-center gap-3 text-[var(--ink-soft)] font-medium text-[16px]">
+        <Loader2 className="animate-spin" size={22} /> A abrir o teu espaço…
+      </p>
     </main>
   );
+
   if (!isLoggedIn) return <Redirect to={`/login?next=${encodeURIComponent(`/escolher-handle${handle ? `?nome=${handle}` : ""}`)}`} />;
   if (user?.handle) return <Redirect to={ownerPath(user.handle)} />;
 
   const unavailable = checkState === "taken" || checkState === "invalid";
-  const status = checkState === "available" ? "Este link está disponível."
-    : checkState === "checking" ? "A verificar disponibilidade…"
-    : checkState === "invalid" ? "Usa entre 3 e 30 letras, números ou hífens."
-    : checkState === "taken" ? check.reason || "Este link já está ocupado. Experimenta outro nome."
-    : checkState === "error" ? check.reason || "Não foi possível verificar o link." : "";
+  const status = checkState === "available" ? "Disponível!"
+    : checkState === "checking" ? "A verificar..."
+    : checkState === "invalid" ? "Usa 3-30 letras, números ou hífens."
+    : checkState === "taken" ? check.reason || "Já ocupado. Tenta outro."
+    : checkState === "error" ? check.reason || "Erro ao verificar." : "";
 
   return (
-    <main className="auth-clean-page flex min-h-[100dvh] flex-col items-center bg-[#FBFAFF] text-[#0A2540]" style={{ paddingTop: "env(safe-area-inset-top, 0px)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
-      <div className="auth-onboarding-shell flex w-full max-w-[560px] flex-1 flex-col px-5 py-6 sm:px-10 sm:py-10">
-        <header className="flex items-center justify-between gap-4">
+    <main className="min-h-[100dvh] bg-[var(--bg)] text-[var(--ink)] flex flex-col items-center p-6 sm:p-12 font-sans" style={{ paddingTop: "max(32px, env(safe-area-inset-top, 32px))", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+      <div className="w-full max-w-[500px] flex flex-col">
+        <header className="mb-10 flex items-center justify-between">
           <AuthBrand />
-          <span className="shrink-0 text-xs font-bold tracking-[0.12em] text-[#635BFF]">2 DE 2</span>
+          <span className="text-[13px] font-bold uppercase tracking-[0.14em] text-[#635BFF]">
+            2 de 2
+          </span>
         </header>
-        <Link href="/configurar-negocio" aria-disabled={saving} onClick={(event) => { if (saving) event.preventDefault(); }} className="mt-8 inline-flex min-h-11 items-center gap-2 self-start text-sm font-semibold text-[#5B6E82]">
-          <ArrowLeft size={17} /> Voltar
+
+        <Link href="/configurar-negocio" aria-disabled={saving} onClick={(event) => { if (saving) event.preventDefault(); }} className="mb-8 inline-flex h-12 w-12 items-center justify-center rounded-full bg-[var(--border-soft)] text-[var(--ink)] transition-transform hover:scale-105">
+          <ArrowLeft size={20} strokeWidth={2.5} />
         </Link>
-        <section className="pb-8 pt-5 sm:pt-8">
-          <p className="mb-3 text-xs font-bold uppercase tracking-[0.13em] text-[#635BFF]">O teu endereço</p>
-          <h1 className="text-[clamp(30px,7vw,40px)] font-extrabold leading-[1.12] tracking-[-0.045em]">Um link só teu.</h1>
-          <p className="mt-4 text-base leading-relaxed text-[#344558]">Escolhe um nome curto para os clientes encontrarem o teu negócio.</p>
-          <form className="mt-7" aria-busy={saving} onSubmit={(event) => { event.preventDefault(); void handleSubmit(); }}>
-            <label htmlFor="business-handle" className="mb-2 block text-sm font-semibold">Nome do teu link</label>
-            <div className={`auth-input-wrap flex min-h-14 items-center gap-2 rounded-2xl border bg-white px-4 focus-within:ring-2 focus-within:ring-[#635BFF]/20 ${unavailable ? "border-[#C44235]" : "border-[#DDE2EC]"}`}>
-              <span aria-hidden="true" className="text-lg text-[#5B6E82]">@</span>
+
+        <div className="pb-12">
+          <h1 className="text-[clamp(40px,9vw,48px)] font-bold leading-[1.05] tracking-tight mb-4" style={{ fontFamily: "var(--font-display)" }}>
+            O teu link.
+          </h1>
+          <p className="text-[17px] text-[var(--ink-soft)] font-medium leading-relaxed mb-10">
+            Escolhe como queres ser encontrado pelos teus clientes.
+          </p>
+
+          <form aria-busy={saving} onSubmit={(event) => { event.preventDefault(); void handleSubmit(); }}>
+            <div className={`flex min-h-[72px] items-center gap-3 rounded-[20px] border border-[var(--border)] bg-[var(--surface)] px-6 shadow-sm transition-colors focus-within:border-[#635bff] focus-within:ring-2 focus-within:ring-[#635bff]/20 ${unavailable ? "!border-[#b34235]" : ""}`}>
+              <span aria-hidden="true" className="text-[20px] font-bold text-[var(--ink-faint)]">@</span>
               <input
                 id="business-handle"
                 data-testid="input-business-handle"
@@ -130,31 +137,58 @@ export function ChooseHandle() {
                 autoComplete="off"
                 maxLength={30}
                 disabled={saving || expired}
-                className="min-w-0 flex-1 bg-transparent py-3 text-base outline-none"
+                className="min-w-0 flex-1 bg-transparent py-4 text-[20px] font-bold text-[var(--ink)] outline-none placeholder:text-[var(--ink-faint)] placeholder:font-medium"
                 aria-invalid={unavailable}
                 aria-describedby="handle-help handle-status"
               />
-              {checkState === "checking" && <Loader2 size={19} aria-hidden="true" className="shrink-0 animate-spin text-[#635BFF]" />}
-              {checkState === "available" && <CheckCircle2 size={19} aria-hidden="true" className="shrink-0 text-[#07885A]" />}
+              {checkState === "checking" && <Loader2 size={24} className="shrink-0 animate-spin text-[#635BFF]" />}
+              {checkState === "available" && <CheckCircle2 size={24} className="shrink-0 text-[#246a59]" />}
             </div>
-            <p id="handle-help" className="mt-2 text-xs leading-5 text-[#5B6E82]">Sem espaços. Podes usar letras, números e hífens.</p>
-            <p id="handle-status" role="status" className={`mt-3 min-h-6 text-sm ${unavailable || checkState === "error" ? "text-[#B34235]" : "text-[#07885A]"}`}>{error ? "" : status}</p>
-            {checkState === "error" && <button type="button" onClick={() => setRetry((value) => value + 1)} className="mb-3 min-h-11 rounded-xl border border-[#DDE2EC] px-4 text-sm font-semibold">Verificar novamente</button>}
-            <div className="mt-3 rounded-2xl border border-[#E6E2FA] bg-[#F0EDFC] px-4 py-4">
-              <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.12em] text-[#5B6E82]">Assim vais partilhar o teu negócio</p>
-              <p className="break-all text-sm leading-6"><span className="text-[#5B6E82]">linkealls.com/</span><span className="font-bold text-[#635BFF]">{handle || "nome-do-negocio"}</span></p>
-            </div>
-            {error && <div role="alert" data-testid="handle-error" className="mt-4 flex items-start gap-2 rounded-xl border border-[#F4C6BC] bg-[#FFF0EB] p-4 text-sm leading-5 text-[#B34235]"><AlertCircle size={18} className="mt-0.5 shrink-0" />{error}</div>}
-            {expired ? (
-              <Link href={`/login?next=${encodeURIComponent(`/escolher-handle?nome=${handle}`)}`} className="mt-5 flex min-h-14 items-center justify-center rounded-2xl bg-[#635BFF] px-5 font-bold text-white">Entrar novamente</Link>
-            ) : (
-              <button data-testid="button-handle-continue" type="submit" disabled={checkState !== "available" || saving} className="mt-6 flex min-h-14 w-full items-center justify-between gap-3 rounded-2xl bg-[#635BFF] px-5 font-bold text-white transition-colors hover:bg-[#554BEA] disabled:cursor-not-allowed disabled:opacity-50">
-                {saving ? <><span role="status">A guardar o teu link…</span><Loader2 size={21} className="animate-spin" /></> : <><span>Continuar</span><ArrowRight size={20} /></>}
+
+            <p id="handle-help" className="sr-only">Sem espaços. Podes usar letras, números e hífens.</p>
+            <p id="handle-status" role="status" className={`mt-4 min-h-[24px] text-[15px] font-bold ${unavailable || checkState === "error" ? "text-[#b34235]" : "text-[#246a59]"}`}>
+              {error ? "" : status}
+            </p>
+
+            {checkState === "error" && (
+              <button type="button" onClick={() => setRetry((value) => value + 1)} className="mt-2 text-[15px] font-bold text-[#635bff] underline underline-offset-4 hover:text-[#5046e5]">
+                Tentar novamente
               </button>
             )}
-            <p className="mt-4 text-center text-xs leading-5 text-[#5B6E82]">O nome da loja e os restantes detalhes são editáveis no teu perfil.</p>
+
+            <div className="mt-10 rounded-[24px] border border-[var(--border-soft)] bg-[var(--surface)] p-6 shadow-sm">
+              <p className="mb-3 text-[13px] font-bold uppercase tracking-widest text-[var(--ink-faint)]">Assim partilhas o teu negócio</p>
+              <p className="break-all text-[17px] font-medium"><span className="text-[var(--ink-soft)]">linkealls.com/</span><span className="font-bold text-[#635BFF]">{handle || "nome"}</span></p>
+            </div>
+
+            {error && (
+              <div role="alert" data-testid="handle-error" className="mt-8 flex items-start gap-3 rounded-2xl bg-[#fff0eb] border border-[#f4c6bc] p-5 text-[15px] font-medium leading-snug text-[#b34235]">
+                <AlertCircle size={20} className="mt-0.5 shrink-0" />
+                {error}
+              </div>
+            )}
+
+            {expired ? (
+              <Link href={`/login?next=${encodeURIComponent(`/escolher-handle?nome=${handle}`)}`} className="mt-10 flex h-[64px] items-center justify-center rounded-2xl bg-[#635bff] text-white text-[17px] font-bold shadow-[0_8px_20px_rgba(99,91,255,0.18)]">
+                Entrar novamente
+              </Link>
+            ) : (
+              <button data-testid="button-handle-continue" type="submit" disabled={checkState !== "available" || saving} className="mt-10 flex h-[64px] w-full items-center justify-center gap-2 rounded-2xl bg-[#635bff] text-white text-[17px] font-bold transition-transform hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-[0_8px_20px_rgba(99,91,255,0.18)]">
+                {saving ? (
+                  <>
+                    <span>A guardar...</span>
+                    <Loader2 size={22} className="animate-spin" />
+                  </>
+                ) : (
+                  <>
+                    <span>Concluir Configuração</span>
+                    <ArrowRight size={20} strokeWidth={2.5} />
+                  </>
+                )}
+              </button>
+            )}
           </form>
-        </section>
+        </div>
       </div>
     </main>
   );
