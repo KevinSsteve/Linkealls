@@ -79,6 +79,7 @@ async function withRequestTimeout<T>(operation: Promise<T>): Promise<T> {
 
 function errorCode(err: unknown): string {
   if (!(err instanceof StartAnalysisError)) return "ANALYSIS_UNAVAILABLE";
+  if (err.code) return err.code;
   if (err.statusCode === 504) return "ANALYSIS_TIMEOUT";
   if (err.statusCode === 413 || err.message.toLowerCase().includes("imagem")) return "INVALID_IMAGE";
   if (err.message.includes("aceder ao site")) return "SITE_UNAVAILABLE";
@@ -142,6 +143,7 @@ router.post("/user-auth/business-analysis", async (req: Request, res: Response) 
   }
 
   inFlightUsers.add(user.id);
+  const started = Date.now();
   try {
     const input = parsed.data;
     let result: { draft: Awaited<ReturnType<typeof assistFromDescription>>; sourceUrl?: string };
@@ -163,7 +165,10 @@ router.post("/user-auth/business-analysis", async (req: Request, res: Response) 
     const message = err instanceof StartAnalysisError
       ? err.message
       : "A IA não conseguiu analisar o negócio neste momento. Tenta novamente.";
-    logger.warn({ userId: user.id, code: errorCode(err) }, "onboarding business analysis failed");
+    logger.warn({
+      code: errorCode(err), mode: parsed.data.mode, elapsedMs: Date.now() - started,
+      diagnostic: err instanceof StartAnalysisError ? err.diagnostic : { kind: "unexpected_error" },
+    }, "onboarding business analysis failed");
     res.status(status).json({ error: message, code: errorCode(err) });
   } finally {
     inFlightUsers.delete(user.id);

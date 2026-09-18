@@ -38,3 +38,20 @@ autenticada a 320/390 px. A captura adicional a 390 px verificou apenas o
 redireccionamento correcto para login quando não há sessão.
 
 Sem alterações de pagamentos, migrações de dados ou publicação em produção.
+
+## Correcção após falha reportada em produção
+
+- Os registos publicados confirmaram três respostas 503; duas demoraram cerca
+  de 50 segundos. Os registos anteriores não guardavam a causa do fornecedor.
+- A captura anexada ao relato reproduziu `AbortError` aos 50 segundos numa
+  chamada real à mesma função de extracção, sem alterações no perfil.
+- Depois de limitar o raciocínio para a leitura da imagem, a mesma captura
+  devolveu um rascunho em 3,7 segundos. A captura é a imagem do erro com parte
+  do Instagram visível, não o ficheiro original inteiro enviado pelo utilizador.
+- Uma segunda tentativa limitada cobre abortos, falhas transitórias e JSON
+  inválido. Erros de autorização, quota e bloqueio de conteúdo não são repetidos.
+- Diagnósticos registam categoria, modelo, duração e código HTTP, sem imagens,
+  texto extraído, respostas brutas ou credenciais.
+- A correcção requer nova publicação; o teste real descrito foi em desenvolvimento.
+- Typecheck e arranque do servidor passaram. Suite completa: 77 testes passaram,
+  incluindo 8 testes de regressão do prazo, segunda tentativa e diagnósticos seguros.

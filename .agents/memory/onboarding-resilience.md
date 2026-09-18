@@ -39,3 +39,15 @@ analysis persisted results before the promised review.
 the account-scoped extracted draft through navigation/reload until save succeeds.
 An accepted, unchanged AI draft is still unsaved and must offer a save action.
 Uploaded screenshots are analysis inputs, not automatic public profile photos.
+
+For screenshot extraction, validate latency with dense, real mobile screenshots,
+not only clean synthetic cards. Keep reasoning effort explicit and any fallback
+within the overall crawl-plus-analysis deadline.
+
+**Why:** A simple generated card passed while the user's Instagram capture
+reproduced a provider abort at the request deadline. The generic error hid the
+distinction between slow inference, invalid input, and provider unavailability.
+
+**How to apply:** Include representative screenshot complexity in verification.
+Classify provider aborts and transient failures; record only allow-listed
+diagnostics, never raw provider bodies, source images, prompts, or credentials.

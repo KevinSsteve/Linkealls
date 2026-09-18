@@ -12,12 +12,13 @@ const httpSecurityModulePath = path.join(tempDir, "http-security.mjs");
 const pinSecurityModulePath = path.join(tempDir, "pin-security.mjs");
 const scheduledRuntimeModulePath = path.join(tempDir, "scheduled-job-runtime.mjs");
 const callFunnelProtocolModulePath = path.join(tempDir, "call-funnel-protocol.mjs");
+const businessAnalysisAiModulePath = path.join(tempDir, "business-analysis-ai.mjs");
 const loggerStubPath = path.join(tempDir, "logger-stub.mjs");
 const dbStubPath = path.join(tempDir, "db-stub.mjs");
 
 await writeFile(
   loggerStubPath,
-  "export const logger = { info() {}, warn() {}, error() {} };\n",
+  "export const logger = { info() {}, warn(...args) { globalThis.__businessAnalysisWarnings?.push(args); }, error() {} };\n",
   "utf8",
 );
 await writeFile(
@@ -81,6 +82,25 @@ try {
     outfile: callFunnelProtocolModulePath,
     logLevel: "silent",
   });
+  await build({
+    entryPoints: [path.join(artifactDir, "src/lib/businessAnalysisAi.ts")],
+    bundle: true,
+    format: "esm",
+    platform: "node",
+    outfile: businessAnalysisAiModulePath,
+    logLevel: "silent",
+    banner: {
+      js: 'import { createRequire as __createRequire } from "node:module"; const require = __createRequire(import.meta.url);',
+    },
+    plugins: [{
+      name: "stub-business-analysis-logger",
+      setup(buildApi) {
+        buildApi.onResolve({ filter: /(^|\/)logger\.js$/ }, () => ({
+          path: loggerStubPath,
+        }));
+      },
+    }],
+  });
 
   const testEnv = {
     ...process.env,
@@ -97,6 +117,7 @@ try {
     PIN_SECURITY_TEST_MODULE: pinSecurityModulePath,
     SCHEDULED_RUNTIME_TEST_MODULE: scheduledRuntimeModulePath,
     CALL_FUNNEL_PROTOCOL_TEST_MODULE: callFunnelProtocolModulePath,
+    BUSINESS_ANALYSIS_AI_TEST_MODULE: businessAnalysisAiModulePath,
   };
 
   const child = spawn(
@@ -115,6 +136,7 @@ try {
       path.join(artifactDir, "tests/launch-scope.test.mjs"),
       path.join(artifactDir, "tests/launch-notifications.test.mjs"),
       path.join(artifactDir, "tests/onboarding-business-analysis.test.mjs"),
+      path.join(artifactDir, "tests/business-analysis-ai-runtime.test.mjs"),
     ],
     { env: testEnv, stdio: "inherit" },
   );
