@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { CallFunnelService, type ProductCard, type CheckoutInfo } from "../services/callFunnelService";
 import { startAudioCapture, type AudioCapture } from "../lib/audioCapture";
 import { AudioPlayer } from "../lib/audioPlayer";
+import { saveVisitorAccess } from "../lib/visitorAccess";
 
 export type CallState = "idle" | "connecting" | "active" | "error" | "ended";
 export type { ProductCard, CheckoutInfo };
@@ -123,6 +124,14 @@ export function useGeminiLive(leadId?: string | null, businessSlug?: string): Ge
       },
 
       onCheckout: (info) => {
+        if (leadId && businessSlug && info.visitorToken) {
+          saveVisitorAccess({
+            businessSlug,
+            leadId,
+            orderId: info.orderId,
+            visitorToken: info.visitorToken,
+          });
+        }
         setActiveCheckout(info);
       },
 

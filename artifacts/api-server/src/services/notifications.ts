@@ -126,23 +126,30 @@ export async function sendPushToOwner(payload: PushPayload, businessId: number):
 }
 
 // ─── Daily summary cron ───────────────────────────────────────────────────────
-// Fires every minute; when Angola time (WAT = UTC+1) is 08:00 sends summary.
+// Fires every minute. The durable date key means a delayed tick/restart after
+// 08:00 still has one chance to send that day's summary.
 
-let lastSummaryDate = ""; // "YYYY-MM-DD" in Angola time — prevents double-send
+export function angolaSummaryPeriod(now: Date): { date: string; hour: number } {
+  // Angola is WAT (UTC+1) year-round.
+  const angola = new Date(now.getTime() + 60 * 60 * 1000);
+  return {
+    date: angola.toISOString().slice(0, 10),
+    hour: angola.getUTCHours(),
+  };
+}
+
+export async function runDailySummaryFor(now = new Date()): Promise<boolean> {
+  const { date, hour } = angolaSummaryPeriod(now);
+  if (hour < 8) return false;
+  // The run key is deliberately claimed before Web Push calls. This is
+  // at-most-once per date: a crash after the claim can miss a summary, whereas
+  // claiming after sends would allow duplicate owner notifications on retry.
+  return withScheduledJobLock("daily-summary", date, () => sendDailySummary(date));
+}
 
 export function startDailySummaryCron(): void {
   const tick = async () => {
-    const now = new Date();
-    // Angola is WAT = UTC+1
-    const angola = new Date(now.getTime() + 60 * 60 * 1000);
-    const hh = angola.getUTCHours();
-    const mm = angola.getUTCMinutes();
-    const dateStr = angola.toISOString().slice(0, 10); // "YYYY-MM-DD"
-
-    if (hh === 8 && mm === 0 && dateStr !== lastSummaryDate) {
-      const ran = await withScheduledJobLock(`daily-summary:${dateStr}`, () => sendDailySummary(dateStr));
-      if (ran) lastSummaryDate = dateStr;
-    }
+    await runDailySummaryFor();
   };
 
   // Run once a minute
@@ -153,10 +160,9 @@ export function startDailySummaryCron(): void {
 }
 
 async function sendDailySummary(dateStr: string): Promise<void> {
-  try {
-    // Per-business counts of leads created in the last 24 hours.
-    // Only businesses with push subscriptions receive a summary.
-    const rows = await db.execute(sql`
+  // Per-business counts of leads created in the last 24 hours.
+  // Only businesses with push subscriptions receive a summary.
+  const rows = await db.execute(sql`
       SELECT
         bp.id AS business_id,
         bp.slug AS slug,
@@ -169,26 +175,23 @@ async function sendDailySummary(dateStr: string): Promise<void> {
       GROUP BY bp.id, bp.slug
     `);
 
-    for (const r of rows.rows as Array<{ business_id: number; slug: string | null; total: string; qualified: string }>) {
-      const total     = Number(r.total ?? 0);
-      const qualified = Number(r.qualified ?? 0);
+  for (const r of rows.rows as Array<{ business_id: number; slug: string | null; total: string; qualified: string }>) {
+    const total     = Number(r.total ?? 0);
+    const qualified = Number(r.qualified ?? 0);
 
-      const body =
-        total === 0
-          ? "Nenhum lead ontem. Promove as tuas campanhas!"
-          : `${total} lead${total !== 1 ? "s" : ""} recebido${total !== 1 ? "s" : ""}, ${qualified} qualificado${qualified !== 1 ? "s" : ""}.`;
+    const body =
+      total === 0
+        ? "Nenhum lead ontem. Promove as tuas campanhas!"
+        : `${total} lead${total !== 1 ? "s" : ""} recebido${total !== 1 ? "s" : ""}, ${qualified} qualificado${qualified !== 1 ? "s" : ""}.`;
 
-      await sendPushToOwner({
-        title: "☀️ Resumo diário — Linkealls",
-        body,
-        tag: `daily-${dateStr}`,
-        url: r.slug ? `/e/${r.slug}/dono/conversas` : "/",
-      }, Number(r.business_id));
-    }
-
-    logger.info({ dateStr, businesses: rows.rows.length }, "Daily summary pushes sent")
-  } catch (err) {
-    logger.error({ err }, "Daily summary cron failed");
+    await sendPushToOwner({
+      title: "☀️ Resumo diário — Linkealls",
+      body,
+      tag: `daily-${dateStr}`,
+      url: r.slug ? `/e/${r.slug}/dono/conversas` : "/",
+    }, Number(r.business_id));
   }
+
+  logger.info({ dateStr, businesses: rows.rows.length }, "Daily summary pushes sent");
 }
 

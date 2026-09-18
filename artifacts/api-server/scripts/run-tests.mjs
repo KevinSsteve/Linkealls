@@ -8,11 +8,20 @@ import { spawn } from "node:child_process";
 const artifactDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const tempDir = await mkdtemp(path.join(os.tmpdir(), "linkealls-ekwanza-tests-"));
 const modulePath = path.join(tempDir, "ekwanza.mjs");
+const httpSecurityModulePath = path.join(tempDir, "http-security.mjs");
+const scheduledRuntimeModulePath = path.join(tempDir, "scheduled-job-runtime.mjs");
+const callFunnelProtocolModulePath = path.join(tempDir, "call-funnel-protocol.mjs");
 const loggerStubPath = path.join(tempDir, "logger-stub.mjs");
+const dbStubPath = path.join(tempDir, "db-stub.mjs");
 
 await writeFile(
   loggerStubPath,
   "export const logger = { info() {}, warn() {}, error() {} };\n",
+  "utf8",
+);
+await writeFile(
+  dbStubPath,
+  "export const db = { insert() { throw new Error('database should not be used in runtime helper tests'); } }; export const scheduledJobRunsTable = { jobName: 'job_name' };\n",
   "utf8",
 );
 
@@ -33,6 +42,36 @@ try {
       },
     }],
   });
+  await build({
+    entryPoints: [path.join(artifactDir, "src/lib/httpSecurity.ts")],
+    bundle: true,
+    format: "esm",
+    platform: "node",
+    outfile: httpSecurityModulePath,
+    logLevel: "silent",
+  });
+  await build({
+    entryPoints: [path.join(artifactDir, "src/lib/scheduledJobLock.ts")],
+    bundle: true,
+    format: "esm",
+    platform: "node",
+    outfile: scheduledRuntimeModulePath,
+    logLevel: "silent",
+    plugins: [{
+      name: "stub-scheduled-runtime-db",
+      setup(buildApi) {
+        buildApi.onResolve({ filter: /^@workspace\/db$/ }, () => ({ path: dbStubPath }));
+      },
+    }],
+  });
+  await build({
+    entryPoints: [path.join(artifactDir, "src/lib/callFunnelProtocol.ts")],
+    bundle: true,
+    format: "esm",
+    platform: "node",
+    outfile: callFunnelProtocolModulePath,
+    logLevel: "silent",
+  });
 
   const testEnv = {
     ...process.env,
@@ -45,6 +84,9 @@ try {
     EKWANZA_API_KEY: "test-api-key",
     EKWANZA_NOTIFICATION_TOKEN: "test-notification-token",
     EKWANZA_TEST_MODULE: modulePath,
+    HTTP_SECURITY_TEST_MODULE: httpSecurityModulePath,
+    SCHEDULED_RUNTIME_TEST_MODULE: scheduledRuntimeModulePath,
+    CALL_FUNNEL_PROTOCOL_TEST_MODULE: callFunnelProtocolModulePath,
   };
 
   const child = spawn(
@@ -55,6 +97,9 @@ try {
       path.join(artifactDir, "tests/orders-chat-contract.test.mjs"),
       path.join(artifactDir, "tests/catalog-checkout-contract.test.mjs"),
       path.join(artifactDir, "tests/auth-ownership-contract.test.mjs"),
+      path.join(artifactDir, "tests/session-security.test.mjs"),
+      path.join(artifactDir, "tests/scheduled-runtime.test.mjs"),
+      path.join(artifactDir, "tests/visitor-capabilities.test.mjs"),
     ],
     { env: testEnv, stdio: "inherit" },
   );

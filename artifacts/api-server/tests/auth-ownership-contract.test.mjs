@@ -12,16 +12,22 @@ async function source(relativePath) {
   return readFile(path.join(apiServerDir, relativePath), "utf8");
 }
 
-test("local sessions expire and login attempts are rate limited", async () => {
-  const [auth, users] = await Promise.all([
+test("local sessions expire, use HttpOnly cookies, and PIN attempts use the shared limiter", async () => {
+  const [auth, users, security, limits] = await Promise.all([
     source("src/routes/userAuth.ts"),
     readFile(path.join(dbDir, "src/schema/users.ts"), "utf8"),
+    source("src/lib/httpSecurity.ts"),
+    source("src/lib/rateLimit.ts"),
   ]);
 
   assert.match(users, /sessionExpiresAt: timestamp\("session_expires_at"\)/);
   assert.match(auth, /gt\(usersTable\.sessionExpiresAt, new Date\(\)\)/);
   assert.match(auth, /router\.post\("\/user-auth\/login", loginRateLimit/);
   assert.match(auth, /randomBytes\(32\)\.toString\("base64url"\)/);
+  assert.match(auth, /setLocalSessionCookie/);
+  assert.match(auth, /consumeSharedRateLimit/);
+  assert.match(security, /httpOnly: true/);
+  assert.match(limits, /ON CONFLICT \(bucket_key\) DO UPDATE/);
 });
 
 test("high-impact operations require a recent confirmation of the existing business PIN", async () => {
@@ -52,9 +58,21 @@ test("owner authorization is enforced server-side and stale browser sessions are
   ]);
 
   assert.match(scoped, /if \(!user\.handle \|\| user\.handle !== slug\)/);
-  assert.match(context, /getCurrentUser\(token\)/);
+  assert.match(context, /getCurrentUser\(\)/);
   assert.match(context, /isLoggedIn: !state\.isLoading && !!state\.user/);
   assert.match(api, /if \(res\.status === 401\) notifyAuthExpired\(\)/);
+});
+
+test("browser callers use cookies, erase legacy storage, and keep session values out of SSE URLs", async () => {
+  const [context, api] = await Promise.all([
+    readFile(path.join(frontendDir, "src/context/AuthContext.tsx"), "utf8"),
+    readFile(path.join(frontendDir, "src/lib/api.ts"), "utf8"),
+  ]);
+
+  assert.match(context, /migrateLegacyBrowserSession/);
+  assert.match(context, /localStorage\.removeItem\(LEGACY_TOKEN_KEY\)/);
+  assert.match(api, /credentials: "include"/);
+  assert.doesNotMatch(api, /events\$\{.*\?token=/);
 });
 
 test("production hardening protects PINs, browser origins, voice calls, and autoscale jobs", async () => {

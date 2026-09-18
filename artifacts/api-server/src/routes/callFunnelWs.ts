@@ -11,10 +11,21 @@ import { createProductOrder, getOrderPublicStatus } from "../services/payments.j
 import { logger } from "../lib/logger.js";
 import type { Offering } from "@workspace/db";
 import { clientIp, isAllowedBrowserOrigin } from "../lib/httpSecurity.js";
+import {
+  CallInputBudget,
+  parseCallClientMessage,
+  type CallClientMessage,
+} from "../lib/callFunnelProtocol.js";
 
 const CALL_VOICE = "Kore";
 const MAX_CONNECTIONS_PER_IP = 3;
 const MAX_CONNECTION_ATTEMPTS_PER_MINUTE = 12;
+const MAX_ACTIVE_CONNECTIONS = 100;
+const MAX_TRACKED_IPS = 10_000;
+const MAX_INVALID_MESSAGES = 3;
+const MAX_OUTBOUND_BUFFERED_BYTES = 1_000_000;
+const MAX_TOOL_CALLS_PER_SESSION = 30;
+const MAX_CHECKOUTS_PER_SESSION = 3;
 const MAX_CALL_MS = 15 * 60_000;
 const IDLE_CALL_MS = 90_000;
 
@@ -81,36 +92,61 @@ export function setupCallFunnelWebSocket(server: Server): void {
   const wss = new WebSocketServer({ noServer: true, maxPayload: 256 * 1024 });
   const activeByIp = new Map<string, number>();
   const attemptsByIp = new Map<string, { count: number; resetAt: number }>();
+  let activeConnections = 0;
+  let nextAttemptsPruneAt = 0;
+
+  const pruneExpiredAttempts = (now: number) => {
+    if (now < nextAttemptsPruneAt) return;
+    nextAttemptsPruneAt = now + 60_000;
+    for (const [trackedIp, attempts] of attemptsByIp) {
+      if (attempts.resetAt <= now) attemptsByIp.delete(trackedIp);
+    }
+  };
+
+  const rejectUpgrade = (socket: { write: (data: string) => unknown; destroy: () => void }, status: number, statusText: string) => {
+    socket.write(`HTTP/1.1 ${status} ${statusText}\r\nConnection: close\r\n\r\n`);
+    socket.destroy();
+  };
 
   server.on("upgrade", (req, socket, head) => {
-    const url = new URL(req.url ?? "/", "http://localhost");
+    let url: URL;
+    try {
+      url = new URL(req.url ?? "/", "http://localhost");
+    } catch {
+      rejectUpgrade(socket, 400, "Bad Request");
+      return;
+    }
     if (url.pathname === "/api/call-funnel-ws") {
       const ip = clientIp(req);
       const now = Date.now();
+      pruneExpiredAttempts(now);
       const attempts = attemptsByIp.get(ip);
       if (!attempts || attempts.resetAt < now) {
+        if (attemptsByIp.size >= MAX_TRACKED_IPS) {
+          rejectUpgrade(socket, 429, "Too Many Requests");
+          return;
+        }
         attemptsByIp.set(ip, { count: 1, resetAt: now + 60_000 });
       } else if (++attempts.count > MAX_CONNECTION_ATTEMPTS_PER_MINUTE) {
-        socket.write("HTTP/1.1 429 Too Many Requests\r\nConnection: close\r\n\r\n");
-        socket.destroy();
+        rejectUpgrade(socket, 429, "Too Many Requests");
         return;
       }
       if (!isAllowedBrowserOrigin(req.headers.origin)) {
-        socket.write("HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n");
-        socket.destroy();
+        rejectUpgrade(socket, 403, "Forbidden");
         return;
       }
-      if ((activeByIp.get(ip) ?? 0) >= MAX_CONNECTIONS_PER_IP) {
-        socket.write("HTTP/1.1 429 Too Many Requests\r\nConnection: close\r\n\r\n");
-        socket.destroy();
+      if (
+        activeConnections >= MAX_ACTIVE_CONNECTIONS ||
+        (activeByIp.get(ip) ?? 0) >= MAX_CONNECTIONS_PER_IP
+      ) {
+        rejectUpgrade(socket, 429, "Too Many Requests");
         return;
       }
       wss.handleUpgrade(req, socket, head, (ws) => {
         wss.emit("connection", ws, req);
       });
     } else {
-      socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
-      socket.destroy();
+      rejectUpgrade(socket, 404, "Not Found");
     }
   });
 
@@ -128,34 +164,83 @@ export function setupCallFunnelWebSocket(server: Server): void {
       return;
     }
     activeByIp.set(ip, (activeByIp.get(ip) ?? 0) + 1);
+    activeConnections += 1;
 
     logger.info({ leadId, businessSlug }, "Call Funnel WebSocket client connected");
 
     let geminiSession: Awaited<ReturnType<typeof createGeminiLiveSession>> | null = null;
     let closed = false;
+    let cleanedUp = false;
     let sessionOfferings: Offering[] = [];
     let resolvedBusinessId: number | null = null;
-    let idleTimer: ReturnType<typeof setTimeout>;
+    let idleTimer: ReturnType<typeof setTimeout> | undefined;
+    const inputBudget = new CallInputBudget();
+    let invalidMessages = 0;
+    let toolCallCount = 0;
+    let checkoutCount = 0;
     const maxCallTimer = setTimeout(() => ws.close(1000, "Call duration limit reached"), MAX_CALL_MS);
     const resetIdleTimer = () => {
-      clearTimeout(idleTimer);
+      if (idleTimer) clearTimeout(idleTimer);
       idleTimer = setTimeout(() => ws.close(1000, "Call idle timeout"), IDLE_CALL_MS);
     };
     resetIdleTimer();
 
     const transcriptLines: string[] = [];
+    let transcriptLength = 0;
     let businessName = "o negócio";
 
     function sendToClient(msg: ServerMessage) {
-      if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
+      if (ws.readyState !== WebSocket.OPEN) return;
+      // A stalled browser must not let queued Gemini audio accumulate in memory.
+      if (ws.bufferedAmount > MAX_OUTBOUND_BUFFERED_BYTES) {
+        ws.close(1008, "Client is not consuming call data");
+        return;
+      }
+      try {
+        ws.send(JSON.stringify(msg));
+      } catch {
+        // A racing socket close is normal; its close/error handler cleans up.
+      }
+    }
+
+    function appendTranscript(line: string) {
+      const remaining = 24_000 - transcriptLength;
+      if (remaining <= 0) return;
+      const safeLine = line.slice(0, remaining);
+      transcriptLines.push(safeLine);
+      transcriptLength += safeLine.length + 1;
+    }
+
+    function cleanup() {
+      if (cleanedUp) return;
+      cleanedUp = true;
+      closed = true;
+      geminiSession?.close();
+      geminiSession = null;
+      if (idleTimer) clearTimeout(idleTimer);
+      clearTimeout(maxCallTimer);
+      const remaining = Math.max(0, (activeByIp.get(ip) ?? 1) - 1);
+      if (remaining === 0) activeByIp.delete(ip);
+      else activeByIp.set(ip, remaining);
+      activeConnections = Math.max(0, activeConnections - 1);
+
+      if (leadId && transcriptLines.length > 0 && resolvedBusinessId !== null) {
+        const fullTranscript = transcriptLines.join("\n");
+        processCallCompletion(leadId, fullTranscript, businessName, resolvedBusinessId).catch((err) =>
+          logger.error({ err, leadId }, "processCallCompletion failed"),
+        );
+      }
     }
 
     resolveCallConfig(businessSlug)
       .then((config) => {
+        // Tenant lookup is asynchronous. Do not initiate a billable Live
+        // session once the browser has already disconnected.
+        if (closed || ws.readyState !== WebSocket.OPEN) return null;
         if (!config) {
           sendToClient({ type: "error", message: "Negócio não encontrado" });
-          ws.close();
-          throw new Error(`Unknown business slug: ${businessSlug ?? "(none)"}`);
+          ws.close(1008, "Unknown business");
+          return null;
         }
         businessName = config.businessName;
         sessionOfferings = config.offerings;
@@ -168,16 +253,19 @@ export function setupCallFunnelWebSocket(server: Server): void {
             logger.error({ err, leadId }, "Failed to mark lead em_atendimento"),
           );
         }
+        // Check again immediately before the provider connection in case the
+        // socket closed while the call configuration was being assigned.
+        if (closed || ws.readyState !== WebSocket.OPEN) return null;
         return createGeminiLiveSession(config, {
           onAudio: (base64) => { if (!closed) sendToClient({ type: "audio", data: base64 }); },
           onTurnComplete: () => { if (!closed) sendToClient({ type: "turn_complete" }); },
           onInterrupted: () => { if (!closed) sendToClient({ type: "interrupted" }); },
           onTranscript: (text) => {
-            transcriptLines.push(`Assistente: ${text}`);
+            appendTranscript(`Assistente: ${text}`);
             if (!closed) sendToClient({ type: "transcript", text });
           },
           onInputTranscript: (text) => {
-            transcriptLines.push(`Cliente: ${text}`);
+            appendTranscript(`Cliente: ${text}`);
             if (!closed) sendToClient({ type: "user_transcript", text });
             // Safety net: Gemini may answer by voice without emitting the
             // function call. Still show the relevant catalog cards.
@@ -186,9 +274,16 @@ export function setupCallFunnelWebSocket(server: Server): void {
             }
           },
           onToolCall: (call, sendResponse: (result: Record<string, unknown>) => void) => {
+            if (closed || ++toolCallCount > MAX_TOOL_CALLS_PER_SESSION) {
+              sendResponse({ status: "error", message: "Limite de operações da chamada atingido." });
+              if (!closed) ws.close(1008, "Tool call limit reached");
+              return;
+            }
             if (call.name === "show_product_catalog") {
               const args = call.args as { query?: string; product_names?: string[] };
-              const requestedNames: string[] = args.product_names ?? [];
+              const requestedNames = Array.isArray(args.product_names)
+                ? args.product_names.filter((name): name is string => typeof name === "string").slice(0, 12)
+                : [];
 
               let products: ProductCard[] = requestedNames.length > 0
                 ? sessionOfferings.filter((o) =>
@@ -199,7 +294,7 @@ export function setupCallFunnelWebSocket(server: Server): void {
                   )
                 : sessionOfferings;
 
-              if (products.length === 0 && args.query) {
+              if (products.length === 0 && typeof args.query === "string") {
                 const q = args.query.toLowerCase();
                 products = sessionOfferings.filter(
                   (o) =>
@@ -210,7 +305,7 @@ export function setupCallFunnelWebSocket(server: Server): void {
 
               if (products.length === 0) products = sessionOfferings;
 
-              const cards: ProductCard[] = products.map((o) => ({
+              const cards: ProductCard[] = products.slice(0, 12).map((o) => ({
                 name: o.name,
                 price: o.price,
                 description: o.description,
@@ -229,6 +324,10 @@ export function setupCallFunnelWebSocket(server: Server): void {
               } as Record<string, unknown>);
 
             } else if (call.name === "initiate_checkout") {
+              if (++checkoutCount > MAX_CHECKOUTS_PER_SESSION) {
+                sendResponse({ status: "error", message: "Limite de encomendas por chamada atingido." });
+                return;
+              }
               const args = call.args as { product_name: string; quantity: number; phone: string; buyer_name?: string };
               if (resolvedBusinessId === null) {
                 sendResponse({ status: "error", message: "Negócio não disponível para pagamentos." } as Record<string, unknown>);
@@ -249,7 +348,12 @@ export function setupCallFunnelWebSocket(server: Server): void {
                 return;
               }
 
-              // Fire the order creation asynchronously so we can respond to Gemini quickly
+              if (closed) {
+                sendResponse({ status: "error", message: "A chamada terminou." });
+                return;
+              }
+              // Fire the order creation asynchronously so we can respond to Gemini quickly.
+              // The preflight above avoids creating an order after disconnect.
               createProductOrder(resolvedBusinessId, {
                 offeringName: String(args.product_name ?? "").trim(),
                 quantity: qty,
@@ -273,7 +377,7 @@ export function setupCallFunnelWebSocket(server: Server): void {
                     order_id: order.id,
                     message: `Encomenda criada. O ecrã de pagamento Multicaixa Express abriu no telemóvel do cliente.`,
                   } as Record<string, unknown>);
-                  transcriptLines.push(`Sistema: checkout iniciado para ${args.product_name} (${order.id})`);
+                  appendTranscript(`Sistema: checkout iniciado para ${args.product_name} (${order.id})`);
                   logger.info({ orderId: order.id, offeringName: args.product_name }, "initiate_checkout: order created");
                 })
                 .catch((err: Error) => {
@@ -328,7 +432,8 @@ export function setupCallFunnelWebSocket(server: Server): void {
         });
       })
       .then((session) => {
-        if (closed) { session.close(); return; }
+        if (!session) return;
+        if (closed || ws.readyState !== WebSocket.OPEN) { session.close(); return; }
         geminiSession = session;
         sendToClient({ type: "ready" });
         logger.info("Call Funnel session ready, sending greeting");
@@ -340,23 +445,42 @@ export function setupCallFunnelWebSocket(server: Server): void {
         ws.close();
       });
 
-    ws.on("message", (data) => {
+    ws.on("message", (data, isBinary) => {
+      if (closed) return;
+      if (isBinary) {
+        ws.close(1008, "Binary messages are not supported");
+        return;
+      }
+      const parsed = parseCallClientMessage(data.toString());
+      if (!parsed.ok) {
+        invalidMessages += 1;
+        if (invalidMessages >= MAX_INVALID_MESSAGES) {
+          ws.close(1008, "Invalid call messages");
+        }
+        return;
+      }
+      const msg: CallClientMessage = parsed.message;
+      if (!inputBudget.consume(msg)) {
+        sendToClient({ type: "error", message: "Limite de áudio da chamada atingido. Tenta novamente mais tarde." });
+        ws.close(1008, "Call input rate limit reached");
+        return;
+      }
       resetIdleTimer();
+      invalidMessages = 0;
       try {
-        const msg = JSON.parse(data.toString()) as { type: string; data?: string; text?: string; orderId?: string; status?: string; offeringName?: string };
-        if (msg.type === "audio" && msg.data && geminiSession) {
+        if (msg.type === "audio" && geminiSession) {
           geminiSession.sendAudio(msg.data);
-        } else if (msg.type === "user_text" && msg.text && geminiSession) {
-          transcriptLines.push(`Cliente: ${msg.text}`);
+        } else if (msg.type === "user_text" && geminiSession) {
+          appendTranscript(`Cliente: ${msg.text}`);
           geminiSession.sendText(msg.text);
-        } else if (msg.type === "payment_result" && msg.orderId && msg.status && geminiSession) {
+        } else if (msg.type === "payment_result" && geminiSession) {
           // Client notifies the agent of the payment outcome so it can react naturally
           const statusPt =
             msg.status === "paga" ? "confirmado com sucesso" :
             msg.status === "falhada" ? "falhado" : "expirado";
           const productLabel = msg.offeringName ? ` de "${msg.offeringName}"` : "";
           const systemMsg = `[Sistema] O pagamento${productLabel} foi ${statusPt}. Reagir naturalmente.`;
-          transcriptLines.push(`Sistema: pagamento ${msg.status} para ${msg.offeringName ?? msg.orderId}`);
+          appendTranscript(`Sistema: pagamento ${msg.status} para ${msg.offeringName ?? msg.orderId}`);
           geminiSession.sendText(systemMsg);
           logger.info({ orderId: msg.orderId, status: msg.status }, "Payment result forwarded to Gemini");
         }
@@ -367,28 +491,14 @@ export function setupCallFunnelWebSocket(server: Server): void {
 
     ws.on("close", () => {
       logger.info({ leadId, businessSlug }, "Call Funnel WebSocket client disconnected");
-      closed = true;
-      geminiSession?.close();
-      geminiSession = null;
-      clearTimeout(idleTimer);
-      clearTimeout(maxCallTimer);
-      const remaining = Math.max(0, (activeByIp.get(ip) ?? 1) - 1);
-      if (remaining === 0) activeByIp.delete(ip);
-      else activeByIp.set(ip, remaining);
-
-      if (leadId && transcriptLines.length > 0 && resolvedBusinessId !== null) {
-        const fullTranscript = transcriptLines.join("\n");
-        processCallCompletion(leadId, fullTranscript, businessName, resolvedBusinessId).catch((err) =>
-          logger.error({ err, leadId }, "processCallCompletion failed"),
-        );
-      }
+      cleanup();
     });
 
     ws.on("error", (err) => {
       logger.error({ err }, "Call Funnel WebSocket error");
-      closed = true;
-      geminiSession?.close();
-      geminiSession = null;
+      // Do not depend on a later close event: release IP/global capacity and
+      // provider resources even when the transport aborts unexpectedly.
+      cleanup();
     });
   });
 

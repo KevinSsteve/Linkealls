@@ -21,7 +21,6 @@ export interface AuthUser {
 
 export interface AuthResponse {
   user: AuthUser;
-  token: string;
   recoveryCode?: string;
 }
 
@@ -48,6 +47,7 @@ export interface ReplitAuthResponse {
 async function authFetch(path: string, opts: RequestInit): Promise<AuthResponse> {
   const res = await fetch(`${API_BASE}${path}`, {
     ...opts,
+    credentials: "include",
     headers: { "Content-Type": "application/json", ...(opts.headers ?? {}) },
   });
   const body = (await res.json()) as unknown;
@@ -64,9 +64,9 @@ export function userLogin(data: { phone: string; pin: string }) {
   return authFetch("/user-auth/login", { method: "POST", body: JSON.stringify(data) });
 }
 
-export async function getCurrentUser(token: string): Promise<{ user: AuthUser }> {
+export async function getCurrentUser(): Promise<{ user: AuthUser }> {
   const res = await fetch(`${API_BASE}/user-auth/me`, {
-    headers: { Authorization: `Bearer ${token}` },
+    credentials: "include",
   });
   const body = (await res.json()) as { user?: AuthUser; error?: string };
   if (res.status === 401) notifyAuthExpired();
@@ -76,14 +76,26 @@ export async function getCurrentUser(token: string): Promise<{ user: AuthUser }>
   return { user: body.user };
 }
 
+/** One-time upgrade of a pre-cookie browser session; callers must erase it immediately. */
+export async function migrateLegacyBrowserSession(token: string): Promise<{ user: AuthUser }> {
+  const res = await fetch(`${API_BASE}/user-auth/me`, {
+    credentials: "include",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const body = (await res.json()) as { user?: AuthUser; error?: string };
+  if (res.status === 401) notifyAuthExpired();
+  if (!res.ok || !body.user) throw new Error(body.error ?? "Sessão inválida");
+  return { user: body.user };
+}
+
 export function recoverUserAccess(data: { phone: string; recoveryCode: string; pin: string }) {
   return authFetch("/user-auth/recover", { method: "POST", body: JSON.stringify(data) });
 }
 
-export async function generateRecoveryCode(token: string): Promise<{ recoveryCode: string }> {
+export async function generateRecoveryCode(): Promise<{ recoveryCode: string }> {
   const res = await fetch(`${API_BASE}/user-auth/recovery-code`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
+    credentials: "include",
   });
   const body = (await res.json()) as { recoveryCode?: string; error?: string };
   if (!res.ok || !body.recoveryCode) {
@@ -114,7 +126,7 @@ export async function createLocalSessionFromReplit(): Promise<AuthResponse> {
     credentials: "include",
     headers: { "Content-Type": "application/json" },
   });
-  const body = (await res.json()) as { user?: AuthUser; token?: string; error?: string; needsLink?: boolean };
+  const body = (await res.json()) as { user?: AuthUser; error?: string; needsLink?: boolean };
   if (!res.ok) {
     const error = new Error(body.error ?? "Não foi possível abrir a conta");
     if (body.needsLink) (error as Error & { code?: string }).code = "needs_link";
@@ -130,7 +142,7 @@ export async function linkReplitAccount(data: { phone: string; pin: string }): P
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
-  const body = (await res.json()) as { user?: AuthUser; token?: string; error?: string };
+  const body = (await res.json()) as { user?: AuthUser; error?: string };
   if (!res.ok) throw new Error(body.error ?? "Não foi possível ligar a conta");
   return body as AuthResponse;
 }
@@ -141,22 +153,22 @@ export async function provisionReplitAccount(): Promise<AuthResponse> {
     credentials: "include",
     headers: { "Content-Type": "application/json" },
   });
-  const body = (await res.json()) as { user?: AuthUser; token?: string; error?: string };
+  const body = (await res.json()) as { user?: AuthUser; error?: string };
   if (!res.ok) throw new Error(body.error ?? "Não foi possível criar o espaço");
   return body as AuthResponse;
 }
 
-export async function userLogout(token: string) {
+export async function userLogout() {
   await fetch(`${API_BASE}/user-auth/logout`, {
     method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
+    credentials: "include",
   });
 }
 
-export async function deleteUserAccount(token: string): Promise<void> {
+export async function deleteUserAccount(): Promise<void> {
   const res = await fetch(`${API_BASE}/user-auth/account`, {
     method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` },
+    credentials: "include",
   });
   const body = (await res.json()) as { error?: string };
   if (!res.ok) throw new Error(body.error ?? "Não foi possível eliminar a conta");
@@ -169,7 +181,6 @@ export async function reauthenticate(pin?: string): Promise<{ ok: boolean; expir
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      ...(sessionToken() ? { Authorization: `Bearer ${sessionToken()}` } : {}),
     },
     body: JSON.stringify(pin ? { pin } : {}),
   });
@@ -231,14 +242,13 @@ export async function checkHandleAvailability(
 
 export async function setUserHandle(
   handle: string,
-  token: string,
 ): Promise<{ user: AuthUser }> {
   const res = await fetch(`${API_BASE}/user-auth/handle`, {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
     },
+    credentials: "include",
     body: JSON.stringify({ handle }),
   });
   const body = (await res.json()) as { user?: AuthUser; error?: string };
@@ -365,24 +375,12 @@ export interface Lead {
 
 // ─── HTTP helpers ────────────────────────────────────────────────────────────
 
-/** Session token stored by AuthContext — attached to every API request so
- *  owner-only routes can authenticate the caller. */
-function sessionToken(): string | null {
-  try {
-    return localStorage.getItem("user_token");
-  } catch {
-    return null;
-  }
-}
-
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = sessionToken();
   const res = await fetch(`${API_BASE}${path}`, {
     ...init,
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(init?.headers ?? {}),
     },
   });
@@ -882,10 +880,8 @@ export function businessApi(slug: string) {
       bRequest<{ lead: Lead }>(`/leads/${id}/state`, {
         method: "PATCH", body: JSON.stringify({ state }),
       }),
-    getLeadsEventsUrl: () => {
-      const t = sessionToken();
-      return `${API_BASE}/b/${encodeURIComponent(slug)}/leads/events${t ? `?token=${encodeURIComponent(t)}` : ""}`;
-    },
+    getLeadsEventsUrl: () =>
+      `${API_BASE}/b/${encodeURIComponent(slug)}/leads/events`,
     sendLeadChat: (leadId: string, message: string) =>
       bRequest<{ reply: string; products?: Offering[] }>(`/leads/${leadId}/chat`, {
         method: "POST", body: JSON.stringify({ message }),
@@ -933,10 +929,8 @@ export function businessApi(slug: string) {
       bRequest<{ orders: Order[]; simulation: boolean }>("/orders"),
     getOrderAnalytics: () =>
       bRequest<{ analytics: OrderAnalytics }>("/orders/analytics"),
-    getOrdersEventsUrl: () => {
-      const token = sessionToken();
-      return `${API_BASE}/b/${encodeURIComponent(slug)}/orders/events${token ? `?token=${encodeURIComponent(token)}` : ""}`;
-    },
+    getOrdersEventsUrl: () =>
+      `${API_BASE}/b/${encodeURIComponent(slug)}/orders/events`,
     updateOrderFulfillment: (orderId: string, status: OrderFulfillmentStatus, note?: string) =>
       bRequest<{ order: Order }>(`/orders/${encodeURIComponent(orderId)}/fulfillment`, {
         method: "PATCH",
@@ -963,10 +957,9 @@ export function businessApi(slug: string) {
         body: JSON.stringify({ objectPath }),
       }),
     downloadOrderProof: async (orderId: string): Promise<Blob> => {
-      const token = sessionToken();
       const res = await fetch(
         `${API_BASE}/b/${encodeURIComponent(slug)}/orders/${encodeURIComponent(orderId)}/proof`,
-        { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+        { credentials: "include" },
       );
       if (!res.ok) throw new Error("Não foi possível abrir o comprovativo");
       return res.blob();
@@ -1087,9 +1080,7 @@ export function businessApi(slug: string) {
       }),
     clearAssistantMessages: () =>
       bRequest<{ cleared: boolean }>("/assistant/messages", { method: "DELETE" }),
-    getAssistantEventsUrl: () => {
-      const t = sessionToken();
-      return `${API_BASE}/b/${encodeURIComponent(slug)}/assistant/events${t ? `?token=${encodeURIComponent(t)}` : ""}`;
-    },
+    getAssistantEventsUrl: () =>
+      `${API_BASE}/b/${encodeURIComponent(slug)}/assistant/events`,
   };
 }

@@ -25,7 +25,7 @@ import * as zernio from "./zernio.js";
 import { effectiveAoaPerUsd, aoaToWholeUsd } from "./fx.js";
 import { sendPushToOwner } from "./notifications.js";
 import { logger } from "../lib/logger.js";
-import { withScheduledJobLock } from "../lib/scheduledJobLock.js";
+import { utcIntervalRunKey, withScheduledJobLock } from "../lib/scheduledJobLock.js";
 
 export const CAMPAIGN_MIN_BUDGET_AOA = 5_000;
 
@@ -523,6 +523,11 @@ export async function controlCampaignAd(
 
 const SYNC_INTERVAL_MS = 15 * 60_000;
 
+/** Shared UTC bucket so every replica identifies the same 15-minute run. */
+export function campaignMetricsIntervalKey(now = new Date()): string {
+  return utcIntervalRunKey(now, SYNC_INTERVAL_MS);
+}
+
 export async function syncPublishedCampaigns(): Promise<void> {
   const rows = await db
     .select()
@@ -588,7 +593,8 @@ export async function syncPublishedCampaigns(): Promise<void> {
 
 export function startCampaignSyncCron(): void {
   setInterval(() => {
-    void withScheduledJobLock("campaign-metrics-sync", syncPublishedCampaigns).catch((err) => {
+    const runKey = campaignMetricsIntervalKey();
+    void withScheduledJobLock("campaign-metrics-sync", runKey, syncPublishedCampaigns).catch((err) => {
       logger.error({ err }, "syncPublishedCampaigns crashed");
     });
   }, SYNC_INTERVAL_MS).unref();

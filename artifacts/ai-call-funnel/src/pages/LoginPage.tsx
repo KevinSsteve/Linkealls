@@ -230,8 +230,8 @@ export function LoginPage() {
     setLoading(true);
     setError("");
     try {
-      const { user, token } = await userLogin({ phone, pin: nextPin });
-      login(user, token);
+      const { user } = await userLogin({ phone, pin: nextPin });
+      login(user);
       nav(getSafeNext(user.handle ?? null));
     } catch (requestError: unknown) {
       setError(requestError instanceof Error ? requestError.message : "Número ou PIN incorretos.");

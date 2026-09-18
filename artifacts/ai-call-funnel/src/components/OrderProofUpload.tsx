@@ -1,14 +1,16 @@
 import { useState } from "react";
 import { CheckCircle2, FileUp, Loader2 } from "lucide-react";
-import { businessApi } from "../lib/api";
+import { visitorApi } from "../lib/visitorAccess";
 
 export function OrderProofUpload({
   businessSlug,
   orderId,
+  leadId,
   compact = false,
 }: {
   businessSlug: string;
   orderId: string;
+  leadId: string;
   compact?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
@@ -27,15 +29,15 @@ export function OrderProofUpload({
     }
     setBusy(true);
     try {
-      const api = businessApi(businessSlug);
-      const { uploadURL, objectPath } = await api.requestOrderProofUrl(orderId, file);
+      const api = visitorApi(businessSlug);
+      const { uploadURL, objectPath } = await api.requestOrderProofUrl(orderId, leadId, file);
       const uploaded = await fetch(uploadURL, {
         method: "PUT",
         headers: { "Content-Type": file.type },
         body: file,
       });
       if (!uploaded.ok) throw new Error("O upload não terminou");
-      await api.submitOrderProof(orderId, objectPath);
+      await api.submitOrderProof(orderId, leadId, objectPath);
       setDone(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Não foi possível enviar o comprovativo.");

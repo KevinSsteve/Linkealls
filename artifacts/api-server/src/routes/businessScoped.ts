@@ -88,6 +88,13 @@ import { createPaymentsScopedRouter } from "./paymentsScoped.js";
 import { getCatalogAnalytics, withOfferingAnalyticsKey } from "../services/catalogAnalytics.js";
 import { clientIp } from "../lib/httpSecurity.js";
 import { hashPin, verifyPin } from "../lib/pinSecurity.js";
+import { consumeSharedRateLimit } from "../lib/rateLimit.js";
+import {
+  issueConversationCapability,
+  verifyVisitorCapability,
+  visitorTokenFromAuthorization,
+  VisitorCapabilityError,
+} from "../lib/visitorCapabilities.js";
 
 function bid(res: Response): number {
   return res.locals["businessId"] as number;
@@ -243,12 +250,11 @@ export function createBusinessScopedRouter(): Router {
     const pin = String(req.body?.pin ?? "").trim();
     if (!pin) { res.status(400).json({ ok: false, error: "PIN obrigatório" }); return; }
     try {
-      const pinRateKey = `${bid(res)}:${clientIp(req)}`;
-      const now = Date.now();
-      const bucket = pinRateBuckets.get(pinRateKey);
-      if (!bucket || bucket.resetAt < now) {
-        pinRateBuckets.set(pinRateKey, { count: 1, resetAt: now + 10 * 60_000 });
-      } else if (++bucket.count > 8) {
+      const [ipAllowed, accountAllowed] = await Promise.all([
+        consumeSharedRateLimit("business-pin-ip", `${bid(res)}:${clientIp(req)}`, 8, 10 * 60_000),
+        consumeSharedRateLimit("business-pin-account", String(bid(res)), 20, 60 * 60_000),
+      ]);
+      if (!ipAllowed || !accountAllowed) {
         res.status(429).json({ ok: false, error: "Demasiadas tentativas — tenta daqui a pouco" });
         return;
       }
@@ -267,7 +273,7 @@ export function createBusinessScopedRouter(): Router {
       res.json({ ok: result.valid });
     } catch (err) {
       logger.error({ err }, "POST /auth/pin/verify failed");
-      res.status(500).json({ ok: false, error: "Erro interno" });
+      res.status(503).json({ ok: false, error: "Não foi possível confirmar o limite de tentativas" });
     }
   });
 
@@ -279,6 +285,14 @@ export function createBusinessScopedRouter(): Router {
     }
     const currentPin = String(req.body?.currentPin ?? "").trim();
     try {
+      const [ipAllowed, accountAllowed] = await Promise.all([
+        consumeSharedRateLimit("business-pin-ip", `${bid(res)}:${clientIp(req)}`, 8, 10 * 60_000),
+        consumeSharedRateLimit("business-pin-account", String(bid(res)), 20, 60 * 60_000),
+      ]);
+      if (!ipAllowed || !accountAllowed) {
+        res.status(429).json({ ok: false, error: "Demasiadas tentativas — tenta daqui a pouco" });
+        return;
+      }
       const rows = await db
         .select({ ownerPin: businessProfilesTable.ownerPin })
         .from(businessProfilesTable)
@@ -299,7 +313,7 @@ export function createBusinessScopedRouter(): Router {
       res.json({ ok: true });
     } catch (err) {
       logger.error({ err }, "POST /auth/pin/set failed");
-      res.status(500).json({ ok: false, error: "Erro interno" });
+      res.status(503).json({ ok: false, error: "Não foi possível confirmar o limite de tentativas" });
     }
   });
 
@@ -308,34 +322,32 @@ export function createBusinessScopedRouter(): Router {
   // PUBLIC visitor endpoints (deliberately NOT behind requireOwner):
   //   POST /leads/session     — a visitor starts a conversation with the business
   //   POST /leads/:id/chat    — the visitor continues THEIR OWN conversation
-  // Visitors have no account; the unguessable lead UUID (returned only to the
-  // browser that created the session) acts as the capability to continue that
-  // conversation. Both endpoints are rate-limited per IP to bound AI usage.
+  // UUIDs are locators only. Each session gets a signed, expiring capability
+  // returned once and subsequently supplied as `Authorization: Visitor …`.
+  // Both endpoints are rate-limited per IP to bound AI usage.
   // Everything else under /leads is owner-only.
 
-  // Minimal in-memory per-IP rate limiter for the public AI endpoints.
+  // Shared fixed windows apply consistently across replicas and fail closed if
+  // the backing store is unavailable.
   const RATE_WINDOW_MS = 60_000;
   const RATE_MAX = 20;
-  const rateBuckets = new Map<string, { count: number; resetAt: number }>();
-  const pinRateBuckets = new Map<string, { count: number; resetAt: number }>();
-  function publicRateLimit(req: Request, res: Response, next: () => void): void {
-    const ip = clientIp(req);
-    const now = Date.now();
-    const bucket = rateBuckets.get(ip);
-    if (!bucket || bucket.resetAt < now) {
-      rateBuckets.set(ip, { count: 1, resetAt: now + RATE_WINDOW_MS });
-      if (rateBuckets.size > 10_000) {
-        for (const [k, v] of rateBuckets) if (v.resetAt < now) rateBuckets.delete(k);
+  async function publicRateLimit(req: Request, res: Response, next: () => void): Promise<void> {
+    try {
+      const allowed = await consumeSharedRateLimit(
+        "business-public-ip",
+        `${bid(res)}:${clientIp(req)}`,
+        RATE_MAX,
+        RATE_WINDOW_MS,
+      );
+      if (!allowed) {
+        res.status(429).json({ error: "Demasiados pedidos — tenta daqui a pouco" });
+        return;
       }
       next();
-      return;
+    } catch (err) {
+      logger.error({ err }, "public visitor rate limit unavailable");
+      res.status(503).json({ error: "Serviço temporariamente indisponível" });
     }
-    bucket.count += 1;
-    if (bucket.count > RATE_MAX) {
-      res.status(429).json({ error: "Demasiados pedidos — tenta daqui a pouco" });
-      return;
-    }
-    next();
   }
 
   // ── PAYMENTS (Multicaixa Express) ────────────────────────────────────────────
@@ -356,7 +368,10 @@ export function createBusinessScopedRouter(): Router {
         parsed.data.chatMessages ?? [],
         bid(res),
       );
-      res.status(201).json({ leadId: lead.id });
+      res.status(201).json({
+        leadId: lead.id,
+        visitorToken: issueConversationCapability(bid(res), lead.id),
+      });
     } catch (err) {
       logger.error({ err }, "POST /leads/session failed");
       res.status(500).json({ error: "Erro ao criar sessão" });
@@ -370,6 +385,10 @@ export function createBusinessScopedRouter(): Router {
       return;
     }
     try {
+      verifyVisitorCapability(visitorTokenFromAuthorization(req.headers.authorization), {
+        businessId: bid(res),
+        leadId: id,
+      });
       const lead = await getLead(id, bid(res));
       if (!lead) {
         res.status(404).json({ error: "Conversa não encontrada" });
@@ -382,6 +401,10 @@ export function createBusinessScopedRouter(): Router {
         updatedAt: lead.updatedAt,
       });
     } catch (err) {
+      if (err instanceof VisitorCapabilityError) {
+        res.status(401).json({ error: "Acesso à conversa inválido ou expirado" });
+        return;
+      }
       logger.error({ err, id }, "GET /leads/:id/session failed");
       res.status(500).json({ error: "Erro ao carregar conversa" });
     }
@@ -454,9 +477,17 @@ export function createBusinessScopedRouter(): Router {
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "Mensagem inválida" }); return; }
     try {
+      verifyVisitorCapability(visitorTokenFromAuthorization(req.headers.authorization), {
+        businessId: bid(res),
+        leadId: id,
+      });
       const { reply, products } = await chatWithLead(id, parsed.data.message, bid(res));
       res.json({ reply, products });
     } catch (err) {
+      if (err instanceof VisitorCapabilityError) {
+        res.status(401).json({ error: "Acesso à conversa inválido ou expirado" });
+        return;
+      }
       logger.error({ err, id }, "POST /leads/:id/chat failed");
       res.status(500).json({ error: "Erro ao processar mensagem" });
     }

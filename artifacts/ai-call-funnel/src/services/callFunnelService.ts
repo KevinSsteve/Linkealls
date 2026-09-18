@@ -1,3 +1,5 @@
+import { loadVisitorAccess } from "../lib/visitorAccess";
+
 export interface ProductCard {
   name: string;
   price: string;
@@ -7,6 +9,8 @@ export interface ProductCard {
 
 export interface CheckoutInfo {
   orderId: string;
+  /** Fresh order-scoped capability issued by the WS relay after checkout. */
+  visitorToken: string;
   offeringName: string;
   amount: number;
   simulated: boolean;
@@ -67,13 +71,19 @@ export class CallFunnelService {
       ? `${base}api/call-funnel-ws`
       : "/api/call-funnel-ws";
     const params = new URLSearchParams();
-    if (leadId) params.set("leadId", leadId);
     if (businessSlug) params.set("businessSlug", businessSlug);
     const qs = params.toString() ? `?${params.toString()}` : "";
     const url = `${proto}//${window.location.host}${apiPath}${qs}`;
-    console.log("[CallFunnel] WebSocket connecting to", url);
+    const access = leadId && businessSlug ? loadVisitorAccess(businessSlug, leadId) : null;
+    if (!access) {
+      this.callbacks.onError("Esta sessão de visitante expirou. Inicia uma nova conversa.");
+      return;
+    }
 
-    this.ws = new WebSocket(url);
+    // Browser WebSockets cannot set Authorization. The signed visitor
+    // capability therefore travels in the handshake subprotocol, never in a
+    // query string (which can leak to logs, browser history, or referrers).
+    this.ws = new WebSocket(url, [`visitor-capability.${access.visitorToken}`]);
 
     this.ws.onmessage = (event: MessageEvent<string>) => {
       try {
@@ -87,7 +97,7 @@ export class CallFunnelService {
           case "user_transcript": this.callbacks.onUserTranscript?.(msg.text); break;
           case "show_products":   this.callbacks.onShowProducts?.(msg.products); break;
           case "agent_message":   this.callbacks.onAgentMessage?.(msg.text); break;
-          case "checkout":        this.callbacks.onCheckout?.({ orderId: msg.orderId, offeringName: msg.offeringName, amount: msg.amount, simulated: msg.simulated, merchantTransactionId: msg.merchantTransactionId }); break;
+          case "checkout":        this.callbacks.onCheckout?.({ orderId: msg.orderId, visitorToken: msg.visitorToken, offeringName: msg.offeringName, amount: msg.amount, simulated: msg.simulated, merchantTransactionId: msg.merchantTransactionId }); break;
           case "error":           this.callbacks.onError(msg.message); break;
           case "closed":          this.callbacks.onClose(); break;
         }

@@ -15,7 +15,8 @@ import { ChatInput } from "../components/ChatInput";
 import { IncomingCallModal } from "../components/IncomingCallModal";
 import { CallScreen } from "../components/CallScreen";
 import { useGeminiLive, type ProductCard } from "../hooks/useGeminiLive";
-import { businessApi, type LeadOrigin, type ChatMessage } from "../lib/api";
+import { type LeadOrigin, type ChatMessage } from "../lib/api";
+import { visitorApi } from "../lib/visitorAccess";
 import { useBusinessSlug } from "../hooks/useBusinessSlug";
 import { recordVisit } from "../lib/visitedBusinesses";
 
@@ -172,22 +173,23 @@ export function Captacao() {
       chatMsgsRef.current.push(botMsg);
       setStage("chat");
 
-      // Create lead session in the background
+      // The live call is bound to a visitor capability. Do not start an
+      // unlinked call if creating that capability failed.
       try {
-        const { leadId: id } = await businessApi(businessSlug ?? "").createLeadSession(
+        const { leadId: id } = await visitorApi(businessSlug ?? "").createLeadSession(
           utmRef.current,
           chatMsgsRef.current,
         );
         setLeadId(id);
         recordVisit(businessSlug ?? "");
+        setTimeout(() => setStage("call_incoming"), 1000);
       } catch {
-        // Non-fatal — call still works without a lead record
         console.warn("[Captacao] Failed to create lead session");
+        addMessage("bot", "Não foi possível iniciar uma conversa segura. Verifica a ligação e tenta novamente.");
+        setHasSent(false);
       }
-
-      setTimeout(() => setStage("call_incoming"), 1000);
     }, 1200);
-  }, [inputValue, hasSent, addMessage]);
+  }, [inputValue, hasSent, addMessage, businessSlug]);
 
   const handleAccept = useCallback(() => {
     setStage("call_active");

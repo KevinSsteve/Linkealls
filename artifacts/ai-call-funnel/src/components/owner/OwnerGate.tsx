@@ -7,7 +7,7 @@
  *   · logged in, no handle     → /escolher-handle
  *   · handle ≠ slug            → own profile /u/:handle
  *
- * The backend independently enforces the same rule (bearer token on all
+ * The backend independently enforces the same rule (HttpOnly session cookie on all
  * owner routes) — this gate is UX, not the security boundary.
  */
 import type { ReactNode } from "react";

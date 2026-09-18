@@ -15,7 +15,8 @@ import {
   FlaskConical,
   ShieldCheck,
 } from "lucide-react";
-import { businessApi, simulatePayment } from "../lib/api";
+import { simulatePayment } from "../lib/api";
+import { visitorApi } from "../lib/visitorAccess";
 import type { CheckoutInfo } from "../hooks/useGeminiLive";
 
 function formatAoa(v: number): string {
@@ -26,18 +27,19 @@ type PayStep = "waiting" | "paid" | "failed";
 
 interface Props {
   businessSlug: string;
+  leadId: string | null;
   checkout: CheckoutInfo;
   onDone: (orderId: string, status: string, offeringName: string) => void;
   onDismiss: () => void;
   onOrderPaid?: (orderId: string) => void;
 }
 
-export function InlineCheckout({ businessSlug, checkout, onDone, onDismiss, onOrderPaid }: Props) {
+export function InlineCheckout({ businessSlug, leadId, checkout, onDone, onDismiss, onOrderPaid }: Props) {
   const [step, setStep] = useState<PayStep>("waiting");
   const [busy, setBusy] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const settledRef = useRef(false);
-  const api = businessApi(businessSlug);
+  const api = visitorApi(businessSlug);
 
   const settle = useCallback(
     (status: string) => {
@@ -56,7 +58,8 @@ export function InlineCheckout({ businessSlug, checkout, onDone, onDismiss, onOr
   useEffect(() => {
     if (step !== "waiting") return;
     pollRef.current = setInterval(() => {
-      api.getOrderStatus(checkout.orderId)
+      if (!leadId) return;
+      api.getOrderStatus<{ status: string }>(checkout.orderId, leadId)
         .then((s) => {
           if (s.status === "paga") settle("paga");
           else if (s.status === "expirada" || s.status === "falhada") settle(s.status);
@@ -66,7 +69,7 @@ export function InlineCheckout({ businessSlug, checkout, onDone, onDismiss, onOr
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [api, checkout.orderId, step, settle]);
+  }, [api, checkout.orderId, leadId, step, settle]);
 
   const approveSimulated = useCallback(async () => {
     setBusy(true);

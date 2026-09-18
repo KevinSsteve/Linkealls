@@ -9,6 +9,7 @@ import { InlineCheckout } from "../components/InlineCheckout";
 import { BuyModal, parsePriceAoa } from "../components/BuyModal";
 import { useGeminiLive, type ProductCard, type AgentMessage } from "../hooks/useGeminiLive";
 import { businessApi, type ChatMessage, type OrderTracking } from "../lib/api";
+import { loadCurrentVisitorAccess, visitorApi } from "../lib/visitorAccess";
 import { useBusinessSlug } from "../hooks/useBusinessSlug";
 import { recordVisit } from "../lib/visitedBusinesses";
 import { useAuth } from "@/context/AuthContext";
@@ -490,14 +491,6 @@ function InlineProductShelf({
 // ─── Main Chat component ───────────────────────────────────────────────────
 
 export function Chat() {
-  const initialParams = (() => {
-    try {
-      const params = new URLSearchParams(window.location.search);
-      return { leadId: params.get("leadId"), orderId: params.get("orderId") };
-    } catch {
-      return { leadId: null, orderId: null };
-    }
-  })();
   const initialMessage = (() => {
     try {
       return new URLSearchParams(window.location.search).get("message") ?? "Quero saber mais sobre isso";
@@ -511,8 +504,8 @@ export function Chat() {
   const [stage, setStage] = useState<Stage>("chat");
   const [isBusy, setIsBusy] = useState(false);
   const [callTriggered, setCallTriggered] = useState(false);
-  const [leadId, setLeadId] = useState<string | null>(initialParams.leadId);
-  const [trackingOrderId, setTrackingOrderId] = useState<string | null>(initialParams.orderId);
+  const [leadId, setLeadId] = useState<string | null>(null);
+  const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
   const [tracking, setTracking] = useState<OrderTracking | null>(null);
   const [trackingLoading, setTrackingLoading] = useState(false);
   const [trackingError, setTrackingError] = useState<string | null>(null);
@@ -542,14 +535,17 @@ export function Chat() {
   const { user, isLoggedIn } = useAuth();
   const isB2BMode = isLoggedIn && !!user && user.handle !== businessSlug;
 
-  // Reopen the exact conversation after a paid checkout. The lead UUID is the
-  // public session capability; no owner data is returned by this endpoint.
+  // Restore only the capability held in this browser session. Conversation
+  // identifiers and visitor capabilities are intentionally never read from a
+  // URL, where browser history, referrers, and shared links could expose them.
   useEffect(() => {
-    if (!businessSlug || !initialParams.leadId) return;
-    const api = businessApi(businessSlug);
-    setCallTriggered(true);
-    api.getLeadSession(initialParams.leadId)
+    if (!businessSlug) return;
+    const access = loadCurrentVisitorAccess(businessSlug);
+    if (!access) return;
+    let cancelled = false;
+    visitorApi(businessSlug).getLeadSession(access.leadId)
       .then((session) => {
+        if (cancelled) return;
         const restored = session.chatMessages.map((message, index) => ({
           id: `restored-${index}-${message.ts}`,
           role: message.role === "user" ? "user" as const : "bot" as const,
@@ -558,18 +554,23 @@ export function Chat() {
         }));
         setMessages(restored);
         chatMsgsRef.current = session.chatMessages;
+        setLeadId(access.leadId);
+        setTrackingOrderId(access.orderId ?? null);
+        setCallTriggered(true);
       })
       .catch(() => {
-        setTrackingError("Não foi possível reabrir esta conversa.");
+        if (!cancelled) setTrackingError("Não foi possível reabrir esta conversa.");
       });
-  }, [businessSlug, initialParams.leadId]);
+    return () => { cancelled = true; };
+  }, [businessSlug]);
 
   const refreshTracking = useCallback(async () => {
     if (!businessSlug || !leadId || !trackingOrderId) return;
     setTrackingLoading(true);
     setTrackingError(null);
     try {
-      const { tracking: next } = await businessApi(businessSlug).getOrderTracking(trackingOrderId, leadId);
+      const { tracking: next } = await visitorApi(businessSlug)
+        .getOrderTracking<{ tracking: OrderTracking }>(trackingOrderId, leadId);
       setTracking(next);
     } catch {
       setTrackingError("Não foi possível actualizar o estado da encomenda.");
@@ -661,7 +662,7 @@ export function Chat() {
           origin.content = `${user.name}${user.handle ? ` (@${user.handle})` : ""}`;
         }
 
-        const { leadId: id } = await businessApi(businessSlug).createLeadSession(
+        const { leadId: id } = await visitorApi(businessSlug).createLeadSession(
           origin,
           chatMsgsRef.current,
         );
@@ -682,7 +683,8 @@ export function Chat() {
       if (isB2BMode) {
         // B2B mode: get AI text reply directly — no voice call trigger
         try {
-          const { reply, products } = await businessApi(businessSlug ?? "").sendLeadChat(newLeadId!, text);
+          const { reply, products } = await visitorApi(businessSlug ?? "")
+            .sendLeadChat<{ reply: string; products?: ProductCard[] }>(newLeadId!, text);
           addMessage("bot", reply);
           setChatProducts(products?.length ? products : null);
         } catch {
@@ -715,7 +717,8 @@ export function Chat() {
       setIsBusy(true);
       setStage("typing");
       try {
-        const { reply, products } = await businessApi(businessSlug ?? "").sendLeadChat(currentLeadId, text);
+        const { reply, products } = await visitorApi(businessSlug ?? "")
+          .sendLeadChat<{ reply: string; products?: ProductCard[] }>(currentLeadId, text);
         addMessage("bot", reply);
         setChatProducts(products?.length ? products : null);
       } catch {
@@ -952,6 +955,7 @@ export function Chat() {
               <div className="absolute inset-x-0 bottom-0 z-40 flex flex-col justify-end pb-20 px-0">
                 <InlineCheckout
                   businessSlug={businessSlug}
+                    leadId={leadId}
                   checkout={gemini.activeCheckout}
                   onDone={(orderId, status, offeringName) => {
                     handlePaymentResult(orderId, status, offeringName);
@@ -1045,6 +1049,7 @@ export function Chat() {
             {businessSlug && gemini.activeCheckout && (
               <InlineCheckout
                 businessSlug={businessSlug}
+                leadId={leadId}
                 checkout={gemini.activeCheckout}
                 onDone={(orderId, status, offeringName) => {
                   handlePaymentResult(orderId, status, offeringName);

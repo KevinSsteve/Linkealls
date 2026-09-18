@@ -337,7 +337,7 @@ export function RegisterPage() {
     setError("");
     try {
       const response = await userRegister({ phone, name: name.trim(), pin });
-      login(response.user, response.token);
+      login(response.user);
       if (response.recoveryCode) {
         setRecoveryCode(response.recoveryCode);
       } else {

@@ -1,10 +1,10 @@
 /**
  * User authentication routes — phone + PIN, no SMS verification.
  *
- * POST /user-auth/register          { phone, name, pin }  → { user, token }
- * POST /user-auth/login             { phone, pin }         → { user, token }
- * GET  /user-auth/me                                       → { user }   (bearer)
- * POST /user-auth/logout                                   → 200        (bearer)
+ * POST /user-auth/register          { phone, name, pin }  → { user }
+ * POST /user-auth/login             { phone, pin }         → { user }
+ * GET  /user-auth/me                                       → { user }   (HttpOnly cookie)
+ * POST /user-auth/logout                                   → 200        (HttpOnly cookie)
  * GET  /user-auth/handle/check?handle=                    → { available }
  * PUT  /user-auth/handle            { handle }             → { user }   (bearer)
  *
@@ -32,8 +32,14 @@ import {
   payoutsTable,
 } from "@workspace/db";
 import { logger } from "../lib/logger.js";
-import { clientIp } from "../lib/httpSecurity.js";
+import {
+  clearLocalSessionCookie,
+  clientIp,
+  getLocalSessionToken,
+  setLocalSessionCookie,
+} from "../lib/httpSecurity.js";
 import { hashPin, verifyPin } from "../lib/pinSecurity.js";
+import { consumeSharedRateLimit } from "../lib/rateLimit.js";
 
 const router = Router();
 
@@ -62,39 +68,35 @@ function generateRecoveryCode(): string {
   return raw.match(/.{1,4}/g)!.join("-");
 }
 
-const recoveryRateBuckets = new Map<string, { count: number; resetAt: number }>();
-const loginRateBuckets = new Map<string, { count: number; resetAt: number }>();
-const accountLoginRateBuckets = new Map<string, { count: number; resetAt: number }>();
-const accountRecoveryRateBuckets = new Map<string, { count: number; resetAt: number }>();
-const reauthRateBuckets = new Map<string, { count: number; resetAt: number }>();
-
-function consumeRateLimit(
-  buckets: Map<string, { count: number; resetAt: number }>,
-  key: string,
-  max: number,
-  windowMs: number,
-): boolean {
-  const now = Date.now();
-  const bucket = buckets.get(key);
-  if (!bucket || bucket.resetAt < now) {
-    buckets.set(key, { count: 1, resetAt: now + windowMs });
+async function consumeAuthLimits(
+  req: Request,
+  res: Response,
+  limits: Array<{ scope: string; subject: string; max: number; windowMs: number }>,
+  message: string,
+): Promise<boolean> {
+  try {
+    for (const limit of limits) {
+      if (!(await consumeSharedRateLimit(limit.scope, limit.subject, limit.max, limit.windowMs))) {
+        res.status(429).json({ error: message });
+        return false;
+      }
+    }
     return true;
+  } catch (err) {
+    // PIN guesses must not become unlimited when the shared limiter is down.
+    logger.error({ err }, "shared authentication rate limiter failed");
+    res.status(503).json({ error: "Não foi possível validar esta tentativa. Tenta novamente." });
+    return false;
   }
-  bucket.count += 1;
-  return bucket.count <= max;
 }
 
-function recoveryRateLimit(req: Request, res: Response, next: () => void): void {
+async function recoveryRateLimit(req: Request, res: Response, next: () => void): Promise<void> {
   const rawPhone = typeof req.body?.phone === "string" ? req.body.phone : "";
   const phone = normalisePhone(rawPhone);
-  if (
-    !consumeRateLimit(recoveryRateBuckets, `recovery-ip:${clientIp(req)}`, 8, 60_000) ||
-    !consumeRateLimit(accountRecoveryRateBuckets, `recovery-account:${phone}`, 10, 60 * 60_000)
-  ) {
-    res.status(429).json({ error: "Demasiadas tentativas — tenta daqui a pouco" });
-    return;
-  }
-  next();
+  if (await consumeAuthLimits(req, res, [
+    { scope: "recovery-ip", subject: clientIp(req), max: 8, windowMs: 60_000 },
+    { scope: "recovery-account", subject: phone, max: 10, windowMs: 60 * 60_000 },
+  ], "Demasiadas tentativas — tenta daqui a pouco")) next();
 }
 
 function normalisePhone(raw: string) {
@@ -104,7 +106,7 @@ function normalisePhone(raw: string) {
   return `+${digits}`;
 }
 
-function bearerToken(req: { headers: { authorization?: string } }) {
+function legacyBearerToken(req: { headers: { authorization?: string } }) {
   const h = req.headers.authorization ?? "";
   return h.startsWith("Bearer ") ? h.slice(7) : null;
 }
@@ -188,13 +190,9 @@ export async function hasRecentSensitiveAuth(token: string | null): Promise<bool
   return rows.length > 0;
 }
 
-/** Extracts the bearer token from a request (exported for route middleware). */
-export function requestToken(req: { headers: { authorization?: string }; query?: Record<string, unknown> }): string | null {
-  const bearer = bearerToken(req);
-  if (bearer) return bearer;
-  // EventSource cannot set headers — allow ?token= for SSE endpoints.
-  const q = req.query?.["token"];
-  return typeof q === "string" && q.length > 0 ? q : null;
+/** Extracts the HttpOnly local session. URLs and browser bearer tokens are never accepted. */
+export function requestToken(req: { cookies?: Record<string, unknown> }): string | null {
+  return getLocalSessionToken(req);
 }
 
 /** True when the error is a PostgreSQL unique-constraint violation (code 23505). */
@@ -210,7 +208,15 @@ const registerSchema = z.object({
   pin:   z.string().length(4).regex(/^\d{4}$/),
 });
 
-router.post("/user-auth/register", async (req, res) => {
+async function registerRateLimit(req: Request, res: Response, next: () => void): Promise<void> {
+  const rawPhone = typeof req.body?.phone === "string" ? req.body.phone : "";
+  if (await consumeAuthLimits(req, res, [
+    { scope: "register-ip", subject: clientIp(req), max: 5, windowMs: 60 * 60_000 },
+    { scope: "register-account", subject: normalisePhone(rawPhone), max: 5, windowMs: 60 * 60_000 },
+  ], "Demasiadas tentativas de registo — tenta daqui a pouco")) next();
+}
+
+router.post("/user-auth/register", registerRateLimit, async (req, res) => {
   const parse = registerSchema.safeParse(req.body);
   if (!parse.success) {
     res.status(400).json({ error: "Dados inválidos", details: parse.error.flatten() });
@@ -239,7 +245,8 @@ router.post("/user-auth/register", async (req, res) => {
       sessionExpiresAt: session.expiresAt,
     }).returning(USER_COLS);
 
-    res.status(201).json({ user: toUserDTO(row!), token: session.token, recoveryCode });
+    setLocalSessionCookie(req, res, session.token, session.expiresAt);
+    res.status(201).json({ user: toUserDTO(row!), recoveryCode });
   } catch (err) {
     logger.error({ err }, "register failed");
     res.status(500).json({ error: "Erro ao criar conta" });
@@ -253,17 +260,13 @@ const loginSchema = z.object({
   pin:   z.string().length(4).regex(/^\d{4}$/),
 });
 
-function loginRateLimit(req: Request, res: Response, next: () => void): void {
+async function loginRateLimit(req: Request, res: Response, next: () => void): Promise<void> {
   const rawPhone = typeof req.body?.phone === "string" ? req.body.phone : "";
   const phone = normalisePhone(rawPhone);
-  if (
-    !consumeRateLimit(loginRateBuckets, `login-ip:${clientIp(req)}:${phone}`, 8, 10 * 60_000) ||
-    !consumeRateLimit(accountLoginRateBuckets, `login-account:${phone}`, 20, 60 * 60_000)
-  ) {
-    res.status(429).json({ error: "Demasiadas tentativas de login — tenta daqui a pouco" });
-    return;
-  }
-  next();
+  if (await consumeAuthLimits(req, res, [
+    { scope: "login-ip-account", subject: `${clientIp(req)}:${phone}`, max: 8, windowMs: 10 * 60_000 },
+    { scope: "login-account", subject: phone, max: 20, windowMs: 60 * 60_000 },
+  ], "Demasiadas tentativas de login — tenta daqui a pouco")) next();
 }
 
 router.post("/user-auth/login", loginRateLimit, async (req, res) => {
@@ -293,7 +296,8 @@ router.post("/user-auth/login", loginRateLimit, async (req, res) => {
       })
       .where(eq(usersTable.id, rows[0]!.id));
 
-    res.json({ user: toUserDTO(rows[0]!), token: session.token });
+    setLocalSessionCookie(req, res, session.token, session.expiresAt);
+    res.json({ user: toUserDTO(rows[0]!) });
   } catch (err) {
     logger.error({ err }, "login failed");
     res.status(500).json({ error: "Erro ao fazer login" });
@@ -316,6 +320,13 @@ router.post("/user-auth/recovery-code", async (req, res) => {
   const user = await getUserByToken(requestToken(req));
   if (!user) {
     res.status(401).json({ error: "Sessão inválida — inicia sessão novamente" });
+    return;
+  }
+  if (!(await hasRecentSensitiveAuth(requestToken(req)))) {
+    res.status(403).json({
+      error: "Confirma o PIN do teu negócio antes de gerar um código de recuperação",
+      code: "SENSITIVE_AUTH_REQUIRED",
+    });
     return;
   }
 
@@ -372,7 +383,8 @@ router.post("/user-auth/recover", recoveryRateLimit, async (req, res) => {
       res.status(401).json({ error: "Código de recuperação inválido ou já utilizado." });
       return;
     }
-    res.json({ user: toUserDTO(updated), token: session.token });
+    setLocalSessionCookie(req, res, session.token, session.expiresAt);
+    res.json({ user: toUserDTO(updated) });
   } catch (err) {
     logger.error({ err }, "account recovery failed");
     res.status(500).json({ error: "Não foi possível recuperar a conta" });
@@ -382,7 +394,7 @@ router.post("/user-auth/recover", recoveryRateLimit, async (req, res) => {
 // ─── Replit identity bridge ──────────────────────────────────────────────────
 //
 // Replit owns the browser identity. Linkealls keeps the local business row and
-// token so the existing commerce routes continue to enforce business ownership.
+// its HttpOnly local session so commerce routes retain business ownership checks.
 router.post("/user-auth/session", async (req, res): Promise<void> => {
   const replitUser = requireReplitUser(req, res);
   if (!replitUser) return;
@@ -413,10 +425,11 @@ router.post("/user-auth/session", async (req, res): Promise<void> => {
     })
     .where(eq(usersTable.id, row.id))
     .returning(USER_COLS);
-  res.json({ user: toUserDTO(updated!), token: session.token });
+  setLocalSessionCookie(req, res, session.token, session.expiresAt);
+  res.json({ user: toUserDTO(updated!) });
 });
 
-router.post("/user-auth/link-replit", async (req, res): Promise<void> => {
+router.post("/user-auth/link-replit", loginRateLimit, async (req, res): Promise<void> => {
   const replitUser = requireReplitUser(req, res);
   if (!replitUser) return;
 
@@ -464,7 +477,8 @@ router.post("/user-auth/link-replit", async (req, res): Promise<void> => {
     })
     .where(eq(usersTable.id, row.id))
     .returning(USER_COLS);
-  res.json({ user: toUserDTO(updated!), token: session.token });
+  setLocalSessionCookie(req, res, session.token, session.expiresAt);
+  res.json({ user: toUserDTO(updated!) });
 });
 
 router.post("/user-auth/provision", async (req, res): Promise<void> => {
@@ -491,18 +505,34 @@ router.post("/user-auth/provision", async (req, res): Promise<void> => {
     lastName: replitUser.lastName,
     profileImageUrl: replitUser.profileImageUrl,
   }).returning(USER_COLS);
-  res.status(201).json({ user: toUserDTO(row!), token: session.token });
+  setLocalSessionCookie(req, res, session.token, session.expiresAt);
+  res.status(201).json({ user: toUserDTO(row!) });
 });
 
 // ─── me ─────────────────────────────────────────────────────────────────────
 
 router.get("/user-auth/me", async (req, res) => {
-  const token = bearerToken(req);
+  const cookieToken = requestToken(req);
+  // A single read-only bridge releases pre-cookie browser sessions. The client
+  // immediately deletes its old localStorage value; all other routes reject it.
+  const token = cookieToken ?? legacyBearerToken(req);
   if (!token) { res.status(401).json({ error: "Sem autorização" }); return; }
 
   try {
     const user = await getUserByToken(token);
-    if (!user) { res.status(401).json({ error: "Sessão inválida" }); return; }
+    if (!user) {
+      if (cookieToken) clearLocalSessionCookie(req, res);
+      res.status(401).json({ error: "Sessão inválida" });
+      return;
+    }
+    if (!cookieToken) {
+      const rows = await db.select({ sessionExpiresAt: usersTable.sessionExpiresAt })
+        .from(usersTable)
+        .where(eq(usersTable.id, user.id))
+        .limit(1);
+      const expiresAt = rows[0]?.sessionExpiresAt;
+      if (expiresAt) setLocalSessionCookie(req, res, token, expiresAt);
+    }
     res.json({ user: toUserDTO(user) });
   } catch (err) {
     logger.error({ err }, "me failed");
@@ -528,10 +558,9 @@ router.post("/user-auth/reauthenticate", async (req, res) => {
       res.json({ ok: true, expiresAt: new Date(Date.now() + SENSITIVE_AUTH_TTL_MS).toISOString() });
       return;
     }
-    if (!consumeRateLimit(reauthRateBuckets, `reauth:${user.id}:${clientIp(req)}`, 8, 10 * 60_000)) {
-      res.status(429).json({ error: "Demasiadas tentativas — tenta daqui a pouco" });
-      return;
-    }
+    if (!(await consumeAuthLimits(req, res, [
+      { scope: "reauth-user-ip", subject: `${user.id}:${clientIp(req)}`, max: 8, windowMs: 10 * 60_000 },
+    ], "Demasiadas tentativas — tenta daqui a pouco"))) return;
 
     const [[account], [profile]] = await Promise.all([
       db
@@ -599,7 +628,7 @@ router.post("/user-auth/reauthenticate", async (req, res) => {
 // ─── logout ─────────────────────────────────────────────────────────────────
 
 router.post("/user-auth/logout", async (req, res) => {
-  const token = bearerToken(req);
+  const token = requestToken(req);
   if (token) {
     try {
       await db.update(usersTable)
@@ -611,6 +640,7 @@ router.post("/user-auth/logout", async (req, res) => {
         .where(eq(usersTable.sessionToken, token));
     } catch { /* ignore */ }
   }
+  clearLocalSessionCookie(req, res);
   res.json({ ok: true });
 });
 
@@ -795,7 +825,7 @@ class SlugConflictError extends Error {
 }
 
 router.put("/user-auth/handle", async (req, res) => {
-  const token = bearerToken(req);
+  const token = requestToken(req);
   if (!token) { res.status(401).json({ error: "Sem autorização" }); return; }
 
   const parse = handleSchema.safeParse({

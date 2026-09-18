@@ -108,7 +108,7 @@ export function RecoverAccessPage() {
         recoveryCode,
         pin,
       });
-      login(response.user, response.token);
+      login(response.user);
       nav(response.user.handle ? `/e/${response.user.handle}/dono` : "/escolher-handle");
     } catch (requestError: unknown) {
       setError(requestError instanceof Error ? requestError.message : "Não foi possível recuperar a conta.");

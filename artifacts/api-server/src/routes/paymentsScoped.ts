@@ -15,10 +15,12 @@
  *  - POST /subscription/checkout — pay the 10.000 Kz plan via Multicaixa Express
  *  - GET  /subscription/:id/status — poll a pending plan payment
  */
+import { randomUUID } from "crypto";
 import { Readable } from "stream";
 import { Router, type Request, type Response } from "express";
 import { z } from "zod/v4";
-import { createOrderSchema, createPayoutSchema, aoPhoneSchema } from "@workspace/db";
+import { and, eq, inArray } from "drizzle-orm";
+import { createOrderSchema, createPayoutSchema, aoPhoneSchema, db, ordersTable } from "@workspace/db";
 import {
   createProductOrder,
   getOrderPublicStatus,
@@ -43,16 +45,43 @@ import {
 } from "../services/payments.js";
 import { logger } from "../lib/logger.js";
 import { ObjectNotFoundError, ObjectStorageService } from "../lib/objectStorage.js";
+import {
+  issueOrderCapability,
+  verifyVisitorCapability,
+  visitorTokenFromAuthorization,
+  VisitorCapabilityError,
+} from "../lib/visitorCapabilities.js";
 
 type Middleware = (req: Request, res: Response, next: () => void) => void | Promise<void>;
 
 function handleError(res: Response, err: unknown, ctx: string): void {
+  if (err instanceof VisitorCapabilityError) {
+    res.status(401).json({ error: "Acesso de visitante inválido ou expirado" });
+    return;
+  }
   if (err instanceof PaymentError) {
     res.status(err.statusCode).json({ error: err.message });
     return;
   }
   logger.error({ err }, ctx);
   res.status(500).json({ error: "Erro interno" });
+}
+
+function requireOrderCapability(req: Request, businessId: number, order: {
+  id: string;
+  leadId: string | null;
+}): void {
+  if (!order.leadId) throw new VisitorCapabilityError();
+  verifyVisitorCapability(visitorTokenFromAuthorization(req.headers.authorization), {
+    businessId,
+    leadId: order.leadId,
+    orderId: order.id,
+    scope: "order",
+  });
+}
+
+function isReservedProofPath(orderId: string, objectPath: string): boolean {
+  return new RegExp(`^/objects/order-proofs/${orderId}/[0-9a-f-]{36}$`, "i").test(objectPath);
 }
 
 export function createPaymentsScopedRouter(
@@ -65,6 +94,10 @@ export function createPaymentsScopedRouter(
   const objectStorageService = new ObjectStorageService();
 
   // ── Public checkout ────────────────────────────────────────────────────────
+  //
+  // A visitor starts an order without an account, but a supplied conversation
+  // ID is never accepted as proof of access. UUIDs are only database locators;
+  // continuation/tracking/proof actions require a signed Visitor capability.
 
   router.post("/orders", publicRateLimit, async (req, res) => {
     const parsed = createOrderSchema.safeParse(req.body);
@@ -73,10 +106,18 @@ export function createPaymentsScopedRouter(
       return;
     }
     try {
+      if (parsed.data.leadId) {
+        verifyVisitorCapability(visitorTokenFromAuthorization(req.headers.authorization), {
+          businessId: bid(res),
+          leadId: parsed.data.leadId,
+        });
+      }
       const { order, simulated } = await createProductOrder(bid(res), parsed.data);
+      if (!order.leadId) throw new Error("Encomenda sem conversa de visitante");
       res.status(201).json({
         orderId: order.id,
         leadId: order.leadId,
+        visitorToken: issueOrderCapability(bid(res), order.leadId, order.id),
         merchantTransactionId: order.merchantTransactionId,
         amount: Number(order.amount),
         status: order.status,
@@ -99,6 +140,7 @@ export function createPaymentsScopedRouter(
         res.status(404).json({ error: "Encomenda não encontrada" });
         return;
       }
+      requireOrderCapability(req, bid(res), order);
       res.json({
         orderId: order.id,
         status: order.status,
@@ -117,13 +159,18 @@ export function createPaymentsScopedRouter(
 
   router.get("/orders/:id/tracking", publicRateLimit, async (req, res) => {
     const id = String(req.params["id"] ?? "");
-    const leadId = String(req.query["leadId"] ?? "");
-    if (!/^[0-9a-f-]{36}$/i.test(id) || !/^[0-9a-f-]{36}$/i.test(leadId)) {
+    if (!/^[0-9a-f-]{36}$/i.test(id)) {
       res.status(404).json({ error: "Encomenda não encontrada" });
       return;
     }
     try {
-      const tracking = await getOrderTracking(id, bid(res), leadId);
+      const order = await getOrderPublicStatus(id);
+      if (!order || order.businessId !== bid(res) || !order.leadId) {
+        res.status(404).json({ error: "Encomenda não encontrada" });
+        return;
+      }
+      requireOrderCapability(req, bid(res), order);
+      const tracking = await getOrderTracking(id, bid(res), order.leadId);
       if (!tracking) {
         res.status(404).json({ error: "Encomenda não encontrada" });
         return;
@@ -230,8 +277,11 @@ export function createPaymentsScopedRouter(
     }
   });
 
-  // Public upload capability is the order UUID, which is already required to
-  // poll payment status. The object remains private and is never served here.
+  // The upload URL is reserved for one paid order before it is returned. The
+  // browser may upload only into that order's random namespace; it cannot name
+  // a path belonging to another order. A submitted blob is copied to a fresh
+  // immutable final path before association, so an old signed PUT URL cannot
+  // replace an already-submitted proof.
   router.post("/orders/:id/proof/request-url", publicRateLimit, async (req, res) => {
     const parsed = z.object({
       name: z.string().trim().min(1).max(200),
@@ -248,8 +298,41 @@ export function createPaymentsScopedRouter(
         res.status(404).json({ error: "Encomenda não encontrada ou ainda não paga" });
         return;
       }
-      const uploadURL = await objectStorageService.getObjectEntityUploadURL("order-proofs");
+      requireOrderCapability(req, bid(res), order);
+      // Do not mint a second path while one is outstanding. This keeps the
+      // persisted reservation one-to-one and blocks path reassignment races.
+      if (order.proofStatus === "pendente") {
+        res.status(409).json({ error: "Já existe um upload de comprovativo em curso" });
+        return;
+      }
+      if (!["nao_pedido", "rejeitado"].includes(order.proofStatus)) {
+        res.status(409).json({ error: "Este comprovativo já foi enviado" });
+        return;
+      }
+      const uploadURL = await objectStorageService.getObjectEntityUploadURL(`order-proofs/${order.id}`);
       const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
+      if (!isReservedProofPath(order.id, objectPath)) {
+        throw new Error("Não foi possível reservar um caminho de comprovativo seguro");
+      }
+      const reserved = await db
+        .update(ordersTable)
+        .set({
+          proofObjectPath: objectPath,
+          proofStatus: "pendente",
+          proofSubmittedAt: null,
+          updatedAt: new Date(),
+        })
+        .where(and(
+          eq(ordersTable.id, order.id),
+          eq(ordersTable.businessId, bid(res)),
+          eq(ordersTable.status, "paga"),
+          inArray(ordersTable.proofStatus, ["nao_pedido", "rejeitado"]),
+        ))
+        .returning({ id: ordersTable.id });
+      if (!reserved[0]) {
+        res.status(409).json({ error: "O estado do comprovativo foi alterado. Actualiza e tenta novamente." });
+        return;
+      }
       res.json({ uploadURL, objectPath });
     } catch (err) {
       handleError(res, err, "POST /orders/:id/proof/request-url failed");
@@ -268,8 +351,65 @@ export function createPaymentsScopedRouter(
         res.status(404).json({ error: "Encomenda não encontrada ou ainda não paga" });
         return;
       }
-      await objectStorageService.getObjectEntityFile(parsed.data.objectPath);
-      const updated = await submitOrderProof(order.id, parsed.data.objectPath);
+      requireOrderCapability(req, bid(res), order);
+      if (
+        order.proofStatus !== "pendente" ||
+        order.proofObjectPath !== parsed.data.objectPath ||
+        !isReservedProofPath(order.id, parsed.data.objectPath)
+      ) {
+        res.status(409).json({ error: "Este upload não está reservado para a encomenda ou já foi utilizado" });
+        return;
+      }
+
+      const source = await objectStorageService.getObjectEntityFile(parsed.data.objectPath);
+      const [metadata] = await source.getMetadata();
+      const contentType = String(metadata.contentType ?? "").toLowerCase();
+      const size = Number(metadata.size ?? 0);
+      if (
+        !["image/png", "image/jpeg", "image/webp", "application/pdf"].includes(contentType) ||
+        !Number.isFinite(size) ||
+        size <= 0 ||
+        size > 10 * 1024 * 1024
+      ) {
+        res.status(400).json({ error: "O ficheiro enviado não é um comprovativo aceite" });
+        return;
+      }
+
+      const finalId = randomUUID();
+      const namespaceAt = source.name.indexOf("order-proofs/");
+      if (namespaceAt < 0) throw new ObjectNotFoundError();
+      const finalObjectName = `${source.name.slice(0, namespaceAt)}order-proofs/final/${order.id}/${finalId}`;
+      const finalPath = `/objects/order-proofs/final/${order.id}/${finalId}`;
+      const [finalFile] = await source.copy(source.bucket.file(finalObjectName));
+
+      // This conditional claim is the replay barrier. Only the current
+      // reservation can become the associated final object, once.
+      const claimed = await db
+        .update(ordersTable)
+        .set({
+          proofObjectPath: finalPath,
+          proofStatus: "recebido",
+          proofSubmittedAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(and(
+          eq(ordersTable.id, order.id),
+          eq(ordersTable.businessId, bid(res)),
+          eq(ordersTable.status, "paga"),
+          eq(ordersTable.proofStatus, "pendente"),
+          eq(ordersTable.proofObjectPath, parsed.data.objectPath),
+        ))
+        .returning({ id: ordersTable.id });
+      if (!claimed[0]) {
+        await finalFile.delete({ ignoreNotFound: true }).catch(() => {});
+        res.status(409).json({ error: "Este comprovativo já foi utilizado ou substituído" });
+        return;
+      }
+
+      // The claim above is intentionally before the service call: the service
+      // writes the operational event/chat notification, while the conditional
+      // database write protects the file association from replay.
+      const updated = await submitOrderProof(order.id, finalPath);
       res.json({ order: updated });
     } catch (err) {
       if (err instanceof ObjectNotFoundError) {

@@ -442,7 +442,11 @@ REGRAS:
   await db
     .update(leadsTable)
     .set({ chatMessages: updated, updatedAt: new Date() })
-    .where(eq(leadsTable.id, leadId));
+    .where(
+      businessId !== undefined
+        ? and(eq(leadsTable.id, leadId), eq(leadsTable.businessId, businessId))
+        : eq(leadsTable.id, leadId),
+    );
 
   return { reply, products };
 }

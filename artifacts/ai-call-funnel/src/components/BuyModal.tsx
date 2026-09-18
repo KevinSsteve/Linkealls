@@ -11,7 +11,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   X, Smartphone, Loader2, CheckCircle2, XCircle, Minus, Plus, ShieldCheck, FlaskConical,
 } from "lucide-react";
-import { businessApi, simulatePayment, type Offering, type OrderStatus } from "../lib/api";
+import { simulatePayment, type Offering, type OrderStatus } from "../lib/api";
+import { visitorApi } from "../lib/visitorAccess";
 
 // ─── Tokens locais (mesmos valores que T em Catalogo.tsx) ─────────────────────
 const M = {
@@ -135,7 +136,7 @@ export function BuyModal({
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const total = unitPrice * qty;
-  const api = businessApi(businessSlug);
+  const api = visitorApi(businessSlug);
 
   async function ensureLeadSession(): Promise<string> {
     if (sessionLeadId) return sessionLeadId;
@@ -162,7 +163,7 @@ export function BuyModal({
         ? import.meta.env.BASE_URL
         : `${import.meta.env.BASE_URL}/`;
       window.location.assign(
-        `${base}e/${encodeURIComponent(businessSlug)}?leadId=${encodeURIComponent(sessionLeadId)}&orderId=${encodeURIComponent(orderId)}`,
+        `${base}e/${encodeURIComponent(businessSlug)}`,
       );
     }, 1200);
     return () => window.clearTimeout(timer);
@@ -180,12 +181,12 @@ export function BuyModal({
   }, []);
   useEffect(() => stopPolling, [stopPolling]);
 
-  const startPolling = useCallback((id: string) => {
+  const startPolling = useCallback((id: string, currentLeadId: string) => {
     stopPolling();
     pollRef.current = setInterval(() => {
-      api.getOrderStatus(id)
+      api.getOrderStatus(id, currentLeadId)
         .then((s) => {
-          const st: OrderStatus = s.status;
+          const st: OrderStatus = (s as { status: OrderStatus }).status;
           if (st === "paga") { setStep("paid"); stopPolling(); }
           else if (st === "expirada" || st === "falhada") { setStep("failed"); stopPolling(); }
         })
@@ -208,10 +209,11 @@ export function BuyModal({
         leadId: checkoutLeadId,
       });
       setOrderId(res.orderId);
+      setSessionLeadId(res.leadId);
       setMtid(res.merchantTransactionId);
       setSimulated(res.simulated);
       setStep("waiting");
-      startPolling(res.orderId);
+      startPolling(res.orderId, res.leadId);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Erro ao iniciar o pagamento");
     } finally {

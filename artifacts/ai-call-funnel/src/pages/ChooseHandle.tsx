@@ -21,7 +21,7 @@ type CheckState = "idle" | "checking" | "available" | "taken" | "invalid";
 
 export function ChooseHandle() {
   const [, nav] = useLocation();
-  const { user, token, setHandle, isLoggedIn } = useAuth();
+  const { user, setHandle, isLoggedIn } = useAuth();
 
   const [raw, setRaw]          = useState("");
   const [checkState, setCheck] = useState<CheckState>("idle");
@@ -50,11 +50,11 @@ export function ChooseHandle() {
   }, [handle]);
 
   async function handleSubmit() {
-    if (checkState !== "available" || !token) return;
+    if (checkState !== "available") return;
     setSaving(true); setError("");
     try {
       const hasPendingOnboarding = !!readBusinessOnboarding();
-      const { user: updated } = await setUserHandle(handle, token);
+      const { user: updated } = await setUserHandle(handle);
       setHandle(updated.handle ?? handle);
       nav(hasPendingOnboarding ? `/e/${handle}/dono?onboarding=1` : `/e/${handle}/dono`);
     } catch (e: unknown) {

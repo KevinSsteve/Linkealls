@@ -308,16 +308,17 @@ function CatalogAnalyticsCard({ slug, offerings }: { slug: string; offerings: Of
   );
 }
 
-function RecoveryCodeRow({ token }: { token: string | null }) {
+function RecoveryCodeRow() {
   const [code, setCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
 
   async function handleGenerate() {
-    if (!token || loading) return;
+    if (loading) return;
     setLoading(true);
     try {
-      const next = await generateRecoveryCode(token);
+      if (!(await confirmSensitiveAction())) return;
+      const next = await generateRecoveryCode();
       setCode(next.recoveryCode);
       setCopied(false);
     } catch {
@@ -370,11 +371,10 @@ function RecoveryCodeRow({ token }: { token: string | null }) {
 
 // ─── Profile View (main view of the owner panel) ──────────────────────────────
 function ProfileView({
-  profile, slug, token, onEdit, onReanalyze, reanalyzing, onLogout, onDeleteAccount, deletingAccount,
+  profile, slug, onEdit, onReanalyze, reanalyzing, onLogout, onDeleteAccount, deletingAccount,
 }: {
   profile: BusinessProfile;
   slug: string;
-  token: string | null;
   onEdit: () => void;
   onReanalyze: (url: string) => void;
   reanalyzing: boolean;
@@ -584,7 +584,7 @@ function ProfileView({
 
       <SectionLabel>Conta</SectionLabel>
       <div style={{ background: D.surface, borderTop: `1px solid ${D.border}`, borderBottom: `1px solid ${D.border}` }}>
-        <RecoveryCodeRow token={token} />
+        <RecoveryCodeRow />
         <ActionRow
           icon={LogOut}
           title="Terminar sessão"
@@ -613,7 +613,7 @@ function ProfileView({
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export function Owner() {
   const slug = useBusinessSlug();
-  const { token, logout } = useAuth();
+  const { logout } = useAuth();
   const api = useMemo(() => (slug ? businessApi(slug) : null), [slug]);
 
   const [view, setView] = useState<View>("loading");
@@ -770,7 +770,7 @@ export function Owner() {
 
   const handleLogout = async () => {
     try {
-      if (token) await userLogout(token);
+      await userLogout();
     } finally {
       logout();
       window.location.assign(`${import.meta.env.BASE_URL}login`);
@@ -778,12 +778,11 @@ export function Owner() {
   };
 
   const handleDeleteAccount = async () => {
-    if (!token) return;
     setDeletingAccount(true);
     setError(null);
     try {
       if (!(await confirmSensitiveAction())) return;
-      await deleteUserAccount(token);
+      await deleteUserAccount();
       logout();
       window.location.assign(import.meta.env.BASE_URL);
     } catch (err) {
@@ -1046,7 +1045,6 @@ export function Owner() {
           <ProfileView
             profile={profile}
             slug={slug}
-            token={token}
             onEdit={() => setEditing(true)}
             onReanalyze={handleReanalyze}
             reanalyzing={reanalyzing}

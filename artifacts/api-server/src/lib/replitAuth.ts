@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import * as oidc from "openid-client";
 import type { Request, Response } from "express";
 import { db, sessionsTable } from "@workspace/db";
+import { isSafeInternalPath } from "./httpSecurity.js";
 
 export const ISSUER_URL = process.env.ISSUER_URL ?? "https://replit.com/oidc";
 export const SESSION_COOKIE = "sid";
@@ -71,21 +72,11 @@ export async function clearReplitSession(res: Response, sid?: string): Promise<v
 }
 
 export function getReplitSessionId(req: Request): string | undefined {
-  // The local Linkealls bearer token is also sent to owner APIs. Prefer the
-  // Replit browser cookie so those requests never clear a valid OIDC session.
-  if (req.cookies?.[SESSION_COOKIE]) return req.cookies[SESSION_COOKIE];
-  const authorization = req.headers.authorization;
-  if (authorization?.startsWith("Bearer ")) return authorization.slice(7);
-  return undefined;
+  return req.cookies?.[SESSION_COOKIE];
 }
 
 export function getSafeReturnTo(value: unknown): string {
-  if (
-    typeof value !== "string" ||
-    !value.startsWith("/") ||
-    value.startsWith("//")
-  ) return "/";
-  return value;
+  return isSafeInternalPath(value) ? value : "/";
 }
 
 export function getRequestOrigin(req: Request): string {

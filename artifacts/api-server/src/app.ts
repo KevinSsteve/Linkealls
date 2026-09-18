@@ -8,7 +8,7 @@ import { db } from "@workspace/db";
 import { businessProfilesTable } from "@workspace/db/schema";
 import { and, isNotNull, eq } from "drizzle-orm";
 import { replitAuthMiddleware } from "./middlewares/replitAuthMiddleware";
-import { isAllowedBrowserOrigin } from "./lib/httpSecurity";
+import { enforceCookieCsrf, isAllowedBrowserOrigin } from "./lib/httpSecurity";
 
 const app: Express = express();
 app.set("trust proxy", 1);
@@ -47,6 +47,7 @@ app.use((_req, res, next) => {
   next();
 });
 app.use(cookieParser());
+app.use(enforceCookieCsrf);
 app.use(express.json({ limit: "256kb" }));
 app.use(express.urlencoded({ extended: true, limit: "256kb" }));
 app.use(replitAuthMiddleware);
