@@ -24,3 +24,4 @@
 - [Autoscale scheduled jobs](autoscale-scheduled-jobs.md) — durable period claims stop sequential duplicates; advisory locks alone only prevent overlap.
 - [Visitor access decisions](visitor-access-decisions.md) — UUIDs locate data, not authorize it; visitor signing keys must be stable across replicas.
 - [Onboarding reliability](onboarding-resilience.md) — availability is advisory; expose claim failures and protect session transitions and idempotent retries.
+- [Visual scope](visual-scope.md) — warm product theme covers routed product surfaces, but landing and the four redesigned entry flows remain visually isolated.

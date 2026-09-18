@@ -49,31 +49,31 @@ export function LegalPage({ kind }: { kind: LegalKind }) {
   }, [page]);
 
   return (
-    <main className="min-h-screen bg-[#F6F9FC] text-[#0A2540]">
+    <main className="min-h-screen bg-[var(--bg)] text-[var(--ink)]">
       <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-5 py-5 sm:px-8">
         <Link href="/" className="inline-flex items-center gap-2 text-[17px] font-extrabold tracking-[-0.04em]">
-          <span className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-[#635BFF] text-white">
+          <span className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-[var(--green)] text-white">
             <ArrowUpRight size={17} strokeWidth={2.5} />
           </span>
           Linkealls
         </Link>
-        <Link href="/" className="inline-flex items-center gap-2 text-[13px] font-bold text-[#425466]">
+        <Link href="/" className="inline-flex items-center gap-2 text-[13px] font-bold text-[var(--ink-soft)]">
           <ArrowLeft size={15} /> Página inicial
         </Link>
       </header>
       <div className="mx-auto max-w-3xl px-5 pb-16 pt-10 sm:px-8 sm:pt-16">
-        <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-[#635BFF]">{page.eyebrow}</p>
+        <p className="text-[12px] font-bold uppercase tracking-[0.16em] text-[var(--green)]">{page.eyebrow}</p>
         <h1 className="mt-4 text-[clamp(38px,7vw,64px)] font-extrabold leading-[0.98] tracking-[-0.065em]">{page.title}</h1>
-        <p className="mt-6 max-w-2xl text-[17px] leading-7 text-[#425466]">{page.intro}</p>
-        <p className="mt-4 text-[12px] text-[#8898AA]">Última actualização: 9 de Setembro de 2026</p>
+        <p className="mt-6 max-w-2xl text-[17px] leading-7 text-[var(--ink-soft)]">{page.intro}</p>
+        <p className="mt-4 text-[12px] text-[var(--ink-faint)]">Última actualização: 9 de Setembro de 2026</p>
         <div className="mt-12 space-y-4">
           {page.sections.map(([heading, body]) => (
-            <section key={heading} className="rounded-[20px] border border-[#E6EBF1] bg-white p-5 shadow-[0_12px_30px_rgba(10,37,64,0.04)] sm:p-7">
+            <section key={heading} className="rounded-[20px] border border-[var(--border)] bg-white p-5 shadow-[0_12px_30px_rgba(23, 19, 31,0.04)] sm:p-7">
               <h2 className="flex items-start gap-2 text-[17px] font-bold">
-                <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-[#635BFF]" />
+                <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-[var(--green)]" />
                 {heading}
               </h2>
-              <p className="mt-3 text-[15px] leading-7 text-[#425466]">{body}</p>
+              <p className="mt-3 text-[15px] leading-7 text-[var(--ink-soft)]">{body}</p>
             </section>
           ))}
         </div>

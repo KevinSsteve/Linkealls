@@ -9,15 +9,15 @@ import { useBusinessSlug } from "../../hooks/useBusinessSlug";
 import { businessApi, type Order, type OrderAnalytics, type OrderEvent, type OrderFulfillmentStatus } from "../../lib/api";
 
 const D = {
-  bg: "#F6F9FC",
+  bg: "var(--app-bg)",
   surface: "#FFFFFF",
-  ink: "#0A2540",
-  inkSoft: "#425466",
-  faint: "#8898AA",
-  border: "#E6EBF1",
+  ink: "var(--ink)",
+  inkSoft: "var(--ink-soft)",
+  faint: "var(--ink-faint)",
+  border: "var(--border)",
   soft: "#F1F4F8",
-  green: "#635BFF",
-  greenLt: "#EEECFF",
+  green: "var(--green)",
+  greenLt: "var(--green-light)",
   success: "#15803D",
 } as const;
 

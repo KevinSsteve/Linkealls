@@ -43,17 +43,17 @@ const BASE = import.meta.env.BASE_URL;
 const VISITOR_ID_KEY = "linkealls_catalog_visitor_id";
 
 const T = {
-  bg: "#FFFFFF",
-  surface: "#FFFFFF",
-  ink: "#111111",
-  inkSoft: "#6B6B6B",
-  inkFaint: "#9A9A9A",
-  line: "#EEEEEE",
-  lineSoft: "#F4F4F4",
-  subtle: "#F8F8F8",
-  accent: "#111111",
-  accentInk: "#FFFFFF",
-  success: "#247A52",
+  bg: "#f8f5ee",
+  surface: "#fffdf8",
+  ink: "#17131f",
+  inkSoft: "#6e6874",
+  inkFaint: "#9e98a3",
+  line: "#e8e1d9",
+  lineSoft: "#f0ebe4",
+  subtle: "#f4efe8",
+  accent: "#246a59",
+  accentInk: "#fffdf8",
+  success: "#174e42",
 } as const;
 
 function getCatalogVisitorId(): string {

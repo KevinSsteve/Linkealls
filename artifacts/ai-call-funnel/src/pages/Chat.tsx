@@ -78,8 +78,8 @@ function OrderTrackingCard({
 }) {
   if (loading && !tracking) {
     return (
-      <div className="mx-1 mb-3 rounded-2xl p-4" style={{ background: "#FFFFFF", border: "1px solid #E6EBF1" }}>
-        <div className="flex items-center gap-2 text-[13px]" style={{ color: "#667781" }}>
+      <div className="mx-1 mb-3 rounded-2xl p-4" style={{ background: "var(--surface)", border: "1px solid var(--border)" }}>
+        <div className="flex items-center gap-2 text-[13px]" style={{ color: "var(--ink-soft)" }}>
           <RefreshCw size={14} className="animate-spin" /> A carregar o estado da encomenda…
         </div>
       </div>
@@ -87,7 +87,7 @@ function OrderTrackingCard({
   }
   if (error && !tracking) {
     return (
-      <div className="mx-1 mb-3 rounded-2xl p-4" style={{ background: "#FEF2F2", border: "1px solid #FECACA", color: "#991B1B" }}>
+      <div className="mx-1 mb-3 rounded-2xl p-4" style={{ background: "var(--errorBg)", border: "1px solid var(--errorBorder)", color: "var(--errorText)" }}>
         <p className="text-[13px]">{error}</p>
         <button onClick={onRefresh} className="mt-2 text-[12px] font-semibold underline">Tentar novamente</button>
       </div>
@@ -97,15 +97,15 @@ function OrderTrackingCard({
 
   const paid = tracking.status === "paga";
   return (
-    <div className="mx-1 mb-3 rounded-2xl overflow-hidden" style={{ background: "#FFFFFF", border: "1px solid #D8E1EA", boxShadow: "0 2px 8px rgba(10,37,64,0.06)" }}>
-      <div className="flex items-start justify-between gap-3 px-4 py-3" style={{ background: "#F8FAFC", borderBottom: "1px solid #E6EBF1" }}>
+    <div className="mx-1 mb-3 rounded-2xl overflow-hidden" style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "0 2px 8px rgba(23, 19, 31,0.06)" }}>
+      <div className="flex items-start justify-between gap-3 px-4 py-3" style={{ background: "var(--subtle)", borderBottom: "1px solid var(--border)" }}>
         <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "#8898AA" }}>A tua encomenda</p>
-          <p className="mt-1 truncate text-[14px] font-semibold" style={{ color: "#0A2540" }}>{tracking.offeringName}</p>
-          <p className="mt-0.5 text-[12px]" style={{ color: "#667781" }}>{tracking.quantity} unidade{tracking.quantity !== 1 ? "s" : ""} · {formatOrderAmount(tracking.amount)}</p>
+          <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--ink-faint)" }}>A tua encomenda</p>
+          <p className="mt-1 truncate text-[14px] font-semibold" style={{ color: "var(--ink)" }}>{tracking.offeringName}</p>
+          <p className="mt-0.5 text-[12px]" style={{ color: "var(--ink-soft)" }}>{tracking.quantity} unidade{tracking.quantity !== 1 ? "s" : ""} · {formatOrderAmount(tracking.amount)}</p>
         </div>
         <button onClick={onRefresh} disabled={loading} className="shrink-0 rounded-full p-2 disabled:opacity-40 touch-target-min" aria-label="Actualizar estado">
-          <RefreshCw size={18} className={loading ? "animate-spin" : ""} style={{ color: "#0A2540" }} />
+          <RefreshCw size={18} className={loading ? "animate-spin" : ""} style={{ color: "var(--ink)" }} />
         </button>
       </div>
       <div className="px-4 py-3">
@@ -113,16 +113,16 @@ function OrderTrackingCard({
           {paid ? <CheckCircle2 size={16} /> : <Clock3 size={16} />}
           {paid ? "Pagamento confirmado" : "Pagamento ainda não confirmado"}
         </div>
-        <div className="mt-2 flex items-center gap-2 text-[13px]" style={{ color: "#0A2540" }}>
-          <PackageCheck size={16} style={{ color: "#635BFF" }} />
+        <div className="mt-2 flex items-center gap-2 text-[13px]" style={{ color: "var(--ink)" }}>
+          <PackageCheck size={16} style={{ color: "var(--green)" }} />
           <span>Estado: <strong>{FULFILLMENT_LABELS[tracking.fulfillmentStatus]}</strong></span>
         </div>
         <div className="mt-3 space-y-2 border-l-2 pl-3" style={{ borderColor: "#D8E1EA" }}>
           {tracking.events.map((event, index) => (
             <div key={`${event.createdAt}-${event.type}-${index}`} className="relative">
-              <span className="absolute -left-[19px] top-1.5 h-2 w-2 rounded-full" style={{ background: index === tracking.events.length - 1 ? "#635BFF" : "#AAB7C4" }} />
-              <p className="text-[12px] leading-relaxed" style={{ color: "#425466" }}>{event.content}</p>
-              <p className="mt-0.5 text-[10px]" style={{ color: "#8898AA" }}>
+              <span className="absolute -left-[19px] top-1.5 h-2 w-2 rounded-full" style={{ background: index === tracking.events.length - 1 ? "var(--green)" : "#AAB7C4" }} />
+              <p className="text-[12px] leading-relaxed" style={{ color: "var(--ink-soft)" }}>{event.content}</p>
+              <p className="mt-0.5 text-[10px]" style={{ color: "var(--ink-faint)" }}>
                 {new Date(event.createdAt).toLocaleString("pt-AO", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
               </p>
             </div>
@@ -152,7 +152,7 @@ function MinimizedCallBanner({
     <div
       className="flex items-center gap-3 px-4 py-2.5 flex-shrink-0"
       style={{
-        background: "#0A2540",
+        background: "var(--ink)",
         borderBottom: "1px solid rgba(0,0,0,0.08)",
       }}
     >
@@ -216,16 +216,16 @@ function AgentMsgBubble({ msg, onDismiss }: { msg: AgentMessage; onDismiss: () =
     <div className="flex items-start gap-2 mb-2">
       <div
         className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center mt-0.5"
-        style={{ background: "#EEECFF" }}
+        style={{ background: "var(--green-light)" }}
       >
-        <MessageSquare size={11} style={{ color: "#635BFF" }} />
+        <MessageSquare size={11} style={{ color: "var(--green)" }} />
       </div>
       <div
         className="flex-1 rounded-2xl rounded-tl-sm px-3 py-2 text-[13px] leading-relaxed whitespace-pre-line"
         style={{
-          background: "#FFFFFF",
+          background: "var(--surface)",
           boxShadow: "0 1px 2px rgba(0,0,0,0.1)",
-          color: "#0A2540",
+          color: "var(--ink)",
         }}
       >
         {msg.text}
@@ -274,16 +274,16 @@ function AgentMessageOverlay({
           <div key={m.id} className="flex items-start gap-2">
             <div
               className="shrink-0 w-6 h-6 rounded-full flex items-center justify-center mt-0.5"
-              style={{ background: "#EEECFF" }}
+              style={{ background: "var(--green-light)" }}
             >
-              <MessageSquare size={11} style={{ color: "#635BFF" }} />
+              <MessageSquare size={11} style={{ color: "var(--green)" }} />
             </div>
             <div
               className="flex-1 rounded-2xl rounded-tl-sm px-3 py-2 text-[13px] leading-relaxed whitespace-pre-line"
               style={{
                 background: "rgba(255,255,255,0.92)",
                 boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-                color: "#0A2540",
+                color: "var(--ink)",
                 backdropFilter: "blur(8px)",
                 WebkitBackdropFilter: "blur(8px)",
               }}
@@ -322,13 +322,13 @@ function ProductCardItem({
       className="flex-shrink-0 flex flex-col rounded-2xl overflow-hidden"
       style={{
         width: 150,
-        background: "#FFFFFF",
+        background: "var(--surface)",
         boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
       }}
     >
       <div
         className="w-full flex items-center justify-center"
-        style={{ height: 110, background: "#F1F5F9", flexShrink: 0 }}
+        style={{ height: 110, background: "var(--subtle)", flexShrink: 0 }}
       >
         {product.imageUrl && !imgError ? (
           <img
@@ -346,16 +346,16 @@ function ProductCardItem({
       </div>
 
       <div className="flex flex-col flex-1 p-2.5 gap-1">
-        <p className="text-[13px] font-semibold leading-tight line-clamp-2" style={{ color: "#0A2540" }}>
+        <p className="text-[13px] font-semibold leading-tight line-clamp-2" style={{ color: "var(--ink)" }}>
           {product.name}
         </p>
         {product.price && (
-          <p className="text-[12px] font-bold" style={{ color: "#635BFF" }}>
+          <p className="text-[12px] font-bold" style={{ color: "var(--green)" }}>
             {product.price}
           </p>
         )}
         {product.description && (
-          <p className="text-[11px] leading-relaxed line-clamp-2" style={{ color: "#425466" }}>
+          <p className="text-[11px] leading-relaxed line-clamp-2" style={{ color: "var(--ink-soft)" }}>
             {product.description}
           </p>
         )}
@@ -364,7 +364,7 @@ function ProductCardItem({
             <button
               onClick={onBuy}
               className="w-full py-1.5 rounded-xl text-[12px] font-semibold transition-colors flex items-center justify-center gap-1"
-              style={{ background: "#635BFF", color: "#FFFFFF" }}
+              style={{ background: "var(--green)", color: "#FFFFFF" }}
             >
               <ShoppingCart size={11} />
               Comprar
@@ -374,8 +374,8 @@ function ProductCardItem({
             onClick={onSelect}
             className="w-full py-1.5 rounded-xl text-[12px] font-semibold transition-colors"
             style={{
-              background: canBuy ? "#F1F5F9" : "#635BFF",
-              color: canBuy ? "#425466" : "#FFFFFF",
+              background: canBuy ? "var(--subtle)" : "var(--green)",
+              color: canBuy ? "var(--ink-soft)" : "#FFFFFF",
             }}
           >
             {canBuy ? "Perguntar" : "Selecionar"}
@@ -403,7 +403,7 @@ function ProductVitrine({
     <div
       className="absolute inset-x-0 bottom-0 z-30 flex flex-col rounded-t-2xl"
       style={{
-        background: "#FFFFFF",
+        background: "var(--surface)",
         boxShadow: "0 -4px 24px rgba(0,0,0,0.15)",
         paddingTop: 8,
         maxHeight: "72%",
@@ -416,7 +416,7 @@ function ProductVitrine({
 
       <div className="flex items-center justify-between px-4 pb-3 flex-shrink-0">
         <div>
-        <p className="text-[15px] font-bold" style={{ color: "#0A2540" }}>Escolhe o que queres 👇</p>
+        <p className="text-[15px] font-bold" style={{ color: "var(--ink)" }}>Escolhe o que queres</p>
           <p className="text-[12px] mt-0.5" style={{ color: "#8696A0" }}>
             {products.length} produto{products.length !== 1 ? "s" : ""} disponíve
             {products.length !== 1 ? "is" : "l"}
@@ -425,9 +425,9 @@ function ProductVitrine({
         <button
           onClick={onClose}
           className="w-11 h-11 rounded-full flex items-center justify-center touch-target-min"
-          style={{ background: "#F1F5F9" }}
+          style={{ background: "var(--subtle)" }}
         >
-          <X size={18} style={{ color: "#425466" }} />
+          <X size={18} style={{ color: "var(--ink-soft)" }} />
         </button>
       </div>
 
@@ -462,13 +462,13 @@ function InlineProductShelf({
     <div
       className="mx-3 mb-2 rounded-2xl overflow-hidden"
       style={{
-        background: "#FFFFFF",
+        background: "var(--surface)",
         boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
-        border: "1px solid #E6EBF1",
+        border: "1px solid var(--border)",
       }}
     >
       <div className="flex items-center justify-between px-3 py-2.5">
-        <p className="text-[13px] font-semibold" style={{ color: "#0A2540" }}>
+        <p className="text-[13px] font-semibold" style={{ color: "var(--ink)" }}>
           Produtos disponíveis
         </p>
         <button onClick={onClose} className="touch-target-min">
@@ -699,7 +699,7 @@ export function Chat() {
 
       // Consumer mode — greet + trigger incoming call
       const botText =
-        "Olá 👋 Obrigado pelo teu interesse. Vou ligar agora para te ajudar e perceber exactamente o que precisas.";
+        "Olá. Obrigado pelo teu interesse. Vou ligar agora para te ajudar e perceber exactamente o que precisas.";
       const botMsg = addMessage("bot", botText);
       chatMsgsRef.current.push(botMsg);
       setStage("chat");

@@ -264,7 +264,7 @@ function LeadDetail({ lead: initialLead, onBack, onStateChange, api }: {
                 <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                   <span className="text-[13px] px-3 py-2 rounded-xl max-w-[80%]"
                     style={{
-                      background: m.role === "user" ? "#EEECFF" : C.bg,
+                      background: m.role === "user" ? "var(--green-light)" : C.bg,
                       color: C.text,
                       boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
                     }}>

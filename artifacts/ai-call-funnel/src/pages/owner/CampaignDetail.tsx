@@ -27,8 +27,8 @@ const PAYMENT_LABEL: Record<Campaign["paymentStatus"], string> = {
 function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex items-start justify-between gap-4 border-b border-[#F1F4F8] px-4 py-3 last:border-0">
-      <span className="text-[12px] text-[#8898AA]">{label}</span>
-      <span className="text-right text-[13px] font-semibold text-[#0A2540]">{value}</span>
+      <span className="text-[12px] text-[var(--ink-faint)]">{label}</span>
+      <span className="text-right text-[13px] font-semibold text-[var(--ink)]">{value}</span>
     </div>
   );
 }
@@ -100,12 +100,12 @@ export function LaunchCampaignDetail() {
   };
 
   if (!slug || !api) return null;
-  if (loading) return <div className="flex h-full items-center justify-center bg-[#F6F9FC]"><Loader2 size={24} className="animate-spin text-[#635BFF]" /></div>;
+  if (loading) return <div className="flex h-full items-center justify-center bg-[var(--app-bg)]"><Loader2 size={24} className="animate-spin text-[var(--green)]" /></div>;
   if (!campaign) return (
-    <div className="flex h-full flex-col items-center justify-center gap-3 bg-[#F6F9FC] px-5 text-center">
+    <div className="flex h-full flex-col items-center justify-center gap-3 bg-[var(--app-bg)] px-5 text-center">
       <AlertCircle size={24} className="text-[#B91C1C]" />
-      <p className="text-[14px] text-[#0A2540]">Campanha não encontrada</p>
-      <Link href={`/e/${slug}/dono/campanhas`} className="text-[13px] font-semibold text-[#635BFF]">Voltar ao histórico</Link>
+      <p className="text-[14px] text-[var(--ink)]">Campanha não encontrada</p>
+      <Link href={`/e/${slug}/dono/campanhas`} className="text-[13px] font-semibold text-[var(--green)]">Voltar ao histórico</Link>
     </div>
   );
 
@@ -140,9 +140,9 @@ export function LaunchCampaignDetail() {
         </button>
       </header>
       <main className="owner-content-scroll px-4 py-4">
-        <div className="mb-4 rounded-2xl border border-[#E6EBF1] bg-white px-4 py-4">
-          <p className="text-[14px] font-semibold text-[#0A2540]">Acompanhamento de compromisso anterior</p>
-          <p className="mt-1 text-[12px] leading-5 text-[#425466]">
+        <div className="mb-4 rounded-2xl border border-[var(--border)] bg-white px-4 py-4">
+          <p className="text-[14px] font-semibold text-[var(--ink)]">Acompanhamento de compromisso anterior</p>
+          <p className="mt-1 text-[12px] leading-5 text-[var(--ink-soft)]">
             Novas configurações, cobranças, conteúdos e publicações estão suspensas. Aqui podes consultar o estado e impedir novos gastos num anúncio existente.
           </p>
         </div>
@@ -167,7 +167,7 @@ export function LaunchCampaignDetail() {
         )}
         {error && <div className="mb-4 flex gap-2 rounded-xl border border-[#FECACA] bg-[#FEF2F2] px-4 py-3 text-[13px] text-[#B91C1C]"><AlertCircle size={15} className="shrink-0" />{error}</div>}
 
-        <div className="overflow-hidden rounded-2xl border border-[#E6EBF1] bg-white">
+        <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-white">
           <DetailRow label="Plataforma" value={campaign.platform.toUpperCase()} />
           <DetailRow label="Estado da publicação" value={PUBLISH_LABEL[campaign.publishStatus]} />
           <DetailRow label="Pagamento" value={PAYMENT_LABEL[campaign.paymentStatus]} />
@@ -185,10 +185,10 @@ export function LaunchCampaignDetail() {
 
         {campaign.publishError && <p className="mt-3 break-words text-[12px] leading-5 text-[#B91C1C]">{campaign.publishError}</p>}
 
-        <section className="mt-4 rounded-2xl border border-[#E6EBF1] bg-white px-4 py-4">
-          <p className="text-[12px] font-semibold uppercase tracking-wide text-[#425466]">Link rastreado existente</p>
+        <section className="mt-4 rounded-2xl border border-[var(--border)] bg-white px-4 py-4">
+          <p className="text-[12px] font-semibold uppercase tracking-wide text-[var(--ink-soft)]">Link rastreado existente</p>
           <div className="mt-2 flex items-center gap-2">
-            <a href={trackingUrl} target="_blank" rel="noopener noreferrer" className="min-w-0 flex-1 truncate text-[12px] font-medium text-[#635BFF]">{trackingUrl}</a>
+            <a href={trackingUrl} target="_blank" rel="noopener noreferrer" className="min-w-0 flex-1 truncate text-[12px] font-medium text-[var(--green)]">{trackingUrl}</a>
             <button type="button" onClick={async () => { await navigator.clipboard.writeText(trackingUrl); setCopied(true); window.setTimeout(() => setCopied(false), 1800); }} className="app-icon-button" aria-label="Copiar link rastreado">
               {copied ? <Check size={16} /> : <Copy size={16} />}
             </button>
@@ -197,17 +197,17 @@ export function LaunchCampaignDetail() {
         </section>
 
         {campaign.creativeJson && (
-          <section className="mt-4 overflow-hidden rounded-2xl border border-[#E6EBF1] bg-white">
+          <section className="mt-4 overflow-hidden rounded-2xl border border-[var(--border)] bg-white">
             {campaign.creativeJson.mediaType === "video" ? (
               <video src={campaign.creativeJson.mediaUrl} controls playsInline className="max-h-[360px] w-full bg-black" />
             ) : (
-              <img src={campaign.creativeJson.mediaUrl} alt="Criativo guardado da campanha" className="max-h-[420px] w-full object-contain bg-[#F1F5F9]" />
+              <img src={campaign.creativeJson.mediaUrl} alt="Criativo guardado da campanha" className="max-h-[420px] w-full object-contain bg-[var(--subtle)]" />
             )}
             <div className="px-4 py-4">
-              <p className="text-[12px] font-semibold uppercase tracking-wide text-[#425466]">Criativo guardado</p>
-              <p className="mt-2 text-[15px] font-semibold text-[#0A2540]">{campaign.creativeJson.headline}</p>
-              <p className="mt-1 whitespace-pre-wrap text-[13px] leading-5 text-[#425466]">{campaign.creativeJson.body}</p>
-              <a href={campaign.creativeJson.mediaUrl} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-1.5 text-[12px] font-semibold text-[#635BFF]">
+              <p className="text-[12px] font-semibold uppercase tracking-wide text-[var(--ink-soft)]">Criativo guardado</p>
+              <p className="mt-2 text-[15px] font-semibold text-[var(--ink)]">{campaign.creativeJson.headline}</p>
+              <p className="mt-1 whitespace-pre-wrap text-[13px] leading-5 text-[var(--ink-soft)]">{campaign.creativeJson.body}</p>
+              <a href={campaign.creativeJson.mediaUrl} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-1.5 text-[12px] font-semibold text-[var(--green)]">
                 Abrir ficheiro guardado <ExternalLink size={13} />
               </a>
             </div>
@@ -215,35 +215,35 @@ export function LaunchCampaignDetail() {
         )}
 
         {kit && (
-          <section className="mt-4 rounded-2xl border border-[#E6EBF1] bg-white px-4 py-4">
-            <p className="text-[12px] font-semibold uppercase tracking-wide text-[#425466]">Kit histórico guardado</p>
-            <div className="mt-3 space-y-4 text-[13px] leading-5 text-[#425466]">
+          <section className="mt-4 rounded-2xl border border-[var(--border)] bg-white px-4 py-4">
+            <p className="text-[12px] font-semibold uppercase tracking-wide text-[var(--ink-soft)]">Kit histórico guardado</p>
+            <div className="mt-3 space-y-4 text-[13px] leading-5 text-[var(--ink-soft)]">
               <div>
-                <p className="font-semibold text-[#0A2540]">Público</p>
+                <p className="font-semibold text-[var(--ink)]">Público</p>
                 <p>{kit.audience.demographics}</p>
                 {kit.audience.interests && <p>Interesses: {kit.audience.interests}</p>}
               </div>
               <div>
-                <p className="font-semibold text-[#0A2540]">Orçamento planeado</p>
+                <p className="font-semibold text-[var(--ink)]">Orçamento planeado</p>
                 <p>{kit.budgetAllocation.suggestion}</p>
                 <p>{kit.budgetAllocation.dailyBudget} · {kit.budgetAllocation.bidStrategy}</p>
               </div>
               {kit.copies.length > 0 && (
                 <div>
-                  <p className="font-semibold text-[#0A2540]">Textos guardados</p>
+                  <p className="font-semibold text-[var(--ink)]">Textos guardados</p>
                   <div className="mt-2 space-y-3">
                     {kit.copies.map((copy, index) => (
-                      <div key={index} className="rounded-xl bg-[#F6F9FC] px-3 py-3">
-                        <p className="font-semibold text-[#0A2540]">{copy.headline}</p>
+                      <div key={index} className="rounded-xl bg-[var(--app-bg)] px-3 py-3">
+                        <p className="font-semibold text-[var(--ink)]">{copy.headline}</p>
                         <p className="mt-1 whitespace-pre-wrap">{copy.body}</p>
-                        <p className="mt-1 text-[11px] font-semibold text-[#635BFF]">{copy.cta}</p>
+                        <p className="mt-1 text-[11px] font-semibold text-[var(--green)]">{copy.cta}</p>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
               <div>
-                <p className="font-semibold text-[#0A2540]">Conceito criativo</p>
+                <p className="font-semibold text-[var(--ink)]">Conceito criativo</p>
                 <p>{kit.creativeBrief.visualConcept}</p>
                 <p className="mt-1">Formato: {kit.creativeBrief.format}</p>
               </div>

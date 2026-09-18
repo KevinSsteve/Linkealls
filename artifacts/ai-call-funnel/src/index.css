@@ -7,7 +7,7 @@
   --surface: #fffdf8;
   --ink: #17131f;
   --ink-soft: #6e6874;
-  --ink-faint: #9e98a3;
+  --ink-faint: #716b75;
   --border: #e8e1d9;
   --border-soft: #f0ebe4;
   --subtle: #f4efe8;
@@ -15,7 +15,10 @@
   --green-dark: #174e42;
   --green-light: #dff1e9;
   --success: #246a59;
-  --header-bg: #f8f5ee;
+  --errorBg: #fde9e7;
+  --errorText: #9f352c;
+  --errorBorder: #dba59e;
+  --header-bg: #17131f;
   --page-padding-mobile: 20px;
   --page-padding-tablet: 20px;
   --space-1: 4px;
@@ -40,24 +43,24 @@
   --font-sans: 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 
   /* Linkealls design tokens */
-  --color-app-bg:          #F6F9FC;
-  --color-surface:         #FFFFFF;
-  --color-chat-bg:         #F6F9FC;
-  --color-header-bg:       #FFFFFF;
-  --color-input-bg:        #F1F5F9;
-  --color-input-field:     #FFFFFF;
-  --color-input-border:    #E6EBF1;
-  --color-bubble-user-bg:  #EEECFF;
-  --color-bubble-user-text:#0A2540;
-  --color-bubble-bot-bg:   #FFFFFF;
-  --color-bubble-bot-text: #111827;
-  --color-accent:          #635BFF;
-  --color-accent-hover:    #5046E5;
-  --color-online:          #2E8B72;
-  --color-text-primary:    #0A2540;
-  --color-text-secondary:  #425466;
-  --color-text-muted:      #8898AA;
-  --color-divider:         #E6EBF1;
+  --color-app-bg:          #f8f5ee;
+  --color-surface:         #fffdf8;
+  --color-chat-bg:         #f4efe8;
+  --color-header-bg:       #f8f5ee;
+  --color-input-bg:        #fffdf8;
+  --color-input-field:     #fffdf8;
+  --color-input-border:    #e8e1d9;
+  --color-bubble-user-bg:  #dff1e9;
+  --color-bubble-user-text:#17131f;
+  --color-bubble-bot-bg:   #fffdf8;
+  --color-bubble-bot-text: #17131f;
+  --color-accent:          #246a59;
+  --color-accent-hover:    #174e42;
+  --color-online:          #246a59;
+  --color-text-primary:    #17131f;
+  --color-text-secondary:  #6e6874;
+  --color-text-muted:      #716b75;
+  --color-divider:         #e8e1d9;
 }
 
 /* Tailwind's preflight already resets margins and padding. Keep this rule to
@@ -84,10 +87,10 @@ body {
   min-height: 100dvh;
 }
 
-/* ─── Chat background — WhatsApp rhythm with Stripe palette ─── */
+/* ─── Chat background ─── */
 .chat-bg {
-  background-color: #F6F9FC;
-  background-image: url("data:image/svg+xml,%3Csvg width='72' height='72' viewBox='0 0 72 72' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%23635BFF' stroke-opacity='.055' stroke-width='1.2'%3E%3Cpath d='M12 18h12M18 12v12M49 48h12M55 42v12M31 61h10M36 56v10'/%3E%3C/g%3E%3C/svg%3E");
+  background-color: var(--subtle);
+  background-image: url("data:image/svg+xml,%3Csvg width='72' height='72' viewBox='0 0 72 72' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='%23246a59' stroke-opacity='.055' stroke-width='1.2'%3E%3Cpath d='M12 18h12M18 12v12M49 48h12M55 42v12M31 61h10M36 56v10'/%3E%3C/g%3E%3C/svg%3E");
 }
 
 /* ─── Message entrance ─── */
@@ -721,7 +724,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   width: 460px;
   height: 460px;
   border-radius: 50%;
-  background: rgba(99, 91, 255, 0.055);
+  background: rgba(36, 106, 89, 0.055);
   pointer-events: none;
 }
 
@@ -748,7 +751,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 }
 
 .catalog-header-cta {
-  box-shadow: 0 7px 18px rgba(99, 91, 255, 0.18);
+  box-shadow: 0 7px 18px rgba(36, 106, 89, 0.18);
 }
 
 .catalog-hero {
@@ -762,7 +765,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   left: 50%;
   width: min(760px, 92vw);
   height: 320px;
-  border: 1px solid rgba(99, 91, 255, 0.09);
+  border: 1px solid rgba(36, 106, 89, 0.09);
   border-radius: 50%;
   transform: translateX(-50%) rotate(-5deg);
   pointer-events: none;
@@ -777,7 +780,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 }
 
 .catalog-hero-actions a:first-child:hover {
-  box-shadow: 0 12px 26px rgba(99, 91, 255, 0.2);
+  box-shadow: 0 12px 26px rgba(36, 106, 89, 0.2);
   transform: translateY(-2px);
 }
 
@@ -799,7 +802,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 }
 
 .catalog-product-card:hover {
-  border-color: rgba(99, 91, 255, 0.28) !important;
+  border-color: rgba(36, 106, 89, 0.28) !important;
   box-shadow: 0 14px 28px rgba(20, 43, 61, 0.08) !important;
   transform: translateY(-3px);
 }
@@ -842,17 +845,17 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   }
 }
 
-/* ─── Catalog refresh: white social-commerce profile ───────────────────────── */
+/* ─── Catalog refresh: warm social-commerce profile ────────────────────────── */
 .catalog-page {
-  --catalog-ink: #111111;
-  --catalog-soft: #6B6B6B;
-  --catalog-faint: #9A9A9A;
-  --catalog-line: #EEEEEE;
-  --catalog-subtle: #F8F8F8;
+  --catalog-ink: var(--ink);
+  --catalog-soft: var(--ink-soft);
+  --catalog-faint: var(--ink-faint);
+  --catalog-line: var(--border);
+  --catalog-subtle: var(--subtle);
   min-height: 100dvh;
   overflow-x: hidden;
   color: var(--catalog-ink);
-  background: #FFFFFF;
+  background: var(--bg);
   font-family: var(--font-sans);
 }
 
@@ -872,7 +875,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   top: 0;
   z-index: 30;
   border-bottom: 1px solid var(--catalog-line);
-  background: rgba(255,255,255,.9);
+  background: rgba(255,253,248,.92);
   box-shadow: none;
   backdrop-filter: blur(16px);
 }

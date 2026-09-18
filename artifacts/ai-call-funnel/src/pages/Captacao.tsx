@@ -7,6 +7,7 @@
  *
  * É esta página que os anúncios devem usar como destino.
  */
+import { ShoppingBag } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Redirect } from "wouter";
 import { ChatLayout } from "../components/ChatLayout";
@@ -74,7 +75,7 @@ function CaptacaoProductOverlay({
     <div
       className="absolute inset-x-0 bottom-0 z-30 rounded-t-2xl px-4 pt-4 pb-5"
       style={{
-        background: "#FFFFFF",
+        background: "var(--surface)",
         boxShadow: "0 -4px 24px rgba(0,0,0,0.18)",
         maxHeight: "58%",
         overflowY: "auto",
@@ -82,10 +83,10 @@ function CaptacaoProductOverlay({
     >
       <div className="flex items-center justify-between mb-3">
         <div>
-          <p className="text-[15px] font-bold" style={{ color: "#0A2540" }}>
+          <p className="text-[15px] font-bold" style={{ color: "var(--ink)" }}>
             Produtos disponíveis
           </p>
-          <p className="text-[12px] mt-0.5" style={{ color: "#8898AA" }}>
+          <p className="text-[12px] mt-0.5" style={{ color: "var(--ink-faint)" }}>
             Escolhe um produto para saber mais
           </p>
         </div>
@@ -97,11 +98,11 @@ function CaptacaoProductOverlay({
             onClick={() => onSelect(product)}
             className="overflow-hidden rounded-2xl text-left transition-transform active:scale-[0.98]"
             style={{
-              background: "#FFFFFF",
-              border: "1px solid #E6EBF1",
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
             }}
           >
-            <div className="h-24 flex items-center justify-center" style={{ background: "#F1F5F9" }}>
+            <div className="h-24 flex items-center justify-center" style={{ background: "var(--subtle)" }}>
               {product.imageUrl ? (
                 <img
                   src={product.imageUrl}
@@ -110,19 +111,19 @@ function CaptacaoProductOverlay({
                   onError={(event) => { event.currentTarget.style.display = "none"; }}
                 />
               ) : (
-                <span className="text-2xl">🛍️</span>
+                <ShoppingBag size={24} style={{ color: "var(--ink-faint)" }} />
               )}
             </div>
             <div className="p-2.5">
-                <p className="text-[13px] font-semibold leading-tight line-clamp-2" style={{ color: "#0A2540" }}>
+                <p className="text-[13px] font-semibold leading-tight line-clamp-2" style={{ color: "var(--ink)" }}>
                 {product.name}
               </p>
               {product.price && (
-                <p className="mt-1 text-[12px] font-bold" style={{ color: "#635BFF" }}>
+                <p className="mt-1 text-[12px] font-bold" style={{ color: "var(--green)" }}>
                   {product.price}
                 </p>
               )}
-              <span className="mt-2 block rounded-xl py-1.5 text-center text-[11px] font-semibold" style={{ background: "#635BFF", color: "#FFFFFF" }}>
+              <span className="mt-2 block rounded-xl py-1.5 text-center text-[11px] font-semibold" style={{ background: "var(--green)", color: "#FFFFFF" }}>
                 Quero saber mais
               </span>
             </div>
@@ -169,7 +170,7 @@ export function Captacao() {
     setStage("typing");
 
     setTimeout(async () => {
-      const botText = "Olá 👋 Obrigado pelo teu interesse. Vou ligar agora para te ajudar e perceber exatamente o que procuras.";
+      const botText = "Olá. Obrigado pelo teu interesse. Vou ligar agora para te ajudar e perceber exatamente o que procuras.";
       const botMsg = addMessage("bot", botText);
       chatMsgsRef.current.push(botMsg);
       setStage("chat");

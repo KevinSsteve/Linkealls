@@ -84,20 +84,20 @@ export function InlineCheckout({ businessSlug, leadId, checkout, onDone, onDismi
 
   // Tokens consistent with BuyModal
   const T = {
-    bg: "#FFFFFF",
-    ink: "#111B21",
-    inkSoft: "#667781",
-    inkFaint: "#8696A0",
-    line: "#E9EDEF",
-    mcGreen: "#16A34A",
-    mcLight: "#F0FDF4",
-    mcBorder: "#BBF7D0",
-    errBg: "#FEF2F2",
-    errText: "#DC2626",
-    errBorder: "#FECACA",
-    warnBg: "#FFFBEB",
-    warnText: "#D97706",
-    warnBorder: "#FDE68A",
+    bg: "var(--surface)",
+    ink: "var(--ink)",
+    inkSoft: "var(--ink-soft)",
+    inkFaint: "var(--ink-faint)",
+    line: "var(--border)",
+    mcGreen: "var(--green)",
+    mcLight: "var(--green-light)",
+    mcBorder: "var(--green)",
+    errBg: "var(--errorBg)",
+    errText: "var(--errorText)",
+    errBorder: "var(--errorBorder)",
+    warnBg: "#fff6e5",
+    warnText: "#a65c00",
+    warnBorder: "#e8c477",
     r: "16px",
     rBtn: "999px",
   } as const;
@@ -108,7 +108,7 @@ export function InlineCheckout({ businessSlug, leadId, checkout, onDone, onDismi
       style={{
         background: T.bg,
         border: `1px solid ${T.line}`,
-        boxShadow: "0 4px 20px rgba(0,0,0,0.10)",
+        boxShadow: "0 8px 24px rgba(23, 19, 31, 0.10)",
       }}
     >
       {/* Header */}
@@ -137,7 +137,7 @@ export function InlineCheckout({ businessSlug, leadId, checkout, onDone, onDismi
       {/* Product line */}
       <div
         className="flex items-center justify-between px-4 py-2"
-        style={{ borderBottom: `1px solid ${T.line}`, background: "#F9F9F8" }}
+        style={{ borderBottom: `1px solid ${T.line}`, background: "var(--subtle)" }}
       >
         <span className="text-[13px] truncate mr-2" style={{ color: T.inkSoft }}>
           {checkout.offeringName}

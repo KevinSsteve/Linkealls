@@ -95,7 +95,7 @@ function DeleteAccountDialog({
   const ready = confirmation.trim().toUpperCase() === "APAGAR";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[#0A2540]/45 p-4 sm:items-center" role="presentation">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-[var(--ink)]/45 p-4 sm:items-center" role="presentation">
       <div
         role="dialog"
         aria-modal="true"
@@ -107,26 +107,26 @@ function DeleteAccountDialog({
             <Trash2 size={19} />
           </div>
           <div>
-            <h2 id="delete-account-title" className="text-[18px] font-bold text-[#0A2540]">Eliminar a conta?</h2>
-            <p className="mt-1 text-[13px] leading-5 text-[#425466]">
+            <h2 id="delete-account-title" className="text-[18px] font-bold text-[var(--ink)]">Eliminar a conta?</h2>
+            <p className="mt-1 text-[13px] leading-5 text-[var(--ink-soft)]">
               Esta acção elimina definitivamente o perfil, catálogo, leads, conversas, campanhas e histórico de pagamentos deste negócio.
             </p>
           </div>
         </div>
-        <label className="block text-[12px] font-semibold uppercase tracking-[0.08em] text-[#8898AA]" htmlFor="delete-account-confirmation">
+        <label className="block text-[12px] font-semibold uppercase tracking-[0.08em] text-[var(--ink-faint)]" htmlFor="delete-account-confirmation">
           Escreve APAGAR para confirmar
         </label>
         <input
           id="delete-account-confirmation"
           value={confirmation}
           onChange={(event) => setConfirmation(event.target.value)}
-          className="mt-2 w-full rounded-xl border border-[#E6EBF1] bg-[#F6F9FC] px-3 py-3 text-[15px] outline-none focus:border-[#DC2626]"
+          className="mt-2 w-full rounded-xl border border-[var(--border)] bg-[var(--app-bg)] px-3 py-3 text-[15px] outline-none focus:border-[#DC2626]"
           autoFocus
           autoComplete="off"
           disabled={loading}
         />
         <div className="mt-5 flex gap-2">
-          <button type="button" onClick={onClose} disabled={loading} className="min-h-11 flex-1 rounded-xl border border-[#E6EBF1] px-4 text-[14px] font-semibold text-[#425466] disabled:opacity-50">
+          <button type="button" onClick={onClose} disabled={loading} className="min-h-11 flex-1 rounded-xl border border-[var(--border)] px-4 text-[14px] font-semibold text-[var(--ink-soft)] disabled:opacity-50">
             Cancelar
           </button>
           <button type="button" onClick={onConfirm} disabled={!ready || loading} className="min-h-11 flex-1 rounded-xl bg-[#DC2626] px-4 text-[14px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40">

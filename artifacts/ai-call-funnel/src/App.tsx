@@ -77,15 +77,15 @@ function LegacyLinkNotice() {
   if (isLoggedIn && user?.handle) return <Redirect to={`/e/${user.handle}/dono`} />;
   return (
     <div className="flex flex-col items-center justify-center h-full px-8 text-center gap-4">
-      <p className="text-[15px] font-semibold text-[#EAF0F7]">Este link mudou</p>
-      <p className="text-[13px] leading-relaxed" style={{ color: "#4A6B80" }}>
+      <p className="text-[15px] font-semibold" style={{ color: "var(--ink)" }}>Este link mudou</p>
+      <p className="text-[13px] leading-relaxed" style={{ color: "var(--ink-soft)" }}>
         Agora cada negócio tem o seu próprio endereço. Procura o negócio na
         página inicial para continuar a conversa.
       </p>
       <a
         href={import.meta.env.BASE_URL}
         className="px-5 py-2.5 rounded-xl font-bold text-[14px]"
-        style={{ background: "#00A884", color: "#050D14" }}
+        style={{ background: "var(--green)", color: "var(--surface)" }}
       >
         Ir para a página inicial
       </a>
@@ -143,8 +143,8 @@ export default function App() {
           <Route>
             {() => (
               <div
-                  className="w-full bg-[#F6F9FC] flex flex-col overflow-hidden"
-                style={{ height: "var(--vh, 100dvh)" }}
+                  className="w-full flex flex-col overflow-hidden"
+                style={{ background: "var(--bg)", height: "var(--vh, 100dvh)" }}
               >
                 <Switch>
                   {/* Legacy user profile URL → canonical short catalog URL */}

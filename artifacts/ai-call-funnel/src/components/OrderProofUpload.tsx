@@ -57,8 +57,8 @@ export function OrderProofUpload({
   }
 
   return (
-    <div className="w-full rounded-xl text-left" style={{ background: "#F8FAFC", border: "1px solid #E6EBF1", padding: compact ? 10 : 12 }}>
-      <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg font-semibold transition-opacity hover:opacity-80 touch-target-min" style={{ background: "#FFFFFF", border: "1px solid #D8E1EA", color: "#0A2540", fontSize: 12 }}>
+    <div className="w-full rounded-xl text-left" style={{ background: "#F8FAFC", border: "1px solid var(--border)", padding: compact ? 10 : 12 }}>
+      <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg font-semibold transition-opacity hover:opacity-80 touch-target-min" style={{ background: "#FFFFFF", border: "1px solid #D8E1EA", color: "var(--ink)", fontSize: 12 }}>
         {busy ? <Loader2 size={15} className="animate-spin" /> : <FileUp size={15} />}
         {busy ? "A enviar…" : "Enviar comprovativo"}
         <input

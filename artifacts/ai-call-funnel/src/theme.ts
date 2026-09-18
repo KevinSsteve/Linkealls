@@ -7,45 +7,45 @@
  */
 export const C = {
   // ── App backgrounds ────────────────────────────────────────────────────────
-  bg:            "#F8F9FA",   // shared app shell background
-  appBg:         "#F8F9FA",
-  white:         "#FFFFFF",   // surface / card background
-  surface:       "#FFFFFF",
+  bg:            "#f8f5ee",
+  appBg:         "#f8f5ee",
+  white:         "#fffdf8",
+  surface:       "#fffdf8",
 
-  // ── Linkealls brand — Stripe-inspired ──────────────────────────────────────
-  green:         "#635BFF",   // primary accent for actions and navigation
-  greenDark:     "#5046E5",   // accessible accent text on light surfaces
-  greenLight:    "#EEECFF",   // soft accent tint
-  greenMuted:    "#F6F4FF",   // barely-purple hover surface
+  // ── Linkealls brand — warm confident ──────────────────────────────────────
+  green:         "#246a59",
+  greenDark:     "#174e42",
+  greenLight:    "#dff1e9",
+  greenMuted:    "#dff1e9",
   /** @deprecated legacy name kept for existing consumers */
-  greenLegacy:   "#635BFF",
-  /** Deep navy header used for chat and detail views */
-  headerBg:      "#0A2540",
-  stripe:        "#635BFF",
-  navy:          "#0A2540",
-  success:       "#2E8B72",
+  greenLegacy:   "#246a59",
+  /** Dark header used for chat and detail views */
+  headerBg:      "#17131f",
+  stripe:        "#246a59",
+  navy:          "#17131f",
+  success:       "#246a59",
 
   // ── Text ───────────────────────────────────────────────────────────────────
-  text:          "#0A2540",   // shared primary text
-  text2:         "#425466",   // secondary / supporting
-  text3:         "#8898AA",   // muted / placeholders
-  ink:           "#0A2540",
-  inkSoft:       "#425466",
-  inkFaint:      "#8898AA",
+  text:          "#17131f",
+  text2:         "#6e6874",
+  text3:         "#716b75",
+  ink:           "#17131f",
+  inkSoft:       "#6e6874",
+  inkFaint:      "#716b75",
 
-  // ── Chat (WhatsApp interaction pattern, Stripe palette) ────────────────────
-  chatBg:        "#F6F9FC",
-  chatWallpaper: "#F6F9FC",
-  bubOut:        "#EEECFF",   // visitor/user bubble
-  bubIn:         "#FFFFFF",   // AI bubble
-  bubbleUser:    "#EEECFF",
-  bubbleBot:     "#FFFFFF",
+  // ── Chat ───────────────────────────────────────────────────────────────────
+  chatBg:        "#f4efe8",
+  chatWallpaper: "#f4efe8",
+  bubOut:        "#dff1e9",
+  bubIn:         "#fffdf8",
+  bubbleUser:    "#dff1e9",
+  bubbleBot:     "#fffdf8",
 
   // ── UI chrome ───────────────────────────────────────────────────────────────
-  border:        "#E6EBF1",   // cool-gray — subtle dividers
-  borderSoft:    "#F1F4F8",
-  subtle:        "#F1F5F9",
-  inputBg:       "#F1F5F9",   // cool-gray input fields
+  border:        "#e8e1d9",
+  borderSoft:    "#f0ebe4",
+  subtle:        "#f4efe8",
+  inputBg:       "#fffdf8",
 
   // ── Layout ─────────────────────────────────────────────────────────────────
   gutter:        16,
@@ -56,15 +56,15 @@ export const C = {
   radiusLg:      16,
 
   // ── Feedback ────────────────────────────────────────────────────────────────
-  successBg:     "#E8F7F1",
-  successText:   "#176B55",
-  successBorder: "#B8E5D5",
-  errorBg:       "#FEF2F2",
-  errorText:     "#DC2626",
-  errorBorder:   "#FECACA",
-  warnBg:        "#FFFBEB",
-  warnText:      "#D97706",
-  warnBorder:    "#FDE68A",
+  successBg:     "#dff1e9",
+  successText:   "#174e42",
+  successBorder: "#246a59",
+  errorBg:       "#fde9e7",
+  errorText:     "#b34235",
+  errorBorder:   "#e5ada5",
+  warnBg:        "#fff6e5",
+  warnText:      "#d97706",
+  warnBorder:    "#fde68a",
 } as const;
 
 export type ColorToken = keyof typeof C;

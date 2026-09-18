@@ -31,7 +31,7 @@ export function WaHeader({
   return (
     <div
       className={`flex items-center gap-3 px-3 shrink-0 ${className}`}
-        style={{ background: "#0A2540", height: 56 }}
+        style={{ background: "var(--ink)", height: 56 }}
     >
       {onBack && (
         <button

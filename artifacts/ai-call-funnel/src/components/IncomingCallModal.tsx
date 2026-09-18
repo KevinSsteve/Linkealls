@@ -97,13 +97,13 @@ export function IncomingCallModal({ onAccept, onReject }: IncomingCallModalProps
       aria-modal="true"
       aria-label="Chamada do assistente IA"
       className="absolute inset-0 z-50 flex flex-col items-center slide-up overflow-hidden"
-      style={{ background: "linear-gradient(180deg, #060C18 0%, #080F1C 40%, #040A12 100%)" }}
+      style={{ background: "linear-gradient(180deg, #211b2c 0%, var(--header-bg) 48%, #100d16 100%)" }}
     >
       {/* Top glow */}
       <div
         className="absolute top-0 left-1/2 w-72 h-72 rounded-full pointer-events-none"
         style={{
-          background: "radial-gradient(circle, rgba(0,200,150,0.08) 0%, transparent 70%)",
+          background: "radial-gradient(circle, rgba(142,214,196,0.12) 0%, transparent 70%)",
           filter: "blur(30px)",
           transform: "translateX(-50%) translateY(-30%)",
         }}
@@ -111,7 +111,7 @@ export function IncomingCallModal({ onAccept, onReject }: IncomingCallModalProps
 
       {/* Info */}
       <div className="flex flex-col items-center gap-6 pt-20 flex-1">
-        <p className="text-[11px] tracking-[0.18em] uppercase font-medium" style={{ color: "#3E576F" }}>
+        <p className="text-[11px] tracking-[0.18em] uppercase font-medium" style={{ color: "#c8c2cc" }}>
           Chamada recebida
         </p>
 
@@ -123,7 +123,7 @@ export function IncomingCallModal({ onAccept, onReject }: IncomingCallModalProps
               className="pulse-ring absolute rounded-full"
               style={{
                 width: "140px", height: "140px",
-                border: `1px solid rgba(0,200,150,${0.2 - delay * 0.08})`,
+                border: `1px solid rgba(142,214,196,${0.3 - delay * 0.08})`,
                 animationDelay: `${delay}s`,
               }}
             />
@@ -131,8 +131,8 @@ export function IncomingCallModal({ onAccept, onReject }: IncomingCallModalProps
           <div
             className="relative w-24 h-24 rounded-full flex items-center justify-center text-5xl font-bold text-white z-10"
             style={{
-              background: "linear-gradient(135deg, #00C896 0%, #00694E 100%)",
-              boxShadow: "0 0 48px rgba(0,200,150,0.35), 0 0 0 1px rgba(0,200,150,0.2)",
+              background: "linear-gradient(135deg, #31806c 0%, #174e42 100%)",
+              boxShadow: "0 0 48px rgba(49,128,108,0.35), 0 0 0 1px rgba(142,214,196,0.24)",
             }}
           >
             A
@@ -144,8 +144,8 @@ export function IncomingCallModal({ onAccept, onReject }: IncomingCallModalProps
             Assistente IA
           </h2>
           <div className="flex items-center justify-center gap-1.5 mt-2">
-            <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "#00C896" }} />
-            <p className="text-sm" style={{ color: "#7B96B2" }}>A ligar…</p>
+            <span className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: "#8ed6c4" }} />
+            <p className="text-sm" style={{ color: "#c8c2cc" }}>A ligar…</p>
           </div>
         </div>
       </div>
@@ -161,7 +161,7 @@ export function IncomingCallModal({ onAccept, onReject }: IncomingCallModalProps
           >
             <PhoneOff size={25} className="text-white" />
           </button>
-          <span className="text-xs" style={{ color: "#3E576F" }}>Recusar</span>
+          <span className="text-xs" style={{ color: "#c8c2cc" }}>Recusar</span>
         </div>
 
         <div className="flex flex-col items-center gap-3">
@@ -169,11 +169,11 @@ export function IncomingCallModal({ onAccept, onReject }: IncomingCallModalProps
             onClick={accept}
             aria-label="Atender chamada"
             className="w-16 h-16 rounded-full flex items-center justify-center active:scale-90 transition-transform glow-pulse"
-            style={{ background: "linear-gradient(135deg,#00C896,#007A5C)", boxShadow: "0 8px 24px rgba(0,200,150,0.45)" }}
+            style={{ background: "linear-gradient(135deg,#31806c,#174e42)", boxShadow: "0 8px 24px rgba(36,106,89,0.45)" }}
           >
             <PhoneCall size={25} className="text-white" />
           </button>
-          <span className="text-xs" style={{ color: "#7B96B2" }}>Atender</span>
+          <span className="text-xs" style={{ color: "#c8c2cc" }}>Atender</span>
         </div>
       </div>
     </div>

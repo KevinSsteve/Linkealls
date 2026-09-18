@@ -26,12 +26,12 @@ import {
   uploadPrivateImage,
 } from "../../lib/api";
 
-const GREEN = "#635BFF";
-const INK = "#0A2540";
-const MUTED = "#425466";
-const BORDER = "#E6EBF1";
-const SOFT = "#F6F9FC";
-const SEP = "1px solid #E6EBF1";
+const GREEN = "var(--green)";
+const INK = "var(--ink)";
+const MUTED = "var(--ink-soft)";
+const BORDER = "var(--border)";
+const SOFT = "var(--app-bg)";
+const SEP = "1px solid var(--border)";
 
 const DESTINATIONS: Array<{
   value: CampaignDestination;
@@ -440,10 +440,10 @@ function SimpleMetaAdsWizard({ api, campaign, onUpdate, onExit }: {
                 <button key={item.value} type="button" onClick={() => chooseDestination(item.value)}
                   style={{
                     width: "100%", textAlign: "left", display: "flex", alignItems: "center", gap: 13,
-                    padding: "14px 14px", borderRadius: 15, background: destination === item.value ? "#EEECFF" : "#FFF",
+                    padding: "14px 14px", borderRadius: 15, background: destination === item.value ? "var(--green-light)" : "#FFF",
                     border: `1.5px solid ${destination === item.value ? "#86EFAC" : BORDER}`, color: INK,
                   }}>
-                  <span style={{ width: 40, height: 40, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", background: destination === item.value ? "#EEECFF" : SOFT, color: destination === item.value ? "#5046E5" : MUTED }}>{item.icon}</span>
+                  <span style={{ width: 40, height: 40, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", background: destination === item.value ? "var(--green-light)" : SOFT, color: destination === item.value ? "var(--green-dark)" : MUTED }}>{item.icon}</span>
                   <span style={{ flex: 1 }}>
                     <strong style={{ display: "block", fontSize: 14 }}>{item.label}</strong>
                     <span style={{ display: "block", color: MUTED, fontSize: 12, marginTop: 3 }}>{item.description}</span>
@@ -459,10 +459,10 @@ function SimpleMetaAdsWizard({ api, campaign, onUpdate, onExit }: {
                 <button key={item.value} type="button" onClick={() => chooseDestination(item.value)}
                   style={{
                     width: "100%", textAlign: "left", display: "flex", alignItems: "center", gap: 13,
-                    padding: "13px 14px", borderRadius: 15, background: destination === item.value ? "#EEECFF" : "#FFF",
+                    padding: "13px 14px", borderRadius: 15, background: destination === item.value ? "var(--green-light)" : "#FFF",
                     border: `1.5px solid ${destination === item.value ? "#86EFAC" : BORDER}`, color: INK,
                   }}>
-                  <span style={{ width: 40, height: 40, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", background: destination === item.value ? "#EEECFF" : SOFT, color: destination === item.value ? "#5046E5" : MUTED }}>{item.icon}</span>
+                  <span style={{ width: 40, height: 40, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", background: destination === item.value ? "var(--green-light)" : SOFT, color: destination === item.value ? "var(--green-dark)" : MUTED }}>{item.icon}</span>
                   <span style={{ flex: 1 }}>
                     <strong style={{ display: "block", fontSize: 14 }}>{item.label}</strong>
                     <span style={{ display: "block", color: MUTED, fontSize: 12, marginTop: 3 }}>{item.description}</span>
@@ -616,7 +616,7 @@ function SimpleMetaAdsWizard({ api, campaign, onUpdate, onExit }: {
               <p style={{ color: MUTED, fontSize: 13, lineHeight: 1.5, marginTop: 5 }}>{setup.creative.body || "Adiciona uma descrição para o anúncio."}</p>
               <p style={{ color: GREEN, fontSize: 12, fontWeight: 700, marginTop: 10 }}>{selectedDestination.label}</p>
             </div>
-            <div style={{ padding: "14px 15px", borderRadius: 15, background: "#F8FAFC", border: `1px solid ${BORDER}`, marginBottom: 11 }}>
+             <div style={{ padding: "14px 15px", borderRadius: 15, background: "var(--subtle)", border: `1px solid ${BORDER}`, marginBottom: 11 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7 }}>
                 <Sparkles size={16} style={{ color: GREEN }} />
                 <p style={{ color: INK, fontSize: 14, fontWeight: 750 }}>Público recomendado</p>
@@ -625,22 +625,22 @@ function SimpleMetaAdsWizard({ api, campaign, onUpdate, onExit }: {
               {setup.audience.interests && <p style={{ color: MUTED, fontSize: 12, lineHeight: 1.45, marginTop: 4 }}>Interesses: {setup.audience.interests}</p>}
               {aiRecommendation?.audienceReason && <p style={{ color: MUTED, fontSize: 12, lineHeight: 1.45, marginTop: 7 }}>{aiRecommendation.audienceReason}</p>}
             </div>
-             <div style={{ padding: "14px 15px", borderRadius: 15, background: "#F6F4FF", border: "1px solid #D9D6FF", marginBottom: 11 }}>
-               <p style={{ color: "#5046E5", fontSize: 12, fontWeight: 750, textTransform: "uppercase", letterSpacing: ".05em" }}>Orçamento sugerido</p>
+              <div style={{ padding: "14px 15px", borderRadius: 15, background: "var(--green-light)", border: "1px solid var(--green)", marginBottom: 11 }}>
+               <p style={{ color: "var(--green-dark)", fontSize: 12, fontWeight: 750, textTransform: "uppercase", letterSpacing: ".05em" }}>Orçamento sugerido</p>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 7 }}>
                 <input type="number" min={minBudget} step={500} value={budget}
                   onChange={(event) => setBudget(Math.max(0, Number(event.target.value) || 0))}
-                   style={{ width: 145, height: 42, border: "1px solid #BDB8FF", borderRadius: 10, background: "#FFF", padding: "0 10px", fontSize: 18, fontWeight: 800, color: INK, outline: "none" }} />
-                 <span style={{ color: "#5046E5", fontSize: 14, fontWeight: 700 }}>Kz</span>
+                   style={{ width: 145, height: 42, border: "1px solid var(--green)", borderRadius: 10, background: "var(--surface)", padding: "0 10px", fontSize: 18, fontWeight: 800, color: INK, outline: "none" }} />
+                 <span style={{ color: "var(--green-dark)", fontSize: 14, fontWeight: 700 }}>Kz</span>
               </div>
               {aiRecommendation && (
                 <>
-                   <p style={{ color: "#5046E5", fontSize: 12, lineHeight: 1.45, marginTop: 8 }}>{aiRecommendation.budgetReason}</p>
-                   <p style={{ color: "#5046E5", fontSize: 12, lineHeight: 1.45, marginTop: 4 }}><strong>Alcance provável:</strong> {aiRecommendation.expectedReach}</p>
-                   <p style={{ color: "#5046E5", fontSize: 12, lineHeight: 1.45, marginTop: 4 }}><strong>Retorno esperado:</strong> {aiRecommendation.expectedReturn}</p>
+                   <p style={{ color: "var(--green-dark)", fontSize: 12, lineHeight: 1.45, marginTop: 8 }}>{aiRecommendation.budgetReason}</p>
+                   <p style={{ color: "var(--green-dark)", fontSize: 12, lineHeight: 1.45, marginTop: 4 }}><strong>Alcance provável:</strong> {aiRecommendation.expectedReach}</p>
+                   <p style={{ color: "var(--green-dark)", fontSize: 12, lineHeight: 1.45, marginTop: 4 }}><strong>Retorno esperado:</strong> {aiRecommendation.expectedReturn}</p>
                 </>
               )}
-               {budgetUsd && <p style={{ color: "#635BFF", fontSize: 12, marginTop: 7 }}>≈ ${budgetUsd} em anúncios · {durationDays} dias</p>}
+               {budgetUsd && <p style={{ color: "var(--green)", fontSize: 12, marginTop: 7 }}>≈ ${budgetUsd} em anúncios · {durationDays} dias</p>}
             </div>
             <div style={{ marginTop: 20 }}>
               <PrimaryButton label="Continuar para pagamento" onClick={() => void savePreviewAndContinue()} loading={busy === "preview"} disabled={busy !== null || !creativeReady} />

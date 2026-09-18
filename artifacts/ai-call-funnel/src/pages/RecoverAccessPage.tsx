@@ -6,18 +6,18 @@ import { recoverUserAccess } from "@/lib/api";
 import { AuthBrand } from "@/components/auth/AuthBrand";
 
 const COLORS = {
-  page: "#fbfaff",
-  panel: "#f1edff",
-  panelDeep: "#2d176d",
-  ink: "#0a2540",
-  soft: "#344558", // Darkened
-  muted: "#5b6e82", // Darkened
-  line: "#e6ebf1",
-  field: "#ffffff",
-  accent: "#635bff",
-  accentSoft: "#eeecff",
-  error: "#b34235",
-  errorBg: "#fff0eb",
+  page: "var(--bg)",
+  panel: "var(--subtle)",
+  panelDeep: "var(--ink)",
+  ink: "var(--ink)",
+  soft: "var(--ink-soft)",
+  muted: "var(--ink-faint)",
+  line: "var(--border)",
+  field: "var(--surface)",
+  accent: "var(--green)",
+  accentSoft: "var(--green-light)",
+  error: "var(--errorText, #b34235)",
+  errorBg: "var(--errorBg, #fde9e7)",
 };
 
 
@@ -43,7 +43,7 @@ function Field({
   return (
     <label
       htmlFor={id}
-      className="auth-input-wrap block rounded-[18px] border px-4 py-3 focus-within:border-[#635bff]"
+      className="auth-input-wrap block rounded-[18px] border px-4 py-3 focus-within:border-[var(--green)]"
       style={{ borderColor: COLORS.line, background: COLORS.field }}
     >
       <span className="mb-1 block text-[11px] font-bold uppercase tracking-[0.13em]" style={{ color: COLORS.muted }}>
@@ -163,7 +163,7 @@ export function RecoverAccessPage() {
             type="submit"
             disabled={loading}
              className="auth-primary mt-4 flex min-h-[56px] w-full items-center justify-between rounded-[16px] px-5 text-left font-bold transition-transform hover:-translate-y-0.5 active:scale-[0.99] disabled:opacity-60"
-            style={{ background: COLORS.accent, color: "#ffffff", boxShadow: "0 8px 20px rgba(99,91,255,0.15)" }}
+            style={{ background: COLORS.accent, color: "#ffffff", boxShadow: "0 8px 20px rgba(36, 106, 89,0.15)" }}
           >
             <span>{loading ? "A recuperar acesso…" : "Definir novo PIN"}</span>
             <ArrowRight size={19} strokeWidth={2.3} />

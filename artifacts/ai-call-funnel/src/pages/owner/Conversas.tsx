@@ -22,17 +22,17 @@ import { FilterChips } from "../../components/app/FilterChips";
 
 // ─── Design tokens ────────────────────────────────────────────────────────────
 const D = {
-  bg:         "#F6F9FC",
+  bg:         "var(--app-bg)",
   surface:    "#FFFFFF",
-  ink:        "#0A2540",
-  inkSoft:    "#425466",
-  inkFaint:   "#8898AA",
-  border:     "#E6EBF1",
+  ink:        "var(--ink)",
+  inkSoft:    "var(--ink-soft)",
+  inkFaint:   "var(--ink-faint)",
+  border:     "var(--border)",
   borderSoft: "#F1F4F8",
-  subtle:     "#F1F5F9",
-  green:      "#635BFF",
-  greenDk:    "#5046E5",
-  greenLt:    "#EEECFF",
+  subtle:     "var(--subtle)",
+  green:      "var(--green)",
+  greenDk:    "var(--green-dark)",
+  greenLt:    "var(--green-light)",
 } as const;
 
 // ─── State config ─────────────────────────────────────────────────────────────

@@ -18,14 +18,14 @@ import { useDialogFocus } from "../hooks/useDialogFocus";
 
 // ─── Tokens locais (mesmos valores que T em Catalogo.tsx) ─────────────────────
 const M = {
-  bg:       "#F6F9FC",
+  bg:       "var(--app-bg)",
   surface:  "#FFFFFF",
-  ink:      "#0A2540",
-  inkSoft:  "#425466",
-  inkFaint: "#8898AA",
-  line:     "#E6EBF1",
+  ink:      "var(--ink)",
+  inkSoft:  "var(--ink-soft)",
+  inkFaint: "var(--ink-faint)",
+  line:     "var(--border)",
   lineSoft: "#F1F4F8",
-  subtle:   "#F1F5F9",
+  subtle:   "var(--subtle)",
   // Checkout catalogue uses the same neutral palette as the public profile.
   mcGreen:  "#111111",
   mcLight:  "#F8F8F8",

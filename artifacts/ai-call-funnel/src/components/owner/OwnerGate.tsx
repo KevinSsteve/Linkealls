@@ -24,9 +24,9 @@ export function OwnerGate({ children }: { children: ReactNode }) {
 
   if (isLoading) {
     return (
-      <div role="status" aria-live="polite" className="flex flex-col items-center justify-center gap-3 flex-1 min-h-[100dvh] bg-[#F6F9FC]">
+      <div role="status" aria-live="polite" className="flex flex-col items-center justify-center gap-3 flex-1 min-h-[100dvh] bg-[var(--app-bg)]">
         <AuthMark size={56} className="animate-pulse" />
-        <p className="text-sm font-medium text-[#425466]">A preparar o teu painel…</p>
+        <p className="text-sm font-medium text-[var(--ink-soft)]">A preparar o teu painel…</p>
       </div>
     );
   }

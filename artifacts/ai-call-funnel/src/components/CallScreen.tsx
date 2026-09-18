@@ -38,14 +38,14 @@ export function CallScreen({
   return (
     <div
       className="flex flex-col w-full h-full"
-      style={{ background: "linear-gradient(180deg, #060C14 0%, #071A11 100%)" }}
+      style={{ background: "linear-gradient(180deg, #211b2c 0%, var(--header-bg) 48%, #100d16 100%)" }}
     >
       {/* ── Timer bar ── */}
       <div
         className="flex items-center justify-between px-5 py-3 flex-shrink-0"
-        style={{ borderBottom: "1px solid rgba(0,200,150,0.1)" }}
+        style={{ borderBottom: "1px solid rgba(255,255,255,0.12)" }}
       >
-        <span className="text-sm font-medium" style={{ color: "#00C896" }}>
+        <span className="text-sm font-medium" style={{ color: "#8ed6c4" }}>
           Em chamada
         </span>
 
@@ -63,7 +63,7 @@ export function CallScreen({
           style={{
             background: "rgba(255,255,255,0.06)",
             border: "1px solid rgba(255,255,255,0.1)",
-            color: "#7B96B2",
+            color: "#e4dfe7",
           }}
           aria-label="Minimizar chamada"
         >
@@ -83,7 +83,7 @@ export function CallScreen({
                 style={{
                   width: 128,
                   height: 128,
-                  background: "rgba(0,200,150,0.15)",
+                  background: "rgba(142,214,196,0.16)",
                   animationDuration: "1.4s",
                 }}
               />
@@ -92,7 +92,7 @@ export function CallScreen({
                 style={{
                   width: 104,
                   height: 104,
-                  background: "rgba(0,200,150,0.2)",
+                  background: "rgba(142,214,196,0.22)",
                   animationDuration: "1s",
                   animationDelay: "0.2s",
                 }}
@@ -103,13 +103,13 @@ export function CallScreen({
             className="relative w-24 h-24 rounded-full flex items-center justify-center text-3xl font-bold"
             style={{
               background: isAiSpeaking
-                ? "linear-gradient(135deg, #00C896 0%, #007A5E 100%)"
-                : "linear-gradient(135deg, #1A2F3E 0%, #0D1F2C 100%)",
+                ? "linear-gradient(135deg, #31806c 0%, #174e42 100%)"
+                : "linear-gradient(135deg, #312a3a 0%, #211b2c 100%)",
               boxShadow: isAiSpeaking
-                ? "0 0 40px rgba(0,200,150,0.4)"
+                ? "0 0 40px rgba(36,106,89,0.45)"
                 : "0 0 20px rgba(0,0,0,0.4)",
               transition: "all 0.3s ease",
-              color: isAiSpeaking ? "#fff" : "#3E576F",
+              color: isAiSpeaking ? "#fff" : "#c8c2cc",
             }}
           >
             AI
@@ -135,10 +135,10 @@ export function CallScreen({
                   width: "3px",
                   height: `${h}px`,
                   background: isAiSpeaking
-                    ? `rgba(0,200,150,${0.4 + 0.6 * heightPct})`
+                    ? `rgba(142,214,196,${0.4 + 0.6 * heightPct})`
                     : isUserSpeaking
-                    ? `rgba(52,211,153,${0.3 + 0.5 * heightPct})`
-                    : "rgba(62,87,111,0.4)",
+                    ? `rgba(110,199,176,${0.45 + 0.5 * heightPct})`
+                    : "rgba(200,194,204,0.48)",
                   transitionDuration: active ? "80ms" : "300ms",
                 }}
               />
@@ -150,7 +150,7 @@ export function CallScreen({
         <p
           className="text-sm"
           style={{
-            color: isAiSpeaking ? "#00C896" : isUserSpeaking ? "#34D399" : "#3E576F",
+            color: isAiSpeaking ? "#8ed6c4" : isUserSpeaking ? "#8ed6c4" : "#c8c2cc",
           }}
         >
           {isAiSpeaking ? "A falar…" : isUserSpeaking ? "A ouvir…" : "Em espera"}
@@ -174,7 +174,7 @@ export function CallScreen({
           >
             <PhoneOff size={25} className="text-white" />
           </button>
-          <span className="text-xs" style={{ color: "#3E576F" }} aria-hidden="true">
+          <span className="text-xs" style={{ color: "#c8c2cc" }} aria-hidden="true">
             Terminar chamada
           </span>
         </div>
