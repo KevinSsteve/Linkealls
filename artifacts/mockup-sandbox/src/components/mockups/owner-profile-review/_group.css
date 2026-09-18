@@ -1,0 +1,301 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+.owner-profile-review {
+  --bg: #f8f5ee;
+  --surface: #fffdf8;
+  --ink: #17131f;
+  --ink-soft: #6e6874;
+  --ink-faint: #9e98a3;
+  --border: #e8e1d9;
+  --border-soft: #f0ebe4;
+  --subtle: #f4efe8;
+  --green: #246a59;
+  --green-dark: #174e42;
+  --green-light: #dff1e9;
+  --success: #246a59;
+  --header-bg: #f8f5ee;
+  --page-padding-mobile: 20px;
+  --page-padding-tablet: 20px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --control-height: 44px;
+  --header-height: 80px;
+  --focus-ring: 0 0 0 2px #FFFFFF, 0 0 0 4px var(--color-accent, #635BFF);
+  --shadow-soft: 0 10px 28px rgba(45, 27, 62, 0.08);
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --font-sans: 'DM Sans', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --color-app-bg: #F6F9FC;
+  --color-surface: #FFFFFF;
+  --color-header-bg: #FFFFFF;
+  --color-input-bg: #F1F5F9;
+  --color-accent: #635BFF;
+  --color-text-primary: #0A2540;
+  --color-text-secondary: #425466;
+  --color-text-muted: #8898AA;
+  --color-divider: #E6EBF1;
+  min-height: 100vh;
+  height: 100dvh;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: #FFFFFF;
+  overscroll-behavior: none;
+}
+
+.owner-profile-review *,
+.owner-profile-review *::before,
+.owner-profile-review *::after { box-sizing: border-box; }
+
+.owner-profile-review button,
+.owner-profile-review a {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.owner-profile-review button:focus-visible,
+.owner-profile-review a:focus-visible,
+.owner-profile-review input:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.owner-profile-review .app-settings-section-header {
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  padding: 16px var(--page-padding-mobile) 12px;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: var(--subtle);
+}
+
+.owner-profile-review .app-settings-section-header h2 {
+  color: var(--ink-faint);
+  font-size: 11px;
+  font-weight: 650;
+  line-height: 1.2;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.owner-profile-review .app-view-field {
+  padding: 18px var(--page-padding-mobile) 17px;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.owner-profile-review .app-view-field:last-child { border-bottom: 0; }
+
+.owner-profile-review .app-view-field-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-faint);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 1.2;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.owner-profile-review .app-view-field-value {
+  color: var(--ink);
+  font-size: 17px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.owner-profile-review .app-view-field-value.is-link { color: var(--green-dark); text-decoration: none; }
+.owner-profile-review .app-view-field-value.is-link:hover { text-decoration: underline; }
+
+.owner-profile-review .app-view-field-empty {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  color: var(--ink-faint);
+  font-size: 16px;
+}
+
+.owner-profile-review .app-view-field-action {
+  min-height: 40px;
+  padding: 0 8px;
+  border-radius: var(--radius-sm);
+  color: var(--green-dark);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.owner-profile-review .app-view-field-action:hover { background: var(--green-light); }
+
+.owner-profile-review .app-list-item {
+  min-height: 80px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 14px var(--page-padding-mobile);
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--surface);
+  color: inherit;
+  text-align: left;
+  text-decoration: none;
+  transition: background-color 160ms ease;
+}
+
+.owner-profile-review .app-list-item:hover { background: var(--subtle); }
+.owner-profile-review .app-list-item:active { background: var(--border-soft); }
+.owner-profile-review .app-list-item-leading,
+.owner-profile-review .app-list-item-trailing { flex-shrink: 0; }
+.owner-profile-review .app-list-item-content { min-width: 0; flex: 1; }
+.owner-profile-review .app-list-item-title { color: var(--ink); font-size: 15px; font-weight: 600; line-height: 1.3; }
+.owner-profile-review .app-list-item-description { color: var(--ink-soft); font-size: 13px; line-height: 1.35; margin-top: 3px; overflow-wrap: anywhere; }
+.owner-profile-review .app-list-item-trailing { color: var(--ink-faint); }
+
+.owner-profile-review .app-icon-container {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--ink-soft);
+  background: var(--subtle);
+  border: 1px solid var(--border);
+}
+
+.owner-profile-review .app-icon-container.is-md { width: 60px; height: 60px; border-radius: var(--radius-lg); }
+.owner-profile-review .app-settings-list-item { min-height: 100px; padding-block: 16px; }
+.owner-profile-review .app-settings-list-item .app-list-item-title { font-size: 18px; font-weight: 650; line-height: 1.25; }
+.owner-profile-review .app-settings-list-item .app-list-item-description { margin-top: 5px; font-size: 16px; line-height: 1.25; }
+.owner-profile-review .app-settings-list-item.is-last { border-bottom: 0; }
+.owner-profile-review .app-settings-list-item.is-loading { opacity: 0.62; }
+
+.owner-profile-review .app-product-list-item {
+  min-height: 104px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px var(--page-padding-mobile);
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--surface);
+}
+
+.owner-profile-review .app-product-list-item.is-last { border-bottom: 0; }
+.owner-profile-review .app-product-list-content { min-width: 0; flex: 1; }
+.owner-profile-review .app-product-list-name {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+}
+.owner-profile-review .app-product-list-price {
+  overflow: hidden;
+  margin-top: 3px;
+  color: var(--green-dark);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.owner-profile-review .app-list-footer-action {
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--green-dark);
+  background: var(--surface);
+  border-top: 1px solid var(--border-soft);
+  font-size: 15px;
+  font-weight: 650;
+  text-decoration: none;
+  transition: background-color 160ms ease;
+}
+
+.owner-profile-review .app-list-footer-action:active { background: var(--green-light); }
+
+.owner-profile-review .app-image-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-faint);
+  background: var(--subtle);
+}
+.owner-profile-review .app-image-placeholder.is-md { border-radius: var(--radius-md); }
+.owner-profile-review .app-product-image { display: block; width: 100%; object-fit: cover; background: var(--subtle); }
+.owner-profile-review .app-product-image.is-md { width: 64px; height: 64px; border-radius: var(--radius-md); }
+
+.owner-profile-review .app-bottom-nav {
+  min-height: 72px;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+.owner-profile-review .app-bottom-nav-item { min-height: 72px; padding: 10px 4px 8px; color: var(--ink-faint); }
+.owner-profile-review .app-bottom-nav-item:hover { background: var(--subtle); color: var(--ink-soft); }
+.owner-profile-review .app-bottom-nav-item.is-active { color: var(--green); }
+.owner-profile-review .app-bottom-nav-label { color: currentColor; font-size: 12px; font-weight: 500; line-height: 1; letter-spacing: 0.01em; }
+.owner-profile-review .app-bottom-nav-item.is-active .app-bottom-nav-label { font-weight: 650; }
+
+.owner-profile-review .owner-view-root {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  height: 100%;
+  min-height: 0;
+  min-width: 0;
+  background-color: var(--color-app-bg);
+}
+.owner-profile-review .owner-content-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  padding-bottom: max(16px, env(safe-area-inset-bottom, 0px));
+}
+.owner-profile-review .owner-icon-btn { min-height: 44px; }
+.owner-profile-review .owner-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 56px;
+  padding: env(safe-area-inset-top, 0px) var(--page-padding-mobile) 0;
+  background-color: var(--color-header-bg);
+  border-bottom: 1px solid var(--color-divider);
+}
+.owner-profile-review .owner-header-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (min-width: 640px) {
+  .owner-profile-review { --page-padding-mobile: var(--page-padding-tablet); }
+}

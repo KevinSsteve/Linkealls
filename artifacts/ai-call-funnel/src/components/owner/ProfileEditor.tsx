@@ -26,8 +26,10 @@ import { AppHeader } from "../../components/app/AppHeader";
 import { EditorSection } from "../../components/app/EditorSection";
 import { useNotifications } from "../../hooks/useNotifications";
 import { useBusinessSlug } from "../../hooks/useBusinessSlug";
-import { businessApi, checkSlugAvailability, getStorageObjectUrl, uploadPrivateImage } from "../../lib/api";
+import { businessApi, checkSlugAvailability, confirmSensitiveAction, getStorageObjectUrl, uploadPrivateImage } from "../../lib/api";
 import type { BusinessProfile, FaqItem, Offering, ProfileDraft, PublicLink } from "../../lib/api";
+import { getCatalogVisibility } from "../../lib/profilePresentation";
+import type { CatalogSettingsPatch, ProfileEditorTarget } from "../../lib/profilePresentation";
 
 interface Props {
   profile: BusinessProfile;
@@ -38,6 +40,9 @@ interface Props {
   onReanalyze: (url: string) => void;
   onBack?: () => void;
   onFocusModeChange?: (focused: boolean) => void;
+  initialTarget?: ProfileEditorTarget;
+  onCatalogSettingsChange?: (patch: CatalogSettingsPatch) => void;
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 const inputClass =
@@ -176,24 +181,41 @@ function EditorIntro({ onBack }: { onBack?: () => void }) {
   return null;
 }
 
-function CatalogSection({ profile, businessSlug }: { profile: BusinessProfile; businessSlug: string }) {
+function CatalogSection({
+  profile,
+  businessSlug,
+  initialOpen = false,
+  onSettingsChange,
+}: {
+  profile: BusinessProfile;
+  businessSlug: string;
+  initialOpen?: boolean;
+  onSettingsChange?: (patch: CatalogSettingsPatch) => void;
+}) {
   const api = useMemo(() => businessApi(businessSlug), [businessSlug]);
   const [enabled, setEnabled] = useState(profile.catalogEnabled ?? true);
   const [toggling, setToggling] = useState(false);
   const [copied, setCopied] = useState(false);
   const [slugCopied, setSlugCopied] = useState(false);
   const [slug, setSlug] = useState(profile.catalogSlug ?? "");
+  const [savedSlug, setSavedSlug] = useState(profile.catalogSlug ?? "");
   const [slugStatus, setSlugStatus] = useState<"idle" | "checking" | "available" | "taken" | "invalid" | "saved">("idle");
   const [slugSaving, setSlugSaving] = useState(false);
+  const [operationError, setOperationError] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const slugCheckRef = useRef(0);
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const base = import.meta.env.BASE_URL;
   const genericUrl = `${origin}${base}${businessSlug}`;
-  const slugUrl = /^[a-z0-9-]{3,60}$/.test(slug) ? `${origin}${base}c/${slug}` : null;
-  const productCount = profile.offerings?.length ?? 0;
-  const isReady = Boolean(profile.name?.trim());
+  const slugUrl = savedSlug && slug === savedSlug ? `${origin}${base}c/${savedSlug}` : null;
+  const catalogVisibility = getCatalogVisibility({
+    name: profile.name,
+    catalogEnabled: enabled,
+    offerings: profile.offerings ?? [],
+  });
 
   useEffect(() => {
+    const checkId = ++slugCheckRef.current;
     const value = slug.trim().toLowerCase();
     if (!value) {
       setSlugStatus("idle");
@@ -203,8 +225,8 @@ function CatalogSection({ profile, businessSlug }: { profile: BusinessProfile; b
       setSlugStatus("invalid");
       return;
     }
-    if (value === (profile.catalogSlug ?? "")) {
-      setSlugStatus("idle");
+    if (value === savedSlug) {
+      setSlugStatus((status) => status === "saved" ? "saved" : "idle");
       return;
     }
     setSlugStatus("checking");
@@ -212,34 +234,42 @@ function CatalogSection({ profile, businessSlug }: { profile: BusinessProfile; b
     debounceRef.current = setTimeout(async () => {
       try {
         const result = await checkSlugAvailability(value);
+        if (slugCheckRef.current !== checkId) return;
         setSlugStatus(result.available ? "available" : "taken");
       } catch {
+        if (slugCheckRef.current !== checkId) return;
         setSlugStatus("idle");
       }
     }, 500);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [profile.catalogSlug, slug]);
+  }, [savedSlug, slug]);
 
   const copy = async (value: string, setCopiedFlag: (value: boolean) => void) => {
+    setOperationError(null);
     try {
       await navigator.clipboard.writeText(value);
       setCopiedFlag(true);
       setTimeout(() => setCopiedFlag(false), 2000);
     } catch {
-      // Clipboard access is optional in some mobile browsers.
+      setOperationError("Não foi possível copiar o link. Selecciona-o e copia manualmente.");
     }
   };
 
   const saveSlug = async () => {
+    const nextSlug = slug.trim().toLowerCase();
     setSlugSaving(true);
+    setOperationError(null);
     try {
-      await api.saveCatalogSlug(slug.trim().toLowerCase() || null);
+      if (!(await confirmSensitiveAction())) return;
+      await api.saveCatalogSlug(nextSlug || null);
+      setSavedSlug(nextSlug);
+      onSettingsChange?.({ catalogSlug: nextSlug || null });
       setSlugStatus("saved");
-      setTimeout(() => setSlugStatus("idle"), 2500);
     } catch {
       setSlugStatus("idle");
+      setOperationError("Não foi possível guardar o link personalizado. Tenta novamente.");
     } finally {
       setSlugSaving(false);
     }
@@ -259,21 +289,15 @@ function CatalogSection({ profile, businessSlug }: { profile: BusinessProfile; b
       title="Catálogo público"
       description="Define onde os clientes podem ver os teus produtos."
       collapsible
-      defaultOpen={false}
-      status={<span className={`app-status-badge ${enabled && isReady ? "is-success" : "is-neutral"}`}>{!enabled ? "Inactivo" : !isReady ? "Incompleto" : productCount === 0 ? "Sem produtos" : "Activo"}</span>}
+      defaultOpen={initialOpen}
+      status={<span className={`app-status-badge ${catalogVisibility.isPublic ? "is-success" : "is-neutral"}`}>{catalogVisibility.label}</span>}
     >
       <div className="space-y-5">
         <div className="flex items-center justify-between gap-3 border-b border-[var(--border-soft)] pb-4">
           <div className="min-w-0">
             <p className="text-[14px] font-semibold text-[var(--ink)]">Estado do catálogo</p>
             <p className="mt-1 break-words text-[13px] text-[var(--ink-soft)]">
-              {!enabled
-                ? "O catálogo está escondido dos visitantes"
-                : !isReady
-                  ? "Preenche o nome do negócio para publicar"
-                  : productCount === 0
-                    ? "Catálogo visível, mas ainda sem produtos"
-                    : `${productCount} produto${productCount === 1 ? "" : "s"} publicado${productCount === 1 ? "" : "s"}`}
+              {catalogVisibility.description}
             </p>
           </div>
           <Toggle
@@ -281,11 +305,14 @@ function CatalogSection({ profile, businessSlug }: { profile: BusinessProfile; b
             onChange={async () => {
               const next = !enabled;
               setToggling(true);
+              setOperationError(null);
               try {
+                if (!(await confirmSensitiveAction())) return;
                 await api.toggleCatalog(next);
                 setEnabled(next);
+                onSettingsChange?.({ catalogEnabled: next });
               } catch {
-                // Keep the current state when the server rejects the change.
+                setOperationError("Não foi possível alterar a visibilidade do catálogo. Tenta novamente.");
               } finally {
                 setToggling(false);
               }
@@ -302,12 +329,12 @@ function CatalogSection({ profile, businessSlug }: { profile: BusinessProfile; b
             <div className="min-w-0 flex-1 rounded-[var(--radius-md)] bg-[var(--subtle)] px-3 py-2.5">
               <span className="block break-all font-mono text-[12px] leading-5 text-[var(--ink-soft)]" data-testid="text-catalog-url">{genericUrl}</span>
             </div>
-            <button type="button" onClick={() => copy(genericUrl, setCopied)} className="app-icon-button" aria-label="Copiar link do catálogo" data-testid="button-copy-catalog-link">
+            <button type="button" disabled={!catalogVisibility.isPublic} onClick={() => copy(genericUrl, setCopied)} className="app-icon-button disabled:opacity-40" aria-label="Copiar link do catálogo" data-testid="button-copy-catalog-link">
               {copied ? <Check size={17} className="text-[var(--green)]" /> : <Copy size={17} />}
             </button>
-            <a href={genericUrl} target="_blank" rel="noopener noreferrer" className="app-icon-button" aria-label="Abrir catálogo" data-testid="link-open-catalog">
+            {catalogVisibility.isPublic && <a href={genericUrl} target="_blank" rel="noopener noreferrer" className="app-icon-button" aria-label="Abrir catálogo" data-testid="link-open-catalog">
               <ExternalLink size={17} />
-            </a>
+            </a>}
           </div>
         </div>
 
@@ -319,7 +346,11 @@ function CatalogSection({ profile, businessSlug }: { profile: BusinessProfile; b
               <input
                 className="min-w-0 flex-1 bg-transparent px-1 py-2.5 font-mono text-[13px] text-[var(--ink)] outline-none"
                 value={slug}
-                onChange={(event) => setSlug(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))}
+                onChange={(event) => {
+                  slugCheckRef.current += 1;
+                  setOperationError(null);
+                  setSlug(event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""));
+                }}
                 maxLength={60}
                 placeholder="nome-do-negocio"
                 spellCheck={false}
@@ -329,7 +360,7 @@ function CatalogSection({ profile, businessSlug }: { profile: BusinessProfile; b
             <button
               type="button"
               onClick={saveSlug}
-              disabled={slugSaving || !(slugStatus === "available" || (slug.trim() === "" && Boolean(profile.catalogSlug)))}
+              disabled={slugSaving || !(slugStatus === "available" || (slug.trim() === "" && Boolean(savedSlug)))}
               className="app-icon-button text-[var(--green-dark)] disabled:opacity-40"
               aria-label="Guardar link personalizado"
               data-testid="button-save-catalog-slug"
@@ -343,12 +374,17 @@ function CatalogSection({ profile, businessSlug }: { profile: BusinessProfile; b
               <div className="min-w-0 flex-1 rounded-[var(--radius-md)] bg-[var(--green-light)] px-3 py-2.5">
                 <span className="flex items-center gap-1.5 break-all font-mono text-[12px] leading-5 text-[var(--green-dark)]"><LinkIcon size={12} className="shrink-0" />{slugUrl}</span>
               </div>
-              <button type="button" onClick={() => copy(slugUrl, setSlugCopied)} className="app-icon-button text-[var(--green-dark)]" aria-label="Copiar link personalizado" data-testid="button-copy-custom-catalog-link">
+              <button type="button" disabled={!catalogVisibility.isPublic} onClick={() => copy(slugUrl, setSlugCopied)} className="app-icon-button text-[var(--green-dark)] disabled:opacity-40" aria-label="Copiar link personalizado" data-testid="button-copy-custom-catalog-link">
                 {slugCopied ? <Check size={17} /> : <Copy size={17} />}
               </button>
             </div>
           )}
         </div>
+        {operationError && (
+          <p className="text-[12px] text-[#DC2626]" role="alert" data-testid="error-catalog-operation">
+            {operationError}
+          </p>
+        )}
       </div>
     </EditorSection>
   );
@@ -574,11 +610,13 @@ function OfferingsSection({
   setOfferings,
   onAdd,
   onEdit,
+  initialOpen = false,
 }: {
   offerings: Offering[];
   setOfferings: Dispatch<SetStateAction<Offering[]>>;
   onAdd: () => void;
   onEdit: (index: number) => void;
+  initialOpen?: boolean;
 }) {
   const [reorderMode, setReorderMode] = useState(false);
   const dragIndex = useRef<number | null>(null);
@@ -600,7 +638,7 @@ function OfferingsSection({
       title="Produtos & serviços"
       description={offerings.length ? `${offerings.length} produto${offerings.length === 1 ? "" : "s"} no catálogo` : "Adiciona o que o teu negócio vende."}
       collapsible
-      defaultOpen={false}
+      defaultOpen={initialOpen}
       action={<AddButton onClick={onAdd} label="Adicionar" testId="button-add-product" />}
     >
       {offerings.length > 1 && <div className="flex justify-end border-b border-[var(--border-soft)] pb-1"><button type="button" onClick={() => setReorderMode((value) => !value)} className="min-h-[40px] rounded-[var(--radius-md)] px-2 text-[12px] font-semibold text-[var(--ink-soft)] hover:bg-[var(--subtle)]" data-testid="button-toggle-product-reorder">{reorderMode ? "Concluído" : "Reordenar"}</button></div>}
@@ -685,9 +723,9 @@ function CompactListSection({ id, title, description, items, onChange, onRemove,
   );
 }
 
-function PublicLinksSection({ links, setLinks }: { links: PublicLink[]; setLinks: Dispatch<SetStateAction<PublicLink[]>> }) {
+function PublicLinksSection({ links, setLinks, initialOpen = false }: { links: PublicLink[]; setLinks: Dispatch<SetStateAction<PublicLink[]>>; initialOpen?: boolean }) {
   const [openIndex, setOpenIndex] = useState<number | null>(links.length ? 0 : null);
-  const [sectionOpen, setSectionOpen] = useState(false);
+  const [sectionOpen, setSectionOpen] = useState(initialOpen);
 
   const add = () => {
     setLinks((items) => [...items, { title: "", description: "", url: "" }]);
@@ -818,7 +856,19 @@ function FaqSection({ faq, setFaq }: { faq: FaqItem[]; setFaq: Dispatch<SetState
   );
 }
 
-export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onReanalyze, onBack, onFocusModeChange }: Props) {
+export function ProfileEditor({
+  profile,
+  draft,
+  saving,
+  reanalyzing,
+  onSave,
+  onReanalyze,
+  onBack,
+  onFocusModeChange,
+  initialTarget,
+  onCatalogSettingsChange,
+  onDirtyChange,
+}: Props) {
   const slug = useBusinessSlug();
   const init = <K extends keyof ProfileDraft>(key: K, fallback: NonNullable<ProfileDraft[K]>) =>
     (draft?.[key] ?? (profile[key as keyof BusinessProfile] as ProfileDraft[K]) ?? fallback) as NonNullable<ProfileDraft[K]>;
@@ -839,10 +889,16 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
   const [hours, setHours] = useState(init("hours", ""));
   const [phone, setPhone] = useState(init("phone", ""));
   const [email, setEmail] = useState(init("email", ""));
-  const [openIdentity, setOpenIdentity] = useState(true);
-  const [openContact, setOpenContact] = useState(false);
+  const [openIdentity, setOpenIdentity] = useState(
+    initialTarget === undefined || ["identity", "avatar", "description"].includes(initialTarget),
+  );
+  const [openContact, setOpenContact] = useState(
+    Boolean(initialTarget && ["address", "hours", "phone", "email", "website"].includes(initialTarget)),
+  );
   const [focusedProduct, setFocusedProduct] = useState<{ mode: "add" | "edit"; index: number; offering: Offering } | null>(null);
   const listScrollTop = useRef<number | null>(null);
+  const dirtyChangeRef = useRef(onDirtyChange);
+  const initialTargetHandled = useRef(false);
 
   useEffect(() => {
     onFocusModeChange?.(focusedProduct !== null);
@@ -853,6 +909,45 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
   // An AI draft is not persisted yet, even if the owner accepts it unchanged.
   const dirty = draft !== null || currentValue !== initialValue;
   const hasInvalidPublicLink = publicLinks.some((link) => !link.title.trim() || !/^https?:\/\/\S+/i.test(link.url.trim()));
+
+  useEffect(() => {
+    dirtyChangeRef.current = onDirtyChange;
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
+
+  useEffect(() => () => {
+    dirtyChangeRef.current?.(false);
+  }, []);
+
+  useEffect(() => {
+    if (!initialTarget || initialTargetHandled.current) return;
+    initialTargetHandled.current = true;
+    const testIds: Record<ProfileEditorTarget, string> = {
+      identity: "input-business-name",
+      avatar: "button-profile-photo",
+      description: "input-business-description",
+      address: "input-business-address",
+      hours: "input-business-hours",
+      phone: "input-business-phone",
+      email: "input-business-email",
+      website: "input-business-website",
+      catalog: "toggle-catalog",
+      offerings: "button-add-product",
+      links: "button-add-public-links",
+    };
+    const frame = requestAnimationFrame(() => {
+      const target = document.querySelector<HTMLElement>(`[data-testid="${testIds[initialTarget]}"]`);
+      if (!target) return;
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const mobileViewport = window.matchMedia("(max-width: 640px)").matches;
+      target.focus({ preventScroll: true });
+      target.scrollIntoView({
+        behavior: reducedMotion ? "auto" : "smooth",
+        block: mobileViewport ? "start" : "center",
+      });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [initialTarget]);
 
   const beginProductFocus = () => {
     const scrollContainer = document.querySelector("main");
@@ -963,16 +1058,17 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
           <Field label="Horário" value={hours} onChange={setHours} placeholder="Ex.: Seg–Sex 08:00–17:00" testId="input-business-hours" />
           <Field label="Telemóvel / WhatsApp" value={phone} onChange={setPhone} placeholder="Ex.: +244 923 456 789" inputMode="tel" testId="input-business-phone" />
           <Field label="E-mail" value={email} onChange={setEmail} placeholder="Ex.: geral@meusite.ao" inputMode="email" testId="input-business-email" />
+          <Field label="Website" value={siteUrl} onChange={setSiteUrl} placeholder="https://oteusite.co.ao" inputMode="url" testId="input-business-website" />
         </div>
       </EditorSection>
 
-      <PublicLinksSection links={publicLinks} setLinks={setPublicLinks} />
-      <OfferingsSection offerings={offerings} setOfferings={setOfferings} onAdd={openNewProduct} onEdit={openProduct} />
+      <PublicLinksSection links={publicLinks} setLinks={setPublicLinks} initialOpen={initialTarget === "links"} />
+      <OfferingsSection offerings={offerings} setOfferings={setOfferings} onAdd={openNewProduct} onEdit={openProduct} initialOpen={initialTarget === "offerings"} />
       <CompactListSection id="differentials" title="Diferenciais" description="O que torna este negócio uma escolha melhor." items={differentials} onAdd={() => setDifferentials((items) => [...items, ""])} onChange={(index, value) => setDifferentials((items) => items.map((item, itemIndex) => itemIndex === index ? value : item))} onRemove={(index) => setDifferentials((items) => items.filter((_, itemIndex) => itemIndex !== index))} placeholder="Ex.: Entrega em 24h em Luanda" />
       <FaqSection faq={faq} setFaq={setFaq} />
       <CompactListSection id="qualification" title="Qualificação de leads" description="Perguntas que o assistente usa para perceber a necessidade do cliente." items={qualificationGoals} onAdd={() => setQualificationGoals((items) => [...items, ""])} onChange={(index, value) => setQualificationGoals((items) => items.map((item, itemIndex) => itemIndex === index ? value : item))} onRemove={(index) => setQualificationGoals((items) => items.filter((_, itemIndex) => itemIndex !== index))} placeholder="Ex.: Qual é o orçamento disponível?" />
 
-      {slug && <CatalogSection profile={{ ...profile, offerings }} businessSlug={slug} />}
+      {slug && <CatalogSection profile={{ ...profile, name, offerings }} businessSlug={slug} initialOpen={initialTarget === "catalog"} onSettingsChange={onCatalogSettingsChange} />}
       {slug && <NotificationsSection slug={slug} />}
 
       <EditorSection id="test-call" title="Testar a chamada" description="Simula o que um lead vai ouvir com o perfil actual." collapsible defaultOpen={false} action={<a href={`${import.meta.env.BASE_URL}e/${slug}?test=1`} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-[44px] items-center gap-2 rounded-[var(--radius-md)] bg-[var(--green-light)] px-3 text-[13px] font-semibold text-[var(--green-dark)] hover:bg-[#BBF7D0]" data-testid="link-test-call"><Phone size={16} /> Testar agora</a>}>

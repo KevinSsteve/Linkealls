@@ -31,52 +31,13 @@ import { ProductListItem } from "../components/app/ProductListItem";
 import { ListFooterAction } from "../components/app/ListFooterAction";
 import { clearBusinessOnboarding, readBusinessOnboarding, saveBusinessOnboarding } from "../lib/businessOnboarding";
 
+import { OwnerProfileOverview } from "../components/owner/OwnerProfileOverview";
+import type { ProfileEditorTarget, CatalogSettingsPatch } from "../lib/profilePresentation";
+
 type View = "loading" | "start" | "analyzing" | "editor";
 const POLL_MS = 2500;
 
-// ─── Design tokens (alinhados com o brief premium) ───────────────────────────
-const D = {
-  bg:            "#F6F9FC",
-  surface:       "#FFFFFF",
-  ink:           "#0A2540",
-  inkSoft:       "#425466",
-  inkFaint:      "#8898AA",
-  border:        "#E6EBF1",
-  borderSoft:    "#F1F4F8",
-  subtle:        "#F1F5F9",
-  green:         "#635BFF",
-  greenDk:       "#5046E5",
-  greenLt:       "#EEECFF",
-  greenMuted:    "#F6F4FF",
-  errorBg:       "#FEF2F2",
-  errorText:     "#DC2626",
-  errorBorder:   "#FECACA",
-  successBg:     "#E8F7F1",
-  successText:   "#176B55",
-  successBorder: "#B8E5D5",
-  rCard:         16,   // px number for template literals
-  rInput:        12,
-} as const;
-
-// ─── Avatar palette ───────────────────────────────────────────────────────────
-const PALETTES = [
-  { bg: "#EEECFF", text: "#5046E5" },
-  { bg: "#DBEAFE", text: "#1D4ED8" },
-  { bg: "#FEE2E2", text: "#B91C1C" },
-  { bg: "#FEF3C7", text: "#B45309" },
-  { bg: "#EDE9FE", text: "#6D28D9" },
-  { bg: "#FCE7F3", text: "#9D174D" },
-  { bg: "#CCFBF1", text: "#0F766E" },
-  { bg: "#FEF9C3", text: "#A16207" },
-];
-function avatarPalette(name: string) {
-  let h = 0;
-  for (const c of name) h = (h * 31 + c.charCodeAt(0)) & 0xffffffff;
-  return PALETTES[Math.abs(h) % PALETTES.length]!;
-}
-function initials(name: string) {
-  return name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase() || "N";
-}
+import { D, avatarPalette, initials } from "../components/owner/profileTheme";
 
 // ─── Section header — small caps label ───────────────────────────────────────
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -370,13 +331,15 @@ function RecoveryCodeRow() {
   );
 }
 
+import { getCatalogVisibility } from "../lib/profilePresentation";
+
 // ─── Profile View (main view of the owner panel) ──────────────────────────────
 function ProfileView({
   profile, slug, onEdit, onReanalyze, reanalyzing, onLogout, onDeleteAccount, deletingAccount,
 }: {
   profile: BusinessProfile;
   slug: string;
-  onEdit: () => void;
+  onEdit: (target?: ProfileEditorTarget) => void;
   onReanalyze: (url: string) => void;
   reanalyzing: boolean;
   onLogout: () => void;
@@ -384,119 +347,15 @@ function ProfileView({
   deletingAccount: boolean;
 }) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const pal = avatarPalette(profile.name || "N");
-  const inits = initials(profile.name);
-  const isActive = profile.catalogEnabled && profile.offerings.length > 0;
   const featured = profile.offerings.filter((o) => o.featured);
   const previewOfferings = profile.offerings.slice(0, 4);
-
-  const catalogUrl = `${typeof window !== "undefined" ? window.location.origin : ""}${import.meta.env.BASE_URL}${slug}`;
-  const handleShare = async () => {
-    if (navigator.share) {
-      try { await navigator.share({ title: profile.name, url: catalogUrl }); return; } catch { /* dismissed */ }
-    }
-    try { await navigator.clipboard.writeText(catalogUrl); } catch { /* ignore */ }
-  };
+  const visibility = getCatalogVisibility(profile);
+  const isPublic = visibility.isPublic;
 
   return (
     <div style={{ paddingBottom: 32 }}>
 
-      {/* ─── Identity block ──────────────────────────────────────────────────── */}
-      <div style={{ background: D.surface, borderBottom: `1px solid ${D.border}`, paddingBottom: 4 }}>
-        {/* Avatar + name + sector */}
-        <div
-          className="flex items-start gap-4"
-          style={{ padding: "20px 20px 16px" }}
-        >
-          {/* Avatar */}
-          <div
-            className="flex items-center justify-center shrink-0 font-bold"
-            style={{
-              width: 68, height: 68,
-              borderRadius: "50%",
-              background: pal.bg,
-              color: pal.text,
-              fontSize: 24,
-              border: `1.5px solid ${D.border}`,
-            }}
-          >
-            {profile.avatarUrl ? (
-              <img src={getStorageObjectUrl(profile.avatarUrl)} alt={`Foto de ${profile.name}`} className="h-full w-full rounded-full object-cover" />
-            ) : inits}
-          </div>
-
-          {/* Name + sector + status */}
-          <div className="flex-1 min-w-0" style={{ paddingTop: 4 }}>
-            <h2
-              className="leading-tight"
-              style={{ color: D.ink, fontSize: 20, fontWeight: 700, letterSpacing: "-0.3px" }}
-            >
-              {profile.name}
-            </h2>
-            {profile.sector && (
-              <p
-                className="mt-1 leading-snug"
-                style={{ color: D.inkSoft, fontSize: 14 }}
-              >
-                {profile.sector}
-              </p>
-            )}
-            <div className="flex items-center gap-1.5 mt-2">
-              <span
-                className="inline-block rounded-full"
-                style={{
-                  width: 7,
-                  height: 7,
-                  background: isActive ? D.green : D.inkFaint,
-                  flexShrink: 0,
-                }}
-              />
-              <span style={{ color: D.inkSoft, fontSize: 13 }}>
-                {isActive ? "Ativo" : "Inativo"}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Action toolbar — 4 compact actions */}
-        <div
-          className="grid grid-cols-4"
-          style={{ borderTop: `1px solid ${D.borderSoft}`, margin: "0 20px" }}
-        >
-          {[
-            { icon: Edit2,        label: "Editar",    action: onEdit,      href: undefined },
-            { icon: Grid3x3,      label: "Catálogo",  action: undefined,   href: `/${slug}` },
-            { icon: Share2,       label: "Partilhar", action: handleShare, href: undefined },
-            { icon: MoreVertical, label: "Mais",      action: onEdit,      href: undefined },
-          ].map(({ icon: Icon, label, action, href }) => {
-            const inner = (
-              <div
-                className="flex flex-col items-center gap-1.5 transition-opacity active:opacity-50"
-                style={{ paddingTop: 14, paddingBottom: 12 }}
-              >
-                <Icon size={20} strokeWidth={1.75} style={{ color: D.inkSoft }} />
-                <span style={{ color: D.inkSoft, fontSize: 11.5, fontWeight: 500 }}>{label}</span>
-              </div>
-            );
-            return href ? (
-              <Link key={label} href={href}>{inner}</Link>
-            ) : (
-              <button key={label} className="w-full" onClick={action}>{inner}</button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* ─── Info section — continuous content, no wrapping card ─────────────── */}
-      <SectionLabel>Informações</SectionLabel>
-      <div style={{ background: D.surface, borderTop: `1px solid ${D.border}`, borderBottom: `1px solid ${D.border}` }}>
-        <InfoField label="Descrição"  value={profile.description} placeholder="Adicionar descrição"  onAdd={onEdit} />
-        <InfoField label="Endereço"   value={profile.address}     placeholder="Adicionar endereço"   onAdd={onEdit} />
-        <InfoField label="Horário"    value={profile.hours}       placeholder="Adicionar horário"    onAdd={onEdit} />
-        <InfoField label="Contacto"   value={profile.phone}       placeholder="Adicionar contacto"   onAdd={onEdit} />
-        <InfoField label="E-mail"     value={profile.email}       placeholder="Adicionar e-mail"     onAdd={onEdit} />
-        <InfoField label="Website"    value={profile.websiteUrl}  placeholder="Adicionar website"    onAdd={onEdit} link last />
-      </div>
+      <OwnerProfileOverview profile={profile} slug={slug} onEdit={onEdit} />
 
       {/* ─── Destaques ───────────────────────────────────────────────────────── */}
       {featured.length > 0 && (
@@ -505,7 +364,7 @@ function ProfileView({
             <p style={{ color: D.inkFaint, fontSize: 11, fontWeight: 600, letterSpacing: "0.09em", textTransform: "uppercase" }}>
               Destaques
             </p>
-            <button onClick={onEdit} style={{ color: D.green, fontSize: 13, fontWeight: 600 }}>Gerir</button>
+            <button onClick={() => onEdit("offerings")} style={{ color: D.green, fontSize: 13, fontWeight: 600 }}>Gerir</button>
           </div>
           <div style={{ background: D.surface, borderTop: `1px solid ${D.border}`, borderBottom: `1px solid ${D.border}` }}>
             <div className="flex gap-4 px-5 py-4 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
@@ -522,15 +381,31 @@ function ProfileView({
             <p style={{ color: D.inkFaint, fontSize: 11, fontWeight: 600, letterSpacing: "0.09em", textTransform: "uppercase" }}>
               Catálogo
             </p>
-            <Link href={`/${slug}`}>
-              <span style={{ color: D.green, fontSize: 13, fontWeight: 600 }}>Ver tudo</span>
-            </Link>
+            {isPublic ? (
+              <Link href={`/${slug}`}>
+                <span style={{ color: D.green, fontSize: 13, fontWeight: 600 }}>Ver tudo</span>
+              </Link>
+            ) : (
+              <button onClick={() => onEdit("catalog")} style={{ color: D.green, fontSize: 13, fontWeight: 600 }}>
+                Publicar
+              </button>
+            )}
           </div>
           <div style={{ background: D.surface, borderTop: `1px solid ${D.border}`, borderBottom: `1px solid ${D.border}` }}>
             {previewOfferings.map((o, i) => (
               <CatalogRow key={i} offering={o} last={i === previewOfferings.length - 1} />
             ))}
+            {isPublic ? (
               <ListFooterAction href={`/${slug}`}>Ver catálogo completo</ListFooterAction>
+            ) : (
+              <button
+                onClick={() => onEdit("catalog")}
+                className="w-full flex items-center justify-center p-3 text-[13px] font-semibold transition-colors hover:bg-[var(--subtle)]"
+                style={{ color: D.green, borderTop: `1px solid ${D.borderSoft}` }}
+              >
+                Publicar para ver catálogo
+              </button>
+            )}
           </div>
         </>
       )}
@@ -538,7 +413,11 @@ function ProfileView({
       {/* ─── O teu negócio ───────────────────────────────────────────────────── */}
       <SectionLabel>O teu negócio</SectionLabel>
       <div style={{ background: D.surface, borderTop: `1px solid ${D.border}`, borderBottom: `1px solid ${D.border}` }}>
-        <ToolRow icon={Grid3x3} title="Catálogo"      description="Exibe produtos e serviços"                         href={`/${slug}`} />
+        {isPublic ? (
+          <ToolRow icon={Grid3x3} title="Catálogo"      description="Exibe produtos e serviços"                         href={`/${slug}`} />
+        ) : (
+          <ActionRow icon={Grid3x3} title="Catálogo" description="Exibe produtos e serviços (Oculto)" onClick={() => onEdit("catalog")} />
+        )}
         <ToolRow icon={Zap}     title="Assistente IA" description="Configura o atendimento por voz e chat"           href={`/e/${slug}/dono/assistente`} last />
       </div>
 
@@ -638,6 +517,42 @@ export function Owner() {
   const [deletingAccount, setDeletingAccount] = useState(false);
   const onboardingLaunchedRef = useRef(false);
 
+  // Editor states
+  const [editorTarget, setEditorTarget] = useState<ProfileEditorTarget | undefined>(undefined);
+  const [editorDirty, setEditorDirty] = useState(false);
+
+  const openEditor = useCallback((target?: ProfileEditorTarget) => {
+    setEditorTarget(target);
+    setEditing(true);
+  }, []);
+
+  const closeEditor = useCallback(() => {
+    if (saving) return;
+    if (editorDirty) {
+      if (!window.confirm("Tens alterações não guardadas. Sair sem guardar?")) {
+        return;
+      }
+    }
+    setEditing(false);
+    setProductFocus(false);
+    setEditorTarget(undefined);
+    setEditorDirty(false);
+  }, [editorDirty, saving]);
+
+  const handleCatalogPatch = useCallback((patch: CatalogSettingsPatch) => {
+    setProfile((current) => current ? { ...current, ...patch } : current);
+  }, []);
+
+  useEffect(() => {
+    if (!editorDirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [editorDirty]);
+
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const stopPolling = useCallback(() => {
@@ -669,7 +584,7 @@ export function Owner() {
         setEditorKey((key) => key + 1);
         setNotice("A IA preparou um rascunho. Confirma os dados, corrige o que for necessário e guarda o perfil.");
         setView("editor");
-        setEditing(true);
+        openEditor();
         // Retain the draft and onboarding URL until explicit save so reload
         // does not discard the extracted information or run AI again.
         return;
@@ -698,7 +613,7 @@ export function Owner() {
         if (p.analysisStatus === "done" && filled) {
           stopPolling(); setDraft(null); setEditorKey((k) => k + 1);
           setNotice("Análise concluída. Revê o perfil e guarda.");
-          setView("editor"); setEditing(true);
+          setView("editor"); openEditor();
         } else if (p.analysisStatus === "done" && !filled) {
           stopPolling();
           setError("A análise terminou mas não consegui identificar o negócio. Tenta outro endereço ou preenche manualmente.");
@@ -735,7 +650,7 @@ export function Owner() {
       const { draft: d } = await api.assistFromDescription(descriptionText.trim());
       setDraft(d); setEditorKey((k) => k + 1);
       setNotice("A IA estruturou o teu negócio. Revê os campos e guarda.");
-      setView("editor"); setEditing(true);
+      setView("editor"); openEditor();
     } catch (err) { setError(err instanceof Error ? err.message : "A IA não conseguiu estruturar a descrição"); }
     finally { setBusy(false); }
   };
@@ -753,6 +668,9 @@ export function Owner() {
       }
       setNotice("Perfil guardado com sucesso.");
       setEditing(false);
+      setProductFocus(false);
+      setEditorTarget(undefined);
+      setEditorDirty(false);
     } catch (err) { setError(err instanceof Error ? err.message : "Não foi possível guardar"); }
     finally { setSaving(false); }
   };
@@ -808,23 +726,15 @@ export function Owner() {
           {!editing ? (
             <>
               <h1 className="owner-header-title">Perfil<span className="hidden min-[400px]:inline"> do negócio</span></h1>
-              <Link
-                href={`/${slug}`}
-                className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full px-3 text-[12px] font-semibold text-[var(--ink-soft)] transition-colors hover:bg-[var(--subtle)] hover:text-[var(--ink)]"
-                aria-label="O meu perfil"
-                data-testid="link-my-profile"
-              >
-                <UserRound size={16} strokeWidth={1.8} />
-                <span>O meu perfil</span>
-              </Link>
-              <Link href={`/e/${slug}`} className="owner-icon-btn flex items-center justify-center rounded-full text-[var(--ink-soft)] hover:bg-[var(--subtle)] hover:text-[var(--ink)]" style={{ width: 44 }} aria-label="Ver página pública" data-testid="link-public-profile">
-                <Store size={19} strokeWidth={1.75} />
+              <Link href={`/e/${slug}`} className="owner-icon-btn flex items-center justify-center rounded-full text-[var(--ink-soft)] hover:bg-[var(--subtle)] hover:text-[var(--ink)]" style={{ width: 44 }} aria-label="Testar chamada" data-testid="link-test-call">
+                <Phone size={19} strokeWidth={1.75} />
               </Link>
             </>
           ) : (
             <>
               <button
-                onClick={() => setEditing(false)}
+                onClick={closeEditor}
+                disabled={saving}
                 className="owner-header-back"
                 aria-label="Voltar"
               >
@@ -841,6 +751,7 @@ export function Owner() {
         <div style={{ padding: "12px 20px 0" }}>
           {error && (
             <div
+              role="alert"
               className="flex items-start gap-2"
               style={{
                 background: D.errorBg,
@@ -859,6 +770,7 @@ export function Owner() {
           )}
           {notice && !error && (
             <div
+              role="status"
               className="flex items-start gap-2"
               style={{
                 background: D.successBg,
@@ -1055,7 +967,7 @@ export function Owner() {
           <ProfileView
             profile={profile}
             slug={slug}
-            onEdit={() => setEditing(true)}
+            onEdit={openEditor}
             onReanalyze={handleReanalyze}
             reanalyzing={reanalyzing}
             onLogout={() => { void handleLogout(); }}
@@ -1073,10 +985,13 @@ export function Owner() {
               draft={draft}
               saving={saving}
               reanalyzing={reanalyzing}
+              initialTarget={editorTarget}
               onSave={handleSave}
               onReanalyze={handleReanalyze}
-              onBack={() => setEditing(false)}
+              onBack={closeEditor}
               onFocusModeChange={setProductFocus}
+              onDirtyChange={setEditorDirty}
+              onCatalogSettingsChange={handleCatalogPatch}
             />
           </div>
         )}
