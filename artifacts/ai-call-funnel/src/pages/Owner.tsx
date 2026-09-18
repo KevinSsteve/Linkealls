@@ -534,14 +534,16 @@ function ProfileView({
         </>
       )}
 
-      <CatalogAnalyticsCard slug={slug} offerings={profile.offerings} />
-
       {/* ─── O teu negócio ───────────────────────────────────────────────────── */}
       <SectionLabel>O teu negócio</SectionLabel>
       <div style={{ background: D.surface, borderTop: `1px solid ${D.border}`, borderBottom: `1px solid ${D.border}` }}>
-        <ToolRow icon={Grid3x3}   title="Catálogo"      description="Exibe produtos e serviços"                href={`/${slug}`} />
-        <ToolRow icon={Zap}       title="Assistente IA" description="Responde automaticamente, 24h por dia"   href={`/e/${slug}/dono/assistente`} />
-        <ToolRow icon={Megaphone} title="Campanhas"     description="Anúncios para trazer mais clientes"      href={`/e/${slug}/dono/campanhas`} last />
+        <ToolRow icon={Grid3x3} title="Catálogo"      description="Exibe produtos e serviços"                         href={`/${slug}`} />
+        <ToolRow icon={Zap}     title="Assistente IA" description="Configura o atendimento por voz e chat"           href={`/e/${slug}/dono/assistente`} last />
+      </div>
+
+      <SectionLabel>Histórico</SectionLabel>
+      <div style={{ background: D.surface, borderTop: `1px solid ${D.border}`, borderBottom: `1px solid ${D.border}` }}>
+        <ToolRow icon={Megaphone} title="Campanhas antigas" description="Consulta estados e compromissos anteriores" href={`/e/${slug}/dono/campanhas`} last />
       </div>
 
       {/* ─── Pagamentos ──────────────────────────────────────────────────────── */}

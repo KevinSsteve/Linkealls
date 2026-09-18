@@ -4,12 +4,8 @@ description: How the bottom nav is implemented across all owner pages and the la
 ---
 
 ## Rule
-All owner pages use `<OwnerNav />` at the bottom of their flex-col root div.
-The component lives at `src/components/owner/OwnerNav.tsx` and routes:
-- `/dono` → Perfil (exact match)
-- `/dono/conversas` → Conversas
-- `/dono/assistente` → IA
-- `/dono/campanhas` → Camps
+Keep owner navigation consistent at the bottom of owner pages; obtain the current
+tabs and destinations from the component rather than retaining an old route list.
 
 **Why:** The old approach put nav links in Owner.tsx's header — they overflowed on small screens and disappeared when navigating to sub-pages.
 

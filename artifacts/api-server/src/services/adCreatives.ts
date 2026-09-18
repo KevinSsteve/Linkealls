@@ -24,6 +24,7 @@ import { ObjectStorageService } from "../lib/objectStorage.js";
 import { logger } from "../lib/logger.js";
 import { IS_ZERNIO_SIMULATION, searchMetaTargeting } from "./zernio.js";
 import { META_AD_POLICY_PROMPT, META_AD_POLICY_VERSION } from "./metaAdPolicies.js";
+import { assertAdvertisingNewActionsEnabled } from "../lib/launchPolicy.js";
 
 const TEXT_MODEL = process.env["GEMINI_TEXT_MODEL"] ?? "gemini-3-flash-preview";
 const IMAGE_MODEL = "gemini-2.5-flash-image";
@@ -177,6 +178,7 @@ export async function analyzeCampaignImage(
   campaignId: string,
   businessId: number,
 ): Promise<CampaignImageRecommendations> {
+  assertAdvertisingNewActionsEnabled();
   const campaign = await db
     .select()
     .from(campaignsTable)
@@ -505,6 +507,7 @@ export async function startCreativeGeneration(
   campaignId: string,
   businessId: number,
 ): Promise<Campaign | null> {
+  assertAdvertisingNewActionsEnabled();
   // Atomic gate: the creative is intentionally generated before payment so the
   // owner can review the complete ad before any money moves.
   const updated = await db

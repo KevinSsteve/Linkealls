@@ -26,6 +26,7 @@ import { effectiveAoaPerUsd, aoaToWholeUsd } from "./fx.js";
 import { sendPushToOwner } from "./notifications.js";
 import { logger } from "../lib/logger.js";
 import { utcIntervalRunKey, withScheduledJobLock } from "../lib/scheduledJobLock.js";
+import { assertAdvertisingNewActionsEnabled } from "../lib/launchPolicy.js";
 
 export const CAMPAIGN_MIN_BUDGET_AOA = 5_000;
 
@@ -153,6 +154,7 @@ export async function payCampaignFromWallet(
   campaignId: string,
   businessId: number,
 ): Promise<Campaign> {
+  assertAdvertisingNewActionsEnabled();
   const campaign = await getOwnedCampaign(campaignId, businessId);
   assertPayable(campaign);
   const { fxRate, budgetUsd } = lockFxOnPayment(campaign.budget);
@@ -202,6 +204,7 @@ export async function payCampaignWithMulticaixa(
   businessId: number,
   phone: string,
 ): Promise<Campaign> {
+  assertAdvertisingNewActionsEnabled();
   const campaign = await getOwnedCampaign(campaignId, businessId);
   assertPayable(campaign);
   // A simulated Multicaixa charge must never gate a real ad: in production
@@ -383,6 +386,7 @@ function publicBaseUrl(): string {
 }
 
 export async function publishCampaign(campaignId: string, businessId: number): Promise<Campaign> {
+  assertAdvertisingNewActionsEnabled();
   const campaign = await getOwnedCampaign(campaignId, businessId);
   if (IS_DEV_ENV && !zernio.IS_ZERNIO_SIMULATION) {
     throw new PaymentError(
@@ -496,6 +500,7 @@ export async function controlCampaignAd(
   businessId: number,
   action: "pause" | "resume" | "end",
 ): Promise<Campaign> {
+  if (action === "resume") assertAdvertisingNewActionsEnabled();
   const campaign = await getOwnedCampaign(campaignId, businessId);
   if (!campaign.zernioAdId) throw new PaymentError("Esta campanha ainda não foi publicada");
   if (["encerrada", "rejeitada"].includes(campaign.publishStatus)) {

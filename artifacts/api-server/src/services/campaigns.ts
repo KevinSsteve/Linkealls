@@ -16,6 +16,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { logger } from "../lib/logger.js";
 import { getOrCreateProfile } from "./businessProfile.js";
 import { listLeads } from "./leads.js";
+import { assertAdvertisingNewActionsEnabled } from "../lib/launchPolicy.js";
 
 const MODEL = "gemini-3-flash-preview";
 
@@ -46,6 +47,7 @@ export async function createCampaign(
   data: { name: string; platform: CampaignPlatform; objective: string; budget: number },
   businessId?: number,
 ): Promise<Campaign> {
+  assertAdvertisingNewActionsEnabled();
   const baseSlug = slugify(data.name) || "campanha";
   let utmSlug = baseSlug;
   let suffix = 2;
@@ -66,6 +68,7 @@ export async function createCampaign(
 }
 
 export async function duplicateCampaign(id: string, businessId?: number): Promise<Campaign> {
+  assertAdvertisingNewActionsEnabled();
   const source = await getCampaign(id, businessId);
   if (!source) throw new Error("Campanha não encontrada");
 
@@ -111,6 +114,7 @@ export class CampaignDeleteError extends Error {
  * history or breaking lead attribution.
  */
 export async function deleteCampaign(id: string, businessId?: number): Promise<boolean> {
+  assertAdvertisingNewActionsEnabled();
   const scope =
     businessId !== undefined
       ? and(eq(campaignsTable.id, id), eq(campaignsTable.businessId, businessId))
@@ -156,6 +160,7 @@ export async function updateCampaign(
   }>,
   businessId?: number,
 ): Promise<Campaign | null> {
+  assertAdvertisingNewActionsEnabled();
   const scope =
     businessId !== undefined
       ? and(eq(campaignsTable.id, id), eq(campaignsTable.businessId, businessId))
@@ -192,6 +197,7 @@ export async function updateCampaignSetup(
   setup: CampaignSetup,
   businessId?: number,
 ): Promise<Campaign | null> {
+  assertAdvertisingNewActionsEnabled();
   const scope =
     businessId !== undefined
       ? and(eq(campaignsTable.id, id), eq(campaignsTable.businessId, businessId))
@@ -261,6 +267,7 @@ const PLATFORM_LABELS: Record<CampaignPlatform, string> = {
 };
 
 export async function generateCampaignKit(campaignId: string, businessId?: number): Promise<Campaign> {
+  assertAdvertisingNewActionsEnabled();
   const apiKey = process.env["GEMINI_API_KEY"];
   if (!apiKey) throw new Error("GEMINI_API_KEY not set");
 
@@ -466,6 +473,7 @@ export async function getCampaignMetrics(campaignId: string, businessId?: number
 // ─── AI optimization suggestions ─────────────────────────────────────────────
 
 export async function generateOptimizationSuggestions(campaignId: string, businessId?: number): Promise<string[]> {
+  assertAdvertisingNewActionsEnabled();
   const apiKey = process.env["GEMINI_API_KEY"];
   if (!apiKey) throw new Error("GEMINI_API_KEY not set");
 

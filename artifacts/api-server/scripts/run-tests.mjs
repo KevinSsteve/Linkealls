@@ -112,6 +112,8 @@ try {
       path.join(artifactDir, "tests/visitor-capabilities.test.mjs"),
       path.join(artifactDir, "tests/health-readiness.test.mjs"),
       path.join(artifactDir, "tests/visitor-voice.test.mjs"),
+      path.join(artifactDir, "tests/launch-scope.test.mjs"),
+      path.join(artifactDir, "tests/launch-notifications.test.mjs"),
     ],
     { env: testEnv, stdio: "inherit" },
   );

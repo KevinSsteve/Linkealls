@@ -419,9 +419,9 @@ export function RegisterPage() {
               O teu negócio merece um lugar próprio.
             </h2>
             <div className="mt-8 space-y-3 text-[14px]" style={{ color: COLORS.soft }}>
-              <p className="flex items-center gap-3"><span className="flex h-6 w-6 items-center justify-center rounded-full" style={{ background: COLORS.accent, color: "#fff" }}><Check size={14} /></span> Conversas organizadas</p>
-              <p className="flex items-center gap-3"><span className="flex h-6 w-6 items-center justify-center rounded-full" style={{ background: COLORS.accent, color: "#fff" }}><Check size={14} /></span> Produtos sempre à mão</p>
-              <p className="flex items-center gap-3"><span className="flex h-6 w-6 items-center justify-center rounded-full" style={{ background: COLORS.accent, color: "#fff" }}><Check size={14} /></span> Um link para partilhar</p>
+              <p className="flex items-center gap-3"><span className="flex h-6 w-6 items-center justify-center rounded-full" style={{ background: COLORS.accent, color: "#fff" }}><Check size={14} /></span> Catálogo num único link</p>
+              <p className="flex items-center gap-3"><span className="flex h-6 w-6 items-center justify-center rounded-full" style={{ background: COLORS.accent, color: "#fff" }}><Check size={14} /></span> Atendimento por voz e chat com IA</p>
+              <p className="flex items-center gap-3"><span className="flex h-6 w-6 items-center justify-center rounded-full" style={{ background: COLORS.accent, color: "#fff" }}><Check size={14} /></span> Pedidos e pagamentos organizados</p>
             </div>
           </div>
           <div className="absolute -right-20 top-24 h-64 w-64 rounded-full border-[34px]" style={{ borderColor: "rgba(99,91,255,0.14)" }} aria-hidden="true" />

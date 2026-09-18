@@ -28,6 +28,25 @@ As assinaturas de visitante usam uma chave dedicada opcional ou uma derivação
 separada do SESSION_SECRET existente. Rotacionar a chave invalida autorizações
 anteriores. Não usar chaves aleatórias diferentes por réplica.
 
+### Validação da simplificação do lançamento
+
+- TypeScript do workspace e builds da API/frontend passaram. Suite principal:
+  **62 testes passaram**, incluindo bloqueios de publicidade antes de efeitos,
+  acesso autenticado ao histórico, pausa/encerramento, suspensão de resumos e
+  preservação do envio de alertas essenciais com transportes simulados.
+- A suite financeira isolada mantém **27 testes aprovados e 1 TODO conhecido**.
+  Apenas nesse bundle de testes a política de suspensão é substituída para
+  continuar a exercitar o núcleo financeiro existente; a aplicação não tem
+  qualquer excepção equivalente.
+- Serviços de desenvolvimento arrancaram; health e readiness responderam 200.
+  A homepage foi verificada visualmente a 1366×900 e 390×844; uma quebra de linha
+  do título foi corrigida para evitar texto cortado.
+- Não foi repetida nesta simplificação uma sessão interactiva autenticada no
+  navegador. A preservação dos controlos das campanhas foi verificada por testes
+  isolados de rotas/serviços e compilação, não por operações reais com fornecedores.
+- Sem cobranças, saques, publicações de anúncios, escritas em produção ou publicação
+  da aplicação. Os bloqueadores abaixo permanecem.
+
 ## Verificado no código
 
 - `GET /api/healthz` continua a ser uma verificação de liveness, sem acesso à base
@@ -55,6 +74,32 @@ ausentes. Não foram executadas escritas em produção. As verificações locais
 comprovam alertas activos nem capacidade de restauro.
 
 ## Bloqueadores antes da publicação — pendentes
+
+### Escopo reduzido do lançamento
+
+- A proposta do lançamento é página do negócio, catálogo, atendimento IA por voz e
+  chat, conversas, pedidos e pagamentos de clientes. Carteira, saques, conta/plano
+  e notificações essenciais continuam disponíveis.
+- Novas utilizações de publicidade ficam suspensas no servidor e na interface:
+  criação, duplicação, alteração, pagamento, publicação, geração/análise de
+  criativos e recomendações. A suspensão não depende de esconder botões.
+- Histórico e estado das campanhas existentes permanecem consultáveis pelo dono.
+  Webhooks, liquidação, reconciliação e sincronização existentes não são desligados;
+  anúncios existentes podem ser pausados ou encerrados, mas não retomados.
+- Campanhas já pagas que ainda não foram publicadas permanecem registadas e
+  sinalizadas como pendentes de revisão. Não existe uma excepção automática para
+  publicar, cobrar novamente ou reembolsar. Antes da publicação desta versão,
+  o responsável deve verificar compromissos existentes, comunicar a suspensão
+  aos afectados e aprovar a resolução de cada obrigação sem perder o histórico.
+- Mercado sai da navegação principal e da promoção pública; os links dos negócios
+  e a rota autenticada existente não são removidos. Os resumos diários/lembretes
+  não essenciais ficam suspensos, sem apagar subscrições push ou mensagens antigas.
+- Não há migração de dados associada a esta simplificação. A falha conhecida de
+  confirmação tardia de pagamento continua pendente: suspender novas campanhas
+  não corrige o tratamento das confirmações antigas.
+- Reabrir publicidade ou resumos exige revisão explícita da política de lançamento
+  no cliente e servidor, incluindo compromissos financeiros. Não reactivar apenas
+  um botão ou uma rotina isolada.
 
 - [ ] Identificar o tipo e o alvo exacto da base de produção e obter aprovação do
   responsável pela publicação.

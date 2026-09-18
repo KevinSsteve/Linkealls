@@ -2,6 +2,18 @@
 
 MVP de chamada por voz bidirecional em tempo real com a Gemini Live API do Google.
 
+## Escopo actual do lançamento Linkealls
+
+- Foco aprovado: página do negócio, catálogo, atendimento IA por voz/chat, conversas,
+  pedidos e pagamentos. Preservar carteira, saques e alertas essenciais.
+- Publicidade nova e conteúdos publicitários ficam suspensos; Mercado não é um
+  destino principal; resumos diários e lembretes não essenciais ficam adiados.
+- Não apagar históricos nem abandonar operações em curso. Não alterar liquidação,
+  preços ou regras dos planos como parte desta simplificação.
+- Ver `docs/production-readiness.md` para limitações, compromissos antigos de
+  campanhas e bloqueadores reais antes de publicar. Reduzir o escopo não resolve
+  automaticamente esses bloqueadores.
+
 ## Run & Operate
 
 - `pnpm --filter @workspace/api-server run dev` — run the API server (port 8080)

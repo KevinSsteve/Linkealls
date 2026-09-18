@@ -95,6 +95,13 @@ import {
   visitorTokenFromAuthorization,
   VisitorCapabilityError,
 } from "../lib/visitorCapabilities.js";
+import {
+  assertAdvertisingNewActionsEnabled,
+  assertNonessentialSummariesEnabled,
+  LaunchFeaturePausedError,
+  launchFeaturePausedPayload,
+  PAID_CAMPAIGN_PENDING_REVIEW_MESSAGE,
+} from "../lib/launchPolicy.js";
 
 function bid(res: Response): number {
   return res.locals["businessId"] as number;
@@ -140,6 +147,32 @@ async function requireRecentReauth(req: Request, res: Response, next: () => void
   } catch (err) {
     logger.error({ err }, "requireRecentReauth failed");
     res.status(500).json({ error: "Não foi possível confirmar a identidade" });
+  }
+}
+
+function requireAdvertisingNewActions(_req: Request, res: Response, next: () => void): void {
+  try {
+    assertAdvertisingNewActionsEnabled();
+    next();
+  } catch (err) {
+    if (err instanceof LaunchFeaturePausedError) {
+      res.status(err.statusCode).json(launchFeaturePausedPayload(err));
+      return;
+    }
+    throw err;
+  }
+}
+
+function requireNonessentialSummaries(_req: Request, res: Response, next: () => void): void {
+  try {
+    assertNonessentialSummariesEnabled();
+    next();
+  } catch (err) {
+    if (err instanceof LaunchFeaturePausedError) {
+      res.status(err.statusCode).json(launchFeaturePausedPayload(err));
+      return;
+    }
+    throw err;
   }
 }
 
@@ -560,7 +593,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.post("/campaigns", requireOwner, async (req, res) => {
+  router.post("/campaigns", requireOwner, requireAdvertisingNewActions, async (req, res) => {
     const parsed = createCampaignSchema.safeParse(req.body);
     if (!parsed.success) {
       res.status(400).json({ error: "Dados inválidos", details: parsed.error });
@@ -582,7 +615,7 @@ export function createBusinessScopedRouter(): Router {
 
   // These routes must precede /campaigns/:id so "targeting" is not treated as
   // a campaign UUID. The Meta account remains server-side.
-  router.get("/campaigns/targeting/locations", requireOwner, async (req, res) => {
+  router.get("/campaigns/targeting/locations", requireOwner, requireAdvertisingNewActions, async (req, res) => {
     const query = typeof req.query["q"] === "string" ? req.query["q"].slice(0, 80) : "";
     try {
       const results = await searchMetaTargeting("city", query);
@@ -593,7 +626,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.get("/campaigns/targeting/interests", requireOwner, async (req, res) => {
+  router.get("/campaigns/targeting/interests", requireOwner, requireAdvertisingNewActions, async (req, res) => {
     const query = typeof req.query["q"] === "string" ? req.query["q"].slice(0, 80) : "";
     try {
       const results = await searchMetaTargeting("interest", query);
@@ -609,14 +642,19 @@ export function createBusinessScopedRouter(): Router {
     try {
       const campaign = await getCampaign(id, bid(res));
       if (!campaign) { res.status(404).json({ error: "Campanha não encontrada" }); return; }
-      res.json({ campaign });
+      const launchNotice =
+        campaign.paymentStatus === "pago" &&
+        ["nao_publicada", "erro", "rejeitada"].includes(campaign.publishStatus)
+          ? PAID_CAMPAIGN_PENDING_REVIEW_MESSAGE
+          : null;
+      res.json({ campaign, launchNotice });
     } catch (err) {
       logger.error({ err }, "GET /campaigns/:id failed");
       res.status(500).json({ error: "Erro ao carregar campanha" });
     }
   });
 
-  router.patch("/campaigns/:id", requireOwner, async (req, res) => {
+  router.patch("/campaigns/:id", requireOwner, requireAdvertisingNewActions, async (req, res) => {
     const id = String(req.params["id"] ?? "");
     const parsed = updateCampaignSchema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "Dados inválidos" }); return; }
@@ -631,7 +669,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.patch("/campaigns/:id/setup", requireOwner, async (req, res) => {
+  router.patch("/campaigns/:id/setup", requireOwner, requireAdvertisingNewActions, async (req, res) => {
     const id = String(req.params["id"] ?? "");
     const parsed = campaignSetupSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -652,7 +690,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.delete("/campaigns/:id", requireOwner, requireRecentReauth, async (req, res) => {
+  router.delete("/campaigns/:id", requireOwner, requireAdvertisingNewActions, requireRecentReauth, async (req, res) => {
     const id = String(req.params["id"] ?? "");
     try {
       const deleted = await deleteCampaign(id, bid(res));
@@ -671,7 +709,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.post("/campaigns/:id/duplicate", requireOwner, async (req, res) => {
+  router.post("/campaigns/:id/duplicate", requireOwner, requireAdvertisingNewActions, async (req, res) => {
     const id = String(req.params["id"] ?? "");
     try {
       const campaign = await duplicateCampaign(id, bid(res));
@@ -682,7 +720,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.post("/campaigns/:id/generate", requireOwner, async (req, res) => {
+  router.post("/campaigns/:id/generate", requireOwner, requireAdvertisingNewActions, async (req, res) => {
     const id = String(req.params["id"] ?? "");
     try {
       const campaign = await generateCampaignKit(id, bid(res));
@@ -693,7 +731,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.post("/campaigns/:id/ai-recommendations", requireOwner, async (req, res) => {
+  router.post("/campaigns/:id/ai-recommendations", requireOwner, requireAdvertisingNewActions, async (req, res) => {
     const id = String(req.params["id"] ?? "");
     try {
       const recommendations = await analyzeCampaignImage(id, bid(res));
@@ -721,7 +759,7 @@ export function createBusinessScopedRouter(): Router {
   // ── Real ads (Zernio, paid in Kz) ──────────────────────────────────────────
 
   /** Quote: FX rate + USD estimate for a given AOA budget. */
-  router.get("/campaigns/ads/quote", requireOwner, (req, res) => {
+  router.get("/campaigns/ads/quote", requireOwner, requireAdvertisingNewActions, (req, res) => {
     const budget = Number(req.query["budget"] ?? 0);
     const rate = effectiveAoaPerUsd();
     res.json({
@@ -732,7 +770,7 @@ export function createBusinessScopedRouter(): Router {
     });
   });
 
-  router.post("/campaigns/:id/pay", requireOwner, requireRecentReauth, async (req, res) => {
+  router.post("/campaigns/:id/pay", requireOwner, requireAdvertisingNewActions, requireRecentReauth, async (req, res) => {
     const id = String(req.params["id"] ?? "");
     const schema = z.discriminatedUnion("method", [
       z.object({ method: z.literal("carteira") }),
@@ -752,7 +790,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.post("/campaigns/:id/creative", requireOwner, async (req, res) => {
+  router.post("/campaigns/:id/creative", requireOwner, requireAdvertisingNewActions, async (req, res) => {
     const id = String(req.params["id"] ?? "");
     try {
       const campaign = await startCreativeGeneration(id, bid(res));
@@ -767,7 +805,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.post("/campaigns/:id/publish", requireOwner, requireRecentReauth, async (req, res) => {
+  router.post("/campaigns/:id/publish", requireOwner, requireAdvertisingNewActions, requireRecentReauth, async (req, res) => {
     const id = String(req.params["id"] ?? "");
     try {
       const campaign = await publishCampaign(id, bid(res));
@@ -783,6 +821,17 @@ export function createBusinessScopedRouter(): Router {
     const id = String(req.params["id"] ?? "");
     const parsed = z.object({ action: z.enum(["pause", "resume", "end"]) }).safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "Ação inválida" }); return; }
+    if (parsed.data.action === "resume") {
+      try {
+        assertAdvertisingNewActionsEnabled();
+      } catch (err) {
+        if (err instanceof LaunchFeaturePausedError) {
+          res.status(err.statusCode).json(launchFeaturePausedPayload(err));
+          return;
+        }
+        throw err;
+      }
+    }
     try {
       const campaign = await controlCampaignAd(id, bid(res), parsed.data.action);
       res.json({ campaign });
@@ -793,7 +842,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.get("/campaigns/:id/optimize", requireOwner, async (req, res) => {
+  router.get("/campaigns/:id/optimize", requireOwner, requireAdvertisingNewActions, async (req, res) => {
     const id = String(req.params["id"] ?? "");
     try {
       const suggestions = await generateOptimizationSuggestions(id, bid(res));
@@ -852,7 +901,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.post("/assistant/proactive/daily", requireOwner, async (_req, res) => {
+  router.post("/assistant/proactive/daily", requireOwner, requireNonessentialSummaries, async (_req, res) => {
     try {
       const msg = await proactiveDailySummary(bid(res));
       broadcastAssistantMessage(msg);
@@ -863,7 +912,7 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
-  router.post("/assistant/proactive/stale", requireOwner, async (_req, res) => {
+  router.post("/assistant/proactive/stale", requireOwner, requireNonessentialSummaries, async (_req, res) => {
     try {
       const msg = await proactiveStaleLeads(bid(res));
       if (msg) broadcastAssistantMessage(msg);

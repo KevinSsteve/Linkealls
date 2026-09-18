@@ -151,6 +151,11 @@ export function Plano() {
                   Plano Linkealls
                 </p>
               </div>
+              <div className="mt-4 grid gap-2 text-[12px]" style={{ color: active ? "rgba(255,255,255,0.8)" : C.text2 }}>
+                <p>✓ Página do negócio e catálogo</p>
+                <p>✓ Atendimento por voz e chat com IA</p>
+                <p>✓ Pedidos, pagamentos e carteira num só lugar</p>
+              </div>
               {active ? (
                 <>
                   <p className="text-[13px]" style={{ color: "rgba(255,255,255,0.75)" }}>

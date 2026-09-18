@@ -2,7 +2,7 @@
 - [Gemini tool response format](gemini-tool-response-format.md) — SDK requires {id, name, response} all three; missing 'name' throws; never nest under 'result'; onToolCall closure bug re: null geminiSession.
 - [WS upgrade conflicts & dev routing](ws-upgrade-conflicts.md) — never attach two WebSocketServer({server,path}) to one HTTP server (mutual 400s); dev WS URLs must stay under the artifact base path.
 - [Screenshot centering](screenshot-centering.md) — screenshot captures ignore margin-inline (mx-auto → left-aligned); center with flex justify-center + w-full max-w-*.
-- [Owner nav pattern](owner-nav-pattern.md) — bottom OwnerNav (4 tabs: Perfil/Conversas/IA/Camps) used on all owner pages; LeadDetail must use flex-1 min-h-0 not h-full when inside a flex-col parent with OwnerNav below.
+- [Owner nav layout](owner-nav-pattern.md) — bottom navigation avoids header overflow; nested detail views need flex-1 min-h-0 rather than h-full beside the nav.
 - [AppyPay OAuth tenant](appypay-oauth-tenant.md) — token URL must use tenant auth.appypay.co.ao; AADSTS500011 means wrong tenant, not wrong APPYPAY_RESOURCE secret.
 - [Multicaixa payments invariants](payments-multicaixa.md) — derived balance + advisory locks; atomic settlement; never refund payouts on timeout; webhook fail-closed HMAC.
 - [pg Pool error handler](pg-pool-error-handler.md) — unhandled pool 'error' from Neon idle-kills crashed prod & failed publish health checks; always pool.on('error') + idleTimeoutMillis.

@@ -16,14 +16,17 @@ import { OwnerGate } from "@/components/owner/OwnerGate";
 import { Owner } from "@/pages/Owner";
 import { Leads } from "@/pages/owner/Leads";
 import { Assistant } from "@/pages/owner/Assistant";
-import { Campaigns } from "@/pages/owner/Campaigns";
-import { CampaignDetail } from "@/pages/owner/CampaignDetail";
+import { LaunchCampaigns } from "@/pages/owner/Campaigns";
+import { LaunchCampaignDetail } from "@/pages/owner/CampaignDetail";
+import { LegacyCampaigns } from "@/pages/owner/LegacyCampaigns";
+import { LegacyCampaignDetail } from "@/pages/owner/LegacyCampaignDetail";
 import { Conversas } from "@/pages/owner/Conversas";
 import { Mercado } from "@/pages/owner/Mercado";
 import { Vendas } from "@/pages/owner/Vendas";
 import { Comercio } from "@/pages/owner/Comercio";
 import { Carteira } from "@/pages/owner/Carteira";
 import { Plano } from "@/pages/owner/Plano";
+import { ADVERTISING_NEW_ACTIONS_ENABLED } from "@/lib/launchPolicy";
 
 // Serve under the artifact base path. With BASE_PATH="/" this is "".
 const routerBase = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -150,9 +153,9 @@ export default function App() {
                   {/* ── Owner panel (protected by OwnerGate) ─────────────────── */}
                   <Route path="/e/:businessSlug/dono/leads">{() => <OwnerGate><Leads /></OwnerGate>}</Route>
                   <Route path="/e/:businessSlug/dono/conversas">{() => <OwnerGate><Conversas /></OwnerGate>}</Route>
-                  <Route path="/e/:businessSlug/dono/assistente">{() => <OwnerGate><Assistant /></OwnerGate>}</Route>
-                  <Route path="/e/:businessSlug/dono/campanhas/:id">{() => <OwnerGate><CampaignDetail /></OwnerGate>}</Route>
-                  <Route path="/e/:businessSlug/dono/campanhas">{() => <OwnerGate><Campaigns /></OwnerGate>}</Route>
+                   <Route path="/e/:businessSlug/dono/assistente">{() => <OwnerGate><Assistant /></OwnerGate>}</Route>
+                   <Route path="/e/:businessSlug/dono/campanhas/:id">{() => <OwnerGate>{ADVERTISING_NEW_ACTIONS_ENABLED ? <LegacyCampaignDetail /> : <LaunchCampaignDetail />}</OwnerGate>}</Route>
+                   <Route path="/e/:businessSlug/dono/campanhas">{() => <OwnerGate>{ADVERTISING_NEW_ACTIONS_ENABLED ? <LegacyCampaigns /> : <LaunchCampaigns />}</OwnerGate>}</Route>
                   <Route path="/e/:businessSlug/dono/mercado">{() => <OwnerGate><Mercado /></OwnerGate>}</Route>
                   <Route path="/e/:businessSlug/dono/vendas">{() => <OwnerGate><Vendas /></OwnerGate>}</Route>
                   <Route path="/e/:businessSlug/dono/comercio">{() => <OwnerGate><Comercio /></OwnerGate>}</Route>

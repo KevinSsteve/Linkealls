@@ -44,7 +44,8 @@ test("high-impact operations require a recent confirmation of the existing busin
   assert.match(auth, /SENSITIVE_AUTH_REQUIRED/);
   assert.match(scoped, /async function requireRecentReauth/);
   assert.match(scoped, /router\.put\("\/profile", requireOwner, requireRecentReauth/);
-  assert.match(scoped, /router\.post\("\/campaigns\/:id\/publish", requireOwner, requireRecentReauth/);
+  assert.match(scoped, /router\.post\("\/campaigns\/:id\/publish", requireOwner, requireAdvertisingNewActions, requireRecentReauth/);
+  assert.match(scoped, /router\.post\("\/campaigns\/:id\/control", requireOwner, requireRecentReauth/);
   assert.match(payments, /router\.post\("\/wallet\/payouts", requireOwner, requireRecentReauth/);
   assert.match(auth, /router\.delete\("\/user-auth\/account"/);
   assert.match(api, /export async function confirmSensitiveAction/);

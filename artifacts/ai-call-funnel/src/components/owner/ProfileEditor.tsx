@@ -379,7 +379,7 @@ function NotificationsSection({ slug }: { slug: string }) {
     <EditorSection
       id="notifications"
       title="Notificações no telemóvel"
-      description={denied ? "Activa as notificações nas definições do browser para receber alertas." : subscribed ? "Receberás um alerta quando chegar um lead qualificado e o resumo diário às 08h00." : "Recebe um alerta quando chegar um lead qualificado e um resumo diário às 08h00."}
+      description={denied ? "Activa as notificações nas definições do browser para receber alertas essenciais." : subscribed ? "Receberás alertas de contactos qualificados, pedidos e pagamentos." : "Recebe alertas de contactos qualificados, pedidos e pagamentos."}
       collapsible
       defaultOpen={false}
       action={denied ? <BellOff size={19} className="mt-1 text-[var(--ink-faint)]" /> : <Toggle enabled={subscribed} onChange={subscribed ? unsubscribe : subscribe} disabled={loading} label={subscribed ? "Desactivar notificações" : "Activar notificações"} testId="toggle-notifications" />}

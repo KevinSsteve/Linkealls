@@ -7,6 +7,7 @@ import { db, businessProfilesTable, type PushSubscriptionJSON } from "@workspace
 import { eq, sql } from "drizzle-orm";
 import { logger } from "../lib/logger.js";
 import { withScheduledJobLock } from "../lib/scheduledJobLock.js";
+import { NONESSENTIAL_SUMMARIES_ENABLED } from "../lib/launchPolicy.js";
 
 // ─── VAPID setup ──────────────────────────────────────────────────────────────
 
@@ -139,6 +140,8 @@ export function angolaSummaryPeriod(now: Date): { date: string; hour: number } {
 }
 
 export async function runDailySummaryFor(now = new Date()): Promise<boolean> {
+  // Do not claim periods or query business data while summaries are paused.
+  if (!NONESSENTIAL_SUMMARIES_ENABLED) return false;
   const { date, hour } = angolaSummaryPeriod(now);
   if (hour < 8) return false;
   // The run key is deliberately claimed before Web Push calls. This is
@@ -148,6 +151,10 @@ export async function runDailySummaryFor(now = new Date()): Promise<boolean> {
 }
 
 export function startDailySummaryCron(): void {
+  if (!NONESSENTIAL_SUMMARIES_ENABLED) {
+    logger.info("Daily summaries paused for launch; essential notifications remain enabled");
+    return;
+  }
   const tick = async () => {
     await runDailySummaryFor();
   };

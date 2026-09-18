@@ -18,6 +18,7 @@ import { asc, and, eq } from "drizzle-orm";
 import { logger } from "../lib/logger.js";
 import { listLeads, getLead, updateLeadState, subscribeToLeadQualified } from "./leads.js";
 import { getOrCreateProfile } from "./businessProfile.js";
+import { assertNonessentialSummariesEnabled } from "../lib/launchPolicy.js";
 
 const MODEL = "gemini-3-flash-preview";
 const MAX_HISTORY = 20; // messages kept in context window
@@ -303,6 +304,13 @@ REGRAS:
 - NUNCA inventa números ou dados de leads
 - Para ações como mudar estado de lead, usa a ferramenta e informa que a mudança precisa de confirmação
 - Quando apresentas um rascunho de mensagem, indica claramente que está pronto a copiar
+- Neste lançamento, concentra-te no perfil, catálogo, atendimento, conversas e pedidos.
+- Publicidade e geração de conteúdos publicitários estão suspensas: não cries anúncios,
+  campanhas, kits, textos, imagens ou vídeos publicitários nem encaminhes para os seus
+  atalhos. Explica a indisponibilidade; o histórico continua consultável.
+- Resumos diários automáticos e lembretes de contactos parados estão suspensos.
+  Não prometas agendá-los nem sugiras esses atalhos. Podes responder a perguntas
+  pontuais sobre contactos com os dados das ferramentas e rascunhar respostas individuais.
 - Responde SEMPRE em português de Angola
 
 Data e hora atual: ${new Date().toLocaleString("pt-AO", { timeZone: "Africa/Luanda" })}`;
@@ -437,6 +445,7 @@ export async function proactiveLeadQualified(leadId: string): Promise<AssistantM
 
 /** Checks for stale qualified leads (> 24h without being delivered). */
 export async function proactiveStaleLeads(businessId: number): Promise<AssistantMessage | null> {
+  assertNonessentialSummariesEnabled();
   const leads = await listLeads(businessId);
   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
   const stale = leads.filter(
@@ -461,6 +470,7 @@ export async function proactiveStaleLeads(businessId: number): Promise<Assistant
 
 /** Generates a daily summary of activity. */
 export async function proactiveDailySummary(businessId: number): Promise<AssistantMessage> {
+  assertNonessentialSummariesEnabled();
   const leads = await listLeads(businessId);
   const today = new Date();
   today.setHours(0, 0, 0, 0);

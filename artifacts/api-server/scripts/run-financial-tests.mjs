@@ -9,8 +9,18 @@ const artifactDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 const tempDir = await mkdtemp(path.join(os.tmpdir(), "linkealls-financial-tests-"));
 const modulePath = path.join(tempDir, "financial.mjs");
 const fixturePath = path.join(artifactDir, "tests/financial-memory-fixture.mjs");
+const launchPolicyFixturePath = path.join(tempDir, "launch-policy-fixture.mjs");
 
 try {
+  // Financial regression tests exercise the unchanged settlement/payment core
+  // below the live launch entrypoint guard. This alias exists only inside this
+  // isolated bundle; production routes and normal service imports still use the
+  // fail-closed launch policy.
+  await writeFile(
+    launchPolicyFixturePath,
+    "export function assertAdvertisingNewActionsEnabled() {};\n",
+    "utf8",
+  );
   const entryPath = path.join(tempDir, "entry.mjs");
   await writeFile(entryPath, [
     `export * from ${JSON.stringify(path.join(artifactDir, "src/services/payments.ts"))};`,
@@ -30,6 +40,9 @@ try {
     plugins: [{
       name: "financial-test-boundaries",
       setup(api) {
+        api.onResolve({
+          filter: /(?:^|\/)launchPolicy\.js$/,
+        }, () => ({ path: launchPolicyFixturePath }));
         api.onResolve({
           filter: /^(?:@workspace\/db(?:\/.*)?|drizzle-orm|express)$|(?:^|\/)(?:logger|notifications|zernio|scheduledJobLock)\.js$/,
         }, () => ({ path: fixturePath }));

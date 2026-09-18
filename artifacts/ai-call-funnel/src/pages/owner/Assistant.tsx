@@ -13,6 +13,7 @@ import { useBusinessSlug } from "../../hooks/useBusinessSlug";
 import { OwnerNav } from "../../components/owner/OwnerNav";
 import { C } from "../../theme";
 import { AppHeader, AppIconButton } from "../../components/app/AppHeader";
+import { NONESSENTIAL_SUMMARIES_ENABLED } from "../../lib/launchPolicy";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function formatTime(iso: string) {
@@ -58,10 +59,7 @@ function CopyButton({ text }: { text: string }) {
 }
 
 // ─── Bubble ───────────────────────────────────────────────────────────────────
-function AssistantBubble({
-  msg,
-  onConfirm,
-}: {
+function AssistantBubble({ msg, onConfirm }: {
   msg: AssistantMessage;
   onConfirm?: (id: string, confirmed: boolean) => void;
 }) {
@@ -89,7 +87,7 @@ function AssistantBubble({
   }
 
   const hasDraft = !!msg.meta?.draftMessage;
-  const hasAction = !!msg.meta?.pendingAction;
+  const hasAllowedAction = msg.meta?.pendingAction?.type === "update_lead_state";
 
   return (
     <div className={`flex mb-1.5 ${isUser ? "justify-end" : "justify-start"} px-3`}>
@@ -115,25 +113,14 @@ function AssistantBubble({
           <p className="text-[14px] leading-[1.55]">{renderContent(msg.content)}</p>
 
           {hasDraft && <CopyButton text={msg.meta.draftMessage!} />}
-
-          {hasAction && onConfirm && (
-            <div className="mt-3 pt-2.5" style={{ borderTop: `1px solid ${C.border}` }}>
-              <p className="text-[12px] mb-2" style={{ color: C.text3 }}>
-                {msg.meta.pendingAction!.description}
-              </p>
+          {hasAllowedAction && onConfirm && (
+            <div className="mt-3 border-t pt-2.5" style={{ borderColor: C.border }}>
+              <p className="mb-2 text-[12px]" style={{ color: C.text3 }}>{msg.meta!.pendingAction!.description}</p>
               <div className="flex gap-2">
-                <button
-                  onClick={() => onConfirm(msg.id, true)}
-                  className="flex items-center gap-1.5 text-[12px] rounded-lg px-3 py-1.5 font-medium"
-                  style={{ background: "#E8F5E9", color: "#1B5E20", border: "1px solid #A5D6A7" }}
-                >
+                <button onClick={() => onConfirm(msg.id, true)} className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium" style={{ background: "#E8F5E9", color: "#1B5E20", border: "1px solid #A5D6A7" }}>
                   <CheckCircle2 size={12} /> Confirmar
                 </button>
-                <button
-                  onClick={() => onConfirm(msg.id, false)}
-                  className="flex items-center gap-1.5 text-[12px] rounded-lg px-3 py-1.5 font-medium"
-                  style={{ background: "#FFEBEE", color: "#C62828", border: "1px solid #FFCDD2" }}
-                >
+                <button onClick={() => onConfirm(msg.id, false)} className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium" style={{ background: "#FFEBEE", color: "#C62828", border: "1px solid #FFCDD2" }}>
                   <XCircle size={12} /> Cancelar
                 </button>
               </div>
@@ -151,10 +138,8 @@ function AssistantBubble({
 
 // ─── Quick actions ────────────────────────────────────────────────────────────
 const QUICK_ACTIONS = [
-  { label: "Resumo de hoje",       text: "Dá-me o resumo de hoje" },
   { label: "Leads qualificados",   text: "Quais os leads qualificados agora?" },
   { label: "Melhor lead",          text: "Qual é o lead com maior pontuação?" },
-  { label: "Leads parados",        text: "Há leads qualificados sem follow-up?" },
   { label: "Rascunho de mensagem", text: "Preciso de ajuda para rascunhar uma mensagem para o lead mais recente" },
 ];
 
@@ -230,8 +215,11 @@ export function Assistant() {
       await api.confirmAssistantAction(messageId, confirmed);
       const { messages: fresh } = await api.listAssistantMessages();
       setMessages(fresh);
-    } catch { setError("Não foi possível executar a ação"); }
-    finally { setConfirming(null); }
+    } catch {
+      setError("Não foi possível actualizar o contacto");
+    } finally {
+      setConfirming(null);
+    }
   }, [api]);
 
   const handleClear = useCallback(async () => {
@@ -241,21 +229,30 @@ export function Assistant() {
   }, [api]);
 
   const handleDailySummary = useCallback(async () => {
-    if (!api) return;
+    if (!api || !NONESSENTIAL_SUMMARIES_ENABLED) return;
     try {
       const { message } = await api.triggerDailySummary();
-      setMessages((prev) => [...prev, message]); scrollToBottom();
-    } catch { setError("Não foi possível gerar o resumo"); }
-  }, [scrollToBottom, api]);
+      setMessages((prev) => [...prev, message]);
+      scrollToBottom();
+    } catch {
+      setError("Não foi possível gerar o resumo");
+    }
+  }, [api, scrollToBottom]);
 
   const handleStaleCheck = useCallback(async () => {
-    if (!api) return;
+    if (!api || !NONESSENTIAL_SUMMARIES_ENABLED) return;
     try {
       const { message, found } = await api.triggerStaleLeadsCheck();
-      if (message) { setMessages((prev) => [...prev, message]); scrollToBottom(); }
-      else if (!found) { setError("Nenhum lead parado encontrado 👍"); setTimeout(() => setError(null), 3000); }
-    } catch { setError("Não foi possível verificar leads parados"); }
-  }, [scrollToBottom, api]);
+      if (message) {
+        setMessages((prev) => [...prev, message]);
+        scrollToBottom();
+      } else if (!found) {
+        setError("Nenhum contacto parado encontrado");
+      }
+    } catch {
+      setError("Não foi possível verificar contactos parados");
+    }
+  }, [api, scrollToBottom]);
 
   const isEmpty = messages.length === 0 && !loading;
 
@@ -272,16 +269,16 @@ export function Assistant() {
             <Zap size={17} className="text-white" strokeWidth={2} />
           </div>
         }
-        actions={
-          <>
+        actions={<>
+          {NONESSENTIAL_SUMMARIES_ENABLED && (
             <AppIconButton label="Resumo diário" onClick={handleDailySummary}>
               <BarChart2 size={18} strokeWidth={1.8} />
             </AppIconButton>
-            <AppIconButton label="Limpar histórico" onClick={handleClear}>
-              <Trash2 size={18} strokeWidth={1.8} />
-            </AppIconButton>
-          </>
-        }
+          )}
+          <AppIconButton label="Limpar histórico" onClick={handleClear}>
+            <Trash2 size={18} strokeWidth={1.8} />
+          </AppIconButton>
+        </>}
       />
 
       {/* ── Error toast ───────────────────────────────────────────────────── */}
@@ -315,7 +312,7 @@ export function Assistant() {
                 O teu assistente de negócios
               </p>
               <p className="text-[13px] mt-1 max-w-[260px] mx-auto leading-relaxed" style={{ color: C.text2 }}>
-                Pergunta qualquer coisa sobre os teus leads, métricas e negócio.
+                Pergunta sobre contactos qualificados, conversas, pedidos e pagamentos.
               </p>
             </div>
             {/* Quick chips */}
@@ -328,26 +325,20 @@ export function Assistant() {
                 </button>
               ))}
             </div>
-            {/* Proactive shortcuts */}
-            <div className="flex gap-2">
-              <button onClick={handleDailySummary}
-                className="text-[12px] px-3 py-1.5 rounded-full font-medium"
-                style={{ background: "#E8F5E9", color: "#1B5E20", border: "1px solid #C8E6C9" }}>
-                📊 Resumo do dia
-              </button>
-              <button onClick={handleStaleCheck}
-                className="text-[12px] px-3 py-1.5 rounded-full font-medium"
-                style={{ background: "#FFF8E1", color: "#E65100", border: "1px solid #FFE082" }}>
-                ⏰ Leads parados
-              </button>
-            </div>
+            {NONESSENTIAL_SUMMARIES_ENABLED && (
+              <div className="flex gap-2">
+                <button onClick={handleDailySummary} className="rounded-full border border-[#C8E6C9] bg-[#E8F5E9] px-3 py-1.5 text-[12px] font-medium text-[#1B5E20]">Resumo do dia</button>
+                <button onClick={handleStaleCheck} className="rounded-full border border-[#FFE082] bg-[#FFF8E1] px-3 py-1.5 text-[12px] font-medium text-[#E65100]">Contactos parados</button>
+              </div>
+            )}
           </div>
         )}
 
         {messages.map((msg) => (
           <AssistantBubble
-            key={msg.id} msg={msg}
-            onConfirm={msg.meta?.pendingAction && !confirming ? handleConfirm : undefined}
+            key={msg.id}
+            msg={msg}
+            onConfirm={msg.meta?.pendingAction?.type === "update_lead_state" && !confirming ? handleConfirm : undefined}
           />
         ))}
 

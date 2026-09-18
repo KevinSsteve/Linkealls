@@ -63,10 +63,10 @@ export function BusinessOnboardingPage() {
             Configurar negócio
           </p>
           <h1 className="max-w-[520px] text-[clamp(34px,8vw,53px)] font-extrabold leading-[0.98] tracking-[-0.065em]">
-            Vamos preparar a tua loja.
+            Vamos preparar o teu negócio.
           </h1>
           <p className="mt-5 max-w-[490px] text-[16px] leading-6" style={{ color: SOFT }}>
-            A IA cria o teu perfil, produtos e respostas para clientes. Podes começar pelo site ou explicar brevemente o teu negócio.
+            A IA ajuda a organizar o teu perfil, catálogo e respostas para atender clientes por voz e chat. Podes começar pelo site ou explicar brevemente o teu negócio.
           </p>
 
           <div className="mt-8 flex rounded-[16px] border p-1" style={{ borderColor: LINE, background: SUBTLE }}>
@@ -126,7 +126,7 @@ export function BusinessOnboardingPage() {
           </button>
 
           <p className="mt-5 text-center text-[12px] leading-5" style={{ color: FAINT }}>
-            No passo seguinte escolhes o endereço público da tua loja.
+            No passo seguinte escolhes o endereço público do teu negócio.
           </p>
         </section>
       </div>
