@@ -14,7 +14,7 @@
  * only UX optimisations. Concurrent races are caught by the transaction.
  */
 import { Router, type Request, type Response } from "express";
-import { createHash, randomBytes, randomUUID } from "crypto";
+import { createHash, randomBytes, randomUUID, timingSafeEqual } from "crypto";
 import { and, eq, gt, inArray } from "drizzle-orm";
 import { z } from "zod";
 import {
@@ -63,6 +63,11 @@ function hashRecoveryCode(code: string): string {
   return createHash("sha256").update(normaliseRecoveryCode(code)).digest("hex");
 }
 
+function recoveryCodeMatches(storedHash: string | null, candidateHash: string): boolean {
+  if (!storedHash || !/^[a-f0-9]{64}$/i.test(storedHash)) return false;
+  return timingSafeEqual(Buffer.from(storedHash, "hex"), Buffer.from(candidateHash, "hex"));
+}
+
 function generateRecoveryCode(): string {
   const raw = randomBytes(9).toString("hex").toUpperCase();
   return raw.match(/.{1,4}/g)!.join("-");
@@ -108,7 +113,10 @@ function normalisePhone(raw: string) {
 
 function legacyBearerToken(req: { headers: { authorization?: string } }) {
   const h = req.headers.authorization ?? "";
-  return h.startsWith("Bearer ") ? h.slice(7) : null;
+  const token = h.startsWith("Bearer ") ? h.slice(7) : "";
+  // Historical browser sessions were UUIDs. The bounded base64url form also
+  // permits sessions created shortly before the cookie migration shipped.
+  return /^(?:[a-f0-9-]{36}|[A-Za-z0-9_-]{43})$/.test(token) ? token : null;
 }
 
 const HANDLE_RE = /^[a-z0-9-]{3,30}$/;
@@ -359,7 +367,7 @@ router.post("/user-auth/recover", recoveryRateLimit, async (req, res) => {
       .from(usersTable)
       .where(eq(usersTable.phone, phone))
       .limit(1);
-    if (!row || !row.recoveryCodeHash || row.recoveryCodeHash !== recoveryHash) {
+    if (!row || !recoveryCodeMatches(row.recoveryCodeHash, recoveryHash)) {
       res.status(401).json({ error: "Telefone ou código de recuperação inválidos." });
       return;
     }
@@ -509,29 +517,57 @@ router.post("/user-auth/provision", async (req, res): Promise<void> => {
   res.status(201).json({ user: toUserDTO(row!) });
 });
 
+// ─── legacy browser-session migration ───────────────────────────────────────
+
+router.post("/user-auth/migrate-session", async (req, res) => {
+  try {
+    const cookieToken = requestToken(req);
+    const cookieUser = await getUserByToken(cookieToken);
+    if (cookieUser) {
+      res.json({ user: toUserDTO(cookieUser) });
+      return;
+    }
+    if (cookieToken) clearLocalSessionCookie(req, res);
+
+    const token = legacyBearerToken(req);
+    if (!token) {
+      res.status(401).json({ error: "Sessão antiga inválida" });
+      return;
+    }
+    const user = await getUserByToken(token);
+    if (!user) {
+      res.status(401).json({ error: "Sessão antiga inválida ou expirada" });
+      return;
+    }
+    const rows = await db.select({ sessionExpiresAt: usersTable.sessionExpiresAt })
+      .from(usersTable)
+      .where(eq(usersTable.id, user.id))
+      .limit(1);
+    const expiresAt = rows[0]?.sessionExpiresAt;
+    if (!expiresAt) {
+      res.status(401).json({ error: "Sessão antiga inválida ou expirada" });
+      return;
+    }
+    setLocalSessionCookie(req, res, token, expiresAt);
+    res.json({ user: toUserDTO(user) });
+  } catch (err) {
+    logger.error({ err }, "legacy session migration failed");
+    res.status(500).json({ error: "Não foi possível migrar a sessão" });
+  }
+});
+
 // ─── me ─────────────────────────────────────────────────────────────────────
 
 router.get("/user-auth/me", async (req, res) => {
-  const cookieToken = requestToken(req);
-  // A single read-only bridge releases pre-cookie browser sessions. The client
-  // immediately deletes its old localStorage value; all other routes reject it.
-  const token = cookieToken ?? legacyBearerToken(req);
+  const token = requestToken(req);
   if (!token) { res.status(401).json({ error: "Sem autorização" }); return; }
 
   try {
     const user = await getUserByToken(token);
     if (!user) {
-      if (cookieToken) clearLocalSessionCookie(req, res);
+      clearLocalSessionCookie(req, res);
       res.status(401).json({ error: "Sessão inválida" });
       return;
-    }
-    if (!cookieToken) {
-      const rows = await db.select({ sessionExpiresAt: usersTable.sessionExpiresAt })
-        .from(usersTable)
-        .where(eq(usersTable.id, user.id))
-        .limit(1);
-      const expiresAt = rows[0]?.sessionExpiresAt;
-      if (expiresAt) setLocalSessionCookie(req, res, token, expiresAt);
     }
     res.json({ user: toUserDTO(user) });
   } catch (err) {
@@ -558,13 +594,9 @@ router.post("/user-auth/reauthenticate", async (req, res) => {
       res.json({ ok: true, expiresAt: new Date(Date.now() + SENSITIVE_AUTH_TTL_MS).toISOString() });
       return;
     }
-    if (!(await consumeAuthLimits(req, res, [
-      { scope: "reauth-user-ip", subject: `${user.id}:${clientIp(req)}`, max: 8, windowMs: 10 * 60_000 },
-    ], "Demasiadas tentativas — tenta daqui a pouco"))) return;
-
     const [[account], [profile]] = await Promise.all([
       db
-        .select({ pinHash: usersTable.pinHash, replitId: usersTable.replitId })
+        .select({ phone: usersTable.phone, pinHash: usersTable.pinHash, replitId: usersTable.replitId })
         .from(usersTable)
         .where(eq(usersTable.id, user.id))
         .limit(1),
@@ -582,15 +614,26 @@ router.post("/user-auth/reauthenticate", async (req, res) => {
       req.replitUser?.id === account.replitId,
     );
     const suppliedPin = typeof req.body?.pin === "string" ? req.body.pin.trim() : "";
+    if (!replitConfirmed && suppliedPin && !(await consumeAuthLimits(req, res, [
+      { scope: "reauth-user-ip", subject: `${user.id}:${clientIp(req)}`, max: 8, windowMs: 10 * 60_000 },
+      { scope: "reauth-user", subject: user.id, max: 20, windowMs: 60 * 60_000 },
+    ], "Demasiadas tentativas — tenta daqui a pouco"))) return;
     // Prefer the business PIN already used by the owner area. Older profiles
     // may not have one yet, so their account PIN remains the bootstrap fallback.
     const storedPinHash = profile?.ownerPin ?? account?.pinHash;
-    const pinResult = suppliedPin.length > 0
+    const pinResult = !replitConfirmed && suppliedPin.length > 0
       ? await verifyPin(suppliedPin, storedPinHash)
       : { valid: false, needsUpgrade: false };
     const pinConfirmed = pinResult.valid;
 
     if (!replitConfirmed && !pinConfirmed) {
+      if (!profile?.ownerPin && account?.phone.startsWith("replit:")) {
+        res.status(403).json({
+          error: "Confirma novamente a tua identidade Replit para continuar",
+          code: "REPLIT_REAUTH_REQUIRED",
+        });
+        return;
+      }
       res.status(403).json({
         error: "Confirma o PIN do teu negócio para continuar",
         code: "SENSITIVE_AUTH_REQUIRED",

@@ -5,6 +5,21 @@ const SCRYPT_R = 8;
 const SCRYPT_P = 1;
 const KEY_LENGTH = 32;
 const LEGACY_SHA256_RE = /^[a-f0-9]{64}$/i;
+const HEX_SALT_RE = /^[a-f0-9]{32}$/i;
+const HEX_KEY_RE = /^[a-f0-9]{64}$/i;
+
+function isSupportedScryptCost(n: number, r: number, p: number): boolean {
+  return Number.isInteger(n) &&
+    n >= 1_024 &&
+    n <= SCRYPT_N &&
+    (n & (n - 1)) === 0 &&
+    Number.isInteger(r) &&
+    r >= 1 &&
+    r <= SCRYPT_R &&
+    Number.isInteger(p) &&
+    p >= 1 &&
+    p <= SCRYPT_P;
+}
 
 function derivePin(pin: string, salt: Buffer, n = SCRYPT_N, r = SCRYPT_R, p = SCRYPT_P): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -33,17 +48,20 @@ export async function verifyPin(
     return { valid, needsUpgrade: valid };
   }
 
-  const [scheme, nRaw, rRaw, pRaw, saltHex, keyHex] = storedHash.split("$");
+  const parts = storedHash.split("$");
+  if (parts.length !== 6) return { valid: false, needsUpgrade: false };
+
+  const [scheme, nRaw, rRaw, pRaw, saltHex, keyHex] = parts;
   const n = Number(nRaw);
   const r = Number(rRaw);
   const p = Number(pRaw);
   if (
     scheme !== "scrypt" ||
-    !Number.isInteger(n) ||
-    !Number.isInteger(r) ||
-    !Number.isInteger(p) ||
+    !isSupportedScryptCost(n, r, p) ||
     !saltHex ||
-    !keyHex
+    !HEX_SALT_RE.test(saltHex) ||
+    !keyHex ||
+    !HEX_KEY_RE.test(keyHex)
   ) {
     return { valid: false, needsUpgrade: false };
   }

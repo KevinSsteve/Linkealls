@@ -37,6 +37,7 @@ interface Props {
 export function InlineCheckout({ businessSlug, leadId, checkout, onDone, onDismiss, onOrderPaid }: Props) {
   const [step, setStep] = useState<PayStep>("waiting");
   const [busy, setBusy] = useState(false);
+  const [pollError, setPollError] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const settledRef = useRef(false);
   const api = visitorApi(businessSlug);
@@ -61,10 +62,13 @@ export function InlineCheckout({ businessSlug, leadId, checkout, onDone, onDismi
       if (!leadId) return;
       api.getOrderStatus<{ status: string }>(checkout.orderId, leadId)
         .then((s) => {
+          setPollError(null);
           if (s.status === "paga") settle("paga");
           else if (s.status === "expirada" || s.status === "falhada") settle(s.status);
         })
-        .catch(() => {});
+        .catch((err: unknown) => {
+          setPollError(err instanceof Error ? err.message : "Não foi possível verificar o pagamento.");
+        });
     }, 3000);
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
@@ -167,6 +171,11 @@ export function InlineCheckout({ businessSlug, leadId, checkout, onDone, onDismi
               <p className="text-[12px] mt-1 leading-relaxed" style={{ color: T.inkSoft }}>
                 Aprova na app <strong style={{ color: T.ink }}>Multicaixa Express</strong> no teu telemóvel.
               </p>
+              {pollError && (
+                <p role="alert" className="text-sm mt-2" style={{ color: T.errText }}>
+                  {pollError} O pagamento ainda não foi confirmado nesta página. Não repitas a compra.
+                </p>
+              )}
             </div>
             <p
               className="flex items-center gap-1.5 text-[11px]"

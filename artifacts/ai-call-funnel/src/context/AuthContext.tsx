@@ -64,8 +64,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const legacyToken = localStorage.getItem(LEGACY_TOKEN_KEY);
     // Existing deployments used localStorage. Migrate at most once, erase it
     // before state is exposed, and never send it to an owner/API endpoint.
+    if (legacyToken) localStorage.removeItem(LEGACY_TOKEN_KEY);
     const currentUser = legacyToken
-      ? migrateLegacyBrowserSession(legacyToken).finally(() => localStorage.removeItem(LEGACY_TOKEN_KEY))
+      ? migrateLegacyBrowserSession(legacyToken)
       : getCurrentUser();
     void currentUser
       .then(({ user }) => {

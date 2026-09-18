@@ -9,6 +9,10 @@ const API_BASE = import.meta.env.DEV
   ? `${import.meta.env.BASE_URL}api`
   : "/api";
 const KEY_PREFIX = "linkealls:visitor-access:v1:";
+// Some privacy modes deny sessionStorage. Keep access within this document in
+// that case rather than reporting a successful session that cannot be used.
+const memoryAccess = new Map<string, VisitorAccess>();
+const currentLeads = new Map<string, string>();
 
 export interface VisitorLeadOrigin {
   source?: string;
@@ -28,14 +32,13 @@ export interface VisitorAccess {
 
 interface LeadSessionResponse {
   leadId: string;
-  visitorToken: string;
   chatMessages: Array<{ role: "user" | "bot" | "agent"; text: string; ts: string }>;
   createdAt: string;
   updatedAt: string;
 }
 
-function key(slug: string, leadId: string): string {
-  return `${KEY_PREFIX}${slug}:${leadId}`;
+function key(slug: string, leadId: string, orderId?: string): string {
+  return `${KEY_PREFIX}${slug}:${leadId}${orderId ? `:order:${orderId}` : ""}`;
 }
 
 function currentKey(slug: string): string {
@@ -47,42 +50,53 @@ function canUse(value: unknown): value is VisitorAccess {
   const access = value as Record<string, unknown>;
   return typeof access.businessSlug === "string" &&
     typeof access.leadId === "string" &&
-    typeof access.visitorToken === "string" &&
+    typeof access.visitorToken === "string" && access.visitorToken.length > 0 &&
     (access.orderId === undefined || typeof access.orderId === "string");
 }
 
 export function saveVisitorAccess(access: VisitorAccess): void {
+  if (!canUse(access)) throw new Error("Resposta sem acesso de visitante válido");
+  const accessKey = key(access.businessSlug, access.leadId);
+  memoryAccess.set(accessKey, access);
+  currentLeads.set(access.businessSlug, access.leadId);
+  if (access.orderId) memoryAccess.set(key(access.businessSlug, access.leadId, access.orderId), access);
   try {
-    sessionStorage.setItem(key(access.businessSlug, access.leadId), JSON.stringify(access));
+    sessionStorage.setItem(accessKey, JSON.stringify(access));
+    if (access.orderId) {
+      sessionStorage.setItem(key(access.businessSlug, access.leadId, access.orderId), JSON.stringify(access));
+    }
     sessionStorage.setItem(currentKey(access.businessSlug), access.leadId);
   } catch {
     // The request can continue in-memory even if a privacy mode blocks storage.
   }
 }
 
-export function loadVisitorAccess(businessSlug: string, leadId: string): VisitorAccess | null {
+export function loadVisitorAccess(businessSlug: string, leadId: string, orderId?: string): VisitorAccess | null {
+  const accessKey = key(businessSlug, leadId, orderId);
   try {
-    const raw = sessionStorage.getItem(key(businessSlug, leadId));
+    const raw = sessionStorage.getItem(accessKey);
     const parsed: unknown = raw ? JSON.parse(raw) : null;
-    return canUse(parsed) && parsed.businessSlug === businessSlug && parsed.leadId === leadId
+    return canUse(parsed) && parsed.businessSlug === businessSlug && parsed.leadId === leadId &&
+      (orderId === undefined || parsed.orderId === orderId)
       ? parsed
-      : null;
+      : memoryAccess.get(accessKey) ?? null;
   } catch {
-    return null;
+    return memoryAccess.get(accessKey) ?? null;
   }
 }
 
 export function loadCurrentVisitorAccess(businessSlug: string): VisitorAccess | null {
   try {
-    const leadId = sessionStorage.getItem(currentKey(businessSlug));
+    const leadId = sessionStorage.getItem(currentKey(businessSlug)) ?? currentLeads.get(businessSlug);
     return leadId ? loadVisitorAccess(businessSlug, leadId) : null;
   } catch {
-    return null;
+    const leadId = currentLeads.get(businessSlug);
+    return leadId ? loadVisitorAccess(businessSlug, leadId) : null;
   }
 }
 
-function requireAccess(businessSlug: string, leadId: string): VisitorAccess {
-  const access = loadVisitorAccess(businessSlug, leadId);
+function requireAccess(businessSlug: string, leadId: string, orderId?: string): VisitorAccess {
+  const access = loadVisitorAccess(businessSlug, leadId, orderId);
   if (!access) throw new Error("Esta sessão de visitante expirou. Inicia uma nova conversa.");
   return access;
 }
@@ -122,9 +136,9 @@ export function visitorApi(businessSlug: string) {
       saveVisitorAccess({ businessSlug, leadId: result.leadId, visitorToken: result.visitorToken });
       return result;
     },
-    getLeadSession: (leadId: string): Promise<LeadSessionResponse> =>
+    getLeadSession: async (leadId: string): Promise<LeadSessionResponse> =>
       visitorRequest(businessSlug, `/leads/${encodeURIComponent(leadId)}/session`, {}, requireAccess(businessSlug, leadId)),
-    sendLeadChat: <T extends { reply: string; products?: unknown[] }>(leadId: string, message: string): Promise<T> =>
+    sendLeadChat: async <T extends { reply: string; products?: unknown[] }>(leadId: string, message: string): Promise<T> =>
       visitorRequest(businessSlug, `/leads/${encodeURIComponent(leadId)}/chat`, {
         method: "POST",
         body: JSON.stringify({ message }),
@@ -158,23 +172,23 @@ export function visitorApi(businessSlug: string) {
       });
       return result;
     },
-    getOrderStatus: <T>(orderId: string, leadId: string): Promise<T> =>
-      visitorRequest(businessSlug, `/orders/${encodeURIComponent(orderId)}/status`, {}, requireAccess(businessSlug, leadId)),
-    getOrderTracking: <T>(orderId: string, leadId: string): Promise<T> =>
-      visitorRequest(businessSlug, `/orders/${encodeURIComponent(orderId)}/tracking`, {}, requireAccess(businessSlug, leadId)),
-    requestOrderProofUrl: (orderId: string, leadId: string, file: Pick<File, "name" | "size" | "type">) =>
+    getOrderStatus: async <T>(orderId: string, leadId: string): Promise<T> =>
+      visitorRequest(businessSlug, `/orders/${encodeURIComponent(orderId)}/status`, {}, requireAccess(businessSlug, leadId, orderId)),
+    getOrderTracking: async <T>(orderId: string, leadId: string): Promise<T> =>
+      visitorRequest(businessSlug, `/orders/${encodeURIComponent(orderId)}/tracking`, {}, requireAccess(businessSlug, leadId, orderId)),
+    requestOrderProofUrl: async (orderId: string, leadId: string, file: Pick<File, "name" | "size" | "type">) =>
       visitorRequest<{ uploadURL: string; objectPath: string }>(
         businessSlug,
         `/orders/${encodeURIComponent(orderId)}/proof/request-url`,
         { method: "POST", body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }) },
-        requireAccess(businessSlug, leadId),
+        requireAccess(businessSlug, leadId, orderId),
       ),
-    submitOrderProof: <T>(orderId: string, leadId: string, objectPath: string): Promise<T> =>
+    submitOrderProof: async <T>(orderId: string, leadId: string, objectPath: string): Promise<T> =>
       visitorRequest(
         businessSlug,
         `/orders/${encodeURIComponent(orderId)}/proof`,
         { method: "POST", body: JSON.stringify({ objectPath }) },
-        requireAccess(businessSlug, leadId),
+        requireAccess(businessSlug, leadId, orderId),
       ),
   };
 }

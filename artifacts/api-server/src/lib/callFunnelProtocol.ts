@@ -8,6 +8,7 @@ export const MAX_OFFERING_NAME_CHARS = 200;
 export const MAX_RAW_CLIENT_MESSAGE_CHARS = 40 * 1024;
 
 export type CallClientMessage =
+  | { type: "authenticate"; leadId: string; visitorToken: string }
   | { type: "audio"; data: string }
   | { type: "user_text"; text: string }
   | {
@@ -49,6 +50,20 @@ export function parseCallClientMessage(raw: string): ClientMessageParseResult {
   }
   if (!isRecord(parsed) || typeof parsed.type !== "string") {
     return { ok: false, reason: "Formato de mensagem inválido" };
+  }
+
+  if (parsed.type === "authenticate") {
+    if (
+      typeof parsed.leadId !== "string" || !UUID_RE.test(parsed.leadId) ||
+      typeof parsed.visitorToken !== "string" ||
+      parsed.visitorToken.length > 2048 ||
+      !/^v1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(parsed.visitorToken)
+    ) {
+      return { ok: false, reason: "Acesso de visitante inválido" };
+    }
+    return { ok: true, message: {
+      type: "authenticate", leadId: parsed.leadId, visitorToken: parsed.visitorToken,
+    } };
   }
 
   if (parsed.type === "audio") {

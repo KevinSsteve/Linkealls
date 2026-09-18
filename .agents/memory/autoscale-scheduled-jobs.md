@@ -3,8 +3,8 @@ name: Autoscale scheduled jobs
 description: Prevent duplicate cron-like work when the API has multiple replicas.
 ---
 
-Any timer started inside the API process must acquire a transaction-scoped PostgreSQL advisory lock before executing work that sends notifications, calls providers, or changes state.
+Scheduled work needs a durable unique claim for its logical period, not just an advisory lock.
 
-**Why:** Autoscale can run several API replicas, and process-local flags do not prevent every replica from executing the same timer.
+**Why:** An advisory lock prevents overlap only. A second replica can acquire it after the first finishes and repeat the same daily notification or interval sync.
 
-**How to apply:** Use a stable job name for the distributed lock, keep the work idempotent, log failures, and only record a local run as complete after the lock holder finishes successfully.
+**How to apply:** Claim the job/period before external side effects. This deliberately chooses at-most-once delivery: a crash after claiming can skip that period. Reliable retry requires an outbox and provider idempotency, not merely deleting a failed claim. Do not apply this notification policy to financial reconciliation.

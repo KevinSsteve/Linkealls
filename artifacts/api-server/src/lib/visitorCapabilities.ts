@@ -31,10 +31,22 @@ export class VisitorCapabilityError extends Error {
 
 function signingKey(): Buffer {
   const raw = process.env["VISITOR_CAPABILITY_SECRET"];
-  if (!raw || Buffer.byteLength(raw, "utf8") < 32) {
-    throw new Error("VISITOR_CAPABILITY_SECRET tem de ter pelo menos 32 caracteres");
+  if (raw !== undefined) {
+    if (Buffer.byteLength(raw, "utf8") < 32) {
+      throw new Error("VISITOR_CAPABILITY_SECRET tem de ter pelo menos 32 caracteres");
+    }
+    return Buffer.from(raw, "utf8");
   }
-  return Buffer.from(raw, "utf8");
+  // An optional dedicated key isolates visitor-token rotation. Otherwise derive
+  // a domain-separated key from the existing shared session secret, never a
+  // process-local random value (which would break across autoscale replicas).
+  const sessionSecret = process.env["SESSION_SECRET"];
+  if (!sessionSecret || Buffer.byteLength(sessionSecret, "utf8") < 32) {
+    throw new Error("É necessária uma chave partilhada de sessão com pelo menos 32 caracteres");
+  }
+  return createHmac("sha256", sessionSecret)
+    .update("linkealls:visitor-capabilities:v1")
+    .digest();
 }
 
 function encode(value: unknown): string {

@@ -9,6 +9,7 @@ const artifactDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "
 const tempDir = await mkdtemp(path.join(os.tmpdir(), "linkealls-ekwanza-tests-"));
 const modulePath = path.join(tempDir, "ekwanza.mjs");
 const httpSecurityModulePath = path.join(tempDir, "http-security.mjs");
+const pinSecurityModulePath = path.join(tempDir, "pin-security.mjs");
 const scheduledRuntimeModulePath = path.join(tempDir, "scheduled-job-runtime.mjs");
 const callFunnelProtocolModulePath = path.join(tempDir, "call-funnel-protocol.mjs");
 const loggerStubPath = path.join(tempDir, "logger-stub.mjs");
@@ -51,6 +52,14 @@ try {
     logLevel: "silent",
   });
   await build({
+    entryPoints: [path.join(artifactDir, "src/lib/pinSecurity.ts")],
+    bundle: true,
+    format: "esm",
+    platform: "node",
+    outfile: pinSecurityModulePath,
+    logLevel: "silent",
+  });
+  await build({
     entryPoints: [path.join(artifactDir, "src/lib/scheduledJobLock.ts")],
     bundle: true,
     format: "esm",
@@ -85,6 +94,7 @@ try {
     EKWANZA_NOTIFICATION_TOKEN: "test-notification-token",
     EKWANZA_TEST_MODULE: modulePath,
     HTTP_SECURITY_TEST_MODULE: httpSecurityModulePath,
+    PIN_SECURITY_TEST_MODULE: pinSecurityModulePath,
     SCHEDULED_RUNTIME_TEST_MODULE: scheduledRuntimeModulePath,
     CALL_FUNNEL_PROTOCOL_TEST_MODULE: callFunnelProtocolModulePath,
   };
@@ -100,6 +110,8 @@ try {
       path.join(artifactDir, "tests/session-security.test.mjs"),
       path.join(artifactDir, "tests/scheduled-runtime.test.mjs"),
       path.join(artifactDir, "tests/visitor-capabilities.test.mjs"),
+      path.join(artifactDir, "tests/health-readiness.test.mjs"),
+      path.join(artifactDir, "tests/visitor-voice.test.mjs"),
     ],
     { env: testEnv, stdio: "inherit" },
   );

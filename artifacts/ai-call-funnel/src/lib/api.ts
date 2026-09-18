@@ -26,6 +26,13 @@ export interface AuthResponse {
 
 export const AUTH_EXPIRED_EVENT = "linkealls:auth-expired";
 
+class AuthApiError extends Error {
+  constructor(message: string, readonly code?: string, readonly status?: number) {
+    super(message);
+    this.name = "AuthApiError";
+  }
+}
+
 function notifyAuthExpired(): void {
   if (typeof window !== "undefined") {
     window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT));
@@ -78,7 +85,8 @@ export async function getCurrentUser(): Promise<{ user: AuthUser }> {
 
 /** One-time upgrade of a pre-cookie browser session; callers must erase it immediately. */
 export async function migrateLegacyBrowserSession(token: string): Promise<{ user: AuthUser }> {
-  const res = await fetch(`${API_BASE}/user-auth/me`, {
+  const res = await fetch(`${API_BASE}/user-auth/migrate-session`, {
+    method: "POST",
     credentials: "include",
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -184,10 +192,14 @@ export async function reauthenticate(pin?: string): Promise<{ ok: boolean; expir
     },
     body: JSON.stringify(pin ? { pin } : {}),
   });
-  const body = (await res.json()) as { ok?: boolean; expiresAt?: string; error?: string };
+  const body = (await res.json()) as { ok?: boolean; expiresAt?: string; error?: string; code?: string };
   if (res.status === 401) notifyAuthExpired();
   if (!res.ok || !body.ok || !body.expiresAt) {
-    throw new Error(body.error ?? "Não foi possível confirmar a identidade");
+    throw new AuthApiError(
+      body.error ?? "Não foi possível confirmar a identidade",
+      body.code,
+      res.status,
+    );
   }
   return { ok: true, expiresAt: body.expiresAt };
 }
@@ -200,7 +212,14 @@ export async function confirmSensitiveAction(): Promise<boolean> {
   try {
     await reauthenticate();
     return true;
-  } catch {
+  } catch (error) {
+    if (error instanceof AuthApiError && error.code === "REPLIT_REAUTH_REQUIRED") {
+      beginReplitLogin();
+      return false;
+    }
+    if (!(error instanceof AuthApiError) || error.code !== "SENSITIVE_AUTH_REQUIRED") {
+      throw error;
+    }
     const pin = window.prompt("Confirma o PIN do teu negócio para continuar.");
     if (!pin) return false;
     await reauthenticate(pin);
@@ -860,18 +879,8 @@ export function businessApi(slug: string) {
         method: "POST", body: JSON.stringify({ pin, ...(currentPin ? { currentPin } : {}) }),
       }),
 
-    // Leads
-    createLeadSession: (origin: LeadOrigin, chatMessages: ChatMessage[]) =>
-      bRequest<{ leadId: string }>("/leads/session", {
-        method: "POST", body: JSON.stringify({ origin, chatMessages }),
-      }),
-    getLeadSession: (id: string) =>
-      bRequest<{
-        leadId: string;
-        chatMessages: ChatMessage[];
-        createdAt: string;
-        updatedAt: string;
-      }>(`/leads/${encodeURIComponent(id)}/session`),
+    // Owner leads. Anonymous conversation/checkout calls live exclusively in
+    // visitorApi, which supplies the signed capability rather than cookies.
     listLeads: () =>
       bRequest<{ leads: Lead[] }>("/leads"),
     getLeadDetail: (id: string) =>
@@ -882,10 +891,6 @@ export function businessApi(slug: string) {
       }),
     getLeadsEventsUrl: () =>
       `${API_BASE}/b/${encodeURIComponent(slug)}/leads/events`,
-    sendLeadChat: (leadId: string, message: string) =>
-      bRequest<{ reply: string; products?: Offering[] }>(`/leads/${leadId}/chat`, {
-        method: "POST", body: JSON.stringify({ message }),
-      }),
     ownerReplyToLead: (leadId: string, message: string) =>
       bRequest<{ lead: Lead }>(`/leads/${leadId}/owner-reply`, {
         method: "POST", body: JSON.stringify({ message }),
@@ -907,23 +912,6 @@ export function businessApi(slug: string) {
         method: "PUT", body: JSON.stringify({ catalogEnabled }),
       }),
 
-    // Payments — public checkout (visitor)
-    createOrder: (data: {
-      offeringName: string;
-      quantity: number;
-      phone: string;
-      buyerName?: string;
-      leadId?: string;
-      customerNotes?: string;
-    }) =>
-      bRequest<OrderCheckout>("/orders", { method: "POST", body: JSON.stringify(data) }),
-    getOrderStatus: (orderId: string) =>
-      bRequest<OrderPublicStatus>(`/orders/${orderId}/status`),
-    getOrderTracking: (orderId: string, leadId: string) =>
-      bRequest<{ tracking: OrderTracking }>(
-        `/orders/${encodeURIComponent(orderId)}/tracking?leadId=${encodeURIComponent(leadId)}`,
-      ),
-
     // Payments — owner
     listOrders: () =>
       bRequest<{ orders: Order[]; simulation: boolean }>("/orders"),
@@ -943,19 +931,6 @@ export function businessApi(slug: string) {
       }),
     listOrderEvents: (orderId: string) =>
       bRequest<{ events: OrderEvent[] }>(`/orders/${encodeURIComponent(orderId)}/events`),
-    requestOrderProofUrl: (orderId: string, file: Pick<File, "name" | "size" | "type">) =>
-      bRequest<{ uploadURL: string; objectPath: string }>(
-        `/orders/${encodeURIComponent(orderId)}/proof/request-url`,
-        {
-          method: "POST",
-          body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
-        },
-      ),
-    submitOrderProof: (orderId: string, objectPath: string) =>
-      bRequest<{ order: Order | null }>(`/orders/${encodeURIComponent(orderId)}/proof`, {
-        method: "POST",
-        body: JSON.stringify({ objectPath }),
-      }),
     downloadOrderProof: async (orderId: string): Promise<Blob> => {
       const res = await fetch(
         `${API_BASE}/b/${encodeURIComponent(slug)}/orders/${encodeURIComponent(orderId)}/proof`,

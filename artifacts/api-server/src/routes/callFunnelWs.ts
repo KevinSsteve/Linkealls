@@ -6,11 +6,12 @@ import {
   getProfileBySlug,
   buildCallAgentPrompt,
 } from "../services/businessProfile.js";
-import { updateLeadOnCallStart, processCallCompletion } from "../services/leads.js";
+import { getLead, updateLeadOnCallStart, processCallCompletion } from "../services/leads.js";
 import { createProductOrder, getOrderPublicStatus } from "../services/payments.js";
 import { logger } from "../lib/logger.js";
 import type { Offering } from "@workspace/db";
 import { clientIp, isAllowedBrowserOrigin } from "../lib/httpSecurity.js";
+import { issueOrderCapability, verifyVisitorCapability, VisitorCapabilityError } from "../lib/visitorCapabilities.js";
 import {
   CallInputBudget,
   parseCallClientMessage,
@@ -84,7 +85,7 @@ type ServerMessage =
   | { type: "user_transcript"; text: string }
   | { type: "show_products"; products: ProductCard[] }
   | { type: "agent_message"; text: string }
-  | { type: "checkout"; orderId: string; offeringName: string; amount: number; simulated: boolean; merchantTransactionId: string }
+  | { type: "checkout"; orderId: string; leadId: string; visitorToken: string; offeringName: string; amount: number; simulated: boolean; merchantTransactionId: string }
   | { type: "closed" }
   | { type: "error"; message: string };
 
@@ -117,6 +118,12 @@ export function setupCallFunnelWebSocket(server: Server): void {
       return;
     }
     if (url.pathname === "/api/call-funnel-ws") {
+      // Only a public tenant locator is allowed in URLs; credentials travel in
+      // the first frame, not in access logs or echoed WebSocket subprotocols.
+      if ([...url.searchParams.keys()].some((key) => key !== "businessSlug")) {
+        rejectUpgrade(socket, 400, "Bad Request");
+        return;
+      }
       const ip = clientIp(req);
       const now = Date.now();
       pruneExpiredAttempts(now);
@@ -152,13 +159,12 @@ export function setupCallFunnelWebSocket(server: Server): void {
 
   wss.on("connection", (ws: WebSocket, req: IncomingMessage) => {
     const url = new URL(req.url ?? "/", "http://localhost");
-    const leadId = url.searchParams.get("leadId") ?? null;
+    let leadId: string | null = null;
     const businessSlug = url.searchParams.get("businessSlug") ?? null;
     const ip = clientIp(req);
     if (
       !businessSlug ||
-      !/^[a-z0-9-]{3,60}$/.test(businessSlug) ||
-      (leadId !== null && !/^[0-9a-f-]{36}$/i.test(leadId))
+      !/^[a-z0-9-]{3,60}$/.test(businessSlug)
     ) {
       ws.close(1008, "Invalid call parameters");
       return;
@@ -178,6 +184,11 @@ export function setupCallFunnelWebSocket(server: Server): void {
     let invalidMessages = 0;
     let toolCallCount = 0;
     let checkoutCount = 0;
+    let authenticationStarted = false;
+    let authenticated = false;
+    const authorizedOrderIds = new Set<string>();
+    let paymentResultCount = 0;
+    const authTimer = setTimeout(() => ws.close(1008, "Visitor authentication required"), 10_000);
     const maxCallTimer = setTimeout(() => ws.close(1000, "Call duration limit reached"), MAX_CALL_MS);
     const resetIdleTimer = () => {
       if (idleTimer) clearTimeout(idleTimer);
@@ -219,12 +230,13 @@ export function setupCallFunnelWebSocket(server: Server): void {
       geminiSession = null;
       if (idleTimer) clearTimeout(idleTimer);
       clearTimeout(maxCallTimer);
+      clearTimeout(authTimer);
       const remaining = Math.max(0, (activeByIp.get(ip) ?? 1) - 1);
       if (remaining === 0) activeByIp.delete(ip);
       else activeByIp.set(ip, remaining);
       activeConnections = Math.max(0, activeConnections - 1);
 
-      if (leadId && transcriptLines.length > 0 && resolvedBusinessId !== null) {
+      if (authenticated && leadId && transcriptLines.length > 0 && resolvedBusinessId !== null) {
         const fullTranscript = transcriptLines.join("\n");
         processCallCompletion(leadId, fullTranscript, businessName, resolvedBusinessId).catch((err) =>
           logger.error({ err, leadId }, "processCallCompletion failed"),
@@ -232,8 +244,10 @@ export function setupCallFunnelWebSocket(server: Server): void {
       }
     }
 
-    resolveCallConfig(businessSlug)
-      .then((config) => {
+    function authenticate(message: Extract<CallClientMessage, { type: "authenticate" }>) {
+      authenticationStarted = true;
+      resolveCallConfig(businessSlug)
+      .then(async (config) => {
         // Tenant lookup is asynchronous. Do not initiate a billable Live
         // session once the browser has already disconnected.
         if (closed || ws.readyState !== WebSocket.OPEN) return null;
@@ -242,17 +256,25 @@ export function setupCallFunnelWebSocket(server: Server): void {
           ws.close(1008, "Unknown business");
           return null;
         }
+        const capability = verifyVisitorCapability(message.visitorToken, {
+          businessId: config.businessId,
+          leadId: message.leadId,
+        });
+        // A valid capability for a deleted conversation must not resurrect it.
+        const lead = await getLead(message.leadId, config.businessId);
+        if (!lead) throw new VisitorCapabilityError();
+        if (closed || ws.readyState !== WebSocket.OPEN) return null;
+        leadId = lead.id;
+        if (capability.orderId) authorizedOrderIds.add(capability.orderId);
+        authenticated = true;
+        clearTimeout(authTimer);
         businessName = config.businessName;
         sessionOfferings = config.offerings;
         resolvedBusinessId = config.businessId;
 
-        // Mark the lead as in-service — scoped so a leadId from another
-        // business is a silent no-op (never mutates other tenants' data).
-        if (leadId) {
-          updateLeadOnCallStart(leadId, config.businessId).catch((err) =>
-            logger.error({ err, leadId }, "Failed to mark lead em_atendimento"),
-          );
-        }
+        // Both lead mutation and billable provider connection are behind the
+        // signature, tenant, conversation, expiration and existence checks.
+        await updateLeadOnCallStart(leadId, config.businessId);
         // Check again immediately before the provider connection in case the
         // socket closed while the call configuration was being assigned.
         if (closed || ws.readyState !== WebSocket.OPEN) return null;
@@ -329,7 +351,7 @@ export function setupCallFunnelWebSocket(server: Server): void {
                 return;
               }
               const args = call.args as { product_name: string; quantity: number; phone: string; buyer_name?: string };
-              if (resolvedBusinessId === null) {
+              if (resolvedBusinessId === null || !leadId) {
                 sendResponse({ status: "error", message: "Negócio não disponível para pagamentos." } as Record<string, unknown>);
                 return;
               }
@@ -359,13 +381,20 @@ export function setupCallFunnelWebSocket(server: Server): void {
                 quantity: qty,
                 phone: rawPhone,
                 buyerName: args.buyer_name,
-                leadId: leadId ?? undefined,
+                leadId,
               })
                 .then(({ order, simulated }) => {
+                  if (!order.leadId || order.leadId !== leadId || order.businessId !== resolvedBusinessId) {
+                    throw new Error("Encomenda sem conversa autorizada");
+                  }
+                  const visitorToken = issueOrderCapability(order.businessId, order.leadId, order.id);
+                  authorizedOrderIds.add(order.id);
                   if (!closed) {
                     sendToClient({
                       type: "checkout",
                       orderId: order.id,
+                      leadId: order.leadId,
+                      visitorToken,
                       offeringName: order.offeringName,
                       amount: Number(order.amount),
                       simulated,
@@ -392,6 +421,10 @@ export function setupCallFunnelWebSocket(server: Server): void {
                 return;
               }
               const scopedBusinessId = resolvedBusinessId;
+              if (!authorizedOrderIds.has(args.order_id)) {
+                sendResponse({ status: "error", message: "Encomenda não encontrada." });
+                return;
+              }
               getOrderPublicStatus(args.order_id)
                 .then((order) => {
                   if (!order) {
@@ -399,7 +432,7 @@ export function setupCallFunnelWebSocket(server: Server): void {
                     return;
                   }
                   // Enforce business ownership — do NOT disclose other businesses' orders
-                  if (order.businessId !== scopedBusinessId) {
+                  if (order.businessId !== scopedBusinessId || order.leadId !== leadId) {
                     sendResponse({ status: "error", message: "Encomenda não encontrada." } as Record<string, unknown>);
                     return;
                   }
@@ -440,10 +473,16 @@ export function setupCallFunnelWebSocket(server: Server): void {
         session.sendGreeting();
       })
       .catch((err) => {
+        if (err instanceof VisitorCapabilityError) {
+          sendToClient({ type: "error", message: err.message });
+          ws.close(1008, "Invalid visitor capability");
+          return;
+        }
         logger.error({ err }, "Failed to create Call Funnel session");
         sendToClient({ type: "error", message: "Failed to connect to AI service" });
         ws.close();
       });
+    }
 
     ws.on("message", (data, isBinary) => {
       if (closed) return;
@@ -460,6 +499,18 @@ export function setupCallFunnelWebSocket(server: Server): void {
         return;
       }
       const msg: CallClientMessage = parsed.message;
+      if (msg.type === "authenticate") {
+        if (authenticationStarted) {
+          ws.close(1008, "Visitor authentication already supplied");
+          return;
+        }
+        authenticate(msg);
+        return;
+      }
+      if (!authenticated) {
+        ws.close(1008, "Visitor authentication required");
+        return;
+      }
       if (!inputBudget.consume(msg)) {
         sendToClient({ type: "error", message: "Limite de áudio da chamada atingido. Tenta novamente mais tarde." });
         ws.close(1008, "Call input rate limit reached");
@@ -474,15 +525,18 @@ export function setupCallFunnelWebSocket(server: Server): void {
           appendTranscript(`Cliente: ${msg.text}`);
           geminiSession.sendText(msg.text);
         } else if (msg.type === "payment_result" && geminiSession) {
-          // Client notifies the agent of the payment outcome so it can react naturally
-          const statusPt =
-            msg.status === "paga" ? "confirmado com sucesso" :
-            msg.status === "falhada" ? "falhado" : "expirado";
-          const productLabel = msg.offeringName ? ` de "${msg.offeringName}"` : "";
-          const systemMsg = `[Sistema] O pagamento${productLabel} foi ${statusPt}. Reagir naturalmente.`;
-          appendTranscript(`Sistema: pagamento ${msg.status} para ${msg.offeringName ?? msg.orderId}`);
-          geminiSession.sendText(systemMsg);
-          logger.info({ orderId: msg.orderId, status: msg.status }, "Payment result forwarded to Gemini");
+          // Treat a browser result only as a hint to read canonical state.
+          // Never let arbitrary order IDs or invented "paid" claims reach AI.
+          if (!authorizedOrderIds.has(msg.orderId) || ++paymentResultCount > MAX_TOOL_CALLS_PER_SESSION) return;
+          getOrderPublicStatus(msg.orderId).then((order) => {
+            if (closed || !geminiSession || !order ||
+              order.businessId !== resolvedBusinessId || order.leadId !== leadId ||
+              !["paga", "falhada", "expirada"].includes(order.status)) return;
+            const statusPt = order.status === "paga" ? "confirmado com sucesso" :
+              order.status === "falhada" ? "falhado" : "expirado";
+            appendTranscript(`Sistema: pagamento ${order.status} para ${order.id}`);
+            geminiSession.sendText(`[Sistema] O pagamento de "${order.offeringName}" foi ${statusPt}. Reagir naturalmente.`);
+          }).catch((err) => logger.error({ err }, "Failed to verify call payment result"));
         }
       } catch (err) {
         logger.error({ err }, "Failed to handle Call Funnel WebSocket message");

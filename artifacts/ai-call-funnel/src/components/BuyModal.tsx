@@ -186,11 +186,14 @@ export function BuyModal({
     pollRef.current = setInterval(() => {
       api.getOrderStatus(id, currentLeadId)
         .then((s) => {
+          setError(null);
           const st: OrderStatus = (s as { status: OrderStatus }).status;
           if (st === "paga") { setStep("paid"); stopPolling(); }
           else if (st === "expirada" || st === "falhada") { setStep("failed"); stopPolling(); }
         })
-        .catch(() => {});
+        .catch((err: unknown) => {
+          setError(err instanceof Error ? err.message : "Não foi possível verificar o pagamento.");
+        });
     }, 3000);
   }, [api, stopPolling]);
 
@@ -532,6 +535,11 @@ export function BuyModal({
                 <strong style={{ color: M.ink }}>{phone}</strong> e aprova o pagamento de{" "}
                 <strong style={{ color: M.ink }}>{formatAoa(total)}</strong>.
               </p>
+              {error && (
+                <p role="alert" className="text-sm text-red-700">
+                  {error} O pagamento ainda não foi confirmado nesta página. Não repitas a compra.
+                </p>
+              )}
               {simulated && (
                 <div
                   style={{

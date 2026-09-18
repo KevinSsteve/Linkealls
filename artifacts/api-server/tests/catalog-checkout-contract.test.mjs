@@ -37,7 +37,7 @@ test("catalog purchase button opens a visible responsive checkout modal", async 
 test("catalog checkout validates the phone and posts to the business-scoped orders route", async () => {
   const [modal, api, routes] = await Promise.all([
     frontendSource("src/components/BuyModal.tsx"),
-    frontendSource("src/lib/api.ts"),
+    frontendSource("src/lib/visitorAccess.ts"),
     readFile(path.join(apiServerDir, "src/routes/paymentsScoped.ts"), "utf8"),
   ]);
 
@@ -46,7 +46,9 @@ test("catalog checkout validates the phone and posts to the business-scoped orde
   assert.match(modal, /offeringName: offering\.name/);
   assert.match(modal, /quantity: qty/);
   assert.match(modal, /phone: p/);
-  assert.match(api, /bRequest<OrderCheckout>\("\/orders", \{ method: "POST"/);
+  assert.match(api, /businessSlug, "\/orders", \{ method: "POST"/);
+  assert.match(api, /Authorization: `Visitor \$\{access\.visitorToken\}`/);
+  assert.match(api, /saveVisitorAccess\(\{/);
   assert.match(routes, /router\.post\("\/orders", publicRateLimit/);
   assert.match(routes, /createOrderSchema\.safeParse\(req\.body\)/);
 });

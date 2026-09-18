@@ -1,4 +1,4 @@
-import { loadVisitorAccess } from "../lib/visitorAccess";
+import { loadVisitorAccess, saveVisitorAccess } from "../lib/visitorAccess";
 
 export interface ProductCard {
   name: string;
@@ -9,6 +9,7 @@ export interface ProductCard {
 
 export interface CheckoutInfo {
   orderId: string;
+  leadId: string;
   /** Fresh order-scoped capability issued by the WS relay after checkout. */
   visitorToken: string;
   offeringName: string;
@@ -56,7 +57,7 @@ export class CallFunnelService {
   }
 
   /**
-   * @param leadId - Optional lead ID to attach to the WS session so the server
+   * @param leadId - Lead ID to authenticate the WS session so the server
    *   can link transcripts to the correct lead for post-call extraction.
    * @param businessSlug - Business slug so the server loads the right AI profile.
    */
@@ -80,10 +81,15 @@ export class CallFunnelService {
       return;
     }
 
-    // Browser WebSockets cannot set Authorization. The signed visitor
-    // capability therefore travels in the handshake subprotocol, never in a
-    // query string (which can leak to logs, browser history, or referrers).
-    this.ws = new WebSocket(url, [`visitor-capability.${access.visitorToken}`]);
+    // Authenticate before the relay creates any provider session. The token
+    // stays out of URLs and handshake headers that proxies may log or echo.
+    this.ws = new WebSocket(url);
+    const socket = this.ws;
+    socket.onopen = () => {
+      socket.send(JSON.stringify({
+        type: "authenticate", leadId: access.leadId, visitorToken: access.visitorToken,
+      }));
+    };
 
     this.ws.onmessage = (event: MessageEvent<string>) => {
       try {
@@ -97,7 +103,22 @@ export class CallFunnelService {
           case "user_transcript": this.callbacks.onUserTranscript?.(msg.text); break;
           case "show_products":   this.callbacks.onShowProducts?.(msg.products); break;
           case "agent_message":   this.callbacks.onAgentMessage?.(msg.text); break;
-          case "checkout":        this.callbacks.onCheckout?.({ orderId: msg.orderId, visitorToken: msg.visitorToken, offeringName: msg.offeringName, amount: msg.amount, simulated: msg.simulated, merchantTransactionId: msg.merchantTransactionId }); break;
+          case "checkout": {
+            if (!msg.visitorToken || !msg.orderId || msg.leadId !== access.leadId) {
+              this.callbacks.onError("A encomenda não devolveu um acesso de visitante válido.");
+              break;
+            }
+            saveVisitorAccess({
+              businessSlug: access.businessSlug, leadId: msg.leadId,
+              orderId: msg.orderId, visitorToken: msg.visitorToken,
+            });
+            this.callbacks.onCheckout?.({
+              orderId: msg.orderId, leadId: msg.leadId, visitorToken: msg.visitorToken,
+              offeringName: msg.offeringName, amount: msg.amount,
+              simulated: msg.simulated, merchantTransactionId: msg.merchantTransactionId,
+            });
+            break;
+          }
           case "error":           this.callbacks.onError(msg.message); break;
           case "closed":          this.callbacks.onClose(); break;
         }
