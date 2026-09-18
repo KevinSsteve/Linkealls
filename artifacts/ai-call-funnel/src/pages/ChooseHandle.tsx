@@ -22,7 +22,7 @@ export function ChooseHandle() {
   const submitting = useRef(false);
   const handle = raw.trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
   const checkState: CheckState = check.handle === handle ? check.state : handle ? "checking" : "idle";
-  const ownerPath = (slug: string) => `/e/${slug}/dono${readBusinessOnboarding() ? "?onboarding=1" : ""}`;
+  const ownerPath = (slug: string) => `/e/${slug}/dono${readBusinessOnboarding(user?.id) ? "?onboarding=1" : ""}`;
 
   // All hooks precede authentication redirects. The result belongs to one exact
   // input, so an older request cannot enable Continue for a different handle.

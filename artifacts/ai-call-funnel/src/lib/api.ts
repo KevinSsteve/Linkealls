@@ -52,9 +52,9 @@ export interface ReplitAuthResponse {
 }
 
 /** Bounded onboarding requests, without automatically retrying account writes. */
-async function onboardingFetch<T>(path: string, opts: RequestInit = {}): Promise<T> {
+async function onboardingFetch<T>(path: string, opts: RequestInit = {}, timeoutMs = 30000): Promise<T> {
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), 30000);
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(`${API_BASE}${path}`, {
       ...opts,
@@ -375,6 +375,29 @@ export interface ProfileDraft {
   hours?: string | null;
   phone?: string | null;
   email?: string | null;
+  websiteUrl?: string | null;
+}
+
+export type BusinessAnalysisInput =
+  | { mode: "site"; url: string }
+  | { mode: "image"; imageBase64: string; mimeType: "image/jpeg" | "image/png" | "image/webp"; description?: string }
+  | { mode: "description"; description: string };
+
+export interface BusinessAnalysisResult {
+  draft: ProfileDraft;
+  sourceUrl?: string;
+}
+
+export async function analyzeBusinessOnboarding(input: BusinessAnalysisInput): Promise<BusinessAnalysisResult> {
+  const result = await onboardingFetch<BusinessAnalysisResult>(
+    "/user-auth/business-analysis",
+    { method: "POST", body: JSON.stringify(input) },
+    90000,
+  );
+  if (!result.draft || typeof result.draft !== "object" || Array.isArray(result.draft)) {
+    throw new AuthApiError("A análise não devolveu um perfil válido. Tenta novamente.", "INVALID_RESPONSE");
+  }
+  return { ...result, draft: { ...result.draft, ...(result.sourceUrl ? { websiteUrl: result.sourceUrl } : {}) } };
 }
 
 // ─── Leads ───────────────────────────────────────────────────────────────────

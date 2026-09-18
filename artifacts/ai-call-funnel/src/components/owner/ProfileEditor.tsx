@@ -824,7 +824,7 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
     (draft?.[key] ?? (profile[key as keyof BusinessProfile] as ProfileDraft[K]) ?? fallback) as NonNullable<ProfileDraft[K]>;
 
   const [name, setName] = useState<string>(init("name", ""));
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(profile.avatarUrl ?? null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(init("avatarUrl", "") || null);
   const [sector, setSector] = useState<string>(init("sector", ""));
   const [description, setDescription] = useState<string>(init("description", ""));
   const [targetAudience, setTargetAudience] = useState<string>(init("targetAudience", ""));
@@ -834,11 +834,11 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
   const [offerings, setOfferings] = useState<Offering[]>(init("offerings", []));
   const [faq, setFaq] = useState<FaqItem[]>(init("faq", []));
   const [qualificationGoals, setQualificationGoals] = useState<string[]>(init("qualificationGoals", []));
-  const [siteUrl, setSiteUrl] = useState(profile.websiteUrl ?? "");
-  const [address, setAddress] = useState(profile.address ?? "");
-  const [hours, setHours] = useState(profile.hours ?? "");
-  const [phone, setPhone] = useState(profile.phone ?? "");
-  const [email, setEmail] = useState(profile.email ?? "");
+  const [siteUrl, setSiteUrl] = useState(init("websiteUrl", ""));
+  const [address, setAddress] = useState(init("address", ""));
+  const [hours, setHours] = useState(init("hours", ""));
+  const [phone, setPhone] = useState(init("phone", ""));
+  const [email, setEmail] = useState(init("email", ""));
   const [openIdentity, setOpenIdentity] = useState(true);
   const [openContact, setOpenContact] = useState(false);
   const [focusedProduct, setFocusedProduct] = useState<{ mode: "add" | "edit"; index: number; offering: Offering } | null>(null);
@@ -849,8 +849,9 @@ export function ProfileEditor({ profile, draft, saving, reanalyzing, onSave, onR
   }, [focusedProduct, onFocusModeChange]);
 
   const currentValue = useMemo(() => JSON.stringify({ name, avatarUrl, sector, description, targetAudience, toneOfVoice, differentials, publicLinks, offerings, faq, qualificationGoals, siteUrl, address, hours, phone, email }), [address, avatarUrl, description, differentials, email, faq, hours, name, offerings, phone, publicLinks, qualificationGoals, sector, siteUrl, targetAudience, toneOfVoice]);
-  const initialValue = useMemo(() => JSON.stringify({ name: init("name", ""), avatarUrl: profile.avatarUrl ?? null, sector: init("sector", ""), description: init("description", ""), targetAudience: init("targetAudience", ""), toneOfVoice: init("toneOfVoice", ""), differentials: init("differentials", []), publicLinks: init("publicLinks", []), offerings: init("offerings", []), faq: init("faq", []), qualificationGoals: init("qualificationGoals", []), siteUrl: profile.websiteUrl ?? "", address: profile.address ?? "", hours: profile.hours ?? "", phone: profile.phone ?? "", email: profile.email ?? "" }), [draft, profile]);
-  const dirty = currentValue !== initialValue;
+  const initialValue = useMemo(() => JSON.stringify({ name: init("name", ""), avatarUrl: init("avatarUrl", "") || null, sector: init("sector", ""), description: init("description", ""), targetAudience: init("targetAudience", ""), toneOfVoice: init("toneOfVoice", ""), differentials: init("differentials", []), publicLinks: init("publicLinks", []), offerings: init("offerings", []), faq: init("faq", []), qualificationGoals: init("qualificationGoals", []), siteUrl: init("websiteUrl", ""), address: init("address", ""), hours: init("hours", ""), phone: init("phone", ""), email: init("email", "") }), [draft, profile]);
+  // An AI draft is not persisted yet, even if the owner accepts it unchanged.
+  const dirty = draft !== null || currentValue !== initialValue;
   const hasInvalidPublicLink = publicLinks.some((link) => !link.title.trim() || !/^https?:\/\/\S+/i.test(link.url.trim()));
 
   const beginProductFocus = () => {

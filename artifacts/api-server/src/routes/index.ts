@@ -7,6 +7,7 @@ import { createBusinessScopedRouter } from "./businessScoped.js";
 import businessesRouter from "./businesses.js";
 import paymentsRouter from "./payments.js";
 import replitAuthRouter from "./replitAuth.js";
+import businessAnalysisRouter from "./businessAnalysis.js";
 
 const router: IRouter = Router();
 
@@ -18,6 +19,7 @@ router.use("/b/:businessSlug", createBusinessScopedRouter());
 router.use(businessesRouter);
 router.use(healthRouter);
 router.use(replitAuthRouter);
+router.use(businessAnalysisRouter);
 router.use(userAuthRouter);
 router.use(storageRouter);
 router.use(catalogRouter); // public catalog by slug + slug availability check

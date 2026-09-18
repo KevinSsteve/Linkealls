@@ -26,3 +26,16 @@ handle without silently failing or adopting another business.
 
 **How to apply:** Use a targeted conflict-safe insert and verify pre-existing
 ownership transactionally; preserve atomic rollback for any other collision.
+
+Business-source analysis during onboarding is a draft operation, not a live
+profile update. Run it before asking for a handle; the authenticated account is
+sufficient for analysis. Only explicit review and save may change the profile.
+
+**Why:** Deferring analysis until the owner dashboard made “Analisar o site”
+appear not to work, required an unexpected second PIN, and the old background
+analysis persisted results before the promised review.
+
+**How to apply:** Reuse extraction without its persistence side effects. Retain
+the account-scoped extracted draft through navigation/reload until save succeeds.
+An accepted, unchanged AI draft is still unsaved and must offer a save action.
+Uploaded screenshots are analysis inputs, not automatic public profile photos.

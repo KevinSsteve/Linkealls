@@ -9,6 +9,7 @@ import {
 import { OwnerNav } from "../components/owner/OwnerNav";
 import {
   businessApi,
+  analyzeBusinessOnboarding,
   getStorageObjectUrl,
   generateRecoveryCode,
   confirmSensitiveAction,
@@ -28,7 +29,7 @@ import { SettingsSectionHeader } from "../components/app/Section";
 import { SettingsListItem } from "../components/app/SettingsListItem";
 import { ProductListItem } from "../components/app/ProductListItem";
 import { ListFooterAction } from "../components/app/ListFooterAction";
-import { clearBusinessOnboarding, readBusinessOnboarding } from "../lib/businessOnboarding";
+import { clearBusinessOnboarding, readBusinessOnboarding, saveBusinessOnboarding } from "../lib/businessOnboarding";
 
 type View = "loading" | "start" | "analyzing" | "editor";
 const POLL_MS = 2500;
@@ -615,7 +616,7 @@ function ProfileView({
 // ─── Main ─────────────────────────────────────────────────────────────────────
 export function Owner() {
   const slug = useBusinessSlug();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const api = useMemo(() => (slug ? businessApi(slug) : null), [slug]);
 
   const [view, setView] = useState<View>("loading");
@@ -651,36 +652,26 @@ export function Owner() {
       setUrl(p.websiteUrl ?? "");
       const shouldLaunchOnboarding =
         new URLSearchParams(window.location.search).get("onboarding") === "1" &&
-        !filled &&
         !onboardingLaunchedRef.current;
-      const pendingOnboarding = shouldLaunchOnboarding ? readBusinessOnboarding() : null;
+      const pendingOnboarding = shouldLaunchOnboarding ? readBusinessOnboarding(user?.id) : null;
 
       if (pendingOnboarding) {
         onboardingLaunchedRef.current = true;
-        if (pendingOnboarding.mode === "site") {
-          setMode("site");
-          setUrl(pendingOnboarding.value);
-          if (!(await confirmSensitiveAction())) {
-            setError("É necessária uma confirmação para iniciar a análise.");
-            setView("start");
-            return;
-          }
-          await api.startAnalysis(pendingOnboarding.value);
-          setView("analyzing");
-        } else {
-          setMode("manual");
-          setDescriptionText(pendingOnboarding.value);
-          const { draft: onboardingDraft } = await api.assistFromDescription(pendingOnboarding.value);
-          setDraft(onboardingDraft);
-          setEditorKey((key) => key + 1);
-          setNotice("A IA estruturou o teu negócio. Revê os campos e guarda.");
-          setView("editor");
-          setEditing(true);
-        }
-        // Keep the entered details available when confirmation, network or AI
-        // fails. Only consume the hand-off once this step actually succeeds.
-        clearBusinessOnboarding();
-        window.history.replaceState(null, "", window.location.pathname);
+        // New onboarding already analysed the source. Old text/site hand-offs
+        // also produce a draft, never an automatic write to the live profile.
+        const analysis = pendingOnboarding.analysis ?? await analyzeBusinessOnboarding(
+          pendingOnboarding.mode === "site"
+            ? { mode: "site", url: pendingOnboarding.value }
+            : { mode: "description", description: pendingOnboarding.value },
+        );
+        saveBusinessOnboarding({ ...pendingOnboarding, userId: user?.id, analysis });
+        setDraft({ ...analysis.draft, ...(analysis.sourceUrl ? { websiteUrl: analysis.sourceUrl } : {}) });
+        setEditorKey((key) => key + 1);
+        setNotice("A IA preparou um rascunho. Confirma os dados, corrige o que for necessário e guarda o perfil.");
+        setView("editor");
+        setEditing(true);
+        // Retain the draft and onboarding URL until explicit save so reload
+        // does not discard the extracted information or run AI again.
         return;
       }
 
@@ -694,7 +685,7 @@ export function Owner() {
       setError(err instanceof Error ? err.message : "Erro ao carregar");
       setView("start");
     }
-  }, [api]);
+  }, [api, user?.id]);
 
   useEffect(() => { void load(); return stopPolling; }, [load, stopPolling]);
 
@@ -756,6 +747,10 @@ export function Owner() {
       if (!(await confirmSensitiveAction())) return;
       const { profile: p } = await api.saveProfile(fields);
       setProfile(p); setDraft(null);
+      if (new URLSearchParams(window.location.search).get("onboarding") === "1") {
+        clearBusinessOnboarding();
+        window.history.replaceState(null, "", window.location.pathname);
+      }
       setNotice("Perfil guardado com sucesso.");
       setEditing(false);
     } catch (err) { setError(err instanceof Error ? err.message : "Não foi possível guardar"); }

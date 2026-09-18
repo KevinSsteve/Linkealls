@@ -48,6 +48,9 @@ app.use((_req, res, next) => {
 });
 app.use(cookieParser());
 app.use(enforceCookieCsrf);
+// Onboarding accepts an inline image of up to 3 MB (about 4 MB as base64).
+// Keep the larger parser scoped to this single authenticated endpoint.
+app.use("/api/user-auth/business-analysis", express.json({ limit: "4120kb" }));
 app.use(express.json({ limit: "256kb" }));
 app.use(express.urlencoded({ extended: true, limit: "256kb" }));
 app.use(replitAuthMiddleware);
