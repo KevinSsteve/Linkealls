@@ -37,6 +37,7 @@ import {
   type Offering,
 } from "../lib/api";
 import { BuyModal, formatAoa, parsePriceAoa } from "../components/BuyModal";
+import "../styles/customer-ux.css";
 
 const BASE = import.meta.env.BASE_URL;
 const VISITOR_ID_KEY = "linkealls_catalog_visitor_id";
@@ -260,9 +261,9 @@ function ProductDetail({
           <div className="flex items-center justify-between gap-4">
             <span className="text-[13px] font-medium" style={{ color: T.ink }}>Quantidade</span>
             <div className="catalog-quantity">
-              <button type="button" onClick={() => setQuantity((value) => Math.max(1, value - 1))} aria-label="Diminuir quantidade"><Minus size={15} /></button>
-              <span>{quantity}</span>
-              <button type="button" onClick={() => setQuantity((value) => Math.min(99, value + 1))} aria-label="Aumentar quantidade"><Plus size={15} /></button>
+              <button type="button" className="touch-target-min" onClick={() => setQuantity((value) => Math.max(1, value - 1))} aria-label="Diminuir quantidade"><Minus size={15} /></button>
+              <span className="w-8 text-center">{quantity}</span>
+              <button type="button" className="touch-target-min" onClick={() => setQuantity((value) => Math.min(99, value + 1))} aria-label="Aumentar quantidade"><Plus size={15} /></button>
             </div>
           </div>
           <div className="catalog-detail-actions">
@@ -466,7 +467,7 @@ export function Catalogo() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
   return (
-    <div className="catalog-page">
+    <div className="catalog-page customer-selectable">
       <div className="catalog-shell">
         {selectedOffering ? (
           <ProductDetail

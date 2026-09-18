@@ -26,6 +26,7 @@ import {
   PackageCheck,
   RefreshCw,
 } from "lucide-react";
+import "../styles/customer-ux.css";
 
 // ─── Types ─────────────────────────────────────────────────────────────────
 
@@ -103,8 +104,8 @@ function OrderTrackingCard({
           <p className="mt-1 truncate text-[14px] font-semibold" style={{ color: "#0A2540" }}>{tracking.offeringName}</p>
           <p className="mt-0.5 text-[12px]" style={{ color: "#667781" }}>{tracking.quantity} unidade{tracking.quantity !== 1 ? "s" : ""} · {formatOrderAmount(tracking.amount)}</p>
         </div>
-        <button onClick={onRefresh} disabled={loading} className="shrink-0 rounded-full p-2 disabled:opacity-40" aria-label="Actualizar estado">
-          <RefreshCw size={15} className={loading ? "animate-spin" : ""} style={{ color: "#0A2540" }} />
+        <button onClick={onRefresh} disabled={loading} className="shrink-0 rounded-full p-2 disabled:opacity-40 touch-target-min" aria-label="Actualizar estado">
+          <RefreshCw size={18} className={loading ? "animate-spin" : ""} style={{ color: "#0A2540" }} />
         </button>
       </div>
       <div className="px-4 py-3">
@@ -188,21 +189,21 @@ function MinimizedCallBanner({
       {/* End call (small) */}
       <button
         onClick={onEnd}
-        className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+        className="shrink-0 w-11 h-11 rounded-full flex items-center justify-center active:scale-90 transition-transform touch-target-min"
         style={{ background: "#EF4444" }}
         aria-label="Terminar chamada"
       >
-        <Phone size={14} className="text-white" style={{ transform: "rotate(135deg)" }} />
+        <Phone size={16} className="text-white" style={{ transform: "rotate(135deg)" }} />
       </button>
 
       {/* Expand */}
       <button
         onClick={onExpand}
-        className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center active:scale-90"
+        className="shrink-0 w-11 h-11 rounded-full flex items-center justify-center active:scale-90 touch-target-min"
         style={{ background: "rgba(255,255,255,0.15)" }}
         aria-label="Expandir chamada"
       >
-        <ChevronUp size={15} style={{ color: "#fff" }} />
+        <ChevronUp size={18} style={{ color: "#fff" }} />
       </button>
     </div>
   );
@@ -229,8 +230,8 @@ function AgentMsgBubble({ msg, onDismiss }: { msg: AgentMessage; onDismiss: () =
       >
         {msg.text}
       </div>
-      <button onClick={onDismiss} className="shrink-0 mt-1 opacity-40 hover:opacity-70">
-        <X size={13} style={{ color: "#8696A0" }} />
+      <button onClick={onDismiss} className="shrink-0 mt-1 opacity-40 hover:opacity-70 touch-target-min">
+        <X size={16} style={{ color: "#8696A0" }} />
       </button>
     </div>
   );
@@ -290,10 +291,10 @@ function AgentMessageOverlay({
               {m.text}
             </div>
             <button
-              className="shrink-0 mt-0.5 opacity-40 hover:opacity-80 transition-opacity"
+              className="shrink-0 mt-0.5 opacity-40 hover:opacity-80 transition-opacity touch-target-min"
               onClick={onDismissAll}
             >
-              <X size={13} style={{ color: "#8696A0" }} />
+              <X size={16} style={{ color: "#8696A0" }} />
             </button>
           </div>
         ))}
@@ -423,10 +424,10 @@ function ProductVitrine({
         </div>
         <button
           onClick={onClose}
-          className="w-8 h-8 rounded-full flex items-center justify-center"
+          className="w-11 h-11 rounded-full flex items-center justify-center touch-target-min"
           style={{ background: "#F1F5F9" }}
         >
-          <X size={15} style={{ color: "#425466" }} />
+          <X size={18} style={{ color: "#425466" }} />
         </button>
       </div>
 
@@ -470,8 +471,8 @@ function InlineProductShelf({
         <p className="text-[13px] font-semibold" style={{ color: "#0A2540" }}>
           Produtos disponíveis
         </p>
-        <button onClick={onClose}>
-          <X size={14} style={{ color: "#8696A0" }} />
+        <button onClick={onClose} className="touch-target-min">
+          <X size={18} style={{ color: "#8696A0" }} />
         </button>
       </div>
       <div className="flex gap-3 overflow-x-auto px-3 pb-3 scrollbar-none">

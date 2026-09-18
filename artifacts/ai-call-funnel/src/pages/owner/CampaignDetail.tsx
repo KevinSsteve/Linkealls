@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useParams } from "wouter";
-import { AlertCircle, Check, Copy, ExternalLink, Loader2, Pause, RefreshCw, StopCircle } from "lucide-react";
+import { AlertCircle, ArrowLeft, Check, Copy, ExternalLink, Loader2, Pause, RefreshCw, StopCircle } from "lucide-react";
 import { businessApi, confirmSensitiveAction, type Campaign } from "../../lib/api";
 import { useBusinessSlug } from "../../hooks/useBusinessSlug";
 import { OwnerNav } from "../../components/owner/OwnerNav";
@@ -117,18 +117,29 @@ export function LaunchCampaignDetail() {
   const kit = campaign.kitJson;
 
   return (
-    <div className="flex h-full flex-col bg-[#F6F9FC]">
-      <AppHeader
-        title={campaign.name}
-        subtitle="Histórico de campanha"
-        onBack={() => navigate(`/e/${slug}/dono/campanhas`)}
-        actions={
-          <AppIconButton label="Actualizar estado" onClick={() => void load(true)} disabled={refreshing}>
-            <RefreshCw size={18} className={refreshing ? "animate-spin" : ""} />
-          </AppIconButton>
-        }
-      />
-      <main className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+    <div className="owner-view-root">
+      <header className="owner-header justify-between">
+        <button
+          onClick={() => navigate(`/e/${slug}/dono/campanhas`)}
+          className="owner-header-back"
+          aria-label="Voltar"
+        >
+          <ArrowLeft size={24} />
+        </button>
+        <div className="owner-header-title">
+          <div>{campaign.name}</div>
+          <div className="text-[11px] font-normal text-[var(--ink-soft)]">Histórico de campanha</div>
+        </div>
+        <button
+          onClick={() => void load(true)}
+          disabled={refreshing}
+          className="owner-icon-btn text-[var(--ink-soft)]"
+          aria-label="Actualizar estado"
+        >
+          <RefreshCw size={20} className={refreshing ? "animate-spin" : ""} />
+        </button>
+      </header>
+      <main className="owner-content-scroll px-4 py-4">
         <div className="mb-4 rounded-2xl border border-[#E6EBF1] bg-white px-4 py-4">
           <p className="text-[14px] font-semibold text-[#0A2540]">Acompanhamento de compromisso anterior</p>
           <p className="mt-1 text-[12px] leading-5 text-[#425466]">

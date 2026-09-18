@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useLocation } from "wouter";
+import type { AnchorHTMLAttributes } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -9,17 +9,45 @@ import {
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
-import { useAuth } from "@/context/AuthContext";
-import { userLogin } from "@/lib/api";
-import brandLogo from "@assets/1000379740_1788938201385.png";
+import brandLogo from "./assets/1000379740_1788938201385.png";
+import "./_group.css";
+
+function Link({
+  href,
+  onClick,
+  ...props
+}: AnchorHTMLAttributes<HTMLAnchorElement> & { href: string }) {
+  return (
+    <a
+      href={href}
+      onClick={(event) => {
+        event.preventDefault();
+        onClick?.(event);
+      }}
+      {...props}
+    />
+  );
+}
+
+function useLocation(): [string, (path: string) => void] {
+  return ["/entrar", () => undefined];
+}
+
+function useAuth() {
+  return { login: (_user: { handle: string | null }) => undefined };
+}
+
+async function userLogin(_credentials: { phone: string; pin: string }) {
+  return { user: { handle: "cafe-kamba" } };
+}
 
 const COLORS = {
   page: "#fbfaff",
   panel: "#f1edff",
   panelDeep: "#2d176d",
   ink: "#0a2540",
-  soft: "#344558", // Darkened for better contrast
-  muted: "#5b6e82", // Darkened for better contrast
+  soft: "#425466",
+  muted: "#8898aa",
   line: "#e6ebf1",
   field: "#ffffff",
   accent: "#635bff",
@@ -102,16 +130,14 @@ function PhoneField({
   value,
   onChange,
   onEnter,
-  errorId,
 }: {
   value: string;
   onChange: (value: string) => void;
   onEnter: () => void;
-  errorId?: string;
 }) {
   return (
     <div
-      className="auth-input-wrap group flex min-h-[56px] items-center gap-3 rounded-[16px] border px-4 transition-colors duration-200 focus-within:border-[#635bff] focus-within:bg-white"
+      className="auth-input-wrap group flex min-h-[62px] items-center gap-3 rounded-[18px] border px-4 transition-colors duration-200 focus-within:border-[#635bff] focus-within:bg-white"
       style={{ borderColor: COLORS.line, background: COLORS.field }}
     >
       <span style={{ color: COLORS.ink, fontSize: 15, fontWeight: 750 }}>+244</span>
@@ -130,8 +156,6 @@ function PhoneField({
         style={{ color: COLORS.ink, caretColor: COLORS.accent }}
         autoFocus
         data-testid="input-login-phone"
-        aria-invalid={!!errorId}
-        aria-describedby={errorId}
       />
     </div>
   );
@@ -139,7 +163,7 @@ function PhoneField({
 
 function PinDots({ value }: { value: string }) {
   return (
-    <div className="flex items-center justify-center gap-3" aria-label={`${value.length} de 4 dígitos preenchidos`} aria-live="polite" role="status">
+    <div className="flex items-center justify-center gap-3" aria-label={`${value.length} de 4 dígitos preenchidos`}>
       {[0, 1, 2, 3].map((index) => {
         const filled = index < value.length;
         return (
@@ -193,7 +217,6 @@ function ErrorNotice({ message }: { message: string }) {
   if (!message) return null;
   return (
     <div
-      id="login-error"
       className="mb-5 flex items-start gap-2.5 rounded-2xl border px-3.5 py-3 text-[13px] leading-5"
       style={{ borderColor: "#f4c6bc", background: COLORS.errorBg, color: COLORS.error }}
       role="alert"
@@ -212,7 +235,7 @@ function getSafeNext(handle: string | null): string {
   return handle ? `/e/${handle}/dono` : "/escolher-handle";
 }
 
-export function LoginPage() {
+export function CurrentLogin() {
   const [, nav] = useLocation();
   const { login } = useAuth();
   const [step, setStep] = useState<"phone" | "pin">("phone");
@@ -267,9 +290,9 @@ export function LoginPage() {
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
       }}
     >
-      <div className="grid min-h-[100dvh] lg:grid-cols-[minmax(330px,0.82fr)_minmax(480px,1.18fr)]">
+      <div className="grid min-h-[100dvh] md:grid-cols-[minmax(330px,0.82fr)_minmax(480px,1.18fr)]">
         <aside
-          className="relative hidden overflow-hidden px-10 py-10 lg:flex lg:flex-col lg:px-16"
+          className="relative hidden overflow-hidden px-10 py-10 md:flex md:flex-col lg:px-16"
           style={{ background: COLORS.panel }}
         >
           <BrandMark />
@@ -304,27 +327,27 @@ export function LoginPage() {
           />
         </aside>
 
-        <section className="flex min-w-0 flex-col justify-center">
-          <div className="mx-auto flex w-full max-w-[560px] flex-col px-5 py-6 sm:px-10 sm:py-9 lg:px-16">
+        <section className="flex min-w-0 flex-col">
+          <div className="mx-auto flex w-full max-w-[560px] flex-1 flex-col px-5 py-6 sm:px-10 sm:py-9 lg:px-16">
             <div className="flex items-center justify-between">
-              <div className="auth-mobile-brand lg:hidden">
+              <div className="auth-mobile-brand md:hidden">
                 <BrandMark compact />
               </div>
-              <div className="auth-desktop-back hidden lg:block">
+              <div className="auth-desktop-back hidden md:block">
                 <BackButton onClick={() => (step === "pin" ? (setStep("phone"), setPin("")) : nav("/"))} />
               </div>
               <StepRail current={step} />
             </div>
 
-            <div className="auth-content mt-10 sm:mt-16">
-              <div className="mb-7">
-                <p className="mb-3 text-[13px] font-extrabold uppercase tracking-[0.12em]" style={{ color: COLORS.accent }}>
+            <div className="auth-content mt-14 flex-1 sm:mt-20">
+              <div className="mb-9">
+                <p className="mb-4 text-[13px] font-bold uppercase tracking-[0.15em]" style={{ color: COLORS.accent }}>
                   {step === "phone" ? "Entrar na Linkealls" : "Só mais um passo"}
                 </p>
-                <h1 className="max-w-[460px] text-[clamp(32px,8vw,48px)] font-extrabold leading-[1.05] tracking-[-0.04em]" style={{ color: COLORS.ink }}>
+                <h1 className="max-w-[460px] text-[clamp(35px,8vw,54px)] font-extrabold leading-[0.98] tracking-[-0.065em]" style={{ color: COLORS.ink }}>
                   {step === "phone" ? "Bom ter-te de volta." : "Confirma que és tu."}
                 </h1>
-                <p className="mt-4 max-w-[400px] text-[16px] leading-relaxed" style={{ color: COLORS.soft }}>
+                <p className="mt-5 max-w-[400px] text-[16px] leading-6" style={{ color: COLORS.soft }}>
                   {step === "phone"
                     ? "Entra para continuares a cuidar das tuas conversas e clientes."
                     : `Introduz o PIN de 4 dígitos associado a ${phone}.`}
@@ -335,24 +358,24 @@ export function LoginPage() {
 
               {step === "phone" ? (
                 <div className="max-w-[460px]">
-                  <PhoneField value={phone} onChange={setPhone} onEnter={handlePhoneNext} errorId={error ? "login-error" : undefined} />
+                  <PhoneField value={phone} onChange={setPhone} onEnter={handlePhoneNext} />
                   <button
                     type="button"
                     onClick={handlePhoneNext}
-                    className="auth-primary mt-4 flex min-h-[56px] w-full items-center justify-between rounded-[16px] px-5 text-left font-bold transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.99]"
-                    style={{ background: COLORS.accent, color: "#ffffff", boxShadow: "0 8px 20px rgba(99,91,255,0.15)" }}
+                    className="auth-primary mt-4 flex min-h-[60px] w-full items-center justify-between rounded-[18px] px-5 text-left font-bold transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.99]"
+                    style={{ background: COLORS.accent, color: "#ffffff", boxShadow: "0 12px 24px rgba(99,91,255,0.2)" }}
                     data-testid="button-login-continue"
                   >
                     <span>Continuar</span>
                     <ArrowRight size={19} strokeWidth={2.3} />
                   </button>
-                  <div className="mt-5 flex items-start gap-2 text-[13px] leading-relaxed" style={{ color: COLORS.muted }}>
-                    <ShieldCheck size={18} strokeWidth={1.8} className="mt-0.5 shrink-0" style={{ color: COLORS.accent }} />
-                    <p>O teu número e PIN ficam protegidos. Não partilhamos os teus dados.</p>
-                  </div>
+                  <p className="mt-5 flex items-start gap-2 text-[12px] leading-5" style={{ color: COLORS.muted }}>
+                    <ShieldCheck size={16} strokeWidth={1.8} className="mt-0.5 shrink-0" style={{ color: COLORS.accent }} />
+                    O teu número e PIN ficam protegidos. Não partilhamos os teus dados.
+                  </p>
                    <Link
                      href="/recuperar-acesso"
-                     className="mt-6 inline-flex min-h-[44px] items-center text-[14px] font-bold underline underline-offset-4 transition-colors hover:text-[#0a2540]"
+                     className="mt-6 inline-flex text-[13px] font-bold underline underline-offset-4"
                      style={{ color: COLORS.soft }}
                    >
                      Esqueci-me do PIN
@@ -360,13 +383,13 @@ export function LoginPage() {
                 </div>
               ) : (
                 <div className="max-w-[460px]">
-                  <div className="auth-pin-card mb-6 flex flex-col items-center rounded-[20px] border px-5 py-5" style={{ borderColor: COLORS.line, background: "rgba(255,255,255,0.7)" }}>
-                    <div className="mb-4 flex items-center gap-2 text-[12px] font-extrabold uppercase tracking-[0.1em]" style={{ color: COLORS.accent }}>
+                  <div className="auth-pin-card mb-7 flex flex-col items-center rounded-[24px] border px-5 py-6" style={{ borderColor: COLORS.line, background: "rgba(255,255,255,0.48)" }}>
+                    <div className="mb-5 flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.14em]" style={{ color: COLORS.accent }}>
                       <LockKeyhole size={15} strokeWidth={2} />
                       PIN de acesso
                     </div>
                     <PinDots value={pin} />
-                    <p className="mt-4 h-5 text-[13px] font-medium" style={{ color: loading ? COLORS.accent : COLORS.muted }} aria-live="polite" data-testid="status-login-loading">
+                    <p className="mt-4 h-5 text-[12px]" style={{ color: loading ? COLORS.accent : COLORS.muted }} aria-live="polite" data-testid="status-login-loading">
                       {loading ? "A abrir o teu espaço…" : "Quatro dígitos"}
                     </p>
                   </div>
@@ -375,8 +398,8 @@ export function LoginPage() {
                     type="button"
                     disabled={pin.length !== 4 || loading}
                     onClick={() => void submitPin(pin)}
-                    className="auth-primary mt-4 flex min-h-[56px] w-full items-center justify-between rounded-[16px] px-5 text-left font-bold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-45"
-                    style={{ background: COLORS.accent, color: "#ffffff", boxShadow: pin.length === 4 ? "0 8px 20px rgba(99,91,255,0.15)" : "none" }}
+                    className="auth-primary mt-4 flex min-h-[58px] w-full items-center justify-between rounded-[18px] px-5 text-left font-bold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-45"
+                    style={{ background: COLORS.accent, color: "#ffffff" }}
                     data-testid="button-login-submit"
                   >
                     <span>{loading ? "A entrar…" : "Continuar"}</span>
@@ -386,21 +409,21 @@ export function LoginPage() {
               )}
             </div>
 
-            <div className="mt-10 flex flex-col gap-4 border-t pt-5 sm:flex-row sm:items-center sm:justify-between" style={{ borderColor: COLORS.line }}>
+            <div className="mt-12 flex flex-col gap-5 border-t pt-5 sm:flex-row sm:items-center sm:justify-between" style={{ borderColor: COLORS.line }}>
               <p className="text-[14px]" style={{ color: COLORS.soft }}>
                 Ainda não tens conta?{" "}
-                <Link href={`/registar${window.location.search}`} className="font-bold underline decoration-2 underline-offset-4 transition-colors hover:text-[#0a2540]" style={{ color: COLORS.accent }} data-testid="link-login-register">
+                <Link href={`/registar${window.location.search}`} className="font-bold underline decoration-2 underline-offset-4" style={{ color: COLORS.accent }} data-testid="link-login-register">
                   Criar conta
                 </Link>
               </p>
               <button
                 type="button"
-                className="inline-flex min-h-[44px] items-center gap-2 self-start text-[14px] font-bold transition-colors hover:text-[#0a2540]"
+                className="inline-flex items-center gap-2 self-start text-[13px] font-bold"
                 style={{ color: COLORS.muted }}
                 onClick={() => (step === "pin" ? (setStep("phone"), setPin(""), setError("")) : nav("/"))}
                 data-testid="button-login-back"
               >
-                <ArrowLeft size={16} />
+                <ArrowLeft size={15} />
                 {step === "pin" ? "Trocar número" : "Voltar ao início"}
               </button>
             </div>

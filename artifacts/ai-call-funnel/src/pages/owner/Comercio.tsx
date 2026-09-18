@@ -202,11 +202,16 @@ export function Comercio() {
   }
 
   return (
-    <div className="flex h-full flex-col" style={{ background: D.bg }}>
+    <div className="owner-view-root" style={{ background: D.bg }}>
       <div className="shrink-0" style={{ background: D.surface, borderBottom: `1px solid ${D.border}` }}>
-        <AppHeader title="Comércio" actions={<AppIconButton label="Actualizar" onClick={() => void load()}><RefreshCw size={18} /></AppIconButton>} />
+        <header className="owner-header justify-between">
+          <div className="owner-header-title">Comércio</div>
+          <button onClick={() => void load()} className="owner-icon-btn text-[var(--ink-soft)]" aria-label="Actualizar">
+            <RefreshCw size={20} />
+          </button>
+        </header>
         {analytics && (
-          <div className="grid grid-cols-2 gap-3 px-4 pb-4">
+          <div className="grid grid-cols-2 gap-3 px-4 pb-4 pt-3">
             <StatCard label="Vendas pagas" value={fmtKz(analytics.grossSales)} tone="success" />
             <StatCard label="Pedidos pagos" value={analytics.paidOrders} />
             <StatCard label="A pedir atenção" value={analytics.awaitingProof + analytics.awaitingFollowUp} />
@@ -217,7 +222,7 @@ export function Comercio() {
 
       {error && <div className="mx-4 mt-3 rounded-xl px-3 py-2.5 text-[12px]" style={{ background: "#FEF2F2", color: "#DC2626", border: "1px solid #FECACA" }}>{error}</div>}
 
-      <div className="flex-1 overflow-y-auto">
+      <div className="owner-content-scroll">
         {loading && <WaSkeletonList count={6} />}
         {!loading && orders.length === 0 && (
           <WaEmptyState icon={<ShoppingBag size={32} />} iconBg={D.greenLt} iconColor={D.green} title="O teu comércio começa aqui" subtitle="Quando alguém comprar no catálogo, vais ver aqui o pedido, o próximo passo e a conversa relacionada." />

@@ -1,5 +1,5 @@
 import { useRef, useEffect } from "react";
-import { Send, Mic } from "lucide-react";
+import { Send } from "lucide-react";
 
 interface ChatInputProps {
   value: string;
@@ -19,9 +19,9 @@ export function ChatInput({ value, onChange, onSend, disabled }: ChatInputProps)
   }, [value]);
 
   const handleKey = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault();
-      onSend();
+      if (!disabled && value.trim()) onSend();
     }
   };
 
@@ -37,7 +37,7 @@ export function ChatInput({ value, onChange, onSend, disabled }: ChatInputProps)
     >
       {/* Text field */}
       <div
-        className="flex-1 flex items-center gap-2 rounded-full px-4"
+        className="min-w-0 flex-1 flex items-center gap-2 rounded-full px-4"
         style={{
           background: "#FFFFFF",
           border: "none",
@@ -53,7 +53,8 @@ export function ChatInput({ value, onChange, onSend, disabled }: ChatInputProps)
           onKeyDown={handleKey}
           disabled={disabled}
           placeholder="Mensagem"
-          className="flex-1 bg-transparent outline-none resize-none leading-[1.4] py-[11px]"
+          aria-label="Mensagem"
+          className="min-w-0 flex-1 bg-transparent outline-none resize-none leading-[1.4] py-[11px]"
           style={{
             color: "#0A2540",
             caretColor: "#635BFF",
@@ -65,18 +66,19 @@ export function ChatInput({ value, onChange, onSend, disabled }: ChatInputProps)
         />
       </div>
 
-      {/* Send / Mic */}
+      {/* Voice calling is a separate control; this composer sends text only. */}
       <button
         onClick={onSend}
-        disabled={disabled}
-        className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-90 disabled:opacity-40"
+        disabled={disabled || isEmpty}
+        aria-label="Enviar mensagem"
+        className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-90 disabled:opacity-40 touch-target-min"
         style={{
           background: "#635BFF",
           boxShadow: isEmpty ? "none" : "0 2px 8px rgba(99,91,255,0.30)",
           color: "#FFFFFF",
         }}
       >
-        {isEmpty ? <Mic size={19} /> : <Send size={17} className="translate-x-[1px]" />}
+        <Send size={17} className="translate-x-[1px]" aria-hidden="true" />
       </button>
     </div>
   );

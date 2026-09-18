@@ -169,23 +169,25 @@ export function Mercado() {
   }, [businesses, query]);
 
   return (
-    <div className="flex flex-col h-full" style={{ background: D.bg }}>
+    <div className="owner-view-root" style={{ background: D.bg }}>
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div
         className="shrink-0"
         style={{ background: D.surface, borderBottom: `1px solid ${D.line}` }}
       >
-        <AppHeader
-          title="Mercado"
-          actions={
-            <AppIconButton label="Actualizar" onClick={() => void load()}>
-              <RefreshCw size={18} strokeWidth={1.8} />
-            </AppIconButton>
-          }
-        />
+        <header className="owner-header justify-between">
+          <div className="owner-header-title">Mercado</div>
+          <button
+            onClick={() => void load()}
+            className="owner-icon-btn text-[var(--ink-soft)]"
+            aria-label="Actualizar"
+          >
+            <RefreshCw size={20} strokeWidth={1.8} />
+          </button>
+        </header>
 
-        <div style={{ padding: "0 var(--page-padding-mobile) 16px" }}>
+        <div style={{ padding: "12px var(--page-padding-mobile) 16px" }}>
           <SearchBar value={query} onChange={setQuery} />
         </div>
       </div>
@@ -221,7 +223,7 @@ export function Mercado() {
 
       {/* ── Lista de negócios ──────────────────────────────────────────────── */}
       <div
-        className="flex-1 overflow-y-auto flex flex-col mt-3 mx-5 mb-2 overflow-hidden"
+        className="owner-content-scroll flex flex-col mt-3 mx-5 mb-2 overflow-hidden"
         style={{
           background: D.surface,
           border: `1px solid ${D.line}`,

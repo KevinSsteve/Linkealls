@@ -104,7 +104,7 @@ export function InlineCheckout({ businessSlug, leadId, checkout, onDone, onDismi
 
   return (
     <div
-      className="mx-3 mb-3 rounded-2xl overflow-hidden"
+      className="mx-3 mb-3 rounded-2xl overflow-hidden customer-selectable"
       style={{
         background: T.bg,
         border: `1px solid ${T.line}`,
@@ -125,11 +125,11 @@ export function InlineCheckout({ businessSlug, leadId, checkout, onDone, onDismi
         {(step === "paid" || step === "failed") && (
           <button
             onClick={onDismiss}
-            className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full transition-colors hover:bg-black/5"
+            className="shrink-0 w-11 h-11 flex items-center justify-center rounded-full transition-colors hover:bg-black/5"
             style={{ color: T.inkSoft }}
             aria-label="Fechar"
           >
-            <X size={14} />
+            <X size={16} />
           </button>
         )}
       </div>
@@ -203,12 +203,11 @@ export function InlineCheckout({ businessSlug, leadId, checkout, onDone, onDismi
                 <button
                   onClick={() => void approveSimulated()}
                   disabled={busy}
-                  className="w-full font-semibold text-[13px] transition-opacity disabled:opacity-60"
+                  className="w-full font-semibold text-[13px] transition-opacity disabled:opacity-60 touch-target-min"
                   style={{
                     background: T.warnText,
                     color: "#FFFFFF",
                     borderRadius: T.rBtn,
-                    minHeight: 38,
                   }}
                 >
                   {busy ? <Loader2 size={14} className="animate-spin mx-auto" /> : "Simular aprovação"}

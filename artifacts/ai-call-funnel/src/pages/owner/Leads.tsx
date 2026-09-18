@@ -175,7 +175,7 @@ function LeadDetail({ lead: initialLead, onBack, onStateChange, api }: {
         }
       />
 
-      <div className="flex-1 overflow-y-auto" style={{ background: C.bg }}>
+      <div className="owner-content-scroll" style={{ background: C.bg }}>
         {/* Score + WhatsApp */}
         {(lead.score !== null || waUrl) && (
           <div className="mx-4 mt-4 rounded-2xl p-4 flex items-center gap-4"
@@ -359,7 +359,7 @@ export function Leads() {
 
   if (selectedLead) {
     return (
-      <div className="flex flex-col h-full" style={{ background: C.bg }}>
+      <div className="owner-view-root">
         <LeadDetail
           lead={selectedLead} api={api}
           onBack={() => setSelectedLead(null)}
@@ -374,23 +374,22 @@ export function Leads() {
   }
 
   return (
-    <div className="flex flex-col h-full" style={{ background: C.bg }}>
+    <div className="owner-view-root">
       {/* Header */}
-      <div className="shrink-0" style={{ background: "#FFFFFF", borderBottom: `1px solid ${C.border}` }}>
-        <div className="flex items-center justify-between" style={{ padding: "16px 16px 12px" }}>
-          <h1 style={{ color: C.text, fontSize: 22, fontWeight: 700, letterSpacing: "-0.3px" }}>Leads</h1>
-          <button
-            onClick={() => void loadLeads()}
-            className="flex items-center justify-center rounded-full transition-opacity active:opacity-60"
-            style={{ width: 36, height: 36, color: "#9CA3AF" }}
-            aria-label="Actualizar"
-          >
-            <RefreshCw size={18} strokeWidth={1.75} />
-          </button>
-        </div>
+      <header className="owner-header justify-between">
+        <div className="owner-header-title">Leads</div>
+        <button
+          onClick={() => void loadLeads()}
+          className="owner-icon-btn"
+          aria-label="Actualizar"
+        >
+          <RefreshCw size={20} strokeWidth={1.75} />
+        </button>
+      </header>
 
+      <div className="shrink-0" style={{ background: "#FFFFFF", borderBottom: `1px solid ${C.border}` }}>
         {/* Search */}
-        <div style={{ padding: "0 16px 10px" }}>
+        <div style={{ padding: "10px 16px 10px" }}>
           <div
             className="flex items-center gap-2"
             style={{
@@ -451,7 +450,7 @@ export function Leads() {
       )}
 
       {/* List */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="owner-content-scroll">
         {loading ? (
           <div className="py-2">
             {[1,2,3].map((i) => (
@@ -466,11 +465,11 @@ export function Leads() {
             ))}
           </div>
         ) : filtered.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full gap-3 px-4 text-center">
-            <div className="w-16 h-16 rounded-full flex items-center justify-center" style={{ background: C.bg }}>
-              <User size={28} style={{ color: C.text3 }} />
+          <div className="owner-state-container">
+            <div className="owner-state-icon">
+              <User size={28} />
             </div>
-            <p className="text-[15px] font-medium" style={{ color: C.text2 }}>
+            <p className="owner-state-title">
               {search || filterState !== "todos" ? "Nenhum resultado" : "Nenhum lead ainda"}
             </p>
           </div>

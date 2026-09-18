@@ -14,13 +14,23 @@ import type { ReactNode } from "react";
 import { Redirect, useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import { useBusinessSlug } from "@/hooks/useBusinessSlug";
+import { Loader2 } from "lucide-react";
+import "@/styles/owner-ux.css";
 
 export function OwnerGate({ children }: { children: ReactNode }) {
   const { isLoading, isLoggedIn, user } = useAuth();
   const slug = useBusinessSlug();
   const [location] = useLocation();
 
-  if (isLoading) return null;
+  if (isLoading) {
+    return (
+      <div role="status" aria-live="polite" className="flex flex-col items-center justify-center gap-3 flex-1 min-h-0 bg-[#F6F9FC]">
+        <Loader2 size={28} aria-hidden="true" className="animate-spin text-[#635BFF]" />
+        <p className="text-sm text-[#425466]">A carregar o teu negócio…</p>
+      </div>
+    );
+  }
+
   if (!isLoggedIn) return <Redirect to={`/login?next=${encodeURIComponent(location)}`} />;
   if (!user?.handle) return <Redirect to="/escolher-handle" />;
   if (slug && user.handle !== slug) return <Redirect to={`/e/${user.handle}/dono`} />;

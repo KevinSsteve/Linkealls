@@ -59,7 +59,7 @@ export function ChatLayout({ children, onBack, onCall, businessName, businessSlu
           <button
             type="button"
             onClick={goToCatalog}
-            className="relative shrink-0 active:opacity-75 transition-opacity"
+            className="relative shrink-0 active:opacity-75 transition-opacity touch-target-min"
             aria-label="Ver catálogo do negócio"
           >
             <div

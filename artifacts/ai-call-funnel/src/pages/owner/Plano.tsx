@@ -109,18 +109,20 @@ export function Plano() {
   const active = info?.active ?? null;
 
   return (
-    <div className="flex flex-col h-full" style={{ background: C.bg }}>
+    <div className="owner-view-root" style={{ background: C.bg }}>
       {/* Header */}
-      <AppHeader
-        title="Plano"
-        actions={
-          <AppIconButton label="Actualizar" onClick={() => void load()}>
-            <RefreshCw size={18} strokeWidth={1.75} />
-          </AppIconButton>
-        }
-      />
+      <header className="owner-header justify-between">
+        <div className="owner-header-title">Plano</div>
+        <button
+          onClick={() => void load()}
+          className="owner-icon-btn text-[var(--ink-soft)]"
+          aria-label="Actualizar"
+        >
+          <RefreshCw size={20} strokeWidth={1.75} />
+        </button>
+      </header>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
+      <div className="owner-content-scroll px-4 py-4 flex flex-col gap-4">
         {loading && (
           <div className="flex justify-center py-10">
             <Loader2 size={28} className="animate-spin" style={{ color: C.green }} />

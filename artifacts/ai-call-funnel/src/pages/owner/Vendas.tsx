@@ -99,21 +99,23 @@ export function Vendas() {
   const paidCount = orders.filter((o) => o.status === "paga").length;
 
   return (
-    <div className="flex flex-col h-full" style={{ background: D.bg }}>
+    <div className="owner-view-root" style={{ background: D.bg }}>
 
       {/* Header */}
       <div className="shrink-0" style={{ background: D.surface, borderBottom: `1px solid ${D.border}` }}>
-        <AppHeader
-          title="Vendas"
-          actions={
-            <AppIconButton label="Actualizar" onClick={() => void load()}>
-            <RefreshCw size={18} strokeWidth={1.75} />
-            </AppIconButton>
-          }
-        />
+        <header className="owner-header justify-between">
+          <div className="owner-header-title">Vendas</div>
+          <button
+            onClick={() => void load()}
+            className="owner-icon-btn text-[var(--ink-soft)]"
+            aria-label="Actualizar"
+          >
+            <RefreshCw size={20} strokeWidth={1.75} />
+          </button>
+        </header>
 
         {/* Summary cards */}
-        <div className="flex gap-3" style={{ padding: `0 ${D.px}px 16px` }}>
+        <div className="flex gap-3" style={{ padding: `12px ${D.px}px 16px` }}>
           <StatCard label="Total vendido" value={fmtKz(paidTotal)} tone="success" />
           <StatCard label="Vendas pagas" value={paidCount} />
         </div>
@@ -138,7 +140,7 @@ export function Vendas() {
       )}
 
       {/* List */}
-      <div className="flex-1 overflow-y-auto" style={{ background: D.surface, borderTop: `1px solid ${D.border}`, marginTop: 12 }}>
+      <div className="owner-content-scroll" style={{ background: D.surface, borderTop: `1px solid ${D.border}`, marginTop: 12 }}>
         {error && (
           <div
             className="flex items-center gap-2"

@@ -173,21 +173,7 @@ function Toggle({
 }
 
 function EditorIntro({ onBack }: { onBack?: () => void }) {
-  return (
-    <div className="border-b border-[var(--border)] bg-[var(--surface)] px-5 pb-4 pt-1">
-      {onBack && (
-        <button
-          type="button"
-          onClick={onBack}
-          className="inline-flex min-h-[44px] items-center gap-2 rounded-[var(--radius-md)] text-[14px] font-semibold text-[var(--green-dark)] active:opacity-60"
-          data-testid="button-back-to-profile"
-        >
-          <ChevronRight size={17} className="rotate-180" />
-          Voltar ao perfil
-        </button>
-      )}
-    </div>
-  );
+  return null;
 }
 
 function CatalogSection({ profile, businessSlug }: { profile: BusinessProfile; businessSlug: string }) {

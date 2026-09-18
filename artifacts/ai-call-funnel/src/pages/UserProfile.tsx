@@ -8,6 +8,7 @@ import { Link, useParams, Redirect } from "wouter";
 import { Loader2, MessageSquare, Building2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { getPublicUserProfile } from "@/lib/api";
+import "../styles/customer-ux.css";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 const PALETTES = [
@@ -29,7 +30,7 @@ function PublicProfile({ handle, name }: { handle: string; name: string }) {
   const p = palette(name);
   return (
     <div
-      className="flex flex-col items-center justify-center h-full px-6 text-center gap-6"
+      className="flex flex-col items-center justify-center h-full px-6 text-center gap-6 customer-selectable"
       style={{
         background: "#FFFFFF",
         paddingTop: "env(safe-area-inset-top, 0px)",
@@ -49,21 +50,19 @@ function PublicProfile({ handle, name }: { handle: string; name: string }) {
       <p className="text-[14px] leading-relaxed" style={{ color: "#667781" }}>
         Membro do Linkealls — a plataforma de negócios angolanos com assistente IA.
       </p>
-      <Link href={`/e/${handle}`}>
-        <button
-          className="flex items-center gap-2 px-6 py-3 rounded-full font-semibold text-[15px]"
-          style={{ background: "#635BFF", color: "#FFFFFF" }}
-        >
-          <MessageSquare size={16} /> Falar com o negócio
-        </button>
+      <Link
+        href={`/e/${handle}`}
+        className="flex items-center gap-2 px-6 py-3 rounded-full font-semibold text-[15px] touch-target-min"
+        style={{ background: "#635BFF", color: "#FFFFFF" }}
+      >
+        <MessageSquare size={16} /> Falar com o negócio
       </Link>
-      <Link href="/">
-        <button
-          className="flex items-center gap-2 px-5 py-2.5 rounded-full font-semibold text-[14px]"
-          style={{ background: "#F1F5F9", color: "#425466" }}
-        >
-          <Building2 size={14} /> Explorar negócios
-        </button>
+      <Link
+        href="/"
+        className="flex items-center gap-2 px-5 py-2.5 rounded-full font-semibold text-[14px] touch-target-min"
+        style={{ background: "#F1F5F9", color: "#425466" }}
+      >
+        <Building2 size={14} /> Explorar negócios
       </Link>
     </div>
   );

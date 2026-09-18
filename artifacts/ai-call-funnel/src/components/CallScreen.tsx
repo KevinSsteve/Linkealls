@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { PhoneOff, Minimize2 } from "lucide-react";
+import "../styles/customer-ux.css";
 
 interface CallScreenProps {
   isAiSpeaking: boolean;
@@ -58,7 +59,7 @@ export function CallScreen({
         {/* Minimise — keep call alive, return to chat */}
         <button
           onClick={onMinimize}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] font-medium transition-colors active:scale-95"
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] font-medium transition-colors active:scale-95 touch-target-min"
           style={{
             background: "rgba(255,255,255,0.06)",
             border: "1px solid rgba(255,255,255,0.1)",
@@ -164,7 +165,8 @@ export function CallScreen({
         <div className="flex flex-col items-center gap-2">
           <button
             onClick={onEnd}
-            className="w-16 h-16 rounded-full flex items-center justify-center active:scale-90 transition-transform"
+            aria-label="Terminar chamada"
+            className="w-16 h-16 rounded-full flex items-center justify-center active:scale-90 transition-transform touch-target-min"
             style={{
               background: "linear-gradient(135deg, #C0392B 0%, #96200F 100%)",
               boxShadow: "0 8px 24px rgba(192,57,43,0.4)",
@@ -172,7 +174,7 @@ export function CallScreen({
           >
             <PhoneOff size={25} className="text-white" />
           </button>
-          <span className="text-xs" style={{ color: "#3E576F" }}>
+          <span className="text-xs" style={{ color: "#3E576F" }} aria-hidden="true">
             Terminar chamada
           </span>
         </div>

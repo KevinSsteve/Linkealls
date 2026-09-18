@@ -1,5 +1,6 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { PhoneCall, PhoneOff } from "lucide-react";
+import { useDialogFocus } from "../hooks/useDialogFocus";
 
 interface IncomingCallModalProps {
   onAccept: () => void;
@@ -54,6 +55,8 @@ function createRingtone(): () => void {
 }
 
 export function IncomingCallModal({ onAccept, onReject }: IncomingCallModalProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(dialogRef);
   const stopRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
@@ -64,23 +67,35 @@ export function IncomingCallModal({ onAccept, onReject }: IncomingCallModalProps
     };
   }, []);
 
-  const accept = () => {
-    // Null out BEFORE calling onAccept so the useEffect cleanup won't call it again
+  const accept = useCallback(() => {
     const stop = stopRef.current;
     stopRef.current = null;
     stop?.();
     onAccept();
-  };
+  }, [onAccept]);
 
-  const reject = () => {
+  const reject = useCallback(() => {
     const stop = stopRef.current;
     stopRef.current = null;
     stop?.();
     onReject();
-  };
+  }, [onReject]);
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") reject();
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [reject]);
 
   return (
     <div
+      ref={dialogRef}
+      tabIndex={-1}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Chamada do assistente IA"
       className="absolute inset-0 z-50 flex flex-col items-center slide-up overflow-hidden"
       style={{ background: "linear-gradient(180deg, #060C18 0%, #080F1C 40%, #040A12 100%)" }}
     >
@@ -140,6 +155,7 @@ export function IncomingCallModal({ onAccept, onReject }: IncomingCallModalProps
         <div className="flex flex-col items-center gap-3">
           <button
             onClick={reject}
+            aria-label="Recusar chamada"
             className="w-16 h-16 rounded-full flex items-center justify-center active:scale-90 transition-transform"
             style={{ background: "linear-gradient(135deg,#C0392B,#96200F)", boxShadow: "0 8px 24px rgba(192,57,43,0.4)" }}
           >
@@ -151,6 +167,7 @@ export function IncomingCallModal({ onAccept, onReject }: IncomingCallModalProps
         <div className="flex flex-col items-center gap-3">
           <button
             onClick={accept}
+            aria-label="Atender chamada"
             className="w-16 h-16 rounded-full flex items-center justify-center active:scale-90 transition-transform glow-pulse"
             style={{ background: "linear-gradient(135deg,#00C896,#007A5C)", boxShadow: "0 8px 24px rgba(0,200,150,0.45)" }}
           >

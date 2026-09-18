@@ -13,6 +13,8 @@ import {
 } from "lucide-react";
 import { simulatePayment, type Offering, type OrderStatus } from "../lib/api";
 import { visitorApi } from "../lib/visitorAccess";
+import "../styles/customer-ux.css";
+import { useDialogFocus } from "../hooks/useDialogFocus";
 
 // ─── Tokens locais (mesmos valores que T em Catalogo.tsx) ─────────────────────
 const M = {
@@ -134,6 +136,20 @@ export function BuyModal({
   const [mtid, setMtid] = useState<string | null>(null);
   const [simulated, setSimulated] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useDialogFocus(dialogRef);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (!busy && step !== "waiting") {
+          onClose();
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [busy, onClose, step]);
 
   const total = unitPrice * qty;
   const api = visitorApi(businessSlug);
@@ -240,13 +256,16 @@ export function BuyModal({
     >
       {/* Container do modal — card premium, nunca toca nas bordas */}
       <div
-        className="w-full flex flex-col overflow-hidden"
+        ref={dialogRef}
+        tabIndex={-1}
+        className="w-full flex flex-col overflow-hidden customer-selectable"
         style={{
           maxWidth: 420,
           maxHeight: "calc(100svh - 28px)",
           background: M.surface,
           borderRadius: M.rModal,
           boxShadow: "0 24px 64px rgba(20,23,26,0.20), 0 4px 16px rgba(20,23,26,0.08)",
+          outline: "none",
         }}
         role="dialog"
         aria-modal="true"
@@ -264,7 +283,7 @@ export function BuyModal({
           <div className="flex items-center gap-2 min-w-0">
             <Smartphone size={16} style={{ color: M.mcGreen, flexShrink: 0 }} />
             <span
-              className="font-semibold truncate"
+              className="font-semibold leading-snug"
               style={{ color: M.ink, fontSize: 14.5 }}
               id="checkout-dialog-title"
             >
@@ -273,16 +292,14 @@ export function BuyModal({
           </div>
           <button
             onClick={onClose}
-            className="flex items-center justify-center rounded-full shrink-0 transition-colors hover:bg-black/5"
+            className="flex items-center justify-center rounded-full shrink-0 transition-colors hover:bg-black/5 touch-target-min"
             style={{
-              width: 32,
-              height: 32,
               color: M.inkSoft,
               marginLeft: 8,
             }}
             aria-label="Fechar"
           >
-            <X size={17} />
+            <X size={20} />
           </button>
         </div>
 
@@ -356,10 +373,8 @@ export function BuyModal({
                   <button
                     type="button"
                     onClick={() => setQty((q) => Math.max(1, q - 1))}
-                    className="flex items-center justify-center transition-colors hover:bg-white"
+                    className="flex items-center justify-center transition-colors hover:bg-white touch-target-min"
                     style={{
-                      width: 34,
-                      height: 34,
                       borderRadius: M.rBtn,
                       background: M.surface,
                       border: `1px solid ${M.line}`,
@@ -367,21 +382,19 @@ export function BuyModal({
                     }}
                     aria-label="Diminuir quantidade"
                   >
-                    <Minus size={14} />
+                    <Minus size={16} />
                   </button>
                   <span
                     className="font-bold tabular-nums text-center"
-                    style={{ color: M.ink, fontSize: 15, minWidth: 22 }}
+                    style={{ color: M.ink, fontSize: 15, minWidth: 28 }}
                   >
                     {qty}
                   </span>
                   <button
                     type="button"
                     onClick={() => setQty((q) => Math.min(99, q + 1))}
-                    className="flex items-center justify-center transition-colors hover:bg-white"
+                    className="flex items-center justify-center transition-colors hover:bg-white touch-target-min"
                     style={{
-                      width: 34,
-                      height: 34,
                       borderRadius: M.rBtn,
                       background: M.surface,
                       border: `1px solid ${M.line}`,
@@ -389,7 +402,7 @@ export function BuyModal({
                     }}
                     aria-label="Aumentar quantidade"
                   >
-                    <Plus size={14} />
+                    <Plus size={16} />
                   </button>
                 </div>
               </div>
@@ -559,13 +572,12 @@ export function BuyModal({
                   <button
                     onClick={() => void approveSimulated()}
                     disabled={busy}
-                    className="w-full font-semibold transition-opacity disabled:opacity-60"
+                    className="w-full font-semibold transition-opacity disabled:opacity-60 touch-target-min"
                     style={{
                       background: M.warnText,
                       color: "#FFFFFF",
                       borderRadius: M.rBtn,
                       fontSize: 13,
-                      minHeight: 40,
                     }}
                   >
                     Simular aprovação no telemóvel

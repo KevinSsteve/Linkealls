@@ -802,30 +802,39 @@ export function Owner() {
   }
 
   return (
-    <div className="h-full flex flex-col" style={{ background: D.bg }}>
+    <div className="owner-view-root">
 
       {!productFocus && (
-        <AppHeader
-          title={editing ? "Editar perfil" : "Perfil do negócio"}
-          actions={
-            !editing ? (
-              <>
-                <Link
-                  href={`/${slug}`}
-                  className="inline-flex h-10 items-center gap-1.5 rounded-full px-3 text-[12px] font-semibold text-[var(--ink-soft)] transition-colors hover:bg-[var(--subtle)] hover:text-[var(--ink)]"
-                  aria-label="O meu perfil"
-                  data-testid="link-my-profile"
-                >
-                  <UserRound size={16} strokeWidth={1.8} />
-                  <span>O meu perfil</span>
-                </Link>
-                <Link href={`/e/${slug}`} className="app-icon-button" aria-label="Ver página pública" data-testid="link-public-profile">
-                  <Store size={19} strokeWidth={1.75} />
-                </Link>
-              </>
-            ) : undefined
-          }
-        />
+        <header className="owner-header">
+          {!editing ? (
+            <>
+              <h1 className="owner-header-title">Perfil<span className="hidden min-[400px]:inline"> do negócio</span></h1>
+              <Link
+                href={`/${slug}`}
+                className="inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full px-3 text-[12px] font-semibold text-[var(--ink-soft)] transition-colors hover:bg-[var(--subtle)] hover:text-[var(--ink)]"
+                aria-label="O meu perfil"
+                data-testid="link-my-profile"
+              >
+                <UserRound size={16} strokeWidth={1.8} />
+                <span>O meu perfil</span>
+              </Link>
+              <Link href={`/e/${slug}`} className="owner-icon-btn flex items-center justify-center rounded-full text-[var(--ink-soft)] hover:bg-[var(--subtle)] hover:text-[var(--ink)]" style={{ width: 44 }} aria-label="Ver página pública" data-testid="link-public-profile">
+                <Store size={19} strokeWidth={1.75} />
+              </Link>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => setEditing(false)}
+                className="owner-header-back"
+                aria-label="Voltar"
+              >
+                <X size={24} />
+              </button>
+              <div className="owner-header-title">Editar perfil</div>
+            </>
+          )}
+        </header>
       )}
 
       {/* ── Alerts ────────────────────────────────────────────────────────── */}
@@ -846,7 +855,7 @@ export function Owner() {
             >
               <AlertCircle size={15} className="shrink-0 mt-0.5" />
               <span className="flex-1">{error}</span>
-              <button onClick={() => setError(null)} aria-label="Fechar"><X size={14} /></button>
+              <button onClick={() => setError(null)} className="flex items-center justify-center p-2 -m-2" aria-label="Fechar"><X size={16} /></button>
             </div>
           )}
           {notice && !error && (
@@ -864,13 +873,13 @@ export function Owner() {
             >
               <CheckCircle2 size={15} className="shrink-0 mt-0.5" />
               <span className="flex-1">{notice}</span>
-              <button onClick={() => setNotice(null)} aria-label="Fechar"><X size={14} /></button>
+              <button onClick={() => setNotice(null)} className="flex items-center justify-center p-2 -m-2" aria-label="Fechar"><X size={16} /></button>
             </div>
           )}
         </div>
       )}
 
-      <main className="min-h-0 flex-1 overflow-y-auto">
+      <main className={productFocus && editing ? "flex-1 min-h-0 flex flex-col" : "owner-content-scroll"}>
 
         {/* ── Loading ─────────────────────────────────────────────────────── */}
         {view === "loading" && (

@@ -10,8 +10,8 @@ const COLORS = {
   panel: "#f1edff",
   panelDeep: "#2d176d",
   ink: "#0a2540",
-  soft: "#425466",
-  muted: "#8898aa",
+  soft: "#344558", // Darkened
+  muted: "#5b6e82", // Darkened
   line: "#e6ebf1",
   field: "#ffffff",
   accent: "#635bff",
@@ -42,6 +42,7 @@ function Field({
   onChange,
   type = "text",
   inputMode,
+  errorId,
 }: {
   id: string;
   label: string;
@@ -50,6 +51,7 @@ function Field({
   onChange: (value: string) => void;
   type?: string;
   inputMode?: "text" | "numeric";
+  errorId?: string;
 }) {
   return (
     <label
@@ -70,6 +72,8 @@ function Field({
         onChange={(event) => onChange(event.target.value)}
         className="w-full bg-transparent text-[16px] outline-none"
         style={{ color: COLORS.ink, caretColor: COLORS.accent }}
+        aria-invalid={!!errorId}
+        aria-describedby={errorId}
       />
     </label>
   );
@@ -138,18 +142,18 @@ export function RecoverAccessPage() {
           <div className="mb-8 flex h-14 w-14 items-center justify-center rounded-[18px]" style={{ background: COLORS.accentSoft, color: COLORS.accent }}>
             <KeyRound size={25} />
           </div>
-          <p className="mb-4 text-[13px] font-bold uppercase tracking-[0.15em]" style={{ color: COLORS.accent }}>
+          <p className="mb-4 text-[13px] font-extrabold uppercase tracking-[0.12em]" style={{ color: COLORS.accent }}>
             Recuperar acesso
           </p>
-          <h1 className="max-w-[500px] text-[clamp(35px,8vw,54px)] font-extrabold leading-[0.98] tracking-[-0.065em]">
+          <h1 className="max-w-[500px] text-[clamp(32px,8vw,48px)] font-extrabold leading-[1.05] tracking-[-0.04em]">
             Cria um PIN novo.
           </h1>
-          <p className="mt-5 max-w-[470px] text-[16px] leading-6" style={{ color: COLORS.soft }}>
+          <p className="mt-4 max-w-[470px] text-[16px] leading-relaxed" style={{ color: COLORS.soft }}>
             Usa o código de recuperação que guardaste quando criaste a conta. Este código funciona uma única vez.
           </p>
 
           {error && (
-            <div className="mt-6 rounded-2xl border px-3.5 py-3 text-[13px] leading-5" style={{ borderColor: "#f4c6bc", background: COLORS.errorBg, color: COLORS.error }} role="alert">
+            <div id="recover-error" className="mt-6 rounded-2xl border px-3.5 py-3 text-[13px] leading-5" style={{ borderColor: "#f4c6bc", background: COLORS.errorBg, color: COLORS.error }} role="alert">
               {error}
             </div>
           )}
@@ -162,32 +166,32 @@ export function RecoverAccessPage() {
             }}
           >
             <div className="grid gap-3">
-              <Field id="recover-phone" label="Número de telemóvel" placeholder="9XX XXX XXX" value={phone} onChange={(value) => setPhone(value.replace(/[^\d\s]/g, ""))} type="tel" inputMode="numeric" />
-              <Field id="recovery-code" label="Código de recuperação" placeholder="Ex.: A1B2-C3D4-E5F6" value={recoveryCode} onChange={(value) => setRecoveryCode(value.toUpperCase())} />
-              <Field id="new-pin" label="Novo PIN" placeholder="4 dígitos" value={pin} onChange={(value) => setPin(value.replace(/\D/g, "").slice(0, 4))} type="password" inputMode="numeric" />
-              <Field id="confirm-new-pin" label="Confirmar novo PIN" placeholder="Repete o PIN" value={confirmPin} onChange={(value) => setConfirmPin(value.replace(/\D/g, "").slice(0, 4))} type="password" inputMode="numeric" />
+              <Field id="recover-phone" label="Número de telemóvel" placeholder="9XX XXX XXX" value={phone} onChange={(value) => setPhone(value.replace(/[^\d\s]/g, ""))} type="tel" inputMode="numeric" errorId={error ? "recover-error" : undefined} />
+              <Field id="recovery-code" label="Código de recuperação" placeholder="Ex.: A1B2-C3D4-E5F6" value={recoveryCode} onChange={(value) => setRecoveryCode(value.toUpperCase())} errorId={error ? "recover-error" : undefined} />
+              <Field id="new-pin" label="Novo PIN" placeholder="4 dígitos" value={pin} onChange={(value) => setPin(value.replace(/\D/g, "").slice(0, 4))} type="password" inputMode="numeric" errorId={error ? "recover-error" : undefined} />
+              <Field id="confirm-new-pin" label="Confirmar novo PIN" placeholder="Repete o PIN" value={confirmPin} onChange={(value) => setConfirmPin(value.replace(/\D/g, "").slice(0, 4))} type="password" inputMode="numeric" errorId={error ? "recover-error" : undefined} />
             </div>
 
             <button
             type="submit"
             disabled={loading}
-             className="auth-primary mt-5 flex min-h-[60px] w-full items-center justify-between rounded-[18px] px-5 text-left font-bold transition-transform hover:-translate-y-0.5 active:scale-[0.99] disabled:opacity-60"
-            style={{ background: COLORS.accent, color: "#ffffff", boxShadow: "0 12px 24px rgba(99,91,255,0.2)" }}
+             className="auth-primary mt-4 flex min-h-[56px] w-full items-center justify-between rounded-[16px] px-5 text-left font-bold transition-transform hover:-translate-y-0.5 active:scale-[0.99] disabled:opacity-60"
+            style={{ background: COLORS.accent, color: "#ffffff", boxShadow: "0 8px 20px rgba(99,91,255,0.15)" }}
           >
             <span>{loading ? "A recuperar acesso…" : "Definir novo PIN"}</span>
             <ArrowRight size={19} strokeWidth={2.3} />
             </button>
           </form>
 
-          <div className="mt-6 flex items-start gap-2 text-[12px] leading-5" style={{ color: COLORS.muted }}>
-            <ShieldCheck size={16} className="mt-0.5 shrink-0" style={{ color: COLORS.accent }} />
+          <div className="mt-6 flex items-start gap-2 text-[13px] leading-relaxed" style={{ color: COLORS.muted }}>
+            <ShieldCheck size={18} strokeWidth={1.8} className="mt-0.5 shrink-0" style={{ color: COLORS.accent }} />
             O código é apagado depois de ser usado e nunca revela o PIN anterior.
           </div>
         </section>
 
-        <p className="border-t pt-5 text-[14px]" style={{ borderColor: COLORS.line, color: COLORS.soft }}>
+        <p className="mt-auto border-t pt-5 text-[14px]" style={{ borderColor: COLORS.line, color: COLORS.soft }}>
           Lembraste-te do PIN?{" "}
-          <Link href="/login" className="font-bold underline" style={{ color: COLORS.accent }}>
+          <Link href="/login" className="font-bold underline decoration-2 underline-offset-4 transition-colors hover:text-[#0a2540]" style={{ color: COLORS.accent }}>
             Voltar ao login
           </Link>
         </p>

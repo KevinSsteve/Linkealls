@@ -424,7 +424,7 @@ function ConversationDetail({ lead: initialLead, onBack, onStateChange, api }: {
       </div>
 
       {/* Thread */}
-      <div className="flex-1 overflow-y-auto px-3 py-4" style={{ background: C.chatBg }}>
+      <div className="owner-content-scroll px-3 py-4" style={{ background: C.chatBg }}>
         <div className="flex justify-center mb-4">
           <span
             className="rounded-full px-3 py-1"
@@ -650,7 +650,7 @@ export function Conversas() {
 
   if (selected) {
     return (
-      <div className="flex flex-col h-full" style={{ background: D.bg }}>
+      <div className="owner-view-root" style={{ background: D.bg }}>
         <ConversationDetail
           lead={selected} api={api}
           onBack={() => setSelected(null)}
@@ -667,23 +667,25 @@ export function Conversas() {
   const qualifiedCount = leads.filter((l) => l.state === "qualificado").length;
 
   return (
-    <div className="flex flex-col h-full" style={{ background: D.bg }}>
+    <div className="owner-view-root" style={{ background: D.bg }}>
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div
         className="shrink-0"
         style={{ background: D.surface, borderBottom: `1px solid ${D.border}` }}
       >
-        <AppHeader
-          title="Conversas"
-          actions={
-            <AppIconButton label="Actualizar" onClick={() => void load()}>
-              <RefreshCw size={18} strokeWidth={1.75} />
-            </AppIconButton>
-          }
-        />
+        <header className="owner-header justify-between">
+          <div className="owner-header-title">Conversas</div>
+          <button
+            onClick={() => void load()}
+            className="owner-icon-btn text-[var(--ink-soft)]"
+            aria-label="Actualizar"
+          >
+            <RefreshCw size={20} strokeWidth={1.75} />
+          </button>
+        </header>
 
-        <div style={{ padding: "0 var(--page-padding-mobile) 10px" }}>
+        <div style={{ padding: "10px var(--page-padding-mobile) 10px" }}>
           <SearchBar value={search} onChange={setSearch} />
         </div>
 
@@ -729,7 +731,7 @@ export function Conversas() {
 
       {/* List */}
       <div
-        className="flex-1 overflow-y-auto"
+        className="owner-content-scroll"
         style={{ background: D.surface, borderTop: `1px solid ${D.border}` }}
       >
         {loading ? (
@@ -751,17 +753,14 @@ export function Conversas() {
           </div>
         ) : filtered.length === 0 ? (
           /* Empty state */
-          <div className="flex flex-col items-center justify-center text-center" style={{ padding: "80px 40px" }}>
-            <div
-              className="flex items-center justify-center rounded-full mb-4"
-              style={{ width: 60, height: 60, background: D.subtle }}
-            >
-              <MessageCircle size={26} style={{ color: D.inkFaint }} strokeWidth={1.75} />
+          <div className="owner-state-container">
+            <div className="owner-state-icon">
+              <MessageCircle size={28} />
             </div>
-            <p style={{ color: D.ink, fontSize: 16, fontWeight: 600, marginBottom: 8 }}>
+            <p className="owner-state-title">
               {search || filter !== "todos" ? "Sem resultados" : "Nenhuma conversa ainda"}
             </p>
-            <p style={{ color: D.inkSoft, fontSize: 14, lineHeight: 1.55 }}>
+            <p className="owner-state-desc">
               {search || filter !== "todos"
                 ? "Tenta outros termos ou remove o filtro."
                 : "Quando clientes entrarem em contacto, as conversas aparecerão aqui."}

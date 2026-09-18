@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { CheckCircle2, FileUp, Loader2 } from "lucide-react";
 import { visitorApi } from "../lib/visitorAccess";
+import "../styles/customer-ux.css";
 
 export function OrderProofUpload({
   businessSlug,
@@ -57,7 +58,7 @@ export function OrderProofUpload({
 
   return (
     <div className="w-full rounded-xl text-left" style={{ background: "#F8FAFC", border: "1px solid #E6EBF1", padding: compact ? 10 : 12 }}>
-      <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg font-semibold transition-opacity hover:opacity-80" style={{ minHeight: compact ? 36 : 42, background: "#FFFFFF", border: "1px solid #D8E1EA", color: "#0A2540", fontSize: 12 }}>
+      <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg font-semibold transition-opacity hover:opacity-80 touch-target-min" style={{ background: "#FFFFFF", border: "1px solid #D8E1EA", color: "#0A2540", fontSize: 12 }}>
         {busy ? <Loader2 size={15} className="animate-spin" /> : <FileUp size={15} />}
         {busy ? "A enviar…" : "Enviar comprovativo"}
         <input

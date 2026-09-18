@@ -12,6 +12,7 @@ import { RecoverAccessPage } from "@/pages/RecoverAccessPage";
 import { BusinessOnboardingPage } from "@/pages/BusinessOnboardingPage";
 import { ChooseHandle } from "@/pages/ChooseHandle";
 import { LegalPage } from "@/pages/LegalPage";
+import NotFound from "@/pages/not-found";
 import { OwnerGate } from "@/components/owner/OwnerGate";
 import { Owner } from "@/pages/Owner";
 import { Leads } from "@/pages/owner/Leads";
@@ -172,7 +173,7 @@ export default function App() {
                   <Route path="/dono/campanhas/:id"><LegacyOwnerRedirect /></Route>
                   <Route path="/dono/campanhas"><LegacyOwnerRedirect /></Route>
                   {/* Fallback */}
-                  <Route><Redirect to="/" /></Route>
+                  <Route component={NotFound} />
                 </Switch>
               </div>
             )}

@@ -191,6 +191,27 @@ export function HomePage() {
     return () => { document.getElementById("linkealls-jsonld")?.remove(); };
   }, []);
 
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape" && menuOpen) {
+        setMenuOpen(false);
+        const btn = document.getElementById("home-menu-toggle");
+        if (btn) btn.focus();
+      }
+    }
+    function handleClickOutside(e: MouseEvent) {
+      if (menuOpen && !(e.target as Element).closest(".home-nav")) {
+        setMenuOpen(false);
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [menuOpen]);
+
   if (isLoggedIn) {
     return user?.handle ? <Redirect to={`/e/${user.handle}/dono`} /> : <Redirect to="/escolher-handle" />;
   }
@@ -214,11 +235,11 @@ export function HomePage() {
           <a href="#como-funciona" className="home-nav-link" data-testid="link-nav-how">Como funciona</a>
         </nav>
         <Link href="/login" className="home-nav-login" data-testid="link-login-header">Entrar</Link>
-        <button type="button" className="home-menu-button" onClick={() => setMenuOpen((open) => !open)} aria-expanded={menuOpen} aria-label={menuOpen ? "Fechar menu" : "Abrir menu"} data-testid="button-toggle-menu">
+        <button id="home-menu-toggle" type="button" className="home-menu-button" onClick={() => setMenuOpen((open) => !open)} aria-expanded={menuOpen} aria-controls="home-mobile-menu" aria-label={menuOpen ? "Fechar menu" : "Abrir menu"} data-testid="button-toggle-menu">
           {menuOpen ? <X size={18} /> : <Menu size={18} />}
         </button>
         {menuOpen && (
-          <div className="home-mobile-menu">
+          <div id="home-mobile-menu" className="home-mobile-menu">
             <a href="#para-negocios" onClick={() => setMenuOpen(false)} data-testid="link-mobile-businesses">Para negócios</a>
             <a href="#como-funciona" onClick={() => setMenuOpen(false)} data-testid="link-mobile-how">Como funciona</a>
           </div>

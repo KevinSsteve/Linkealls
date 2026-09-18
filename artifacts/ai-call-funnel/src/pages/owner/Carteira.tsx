@@ -200,20 +200,22 @@ export function Carteira() {
   }, [api, load]);
 
   return (
-    <div className="flex flex-col h-full" style={{ background: C.bg }}>
+    <div className="owner-view-root" style={{ background: C.bg }}>
       {/* Header */}
       <div className="shrink-0" style={{ background: "#FFFFFF", borderBottom: "1px solid #E5E7EB" }}>
-        <AppHeader
-          title="Carteira"
-          actions={
-            <AppIconButton label="Actualizar" onClick={() => void load()}>
-              <RefreshCw size={18} strokeWidth={1.75} />
-            </AppIconButton>
-          }
-        />
+        <header className="owner-header justify-between">
+          <div className="owner-header-title">Carteira</div>
+          <button
+            onClick={() => void load()}
+            className="owner-icon-btn text-[var(--ink-soft)]"
+            aria-label="Actualizar"
+          >
+            <RefreshCw size={20} strokeWidth={1.75} />
+          </button>
+        </header>
 
         {/* Balance card */}
-        <div style={{ padding: "0 16px 16px" }}>
+        <div style={{ padding: "12px 16px 16px" }}>
           <div className="rounded-2xl" style={{ background: C.headerBg, padding: "16px 18px" }}>
             <p className="text-[12px] font-medium" style={{ color: "rgba(255,255,255,0.7)" }}>Saldo disponível</p>
             <p className="text-[28px] font-extrabold tabular-nums text-white">
@@ -324,7 +326,7 @@ export function Carteira() {
       )}
 
       {/* Statement + payouts */}
-      <div className="flex-1 overflow-y-auto flex flex-col mt-2">
+      <div className="owner-content-scroll flex flex-col mt-2">
         {error && (
           <div className="text-[13px]" style={{ background: C.errorBg, color: C.errorText, border: `1px solid ${C.errorBorder}`, borderRadius: 10, margin: "12px 16px", padding: "10px 14px" }}>
             {error}

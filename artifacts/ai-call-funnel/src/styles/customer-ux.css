@@ -1,0 +1,27 @@
+/* src/styles/customer-ux.css */
+
+/* Override global user-select: none to allow customers to copy text in the catalog and chat */
+.customer-selectable {
+  -webkit-user-select: text !important;
+  user-select: text !important;
+}
+
+/* Touch targets >= 44px for accessibility on mobile */
+.touch-target-min {
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Word wrapping for long strings */
+.customer-break-words {
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+}
+
+/* Preserve the existing clearance for the fixed catalogue navigation. */
+.catalog-page .catalog-shell {
+  padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px));
+}

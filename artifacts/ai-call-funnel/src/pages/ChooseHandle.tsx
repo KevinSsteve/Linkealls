@@ -11,8 +11,8 @@ import { AuthBrand } from "@/components/auth/AuthBrand";
 
 const G = "#635BFF";
 const INK = "#0A2540";
-const SOFT = "#425466";
-const FAINT = "#8898AA";
+const SOFT = "#344558"; // Darkened
+const FAINT = "#5b6e82"; // Darkened
 const SUBTLE = "#F1F5F9";
 const BORDER = "#E6EBF1";
 
@@ -93,10 +93,10 @@ export function ChooseHandle() {
 
         {/* Icon + heading */}
         <div className="auth-content text-center mb-10">
-          <h1 style={{ color: INK, fontSize: 24, fontWeight: 700, letterSpacing: "-0.3px" }}>
+          <h1 style={{ color: INK, fontSize: 32, fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1.1 }}>
             Escolhe o teu link
           </h1>
-          <p style={{ color: SOFT, fontSize: 15, marginTop: 8, lineHeight: 1.55 }}>
+          <p style={{ color: SOFT, fontSize: 16, marginTop: 12, lineHeight: 1.6 }}>
             O teu espaço pessoal no Linkealls. Podes alterar a qualquer momento.
           </p>
         </div>
@@ -135,6 +135,8 @@ export function ChooseHandle() {
             className="flex-1 bg-transparent outline-none"
             style={{ color: INK, fontSize: 16, caretColor: G }}
             onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+            aria-invalid={checkState === "taken" || checkState === "invalid"}
+            aria-describedby={(statusLabel || error) ? "handle-status" : undefined}
           />
           {checkState === "checking"  && <Loader2 size={17} className="shrink-0 animate-spin" style={{ color: FAINT }} />}
           {checkState === "available" && <CheckCircle2 size={17} className="shrink-0" style={{ color: G }} />}
@@ -143,20 +145,21 @@ export function ChooseHandle() {
 
         {/* Status */}
         {(statusLabel || error) && (
-          <p style={{ color: statusColor, fontSize: 13, marginBottom: 16, paddingLeft: 2 }}>
+          <p id="handle-status" style={{ color: statusColor, fontSize: 14, fontWeight: 500, marginBottom: 16, paddingLeft: 2 }} role="status">
             {statusLabel || error}
           </p>
         )}
 
         {/* CTA */}
           <button
-           className="auth-primary w-full font-bold transition-opacity disabled:opacity-40"
+           className="auth-primary w-full font-bold transition-transform hover:-translate-y-0.5 active:scale-95 disabled:opacity-50 disabled:transform-none"
           onClick={handleSubmit}
           disabled={checkState !== "available" || saving}
           style={{
              background: G, color: "#fff",
-            borderRadius: 14, height: 52, fontSize: 16,
+            borderRadius: 16, height: 56, fontSize: 16,
             marginTop: 8,
+            boxShadow: checkState === "available" ? "0 8px 20px rgba(99,91,255,0.15)" : "none"
           }}
         >
           {saving ? "A guardar…" : "Continuar"}

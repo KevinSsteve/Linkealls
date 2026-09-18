@@ -19,6 +19,7 @@ import { type LeadOrigin, type ChatMessage } from "../lib/api";
 import { visitorApi } from "../lib/visitorAccess";
 import { useBusinessSlug } from "../hooks/useBusinessSlug";
 import { recordVisit } from "../lib/visitedBusinesses";
+import "../styles/customer-ux.css";
 
 interface Message {
   id: string;

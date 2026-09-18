@@ -259,7 +259,7 @@ export function Assistant() {
   if (!slug) return null;
 
   return (
-    <div className="flex flex-col h-full wa-page" style={{ background: C.bg }}>
+    <div className="owner-view-root wa-page" style={{ background: C.bg }}>
       <AppHeader
         variant="dark"
         title="Assistente Vivo"
@@ -294,7 +294,7 @@ export function Assistant() {
       )}
 
       {/* ── Messages ─────────────────────────────────────────────────────── */}
-      <div className="flex-1 overflow-y-auto py-3 min-h-0" style={{ background: C.chatBg }}>
+      <div className="owner-content-scroll py-3 min-h-0" style={{ background: C.chatBg }}>
         {loading && (
           <div className="flex items-center justify-center h-20">
             <Loader2 size={18} className="animate-spin" style={{ color: C.text3 }} />

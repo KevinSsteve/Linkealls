@@ -18,8 +18,8 @@ const COLORS = {
   panel: "#f1edff",
   panelDeep: "#2d176d",
   ink: "#0a2540",
-  soft: "#425466",
-  muted: "#8898aa",
+  soft: "#344558", // Darkened
+  muted: "#5b6e82", // Darkened
   line: "#e6ebf1",
   field: "#ffffff",
   accent: "#635bff",
@@ -96,6 +96,8 @@ function TextField({
   onChange,
   onEnter,
   type = "text",
+  autoComplete,
+  errorId,
 }: {
   id: string;
   label: string;
@@ -104,10 +106,12 @@ function TextField({
   onChange: (value: string) => void;
   onEnter: () => void;
   type?: string;
+  autoComplete?: string;
+  errorId?: string;
 }) {
   return (
     <div
-      className="auth-input-wrap rounded-[18px] border px-4 py-3 transition-colors duration-200 focus-within:border-[#635bff] focus-within:bg-white"
+      className="auth-input-wrap rounded-[16px] border px-4 py-3 transition-colors duration-200 focus-within:border-[#635bff] focus-within:bg-white"
       style={{ borderColor: COLORS.line, background: COLORS.field }}
     >
       <label htmlFor={id} className="mb-1 block text-[11px] font-bold uppercase tracking-[0.13em]" style={{ color: COLORS.muted }}>
@@ -118,12 +122,15 @@ function TextField({
         type={type}
         value={value}
         placeholder={placeholder}
+        autoComplete={autoComplete}
         autoFocus
         onChange={(event) => onChange(event.target.value)}
         onKeyDown={(event) => event.key === "Enter" && onEnter()}
         className="w-full bg-transparent text-[16px] outline-none"
         style={{ color: COLORS.ink, caretColor: COLORS.accent }}
         data-testid={`input-${id}`}
+        aria-invalid={!!errorId}
+        aria-describedby={errorId}
       />
     </div>
   );
@@ -133,14 +140,16 @@ function PhoneField({
   value,
   onChange,
   onEnter,
+  errorId,
 }: {
   value: string;
   onChange: (value: string) => void;
   onEnter: () => void;
+  errorId?: string;
 }) {
   return (
     <div
-      className="auth-input-wrap group flex min-h-[62px] items-center gap-3 rounded-[18px] border px-4 transition-colors duration-200 focus-within:border-[#635bff] focus-within:bg-white"
+      className="auth-input-wrap group flex min-h-[56px] items-center gap-3 rounded-[16px] border px-4 transition-colors duration-200 focus-within:border-[#635bff] focus-within:bg-white"
       style={{ borderColor: COLORS.line, background: COLORS.field }}
     >
       <span style={{ color: COLORS.ink, fontSize: 15, fontWeight: 750 }}>+244</span>
@@ -159,6 +168,8 @@ function PhoneField({
         style={{ color: COLORS.ink, caretColor: COLORS.accent }}
         autoFocus
         data-testid="input-register-phone"
+        aria-invalid={!!errorId}
+        aria-describedby={errorId}
       />
     </div>
   );
@@ -166,7 +177,7 @@ function PhoneField({
 
 function PinDots({ value, confirmed }: { value: string; confirmed?: boolean }) {
   return (
-    <div className="flex items-center justify-center gap-3" aria-label={`${value.length} de 4 dígitos preenchidos`}>
+    <div className="flex items-center justify-center gap-3" aria-label={`${value.length} de 4 dígitos preenchidos`} aria-live="polite" role="status">
       {[0, 1, 2, 3].map((index) => {
         const filled = index < value.length;
         return (
@@ -216,6 +227,7 @@ function ErrorNotice({ message }: { message: string }) {
   if (!message) return null;
   return (
     <div
+      id="register-error"
       className="mb-5 flex items-start gap-2.5 rounded-2xl border px-3.5 py-3 text-[13px] leading-5"
       style={{ borderColor: "#f4c6bc", background: COLORS.errorBg, color: COLORS.error }}
       role="alert"
@@ -408,8 +420,8 @@ export function RegisterPage() {
         paddingBottom: "env(safe-area-inset-bottom, 0px)",
       }}
     >
-      <div className="grid min-h-[100dvh] md:grid-cols-[minmax(330px,0.82fr)_minmax(480px,1.18fr)]">
-        <aside className="relative hidden overflow-hidden px-10 py-10 md:flex md:flex-col lg:px-16" style={{ background: COLORS.panel }}>
+      <div className="grid min-h-[100dvh] lg:grid-cols-[minmax(330px,0.82fr)_minmax(480px,1.18fr)]">
+        <aside className="relative hidden overflow-hidden px-10 py-10 lg:flex lg:flex-col lg:px-16" style={{ background: COLORS.panel }}>
           <BrandMark />
           <div className="relative z-10 mt-auto max-w-[420px] pb-8">
             <p className="mb-5 text-[12px] font-bold uppercase tracking-[0.18em]" style={{ color: COLORS.accent }}>
@@ -428,23 +440,23 @@ export function RegisterPage() {
           <div className="absolute -bottom-20 -left-16 h-72 w-72 rounded-full" style={{ background: "rgba(155,140,255,0.18)" }} aria-hidden="true" />
         </aside>
 
-        <section className="flex min-w-0 flex-col">
-          <div className="mx-auto flex w-full max-w-[560px] flex-1 flex-col px-5 py-6 sm:px-10 sm:py-9 lg:px-16">
+        <section className="flex min-w-0 flex-col justify-center">
+          <div className="mx-auto flex w-full max-w-[560px] flex-col px-5 py-6 sm:px-10 sm:py-9 lg:px-16">
             <div className="flex items-center justify-between">
-              <div className="auth-mobile-brand md:hidden"><BrandMark compact /></div>
-              <div className="auth-desktop-back hidden md:block"><BackButton onClick={back} /></div>
+              <div className="auth-mobile-brand lg:hidden"><BrandMark compact /></div>
+              <div className="auth-desktop-back hidden lg:block"><BackButton onClick={back} /></div>
               <StepRail current={step} />
             </div>
 
-            <div className="auth-content mt-12 flex-1 sm:mt-16">
-              <div className="mb-9">
-                <p className="mb-4 text-[13px] font-bold uppercase tracking-[0.15em]" style={{ color: COLORS.accent }}>
+            <div className="auth-content mt-10 sm:mt-16">
+              <div className="mb-7">
+                <p className="mb-3 text-[13px] font-extrabold uppercase tracking-[0.12em]" style={{ color: COLORS.accent }}>
                   Criar o teu espaço
                 </p>
-                <h1 className="max-w-[475px] text-[clamp(35px,8vw,54px)] font-extrabold leading-[0.98] tracking-[-0.065em]" style={{ color: COLORS.ink }}>
+                <h1 className="max-w-[475px] text-[clamp(32px,8vw,48px)] font-extrabold leading-[1.05] tracking-[-0.04em]" style={{ color: COLORS.ink }}>
                   {title}
                 </h1>
-                <p className="mt-5 max-w-[400px] text-[16px] leading-6" style={{ color: COLORS.soft }}>
+                <p className="mt-4 max-w-[400px] text-[16px] leading-relaxed" style={{ color: COLORS.soft }}>
                   {description}
                 </p>
               </div>
@@ -453,12 +465,12 @@ export function RegisterPage() {
 
               {step === "name" && (
                 <div className="max-w-[460px]">
-                  <TextField id="register-name" label="O teu nome" placeholder="Ex.: Ana Manuel" value={name} onChange={setName} onEnter={handleNameNext} />
+                  <TextField id="register-name" label="O teu nome" placeholder="Ex.: Ana Manuel" value={name} onChange={setName} onEnter={handleNameNext} autoComplete="name" errorId={error ? "register-error" : undefined} />
                   <button
                     type="button"
                     onClick={handleNameNext}
-                    className="auth-primary mt-4 flex min-h-[60px] w-full items-center justify-between rounded-[18px] px-5 text-left font-bold transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.99]"
-                    style={{ background: COLORS.accent, color: "#ffffff", boxShadow: "0 12px 24px rgba(99,91,255,0.2)" }}
+                    className="auth-primary mt-4 flex min-h-[56px] w-full items-center justify-between rounded-[16px] px-5 text-left font-bold transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.99]"
+                    style={{ background: COLORS.accent, color: "#ffffff", boxShadow: "0 8px 20px rgba(99,91,255,0.15)" }}
                     data-testid="button-register-name-continue"
                   >
                     <span>Continuar</span><ArrowRight size={19} strokeWidth={2.3} />
@@ -468,12 +480,12 @@ export function RegisterPage() {
 
               {step === "phone" && (
                 <div className="max-w-[460px]">
-                  <PhoneField value={phone} onChange={setPhone} onEnter={handlePhoneNext} />
+                  <PhoneField value={phone} onChange={setPhone} onEnter={handlePhoneNext} errorId={error ? "register-error" : undefined} />
                   <button
                     type="button"
                     onClick={handlePhoneNext}
-                    className="auth-primary mt-4 flex min-h-[60px] w-full items-center justify-between rounded-[18px] px-5 text-left font-bold transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.99]"
-                    style={{ background: COLORS.accent, color: "#ffffff", boxShadow: "0 12px 24px rgba(99,91,255,0.2)" }}
+                    className="auth-primary mt-4 flex min-h-[56px] w-full items-center justify-between rounded-[16px] px-5 text-left font-bold transition-transform duration-200 hover:-translate-y-0.5 active:scale-[0.99]"
+                    style={{ background: COLORS.accent, color: "#ffffff", boxShadow: "0 8px 20px rgba(99,91,255,0.15)" }}
                     data-testid="button-register-phone-continue"
                   >
                     <span>Continuar</span><ArrowRight size={19} strokeWidth={2.3} />
@@ -483,44 +495,44 @@ export function RegisterPage() {
 
               {pinStep && (
                 <div className="max-w-[460px]">
-                  <div className="auth-pin-card mb-7 flex flex-col items-center rounded-[24px] border px-5 py-6" style={{ borderColor: COLORS.line, background: "rgba(255,255,255,0.48)" }}>
-                    <div className="mb-5 flex items-center gap-2 text-[12px] font-bold uppercase tracking-[0.14em]" style={{ color: COLORS.accent }}>
+                  <div className="auth-pin-card mb-6 flex flex-col items-center rounded-[20px] border px-5 py-5" style={{ borderColor: COLORS.line, background: "rgba(255,255,255,0.7)" }}>
+                    <div className="mb-4 flex items-center gap-2 text-[12px] font-extrabold uppercase tracking-[0.1em]" style={{ color: COLORS.accent }}>
                       <LockKeyhole size={15} strokeWidth={2} />
                       {step === "confirm" ? "Repetir PIN" : "PIN privado"}
                     </div>
                     <PinDots value={step === "pin" ? pin : confirmPin} confirmed={step === "confirm"} />
-                    <p className="mt-4 h-5 text-[12px]" style={{ color: loading ? COLORS.accent : COLORS.muted }} aria-live="polite" data-testid="status-register-loading">
+                    <p className="mt-4 h-5 text-[13px] font-medium" style={{ color: loading ? COLORS.accent : COLORS.muted }} aria-live="polite" data-testid="status-register-loading">
                       {loading ? "A preparar o teu espaço…" : "Quatro dígitos"}
                     </p>
                   </div>
                   <Keypad onKey={handlePinKey} disabled={loading} />
-                  <div className="mt-5 flex items-start gap-2 text-[12px] leading-5" style={{ color: COLORS.muted }}>
-                    <ShieldCheck size={16} strokeWidth={1.8} className="mt-0.5 shrink-0" style={{ color: COLORS.accent }} />
-                    O teu PIN é privado e não fica visível para os teus clientes.
+                  <div className="mt-5 flex items-start gap-2 text-[13px] leading-relaxed" style={{ color: COLORS.muted }}>
+                    <ShieldCheck size={18} strokeWidth={1.8} className="mt-0.5 shrink-0" style={{ color: COLORS.accent }} />
+                    <p>O teu PIN é privado e não fica visível para os teus clientes.</p>
                   </div>
                 </div>
               )}
             </div>
 
-            <div className="mt-12 border-t pt-5" style={{ borderColor: COLORS.line }}>
-              <p className="text-[12px] leading-5" style={{ color: COLORS.muted }}>
-                Ao continuar, aceitas os nossos termos e a nossa política de privacidade. Usamos os teus dados apenas para manter o teu espaço seguro.
+            <div className="mt-10 border-t pt-5" style={{ borderColor: COLORS.line }}>
+              <p className="text-[13px] leading-relaxed" style={{ color: COLORS.muted }}>
+                Ao continuar, aceitas os nossos <Link href="/termos" target="_blank" rel="noopener noreferrer" className="underline transition-colors hover:text-[#0a2540]">termos</Link> e a nossa <Link href="/privacidade" target="_blank" rel="noopener noreferrer" className="underline transition-colors hover:text-[#0a2540]">política de privacidade</Link>. Usamos os teus dados apenas para manter o teu espaço seguro.
               </p>
               <div className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-[14px]" style={{ color: COLORS.soft }}>
                   Já tens conta?{" "}
-                  <Link href={`/login${window.location.search}`} className="font-bold underline decoration-2 underline-offset-4" style={{ color: COLORS.accent }} data-testid="link-register-login">
+                  <Link href={`/login${window.location.search}`} className="font-bold underline decoration-2 underline-offset-4 transition-colors hover:text-[#0a2540]" style={{ color: COLORS.accent }} data-testid="link-register-login">
                     Entrar
                   </Link>
                 </p>
                 <button
                   type="button"
                   onClick={back}
-                  className="inline-flex items-center gap-2 self-start text-[13px] font-bold"
+                  className="inline-flex min-h-[44px] items-center gap-2 self-start text-[14px] font-bold transition-colors hover:text-[#0a2540]"
                   style={{ color: COLORS.muted }}
                   data-testid="button-register-back"
                 >
-                  <ArrowLeft size={15} />
+                  <ArrowLeft size={16} />
                   Voltar
                 </button>
               </div>

@@ -6,8 +6,8 @@ import { saveBusinessOnboarding, type BusinessOnboardingDraft } from "@/lib/busi
 import { AuthBrand } from "@/components/auth/AuthBrand";
 
 const INK = "#0A2540";
-const SOFT = "#425466";
-const FAINT = "#8898AA";
+const SOFT = "#344558"; // Darkened
+const FAINT = "#5b6e82"; // Darkened
 const LINE = "#E6EBF1";
 const SUBTLE = "#F1F5F9";
 const ACCENT = "#635BFF";
@@ -59,13 +59,13 @@ export function BusinessOnboardingPage() {
         </div>
 
         <section className="auth-content my-auto py-12">
-          <p className="mb-4 text-[13px] font-bold uppercase tracking-[0.15em]" style={{ color: ACCENT }}>
+          <p className="mb-3 text-[13px] font-extrabold uppercase tracking-[0.12em]" style={{ color: ACCENT }}>
             Configurar negócio
           </p>
-          <h1 className="max-w-[520px] text-[clamp(34px,8vw,53px)] font-extrabold leading-[0.98] tracking-[-0.065em]">
+          <h1 className="max-w-[520px] text-[clamp(32px,8vw,48px)] font-extrabold leading-[1.05] tracking-[-0.04em]">
             Vamos preparar o teu negócio.
           </h1>
-          <p className="mt-5 max-w-[490px] text-[16px] leading-6" style={{ color: SOFT }}>
+          <p className="mt-4 max-w-[490px] text-[16px] leading-relaxed" style={{ color: SOFT }}>
             A IA ajuda a organizar o teu perfil, catálogo e respostas para atender clientes por voz e chat. Podes começar pelo site ou explicar brevemente o teu negócio.
           </p>
 
@@ -75,14 +75,14 @@ export function BusinessOnboardingPage() {
                 key={option}
                 type="button"
                 onClick={() => { setMode(option); setValue(""); setError(""); }}
-                className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-[12px] text-[13px] font-bold transition-colors"
+                className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-[12px] text-[14px] font-bold transition-colors"
                 style={{
                   background: mode === option ? "#FFFFFF" : "transparent",
                   color: mode === option ? INK : FAINT,
                   boxShadow: mode === option ? "0 2px 8px rgba(10,37,64,0.07)" : "none",
                 }}
               >
-                {option === "site" ? <><Globe size={16} /> Tenho site</> : <><Sparkles size={16} /> Sem site</>}
+                {option === "site" ? <><Globe size={18} /> Tenho site</> : <><Sparkles size={18} /> Sem site</>}
               </button>
             ))}
           </div>
@@ -96,9 +96,11 @@ export function BusinessOnboardingPage() {
               inputMode="url"
               autoCapitalize="none"
               autoFocus
-              className="mt-4 min-h-[62px] w-full rounded-[18px] border px-4 text-[16px] outline-none focus:border-[#635BFF]"
+              className="mt-4 min-h-[56px] w-full rounded-[16px] border px-4 text-[16px] outline-none focus:border-[#635BFF]"
               style={{ borderColor: LINE, background: "#FFFFFF", color: INK }}
               data-testid="input-onboarding-website"
+              aria-invalid={!!error}
+              aria-describedby={error ? "onboarding-error" : undefined}
             />
           ) : (
             <textarea
@@ -106,26 +108,28 @@ export function BusinessOnboardingPage() {
               onChange={(event) => { setValue(event.target.value); setError(""); }}
               placeholder="Ex.: Tenho uma pastelaria em Luanda. Vendemos bolos, salgados e fazemos entregas..."
               autoFocus
-              className="mt-4 min-h-[150px] w-full resize-y rounded-[18px] border px-4 py-4 text-[16px] leading-6 outline-none focus:border-[#635BFF]"
+              className="mt-4 min-h-[150px] w-full resize-y rounded-[16px] border px-4 py-4 text-[16px] leading-relaxed outline-none focus:border-[#635BFF]"
               style={{ borderColor: LINE, background: "#FFFFFF", color: INK }}
               data-testid="input-onboarding-description"
+              aria-invalid={!!error}
+              aria-describedby={error ? "onboarding-error" : undefined}
             />
           )}
 
-          {error && <p className="mt-3 text-[13px]" style={{ color: "#B34235" }} role="alert">{error}</p>}
+          {error && <p id="onboarding-error" className="mt-3 text-[13px] font-medium" style={{ color: "#B34235" }} role="alert">{error}</p>}
 
           <button
             type="button"
             onClick={continueOnboarding}
-             className="auth-primary mt-5 flex min-h-[60px] w-full items-center justify-between rounded-[18px] px-5 text-left font-bold transition-transform hover:-translate-y-0.5 active:scale-[0.99]"
-            style={{ background: ACCENT, color: "#FFFFFF", boxShadow: "0 12px 24px rgba(99,91,255,0.2)" }}
+             className="auth-primary mt-4 flex min-h-[56px] w-full items-center justify-between rounded-[16px] px-5 text-left font-bold transition-transform hover:-translate-y-0.5 active:scale-[0.99]"
+            style={{ background: ACCENT, color: "#FFFFFF", boxShadow: "0 8px 20px rgba(99,91,255,0.15)" }}
             data-testid="button-onboarding-continue"
           >
             <span>{mode === "site" ? "Analisar o meu site" : "Estruturar com IA"}</span>
             <ArrowRight size={19} strokeWidth={2.3} />
           </button>
 
-          <p className="mt-5 text-center text-[12px] leading-5" style={{ color: FAINT }}>
+          <p className="mt-5 text-center text-[13px] leading-relaxed" style={{ color: FAINT }}>
             No passo seguinte escolhes o endereço público do teu negócio.
           </p>
         </section>

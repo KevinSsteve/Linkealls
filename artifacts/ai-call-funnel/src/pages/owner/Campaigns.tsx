@@ -26,21 +26,28 @@ export function LaunchCampaigns() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retryAttempt, setRetryAttempt] = useState(0);
 
   useEffect(() => {
     if (!api) return;
+    let current = true;
+    setLoading(true);
+    setError(null);
     api.listCampaigns()
-      .then(({ campaigns: rows }) => setCampaigns(rows))
-      .catch(() => setError("Não foi possível carregar o histórico de campanhas."))
-      .finally(() => setLoading(false));
-  }, [api]);
+      .then(({ campaigns: rows }) => { if (current) setCampaigns(rows); })
+      .catch(() => { if (current) setError("Não foi possível carregar o histórico de campanhas."); })
+      .finally(() => { if (current) setLoading(false); });
+    return () => { current = false; };
+  }, [api, retryAttempt]);
 
   if (!slug || !api) return null;
 
   return (
-    <div className="flex h-full flex-col bg-[#F6F9FC]">
-      <AppHeader title="Histórico de campanhas" />
-      <main className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+    <div className="owner-view-root">
+      <header className="owner-header">
+        <div className="owner-header-title">Histórico de campanhas</div>
+      </header>
+      <main className="owner-content-scroll px-4 py-4">
         <div className="mb-4 rounded-2xl border border-[#E6EBF1] bg-white px-4 py-4">
           <div className="flex items-start gap-3">
             <History size={19} className="mt-0.5 shrink-0 text-[#635BFF]" />
@@ -55,12 +62,22 @@ export function LaunchCampaigns() {
         </div>
 
         {error && (
-          <div className="mb-3 flex items-start gap-2 rounded-xl border border-[#FECACA] bg-[#FEF2F2] px-3.5 py-3 text-[13px] text-[#B91C1C]">
-            <AlertCircle size={15} className="mt-0.5 shrink-0" /> {error}
+          <div role="alert" className="mb-3 rounded-xl border border-[#FECACA] bg-[#FEF2F2] px-3.5 py-3 text-[13px] text-[#B91C1C]">
+            <div className="flex items-start gap-2">
+              <AlertCircle size={15} aria-hidden="true" className="mt-0.5 shrink-0" /> {error}
+            </div>
+            <button
+              type="button"
+              onClick={() => setRetryAttempt((attempt) => attempt + 1)}
+              disabled={loading}
+              className="mt-2 min-h-11 rounded-lg border border-[#FECACA] bg-white px-4 font-semibold disabled:opacity-50"
+            >
+              Tentar novamente
+            </button>
           </div>
         )}
         {loading && <div className="flex justify-center py-12"><Loader2 size={24} className="animate-spin text-[#635BFF]" /></div>}
-        {!loading && campaigns.length === 0 && (
+        {!loading && !error && campaigns.length === 0 && (
           <div className="rounded-2xl border border-[#E6EBF1] bg-white px-5 py-10 text-center">
             <History size={28} className="mx-auto text-[#8898AA]" />
             <p className="mt-3 text-[14px] font-semibold text-[#0A2540]">Sem campanhas anteriores</p>

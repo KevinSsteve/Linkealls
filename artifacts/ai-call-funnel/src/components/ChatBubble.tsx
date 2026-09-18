@@ -50,7 +50,7 @@ export function ChatBubble({ role, text, isTyping }: ChatBubbleProps) {
             <span className="typing-dot w-2 h-2 rounded-full inline-block" style={{ background: "#8696A0" }} />
           </div>
         ) : (
-          <p className="text-[14.5px] leading-[1.5]" style={{ color: textColor }}>
+          <p className="text-[14.5px] leading-[1.5] customer-selectable customer-break-words" style={{ color: textColor }}>
             {text}
           </p>
         )}
