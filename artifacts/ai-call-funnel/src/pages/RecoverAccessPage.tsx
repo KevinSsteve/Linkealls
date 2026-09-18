@@ -3,7 +3,7 @@ import { ArrowLeft, ArrowRight, KeyRound, LockKeyhole, Phone, ShieldCheck } from
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import { recoverUserAccess } from "@/lib/api";
-import brandLogo from "@assets/1000379740_1788938201385.png";
+import { AuthBrand } from "@/components/auth/AuthBrand";
 
 const COLORS = {
   page: "#fbfaff",
@@ -20,19 +20,6 @@ const COLORS = {
   errorBg: "#fff0eb",
 };
 
-function BrandMark() {
-  return (
-    <div className="flex items-center gap-3" style={{ color: COLORS.ink }}>
-      <img
-        src={brandLogo}
-        alt="Linkealls"
-        className="auth-brand-logo h-10 w-10 rounded-[13px] object-cover"
-        style={{ boxShadow: "none" }}
-      />
-      <span className="text-[18px] font-extrabold tracking-[-0.04em]">linkealls</span>
-    </div>
-  );
-}
 
 function Field({
   id,
@@ -135,7 +122,7 @@ export function RecoverAccessPage() {
           <Link href="/login" className="inline-flex h-11 w-11 items-center justify-center rounded-full" style={{ color: COLORS.ink, background: COLORS.accentSoft }} aria-label="Voltar">
             <ArrowLeft size={18} />
           </Link>
-          <BrandMark />
+          <AuthBrand />
         </div>
 
         <section className="my-auto py-12">

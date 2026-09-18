@@ -14,6 +14,14 @@ MVP de chamada por voz bidirecional em tempo real com a Gemini Live API do Googl
   campanhas e bloqueadores reais antes de publicar. Reduzir o escopo não resolve
   automaticamente esses bloqueadores.
 
+## Identidade visual Linkealls
+
+- Nos cabeçalhos, usar o nome tipográfico **Linkealls** sem símbolo ao lado.
+- Usar o símbolo sem fundo de forma autónoma, por exemplo nos estados de
+  carregamento. Não repetir símbolo e nome no mesmo bloco de marca.
+- Manter dimensões explícitas para todas as imagens de marca, sobretudo no
+  onboarding móvel.
+
 ## Run & Operate
 
 - `pnpm --filter @workspace/api-server run dev` — run the API server (port 8080)

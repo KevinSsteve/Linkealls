@@ -16,7 +16,7 @@ import proofBusinessImage from "@/assets/landing/proof-business.jpg";
 import commerceOrdersImage from "@/assets/landing/commerce-orders.jpg";
 import pressPartnersImage from "@/assets/landing/press-partners.jpg";
 import testimonialOwnerImage from "@/assets/landing/testimonial-owner.jpg";
-import navLogoImage from "@/assets/brand/linkealls-nav-logo.png";
+import { AuthBrand } from "@/components/auth/AuthBrand";
 import angelaAvatar from "@/assets/testimonials/angela.webp";
 import joaoAvatar from "@/assets/testimonials/joao.webp";
 import heroAvif480 from "@/assets/landing/hero-480.avif";
@@ -225,10 +225,7 @@ export function HomePage() {
     <main className="linkealls-home">
       <header className="home-nav" data-testid="header-home">
         <Link href="/" className="home-logo" data-testid="link-home-logo" aria-label="Linkealls, página inicial">
-          <span className="home-logo-mark" aria-hidden="true">
-            <img src={navLogoImage} alt="" />
-          </span>
-          <span>Linkealls</span>
+          <AuthBrand style={{ color: "inherit", fontSize: 20 }} />
         </Link>
         <nav className="home-nav-links" aria-label="Navegação principal">
           <a href="#para-negocios" className="home-nav-link" data-testid="link-nav-businesses">Para negócios</a>

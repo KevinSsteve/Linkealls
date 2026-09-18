@@ -14,7 +14,7 @@ import type { ReactNode } from "react";
 import { Redirect, useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
 import { useBusinessSlug } from "@/hooks/useBusinessSlug";
-import { Loader2 } from "lucide-react";
+import { AuthMark } from "@/components/auth/AuthBrand";
 import "@/styles/owner-ux.css";
 
 export function OwnerGate({ children }: { children: ReactNode }) {
@@ -24,9 +24,9 @@ export function OwnerGate({ children }: { children: ReactNode }) {
 
   if (isLoading) {
     return (
-      <div role="status" aria-live="polite" className="flex flex-col items-center justify-center gap-3 flex-1 min-h-0 bg-[#F6F9FC]">
-        <Loader2 size={28} aria-hidden="true" className="animate-spin text-[#635BFF]" />
-        <p className="text-sm text-[#425466]">A carregar o teu negócio…</p>
+      <div role="status" aria-live="polite" className="flex flex-col items-center justify-center gap-3 flex-1 min-h-[100dvh] bg-[#F6F9FC]">
+        <AuthMark size={56} className="animate-pulse" />
+        <p className="text-sm font-medium text-[#425466]">A preparar o teu painel…</p>
       </div>
     );
   }

@@ -8,7 +8,7 @@ export function saveBusinessOnboarding(draft: BusinessOnboardingDraft): void {
   try {
     window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
   } catch {
-    // The onboarding page can still be revisited manually if storage is unavailable.
+    throw new Error("O navegador não conseguiu guardar os dados deste passo. Permite o armazenamento do site ou escolhe configurar mais tarde.");
   }
 }
 

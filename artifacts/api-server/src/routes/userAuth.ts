@@ -205,7 +205,15 @@ export function requestToken(req: { cookies?: Record<string, unknown> }): string
 
 /** True when the error is a PostgreSQL unique-constraint violation (code 23505). */
 function isPgUniqueViolation(err: unknown): boolean {
-  return (err as { code?: string })?.code === "23505";
+  let current = err;
+  const seen = new Set<unknown>();
+  while (typeof current === "object" && current !== null && !seen.has(current)) {
+    seen.add(current);
+    const candidate = current as { code?: unknown; cause?: unknown };
+    if (candidate.code === "23505") return true;
+    current = candidate.cause;
+  }
+  return false;
 }
 
 // ─── register ───────────────────────────────────────────────────────────────
@@ -784,6 +792,11 @@ router.delete("/user-auth/account", async (req, res) => {
 // (Pre-flight optimisation — the transaction is the canonical authority.)
 
 router.get("/user-auth/handle/check", async (req, res) => {
+  // Availability is race-prone by definition and must always be revalidated.
+  // In particular, do not let browser/proxy caches turn an earlier 200 into a
+  // stale answer after another account has claimed the handle.
+  res.set("Cache-Control", "no-store");
+
   const raw = (req.query.handle as string | undefined) ?? "";
   const handle = normaliseHandle(raw);
 
@@ -847,16 +860,13 @@ router.get("/user-auth/public/:handle", async (req, res) => {
 //   correctness must NOT depend on them.
 //
 //   Inside the transaction:
-//     1. UPDATE users.handle — unique index rolls back the tx on conflict
-//        (another user claimed this handle in a concurrent race → 409).
-//     2. INSERT business_profiles (slug = handle) WITHOUT conflict suppression.
-//        If the insert fails with 23505, it means the slug already exists.
-//        Two sub-cases:
-//          a. User is re-submitting their current handle (page refresh, etc.)
-//             → the profile was already provisioned; safe to allow.
-//          b. Another entity owns the slug (concurrent race or pre-existing biz)
-//             → we throw a tagged error that rolls back the tx → 409.
-//        Both cases are detected transactionally — no TOCTOU gap.
+//     1. INSERT business_profiles (slug = handle) with a targeted conflict no-op.
+//        RETURNING distinguishes a new profile from an existing slug without
+//        issuing a statement that aborts PostgreSQL's transaction.
+//     2. An existing slug is accepted only when the user's current handle inside
+//        the transaction proves ownership. Otherwise the tx is rolled back.
+//     3. UPDATE users.handle — its unique index remains the canonical authority
+//        for concurrent user-handle races and rolls back the profile insert.
 
 const handleSchema = z.object({
   handle: z.string().min(3).max(30).regex(/^[a-z0-9-]+$/, "Apenas letras minúsculas, números e hífens"),
@@ -885,8 +895,8 @@ router.put("/user-auth/handle", async (req, res) => {
   }
 
   try {
-    // Load session + current handle (outside tx — needed to distinguish re-submission)
-    const rows = await db.select({ id: usersTable.id, name: usersTable.name, handle: usersTable.handle })
+    // Load the authenticated account; slug ownership is rechecked in the tx.
+    const rows = await db.select({ id: usersTable.id, name: usersTable.name })
       .from(usersTable)
       .where(and(
         eq(usersTable.sessionToken, token),
@@ -897,8 +907,6 @@ router.put("/user-auth/handle", async (req, res) => {
 
     const userId        = rows[0]!.id;
     const userName      = rows[0]!.name;
-    const currentHandle = rows[0]!.handle ?? null;
-
     // ── UX pre-flight (optimisation only — NOT relied on for correctness) ──
     const [takenByUser, takenByBiz] = await Promise.all([
       db.select({ id: usersTable.id }).from(usersTable).where(eq(usersTable.handle, handle)).limit(1),
@@ -908,7 +916,7 @@ router.put("/user-auth/handle", async (req, res) => {
       res.status(409).json({ error: "Este handle já está a ser usado" });
       return;
     }
-    if (takenByBiz.length > 0 && currentHandle !== handle) {
+    if (takenByBiz.length > 0 && takenByUser[0]?.id !== userId) {
       res.status(409).json({ error: "Este handle já está em uso por um negócio existente" });
       return;
     }
@@ -916,31 +924,36 @@ router.put("/user-auth/handle", async (req, res) => {
 
     // Atomic transaction: both succeed or neither does.
     const updated = await db.transaction(async (tx) => {
-      // Step 1: update user handle.
-      // Unique index on users.handle → rolls back & throws 23505 on race.
+      // Step 1: provision the profile without aborting the PostgreSQL
+      // transaction when this exact slug already exists.
+      const insertedProfiles = await tx.insert(businessProfilesTable)
+        .values({ slug: handle, name: userName })
+        .onConflictDoNothing({ target: businessProfilesTable.slug })
+        .returning({ id: businessProfilesTable.id });
+
+      if (insertedProfiles.length === 0) {
+        // business_profiles has no separate owner column: ownership is the
+        // users.handle ↔ business_profiles.slug relationship. Require the
+        // transactional current handle to prove that this user owns the slug
+        // before treating the request as an idempotent resubmission.
+        const [existingOwner] = await tx.select({ id: usersTable.id })
+          .from(usersTable)
+          .where(and(
+            eq(usersTable.id, userId),
+            eq(usersTable.handle, handle),
+          ))
+          .limit(1);
+        if (!existingOwner) {
+          throw new SlugConflictError();
+        }
+      }
+
+      // Step 2: unique users.handle conflicts roll back a newly inserted
+      // profile, preserving atomic user/profile provisioning.
       const [user] = await tx.update(usersTable)
         .set({ handle })
         .where(eq(usersTable.id, userId))
         .returning(USER_COLS);
-
-      // Step 2: provision business profile.
-      // INSERT without conflict suppression so the constraint is enforced.
-      try {
-        await tx.insert(businessProfilesTable)
-          .values({ slug: handle, name: userName });
-      } catch (insertErr: unknown) {
-        if (isPgUniqueViolation(insertErr)) {
-          // Slug already exists. Only acceptable if the user is re-confirming
-          // their current handle (profile already provisioned for them).
-          if (currentHandle !== handle) {
-            // A different entity owns this slug — conflict. Roll back the tx.
-            throw new SlugConflictError();
-          }
-          // else: re-submission of same handle — profile already provisioned, OK.
-        } else {
-          throw insertErr; // unexpected DB error — bubble up
-        }
-      }
 
       return user!;
     });

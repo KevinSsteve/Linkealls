@@ -1,9 +1,9 @@
-import { useState } from "react";
-import { ArrowLeft, ArrowRight, Globe, Sparkles } from "lucide-react";
+import { useState, useEffect } from "react";
+import { ArrowRight, Globe, Sparkles } from "lucide-react";
 import { Link, Redirect, useLocation } from "wouter";
 import { useAuth } from "@/context/AuthContext";
-import { saveBusinessOnboarding, type BusinessOnboardingDraft } from "@/lib/businessOnboarding";
-import { AuthBrand } from "@/components/auth/AuthBrand";
+import { saveBusinessOnboarding, readBusinessOnboarding, clearBusinessOnboarding, type BusinessOnboardingDraft } from "@/lib/businessOnboarding";
+import { AuthBrand, AuthMark } from "@/components/auth/AuthBrand";
 
 const INK = "#0A2540";
 const SOFT = "#344558"; // Darkened
@@ -17,48 +17,106 @@ export function BusinessOnboardingPage() {
   const [, nav] = useLocation();
   const { isLoading, isLoggedIn } = useAuth();
   const [mode, setMode] = useState<BusinessOnboardingDraft["mode"]>("site");
-  const [value, setValue] = useState("");
+  const [siteValue, setSiteValue] = useState("");
+  const [descValue, setDescValue] = useState("");
   const [error, setError] = useState("");
 
-  if (isLoading) return null;
+  useEffect(() => {
+    const draft = readBusinessOnboarding();
+    if (draft) {
+      setMode(draft.mode);
+      if (draft.mode === "site") {
+        setSiteValue(draft.value);
+      } else {
+        setDescValue(draft.value);
+      }
+    }
+  }, []);
+
+  if (isLoading) {
+    return (
+      <main className="auth-clean-page min-h-[100dvh] flex flex-col items-center justify-center gap-4 bg-[#FBFAFF]">
+        <AuthMark size={64} className="animate-pulse" />
+        <p role="status" className="text-sm text-[#344558]">A abrir a configuração…</p>
+      </main>
+    );
+  }
+
   if (!isLoggedIn) return <Redirect to="/login?next=/configurar-negocio" />;
 
+  function validateUrl(url: string): string | null {
+    if (!url || /\s/.test(url)) return null;
+    if (/^[a-z][a-z\d+.-]*:/i.test(url) && !/^https?:\/\//i.test(url)) return null;
+    let urlToTest = url;
+    if (!/^https?:\/\//i.test(urlToTest)) {
+      urlToTest = `https://${urlToTest}`;
+    }
+    try {
+      const parsed = new URL(urlToTest);
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+      if (!parsed.hostname.includes(".")) return null;
+      if (parsed.username || parsed.password) return null;
+      return parsed.href;
+    } catch {
+      return null;
+    }
+  }
+
   function continueOnboarding() {
+    const isSite = mode === "site";
+    const value = isSite ? siteValue : descValue;
     const trimmed = value.trim();
-    if (mode === "site" && trimmed.length < 4) {
-      setError("Coloca o link do site da tua empresa.");
+
+    if (isSite) {
+      if (trimmed.length < 4) {
+        setError("Coloca o link do site da tua empresa.");
+        return;
+      }
+      const validUrl = validateUrl(trimmed);
+      if (!validUrl) {
+        setError("O endereço do site não parece ser válido.");
+        return;
+      }
+      try {
+        saveBusinessOnboarding({ mode, value: validUrl });
+        nav("/escolher-handle");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Erro ao guardar.");
+      }
       return;
     }
-    if (mode === "description" && trimmed.length < 20) {
+
+    if (trimmed.length < 20) {
       setError("Descreve o teu negócio com pelo menos 20 caracteres.");
       return;
     }
-    const draft: BusinessOnboardingDraft = { mode, value: trimmed };
-    saveBusinessOnboarding(draft);
-    nav("/escolher-handle");
+
+    try {
+      saveBusinessOnboarding({ mode, value: trimmed });
+      nav("/escolher-handle");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao guardar.");
+    }
   }
 
   return (
     <main
-      className="auth-clean-page min-h-[100dvh]"
+      className="auth-clean-page flex min-h-[100dvh] justify-center"
       style={{
-        background: "#FFFFFF",
+        background: "#FBFAFF",
         color: INK,
         fontFamily: "'Avenir Next', 'Trebuchet MS', system-ui, sans-serif",
       }}
     >
-      <div className="auth-onboarding-shell mx-auto flex min-h-[100dvh] w-full max-w-[620px] flex-col px-5 py-6 sm:px-10 sm:py-10">
-        <AuthBrand />
-        <div className="flex items-center justify-between">
-          <Link href="/login" className="inline-flex h-11 w-11 items-center justify-center rounded-full" style={{ background: ACCENT_SOFT, color: INK }} aria-label="Voltar">
-            <ArrowLeft size={18} />
-          </Link>
+      <div className="mx-auto flex min-h-[100dvh] w-full max-w-[560px] flex-col px-5 py-6 sm:px-10 sm:py-10">
+        <div className="flex items-center justify-between mb-12">
+          <AuthBrand />
           <span className="text-[13px] font-bold uppercase tracking-[0.14em]" style={{ color: FAINT }}>
             1 de 2
           </span>
         </div>
 
-        <section className="auth-content my-auto py-12">
+        <section className="auth-content my-auto pb-12">
           <p className="mb-3 text-[13px] font-extrabold uppercase tracking-[0.12em]" style={{ color: ACCENT }}>
             Configurar negócio
           </p>
@@ -66,7 +124,7 @@ export function BusinessOnboardingPage() {
             Vamos preparar o teu negócio.
           </h1>
           <p className="mt-4 max-w-[490px] text-[16px] leading-relaxed" style={{ color: SOFT }}>
-            A IA ajuda a organizar o teu perfil, catálogo e respostas para atender clientes por voz e chat. Podes começar pelo site ou explicar brevemente o teu negócio.
+            Usa o teu site ou descreve o que fazes. A IA ajuda a preparar o perfil; tu revês os detalhes antes de guardar.
           </p>
 
           <div className="mt-8 flex rounded-[16px] border p-1" style={{ borderColor: LINE, background: SUBTLE }}>
@@ -74,7 +132,7 @@ export function BusinessOnboardingPage() {
               <button
                 key={option}
                 type="button"
-                onClick={() => { setMode(option); setValue(""); setError(""); }}
+                onClick={() => { setMode(option); setError(""); }}
                 className="flex min-h-[44px] flex-1 items-center justify-center gap-2 rounded-[12px] text-[14px] font-bold transition-colors"
                 style={{
                   background: mode === option ? "#FFFFFF" : "transparent",
@@ -89,13 +147,12 @@ export function BusinessOnboardingPage() {
 
           {mode === "site" ? (
             <input
-              value={value}
-              onChange={(event) => { setValue(event.target.value); setError(""); }}
+              value={siteValue}
+              onChange={(event) => { setSiteValue(event.target.value); setError(""); }}
               onKeyDown={(event) => { if (event.key === "Enter") continueOnboarding(); }}
               placeholder="https://oteusite.co.ao"
               inputMode="url"
               autoCapitalize="none"
-              autoFocus
               className="mt-4 min-h-[56px] w-full rounded-[16px] border px-4 text-[16px] outline-none focus:border-[#635BFF]"
               style={{ borderColor: LINE, background: "#FFFFFF", color: INK }}
               data-testid="input-onboarding-website"
@@ -104,8 +161,8 @@ export function BusinessOnboardingPage() {
             />
           ) : (
             <textarea
-              value={value}
-              onChange={(event) => { setValue(event.target.value); setError(""); }}
+              value={descValue}
+              onChange={(event) => { setDescValue(event.target.value); setError(""); }}
               placeholder="Ex.: Tenho uma pastelaria em Luanda. Vendemos bolos, salgados e fazemos entregas..."
               autoFocus
               className="mt-4 min-h-[150px] w-full resize-y rounded-[16px] border px-4 py-4 text-[16px] leading-relaxed outline-none focus:border-[#635BFF]"
@@ -129,9 +186,16 @@ export function BusinessOnboardingPage() {
             <ArrowRight size={19} strokeWidth={2.3} />
           </button>
 
-          <p className="mt-5 text-center text-[13px] leading-relaxed" style={{ color: FAINT }}>
-            No passo seguinte escolhes o endereço público do teu negócio.
-          </p>
+          <div className="mt-6 text-center">
+            <Link
+              href="/escolher-handle"
+              onClick={() => clearBusinessOnboarding()}
+              className="text-[14px] font-bold text-center underline underline-offset-4 decoration-[#E6EBF1] transition-colors hover:text-[#0A2540]"
+              style={{ color: FAINT }}
+            >
+              Saltar e configurar depois
+            </Link>
+          </div>
         </section>
       </div>
     </main>

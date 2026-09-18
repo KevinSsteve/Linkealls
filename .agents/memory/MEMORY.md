@@ -23,3 +23,4 @@
 - [PIN hash migration](pin-hash-migration.md) — PINs use versioned scrypt hashes; valid legacy SHA-256 hashes upgrade transparently without forcing a reset.
 - [Autoscale scheduled jobs](autoscale-scheduled-jobs.md) — durable period claims stop sequential duplicates; advisory locks alone only prevent overlap.
 - [Visitor access decisions](visitor-access-decisions.md) — UUIDs locate data, not authorize it; visitor signing keys must be stable across replicas.
+- [Onboarding reliability](onboarding-resilience.md) — availability is advisory; expose claim failures and protect session transitions and idempotent retries.

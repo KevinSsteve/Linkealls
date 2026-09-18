@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "wouter";
 import {
   ArrowLeft,
@@ -7,11 +7,11 @@ import {
   Delete,
   LockKeyhole,
   ShieldCheck,
-  Sparkles,
+  Loader2,
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { userRegister } from "@/lib/api";
-import brandLogo from "@assets/1000379740_1788938201385.png";
+import { AuthBrand } from "@/components/auth/AuthBrand";
 
 const COLORS = {
   page: "#fbfaff",
@@ -32,27 +32,6 @@ type Key = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "0" | "backspac
 const KEYS: Key[] = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "backspace"];
 type Step = "name" | "phone" | "pin" | "confirm";
 
-function BrandMark({ compact = false }: { compact?: boolean }) {
-  return (
-    <div className="auth-brand flex items-center gap-3" style={{ color: COLORS.ink }} data-testid="brand-linkealls">
-      <img
-        src={brandLogo}
-        alt="Linkealls"
-        className="auth-brand-logo shrink-0 object-cover"
-        style={{
-          width: compact ? 40 : 48,
-          height: compact ? 40 : 48,
-          borderRadius: compact ? 14 : 16,
-          background: "#ffffff",
-          boxShadow: "none",
-        }}
-      />
-      <span style={{ fontFamily: "'Avenir Next', 'Trebuchet MS', sans-serif", fontSize: compact ? 18 : 20, fontWeight: 800, letterSpacing: "-0.04em" }}>
-        linkealls
-      </span>
-    </div>
-  );
-}
 
 function BackButton({ onClick }: { onClick: () => void }) {
   return (
@@ -207,7 +186,7 @@ function Keypad({ onKey, disabled }: { onKey: (key: Key) => void; disabled: bool
           key={key}
           type="button"
           disabled={disabled}
-          onPointerDown={(event) => {
+          onClick={(event) => {
             event.preventDefault();
             onKey(key);
           }}
@@ -242,27 +221,30 @@ function ErrorNotice({ message }: { message: string }) {
 
 function RecoveryCodeNotice({ code, onContinue }: { code: string; onContinue: () => void }) {
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState("");
 
   async function copyCode() {
+    setCopyError("");
     try {
       await navigator.clipboard.writeText(code);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1800);
     } catch {
       setCopied(false);
+      setCopyError("Não foi possível copiar automaticamente. Selecciona o código acima para o copiar e guardar.");
     }
   }
 
   return (
-    <main className="auth-clean-page min-h-[100dvh] overflow-x-hidden" style={{ background: COLORS.page, color: COLORS.ink, fontFamily: "'Avenir Next', 'Trebuchet MS', system-ui, sans-serif" }}>
-      <div className="mx-auto flex min-h-[100dvh] w-full max-w-[620px] flex-col px-5 py-6 sm:px-10 sm:py-10">
-        <BrandMark compact />
-        <section className="my-auto py-12">
+    <main className="auth-clean-page flex min-h-[100dvh] justify-center overflow-x-hidden" style={{ background: COLORS.page, color: COLORS.ink, fontFamily: "'Avenir Next', 'Trebuchet MS', system-ui, sans-serif" }}>
+      <div className="flex min-h-[100dvh] w-full max-w-[560px] flex-col px-5 py-6 sm:px-10 sm:py-10">
+        <AuthBrand />
+        <section className="py-9 sm:py-12">
           <div className="mb-8 flex h-14 w-14 items-center justify-center rounded-[18px]" style={{ background: "#e9f8f1", color: "#07885a" }}>
             <Check size={25} />
           </div>
           <p className="mb-4 text-[13px] font-bold uppercase tracking-[0.15em]" style={{ color: COLORS.accent }}>Conta criada</p>
-          <h1 className="max-w-[500px] text-[clamp(35px,8vw,54px)] font-extrabold leading-[0.98] tracking-[-0.065em]">
+          <h1 className="max-w-[500px] text-[clamp(30px,7vw,40px)] font-extrabold leading-[1.12] tracking-[-0.045em]">
             Guarda este código.
           </h1>
           <p className="mt-5 max-w-[470px] text-[16px] leading-6" style={{ color: COLORS.soft }}>
@@ -270,16 +252,23 @@ function RecoveryCodeNotice({ code, onContinue }: { code: string; onContinue: ()
           </p>
           <div className="mt-8 rounded-[20px] border px-4 py-5 text-center" style={{ borderColor: COLORS.accentSoft, background: "#ffffff" }}>
             <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.15em]" style={{ color: COLORS.muted }}>Código de recuperação</p>
-            <p className="break-all font-mono text-[22px] font-bold tracking-[0.08em]" style={{ color: COLORS.ink }}>{code}</p>
+            <p className="select-text break-words font-mono text-[clamp(14px,4vw,18px)] font-bold tracking-[0.02em]" style={{ color: COLORS.ink }} data-sentry-mask="true" data-private="true">
+              {code}
+            </p>
           </div>
           <button
             type="button"
             onClick={() => void copyCode()}
-            className="mt-3 w-full rounded-[16px] border py-3 text-[13px] font-bold"
-            style={{ borderColor: COLORS.line, color: COLORS.soft, background: "#ffffff" }}
+            className="mt-3 w-full rounded-[16px] border py-3 text-[13px] font-bold transition-all"
+            style={{
+              borderColor: copied ? "#07885a" : COLORS.line,
+              color: copied ? "#07885a" : COLORS.soft,
+              background: copied ? "#e9f8f1" : "#ffffff"
+            }}
           >
-            {copied ? "Código copiado" : "Copiar código"}
+            {copied ? "Código copiado com sucesso" : "Copiar código"}
           </button>
+          <p role="status" className="mt-2 text-sm leading-5" style={{ color: copyError ? COLORS.error : COLORS.soft }}>{copyError || (copied ? "Código copiado. Guarda-o num local seguro." : "")}</p>
           <button
             type="button"
             onClick={onContinue}
@@ -298,7 +287,7 @@ function RecoveryCodeNotice({ code, onContinue }: { code: string; onContinue: ()
 function getSafeNext(handle: string | null): string {
   const next = new URLSearchParams(window.location.search).get("next");
   if (next && next.startsWith("/") && !next.startsWith("//")) return next;
-  return handle ? `/e/${handle}/dono` : "/escolher-handle";
+  return handle ? `/e/${handle}/dono` : "/configurar-negocio";
 }
 
 export function RegisterPage() {
@@ -312,8 +301,28 @@ export function RegisterPage() {
   const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [slowLoading, setSlowLoading] = useState(false);
+  const submitting = useRef(false);
+
+  useEffect(() => {
+    if (step !== "pin" || pin.length !== 4) return;
+    const timer = window.setTimeout(() => setStep("confirm"), 220);
+    return () => window.clearTimeout(timer);
+  }, [pin, step]);
+
+  useEffect(() => {
+    if (!loading) {
+      setSlowLoading(false);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setSlowLoading(true);
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, [loading]);
 
   function back() {
+    if (submitting.current) return;
     setError("");
     if (step === "phone") setStep("name");
     else if (step === "pin") {
@@ -321,6 +330,7 @@ export function RegisterPage() {
       setPin("");
     } else if (step === "confirm") {
       setStep("pin");
+      setPin("");
       setConfirmPin("");
     } else nav("/login");
   }
@@ -344,7 +354,8 @@ export function RegisterPage() {
   }
 
   async function submitRegistration() {
-    if (loading) return;
+    if (submitting.current) return;
+    submitting.current = true;
     setLoading(true);
     setError("");
     try {
@@ -361,25 +372,28 @@ export function RegisterPage() {
       setConfirmPin("");
       setStep("pin");
     } finally {
+      submitting.current = false;
       setLoading(false);
     }
   }
 
   function handlePinKey(key: Key) {
+    if (submitting.current) return;
     if (step === "pin") {
       if (key === "backspace") {
         setPin((current) => current.slice(0, -1));
         return;
       }
+      if (pin.length === 4) return;
       const nextPin = `${pin}${key}`.slice(0, 4);
       setPin(nextPin);
-      if (nextPin.length === 4) window.setTimeout(() => setStep("confirm"), 220);
       return;
     }
     if (key === "backspace") {
       setConfirmPin((current) => current.slice(0, -1));
       return;
     }
+    if (confirmPin.length === 4) return;
     const nextConfirm = `${confirmPin}${key}`.slice(0, 4);
     setConfirmPin(nextConfirm);
     if (nextConfirm.length === 4) {
@@ -422,7 +436,7 @@ export function RegisterPage() {
     >
       <div className="grid min-h-[100dvh] lg:grid-cols-[minmax(330px,0.82fr)_minmax(480px,1.18fr)]">
         <aside className="relative hidden overflow-hidden px-10 py-10 lg:flex lg:flex-col lg:px-16" style={{ background: COLORS.panel }}>
-          <BrandMark />
+          <AuthBrand />
           <div className="relative z-10 mt-auto max-w-[420px] pb-8">
             <p className="mb-5 text-[12px] font-bold uppercase tracking-[0.18em]" style={{ color: COLORS.accent }}>
               Começa pequeno. Cresce ligado.
@@ -443,8 +457,8 @@ export function RegisterPage() {
         <section className="flex min-w-0 flex-col justify-center">
           <div className="mx-auto flex w-full max-w-[560px] flex-col px-5 py-6 sm:px-10 sm:py-9 lg:px-16">
             <div className="flex items-center justify-between">
-              <div className="auth-mobile-brand lg:hidden"><BrandMark compact /></div>
-              <div className="auth-desktop-back hidden lg:block"><BackButton onClick={back} /></div>
+              <div className="auth-mobile-brand lg:hidden"><AuthBrand /></div>
+              <div className="auth-desktop-back hidden lg:block">{!loading && <BackButton onClick={back} />}</div>
               <StepRail current={step} />
             </div>
 
@@ -454,16 +468,16 @@ export function RegisterPage() {
                   Criar o teu espaço
                 </p>
                 <h1 className="max-w-[475px] text-[clamp(32px,8vw,48px)] font-extrabold leading-[1.05] tracking-[-0.04em]" style={{ color: COLORS.ink }}>
-                  {title}
+                  {loading ? "A criar conta..." : title}
                 </h1>
                 <p className="mt-4 max-w-[400px] text-[16px] leading-relaxed" style={{ color: COLORS.soft }}>
-                  {description}
+                  {loading ? "Por favor aguarda, não feches a página." : description}
                 </p>
               </div>
 
               <ErrorNotice message={error} />
 
-              {step === "name" && (
+              {step === "name" && !loading && (
                 <div className="max-w-[460px]">
                   <TextField id="register-name" label="O teu nome" placeholder="Ex.: Ana Manuel" value={name} onChange={setName} onEnter={handleNameNext} autoComplete="name" errorId={error ? "register-error" : undefined} />
                   <button
@@ -478,7 +492,7 @@ export function RegisterPage() {
                 </div>
               )}
 
-              {step === "phone" && (
+              {step === "phone" && !loading && (
                 <div className="max-w-[460px]">
                   <PhoneField value={phone} onChange={setPhone} onEnter={handlePhoneNext} errorId={error ? "register-error" : undefined} />
                   <button
@@ -495,26 +509,38 @@ export function RegisterPage() {
 
               {pinStep && (
                 <div className="max-w-[460px]">
-                  <div className="auth-pin-card mb-6 flex flex-col items-center rounded-[20px] border px-5 py-5" style={{ borderColor: COLORS.line, background: "rgba(255,255,255,0.7)" }}>
-                    <div className="mb-4 flex items-center gap-2 text-[12px] font-extrabold uppercase tracking-[0.1em]" style={{ color: COLORS.accent }}>
-                      <LockKeyhole size={15} strokeWidth={2} />
-                      {step === "confirm" ? "Repetir PIN" : "PIN privado"}
+                  {loading ? (
+                    <div role="status" aria-live="polite" aria-busy="true" data-testid="status-register-loading" className="flex flex-col items-center justify-center rounded-[20px] border px-5 py-10 text-center" style={{ borderColor: "#D8D1FF", background: COLORS.accentSoft }}>
+                      <Loader2 size={44} aria-hidden="true" className="mb-5 animate-spin text-[#635BFF]" />
+                      <p className="text-xl font-bold" style={{ color: COLORS.ink }}>A criar a tua conta</p>
+                      <p className="mt-3 text-sm leading-6" style={{ color: COLORS.soft }}>
+                        {slowLoading ? "Está a demorar mais do que o habitual. Estamos à espera da confirmação do servidor." : "A preparar o teu espaço com segurança. Aguarda a confirmação."}
+                      </p>
                     </div>
-                    <PinDots value={step === "pin" ? pin : confirmPin} confirmed={step === "confirm"} />
-                    <p className="mt-4 h-5 text-[13px] font-medium" style={{ color: loading ? COLORS.accent : COLORS.muted }} aria-live="polite" data-testid="status-register-loading">
-                      {loading ? "A preparar o teu espaço…" : "Quatro dígitos"}
-                    </p>
-                  </div>
-                  <Keypad onKey={handlePinKey} disabled={loading} />
-                  <div className="mt-5 flex items-start gap-2 text-[13px] leading-relaxed" style={{ color: COLORS.muted }}>
-                    <ShieldCheck size={18} strokeWidth={1.8} className="mt-0.5 shrink-0" style={{ color: COLORS.accent }} />
-                    <p>O teu PIN é privado e não fica visível para os teus clientes.</p>
-                  </div>
+                  ) : (
+                    <>
+                      <div className="auth-pin-card mb-6 flex flex-col items-center rounded-[20px] border px-5 py-5" style={{ borderColor: COLORS.line, background: "rgba(255,255,255,0.7)" }}>
+                        <div className="mb-4 flex items-center gap-2 text-[12px] font-extrabold uppercase tracking-[0.1em]" style={{ color: COLORS.accent }}>
+                          <LockKeyhole size={15} strokeWidth={2} />
+                          {step === "confirm" ? "Repetir PIN" : "PIN privado"}
+                        </div>
+                        <PinDots value={step === "pin" ? pin : confirmPin} confirmed={step === "confirm"} />
+                        <p className="mt-4 h-5 text-[13px] font-medium" style={{ color: COLORS.muted }} aria-live="polite">
+                          Quatro dígitos
+                        </p>
+                      </div>
+                      <Keypad onKey={handlePinKey} disabled={false} />
+                      <div className="mt-5 flex items-start gap-2 text-[13px] leading-relaxed" style={{ color: COLORS.muted }}>
+                        <ShieldCheck size={18} strokeWidth={1.8} className="mt-0.5 shrink-0" style={{ color: COLORS.accent }} />
+                        <p>O teu PIN é privado e não fica visível para os teus clientes.</p>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
             </div>
 
-            <div className="mt-10 border-t pt-5" style={{ borderColor: COLORS.line }}>
+            <div className="mt-10 border-t pt-5" style={{ borderColor: COLORS.line, opacity: loading ? 0.5 : 1, pointerEvents: loading ? "none" : "auto" }}>
               <p className="text-[13px] leading-relaxed" style={{ color: COLORS.muted }}>
                 Ao continuar, aceitas os nossos <Link href="/termos" target="_blank" rel="noopener noreferrer" className="underline transition-colors hover:text-[#0a2540]">termos</Link> e a nossa <Link href="/privacidade" target="_blank" rel="noopener noreferrer" className="underline transition-colors hover:text-[#0a2540]">política de privacidade</Link>. Usamos os teus dados apenas para manter o teu espaço seguro.
               </p>
@@ -527,8 +553,9 @@ export function RegisterPage() {
                 </p>
                 <button
                   type="button"
+                  disabled={loading}
                   onClick={back}
-                  className="inline-flex min-h-[44px] items-center gap-2 self-start text-[14px] font-bold transition-colors hover:text-[#0a2540]"
+                  className="inline-flex min-h-[44px] items-center gap-2 self-start text-[14px] font-bold transition-colors hover:text-[#0a2540] disabled:opacity-50 disabled:cursor-not-allowed"
                   style={{ color: COLORS.muted }}
                   data-testid="button-register-back"
                 >

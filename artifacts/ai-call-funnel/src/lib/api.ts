@@ -26,7 +26,7 @@ export interface AuthResponse {
 
 export const AUTH_EXPIRED_EVENT = "linkealls:auth-expired";
 
-class AuthApiError extends Error {
+export class AuthApiError extends Error {
   constructor(message: string, readonly code?: string, readonly status?: number) {
     super(message);
     this.name = "AuthApiError";
@@ -51,16 +51,52 @@ export interface ReplitAuthResponse {
   user: ReplitAuthUser | null;
 }
 
+/** Bounded onboarding requests, without automatically retrying account writes. */
+async function onboardingFetch<T>(path: string, opts: RequestInit = {}): Promise<T> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 30000);
+  try {
+    const res = await fetch(`${API_BASE}${path}`, {
+      ...opts,
+      signal: controller.signal,
+      credentials: "include",
+      cache: "no-store",
+      headers: { "Content-Type": "application/json", ...(opts.headers ?? {}) },
+    });
+    const body = await res.json().catch(() => null) as Record<string, unknown> | null;
+    if (!res.ok) {
+      throw new AuthApiError(
+        typeof body?.error === "string" ? body.error
+          : res.status === 401 ? "A tua sessão expirou. Entra novamente para continuar."
+          : "Não foi possível comunicar com o servidor. Tenta novamente.",
+        typeof body?.code === "string" ? body.code : undefined,
+        res.status,
+      );
+    }
+    if (!body || typeof body !== "object") {
+      throw new AuthApiError("O servidor não confirmou a operação. Verifica a ligação e tenta novamente.", "INVALID_RESPONSE");
+    }
+    return body as T;
+  } catch (error) {
+    if (error instanceof AuthApiError) throw error;
+    if (controller.signal.aborted) {
+      throw new AuthApiError(
+        path === "/user-auth/register"
+          ? "A confirmação demorou demasiado. A conta pode ter sido criada; tenta entrar com o teu número e PIN antes de repetir o registo."
+          : "A ligação demorou demasiado. Verifica a internet e tenta novamente.",
+        "TIMEOUT",
+      );
+    }
+    throw new AuthApiError("Não foi possível ligar ao servidor. Verifica a internet e tenta novamente.", "NETWORK");
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
 async function authFetch(path: string, opts: RequestInit): Promise<AuthResponse> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    ...opts,
-    credentials: "include",
-    headers: { "Content-Type": "application/json", ...(opts.headers ?? {}) },
-  });
-  const body = (await res.json()) as unknown;
-  const data = body as Record<string, unknown>;
-  if (!res.ok) throw new Error((data.error as string) ?? "Erro desconhecido");
-  return body as AuthResponse;
+  const result = await onboardingFetch<AuthResponse>(path, opts);
+  if (!result.user?.id) throw new AuthApiError("O servidor não confirmou a conta. Tenta entrar com o teu número e PIN.", "INVALID_RESPONSE");
+  return result;
 }
 
 export function userRegister(data: { phone: string; name: string; pin: string }) {
@@ -72,15 +108,9 @@ export function userLogin(data: { phone: string; pin: string }) {
 }
 
 export async function getCurrentUser(): Promise<{ user: AuthUser }> {
-  const res = await fetch(`${API_BASE}/user-auth/me`, {
-    credentials: "include",
-  });
-  const body = (await res.json()) as { user?: AuthUser; error?: string };
-  if (res.status === 401) notifyAuthExpired();
-  if (!res.ok || !body.user) {
-    throw new Error(body.error ?? "Sessão inválida");
-  }
-  return { user: body.user };
+  const body = await onboardingFetch<{ user: AuthUser }>("/user-auth/me");
+  if (!body.user?.id) throw new AuthApiError("Sessão inválida", undefined, 401);
+  return body;
 }
 
 /** One-time upgrade of a pre-cookie browser session; callers must erase it immediately. */
@@ -252,17 +282,17 @@ export async function getPublicUserProfile(
 export async function checkHandleAvailability(
   handle: string,
 ): Promise<{ available: boolean; reason?: string }> {
-  const res = await fetch(
-    `${API_BASE}/user-auth/handle/check?handle=${encodeURIComponent(handle)}`,
+  const body = await onboardingFetch<{ available: boolean; reason?: string }>(
+    `/user-auth/handle/check?handle=${encodeURIComponent(handle)}`,
   );
-  if (!res.ok) throw new Error(`Erro do servidor (${res.status})`);
-  return res.json() as Promise<{ available: boolean; reason?: string }>;
+  if (typeof body.available !== "boolean") throw new AuthApiError("Não foi possível verificar este link. Tenta novamente.");
+  return body;
 }
 
 export async function setUserHandle(
   handle: string,
 ): Promise<{ user: AuthUser }> {
-  const res = await fetch(`${API_BASE}/user-auth/handle`, {
+  const body = await onboardingFetch<{ user: AuthUser }>("/user-auth/handle", {
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
@@ -270,9 +300,10 @@ export async function setUserHandle(
     credentials: "include",
     body: JSON.stringify({ handle }),
   });
-  const body = (await res.json()) as { user?: AuthUser; error?: string };
-  if (!res.ok) throw new Error(body.error ?? "Erro ao guardar handle");
-  return body as { user: AuthUser };
+  if (!body.user?.id || body.user.handle !== handle) {
+    throw new AuthApiError("O servidor não confirmou o teu link. Tenta novamente.", "INVALID_RESPONSE");
+  }
+  return body;
 }
 
 // ─── Business Profile ────────────────────────────────────────────────────────

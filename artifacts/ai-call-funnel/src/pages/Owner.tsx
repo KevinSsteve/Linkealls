@@ -657,9 +657,8 @@ export function Owner() {
 
       if (pendingOnboarding) {
         onboardingLaunchedRef.current = true;
-        clearBusinessOnboarding();
-        window.history.replaceState(null, "", window.location.pathname);
         if (pendingOnboarding.mode === "site") {
+          setMode("site");
           setUrl(pendingOnboarding.value);
           if (!(await confirmSensitiveAction())) {
             setError("É necessária uma confirmação para iniciar a análise.");
@@ -669,6 +668,7 @@ export function Owner() {
           await api.startAnalysis(pendingOnboarding.value);
           setView("analyzing");
         } else {
+          setMode("manual");
           setDescriptionText(pendingOnboarding.value);
           const { draft: onboardingDraft } = await api.assistFromDescription(pendingOnboarding.value);
           setDraft(onboardingDraft);
@@ -677,6 +677,10 @@ export function Owner() {
           setView("editor");
           setEditing(true);
         }
+        // Keep the entered details available when confirmation, network or AI
+        // fails. Only consume the hand-off once this step actually succeeds.
+        clearBusinessOnboarding();
+        window.history.replaceState(null, "", window.location.pathname);
         return;
       }
 

@@ -64,6 +64,43 @@ test("owner authorization is enforced server-side and stale browser sessions are
   assert.match(api, /if \(res\.status === 401\) notifyAuthExpired\(\)/);
 });
 
+test("handle availability is never cached and same-handle provisioning stays transaction-safe", async () => {
+  const auth = await source("src/routes/userAuth.ts");
+  const checkRoute = auth.slice(
+    auth.indexOf('router.get("/user-auth/handle/check"'),
+    auth.indexOf("// ─── public profile by handle"),
+  );
+  const putRoute = auth.slice(auth.indexOf('router.put("/user-auth/handle"'));
+
+  assert.match(checkRoute, /res\.set\("Cache-Control", "no-store"\)/);
+
+  assert.match(
+    putRoute,
+    /\.onConflictDoNothing\(\{ target: businessProfilesTable\.slug \}\)\s*\.returning\(\{ id: businessProfilesTable\.id \}\)/,
+  );
+  assert.match(putRoute, /if \(insertedProfiles\.length === 0\)/);
+  assert.match(putRoute, /eq\(usersTable\.id, userId\)/);
+  assert.match(putRoute, /eq\(usersTable\.handle, handle\)/);
+  assert.match(putRoute, /if \(!existingOwner\)/);
+  assert.ok(
+    putRoute.indexOf(".onConflictDoNothing") < putRoute.indexOf("tx.update(usersTable)"),
+    "the profile insert must be rolled back if the canonical users.handle update conflicts",
+  );
+  assert.doesNotMatch(putRoute, /catch \(insertErr/);
+});
+
+test("wrapped PostgreSQL unique violations remain canonical handle conflicts", async () => {
+  const auth = await source("src/routes/userAuth.ts");
+  const helper = auth.slice(
+    auth.indexOf("function isPgUniqueViolation"),
+    auth.indexOf("// ─── register"),
+  );
+
+  assert.match(helper, /candidate\.code === "23505"/);
+  assert.match(helper, /current = candidate\.cause/);
+  assert.match(auth, /err instanceof SlugConflictError \|\| isPgUniqueViolation\(err\)/);
+});
+
 test("browser callers use cookies, erase legacy storage, and keep session values out of SSE URLs", async () => {
   const [context, api] = await Promise.all([
     readFile(path.join(frontendDir, "src/context/AuthContext.tsx"), "utf8"),

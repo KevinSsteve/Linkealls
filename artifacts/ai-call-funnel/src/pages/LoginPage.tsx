@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { userLogin } from "@/lib/api";
-import brandLogo from "@assets/1000379740_1788938201385.png";
+import { AuthBrand } from "@/components/auth/AuthBrand";
 
 const COLORS = {
   page: "#fbfaff",
@@ -32,38 +32,6 @@ const COLORS = {
 type Key = "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" | "0" | "backspace";
 const KEYS: Key[] = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "backspace"];
 
-function BrandMark({ compact = false }: { compact?: boolean }) {
-  return (
-    <div
-      className="auth-brand flex items-center gap-3"
-      style={{ color: COLORS.ink }}
-      data-testid="brand-linkealls"
-    >
-      <img
-        src={brandLogo}
-        alt="Linkealls"
-        className="auth-brand-logo shrink-0 object-cover"
-        style={{
-          width: compact ? 40 : 48,
-          height: compact ? 40 : 48,
-          borderRadius: compact ? 14 : 16,
-          background: "#ffffff",
-          boxShadow: "none",
-        }}
-      />
-      <span
-        style={{
-          fontFamily: "'Avenir Next', 'Trebuchet MS', sans-serif",
-          fontSize: compact ? 18 : 20,
-          fontWeight: 800,
-          letterSpacing: "-0.04em",
-        }}
-      >
-        linkealls
-      </span>
-    </div>
-  );
-}
 
 function BackButton({ onClick }: { onClick: () => void }) {
   return (
@@ -169,7 +137,7 @@ function Keypad({ value, onKey, disabled }: { value: string; onKey: (key: Key) =
           key={key}
           type="button"
           disabled={disabled}
-          onPointerDown={(event) => {
+          onClick={(event) => {
             event.preventDefault();
             onKey(key);
           }}
@@ -272,7 +240,7 @@ export function LoginPage() {
           className="relative hidden overflow-hidden px-10 py-10 lg:flex lg:flex-col lg:px-16"
           style={{ background: COLORS.panel }}
         >
-          <BrandMark />
+          <AuthBrand />
           <div className="relative z-10 mt-auto max-w-[420px] pb-8">
             <p className="mb-5 text-[12px] font-bold uppercase tracking-[0.18em]" style={{ color: COLORS.accent }}>
               O teu negócio, num só lugar
@@ -308,7 +276,7 @@ export function LoginPage() {
           <div className="mx-auto flex w-full max-w-[560px] flex-col px-5 py-6 sm:px-10 sm:py-9 lg:px-16">
             <div className="flex items-center justify-between">
               <div className="auth-mobile-brand lg:hidden">
-                <BrandMark compact />
+                <AuthBrand />
               </div>
               <div className="auth-desktop-back hidden lg:block">
                 <BackButton onClick={() => (step === "pin" ? (setStep("phone"), setPin("")) : nav("/"))} />
