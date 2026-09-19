@@ -271,6 +271,12 @@ export function setupCallFunnelWebSocket(server: Server): void {
         businessName = config.businessName;
         sessionOfferings = config.offerings;
         resolvedBusinessId = config.businessId;
+        const trafficContext = lead.origin?.trafficCreative
+          ? `\nCONTEXTO DE AQUISIÇÃO VALIDADO:\nO visitante chegou através do anúncio "${lead.origin.trafficCreative.description.slice(0, 2000)}". Usa isto apenas para compreender o interesse inicial. Confirma sempre produtos, preços, stock e condições no contexto do negócio.\n`
+          : "";
+        const sessionConfig = trafficContext
+          ? { ...config, systemPrompt: `${config.systemPrompt}${trafficContext}` }
+          : config;
 
         // Both lead mutation and billable provider connection are behind the
         // signature, tenant, conversation, expiration and existence checks.
@@ -278,7 +284,7 @@ export function setupCallFunnelWebSocket(server: Server): void {
         // Check again immediately before the provider connection in case the
         // socket closed while the call configuration was being assigned.
         if (closed || ws.readyState !== WebSocket.OPEN) return null;
-        return createGeminiLiveSession(config, {
+        return createGeminiLiveSession(sessionConfig, {
           onAudio: (base64) => { if (!closed) sendToClient({ type: "audio", data: base64 }); },
           onTurnComplete: () => { if (!closed) sendToClient({ type: "turn_complete" }); },
           onInterrupted: () => { if (!closed) sendToClient({ type: "interrupted" }); },

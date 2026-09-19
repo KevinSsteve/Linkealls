@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import { HomePage } from "@/pages/HomePage";
 import { Chat } from "@/pages/Chat";
+import { PublicTraffic } from "@/pages/PublicTraffic";
 import { Captacao } from "@/pages/Captacao";
 import { Catalogo } from "@/pages/Catalogo";
 import { LoginPage } from "@/pages/LoginPage";
@@ -155,8 +156,9 @@ export default function App() {
                   <Route path="/e/:businessSlug/dono/leads">{() => <OwnerGate><Leads /></OwnerGate>}</Route>
                   <Route path="/e/:businessSlug/dono/conversas">{() => <OwnerGate><Conversas /></OwnerGate>}</Route>
                    <Route path="/e/:businessSlug/dono/assistente">{() => <OwnerGate><Assistant /></OwnerGate>}</Route>
+                   <Route path="/e/:businessSlug/dono/campanhas/historico">{() => <OwnerGate><LegacyCampaigns /></OwnerGate>}</Route>
                    <Route path="/e/:businessSlug/dono/campanhas/:id">{() => <OwnerGate>{ADVERTISING_NEW_ACTIONS_ENABLED ? <LegacyCampaignDetail /> : <LaunchCampaignDetail />}</OwnerGate>}</Route>
-                   <Route path="/e/:businessSlug/dono/campanhas">{() => <OwnerGate>{ADVERTISING_NEW_ACTIONS_ENABLED ? <LegacyCampaigns /> : <LaunchCampaigns />}</OwnerGate>}</Route>
+                   <Route path="/e/:businessSlug/dono/campanhas">{() => <OwnerGate><LaunchCampaigns /></OwnerGate>}</Route>
                   <Route path="/e/:businessSlug/dono/mercado">{() => <OwnerGate><Mercado /></OwnerGate>}</Route>
                   <Route path="/e/:businessSlug/dono/vendas">{() => <OwnerGate><Vendas /></OwnerGate>}</Route>
                   <Route path="/e/:businessSlug/dono/comercio">{() => <OwnerGate><Comercio /></OwnerGate>}</Route>
@@ -164,12 +166,14 @@ export default function App() {
                   <Route path="/e/:businessSlug/dono/plano">{() => <OwnerGate><Plano /></OwnerGate>}</Route>
                   <Route path="/e/:businessSlug/dono">{() => <OwnerGate><Owner /></OwnerGate>}</Route>
                   <Route path="/e/:businessSlug/captacao" component={Captacao} />
+                  <Route path="/e/:businessSlug/t/:publicSlug" component={PublicTraffic} />
                   <Route path="/e/:businessSlug" component={Chat} />
 
                   {/* ── Legacy single-tenant /dono/* → smart redirect ──────── */}
                   <Route path="/dono/leads"><LegacyOwnerRedirect /></Route>
                   <Route path="/dono/conversas"><LegacyOwnerRedirect /></Route>
                   <Route path="/dono/assistente"><LegacyOwnerRedirect /></Route>
+                  <Route path="/dono/campanhas/historico"><LegacyOwnerRedirect /></Route>
                   <Route path="/dono/campanhas/:id"><LegacyOwnerRedirect /></Route>
                   <Route path="/dono/campanhas"><LegacyOwnerRedirect /></Route>
                   {/* Fallback */}

@@ -33,6 +33,8 @@ const schema = z.any();
 export const createCampaignSchema = schema;
 export const updateCampaignSchema = schema;
 export const campaignSetupSchema = schema;
+export const createTrafficCreativeSchema = schema;
+export const updateTrafficCreativeSchema = schema;
 export const updateBusinessProfileSchema = schema;
 export const leadOriginSchema = schema;
 export const chatMessageSchema = schema;
@@ -56,6 +58,12 @@ const existing = {
 export async function listCampaigns() { return [existing]; }
 export async function getCampaign() { return existing; }
 export async function getCampaignMetrics() { return { campaignId: "existing", totalSpend: 1200 }; }
+export async function listTrafficCreatives() { return []; }
+export async function createTrafficCreative() { return {}; }
+export async function updateTrafficCreative() { return {}; }
+export async function resolvePublicTrafficCreative() { return null; }
+export async function getTrafficCreativeBySlug() { return null; }
+export function publicTrafficCreativeContext() { return {}; }
 export async function createCampaign() { state.campaignMutation++; return existing; }
 export async function duplicateCampaign() { state.campaignMutation++; return existing; }
 export async function deleteCampaign() { state.campaignMutation++; return true; }

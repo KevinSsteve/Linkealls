@@ -22,6 +22,8 @@ import {
   createCampaignSchema,
   updateCampaignSchema,
   campaignSetupSchema,
+  createTrafficCreativeSchema,
+  updateTrafficCreativeSchema,
 } from "@workspace/db";
 import {
   getProfileBySlug,
@@ -87,6 +89,14 @@ import { getUserByToken, hasRecentSensitiveAuth, requestToken } from "./userAuth
 import { createPaymentsScopedRouter } from "./paymentsScoped.js";
 import { getCatalogAnalytics, withOfferingAnalyticsKey } from "../services/catalogAnalytics.js";
 import { clientIp } from "../lib/httpSecurity.js";
+import {
+  createTrafficCreative,
+  listTrafficCreatives,
+  updateTrafficCreative,
+  resolvePublicTrafficCreative,
+  getTrafficCreativeBySlug,
+  publicTrafficCreativeContext,
+} from "../services/trafficCreatives.js";
 import { hashPin, verifyPin } from "../lib/pinSecurity.js";
 import { consumeSharedRateLimit } from "../lib/rateLimit.js";
 import {
@@ -396,8 +406,20 @@ export function createBusinessScopedRouter(): Router {
     const parsed = createSessionSchema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "Dados inválidos" }); return; }
     try {
+      const rawOrigin = parsed.data.origin ?? {};
+      const { trafficCreativeSlug, ...allowedOrigin } = rawOrigin;
+      const origin: import("@workspace/db").LeadOrigin = { ...allowedOrigin };
+      if (trafficCreativeSlug) {
+        const creative = await getTrafficCreativeBySlug(bid(res), trafficCreativeSlug);
+        if (!creative || !creative.active) {
+          res.status(400).json({ error: "Este link de aquisição já não está activo" });
+          return;
+        }
+        origin.campaign = origin.campaign ?? creative.publicSlug;
+        origin.trafficCreative = publicTrafficCreativeContext(creative);
+      }
       const lead = await createLead(
-        parsed.data.origin ?? {},
+        origin,
         parsed.data.chatMessages ?? [],
         bid(res),
       );
@@ -578,6 +600,72 @@ export function createBusinessScopedRouter(): Router {
     } catch (err) {
       logger.error({ err }, "GET /catalog failed");
       res.status(500).json({ error: "Erro ao carregar catálogo" });
+    }
+  });
+
+  // ── SIMPLE PAID TRAFFIC ─────────────────────────────────────────────────────
+  // This surface is deliberately independent from legacy paid campaigns:
+  // there is no budget, payment, provider publishing, or launch-policy gate.
+  router.get("/traffic-creatives", requireOwner, async (_req, res) => {
+    try {
+      res.json({ creatives: await listTrafficCreatives(bid(res)) });
+    } catch (err) {
+      logger.error({ err }, "GET /traffic-creatives failed");
+      res.status(500).json({ error: "Não foi possível carregar os anúncios" });
+    }
+  });
+
+  router.post("/traffic-creatives", requireOwner, async (req, res) => {
+    const parsed = createTrafficCreativeSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Indica uma descrição e uma imagem ou vídeo válido" });
+      return;
+    }
+    try {
+      const creative = await createTrafficCreative(
+        parsed.data,
+        bid(res),
+        String(req.params.businessSlug ?? ""),
+      );
+      res.status(201).json({ creative });
+    } catch (err) {
+      logger.warn({ err }, "POST /traffic-creatives rejected");
+      res.status(400).json({ error: err instanceof Error ? err.message : "Não foi possível criar o anúncio" });
+    }
+  });
+
+  router.patch("/traffic-creatives/:id", requireOwner, async (req, res) => {
+    const parsed = updateTrafficCreativeSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Dados inválidos" });
+      return;
+    }
+    try {
+      const creative = await updateTrafficCreative(String(req.params.id), parsed.data, bid(res));
+      if (!creative) {
+        res.status(404).json({ error: "Anúncio não encontrado" });
+        return;
+      }
+      res.json({ creative });
+    } catch (err) {
+      logger.error({ err }, "PATCH /traffic-creatives failed");
+      res.status(500).json({ error: "Não foi possível actualizar o anúncio" });
+    }
+  });
+
+  // Public resolver: only safe creative fields are returned. The server
+  // increments visits and never accepts creative content from the browser.
+  router.get("/traffic-creatives/:creativeSlug/public", publicRateLimit, async (req, res) => {
+    try {
+      const creative = await resolvePublicTrafficCreative(bid(res), String(req.params.creativeSlug));
+      if (!creative) {
+        res.status(404).json({ error: "Anúncio não encontrado" });
+        return;
+      }
+      res.json({ creative });
+    } catch (err) {
+      logger.error({ err }, "GET public traffic creative failed");
+      res.status(500).json({ error: "Não foi possível carregar este anúncio" });
     }
   });
 

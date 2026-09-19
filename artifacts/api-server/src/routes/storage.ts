@@ -16,9 +16,17 @@ const objectStorageService = new ObjectStorageService();
 
 const RequestUploadUrlBody = z.object({
   name: z.string().trim().min(1).max(200),
-  size: z.number().int().positive().max(10 * 1024 * 1024),
-  contentType: z.enum(["image/png", "image/jpeg", "image/webp"]),
+  size: z.number().int().positive().max(50 * 1024 * 1024),
+  contentType: z.enum(["image/png", "image/jpeg", "image/webp", "video/mp4", "video/webm", "video/quicktime"]),
   businessSlug: z.string().trim().min(1).max(80),
+  purpose: z.enum(["traffic_creative", "general"]).optional().default("general"),
+}).superRefine((value, ctx) => {
+  if (value.purpose === "general" && value.size > 10 * 1024 * 1024) {
+    ctx.addIssue({ code: "custom", path: ["size"], message: "O ficheiro não pode ultrapassar 10 MB" });
+  }
+  if (value.purpose === "traffic_creative" && value.size > 50 * 1024 * 1024) {
+    ctx.addIssue({ code: "custom", path: ["size"], message: "O vídeo não pode ultrapassar 50 MB" });
+  }
 });
 
 async function requireSession(req: Request, res: Response, next: () => void): Promise<void> {
@@ -53,7 +61,10 @@ router.post("/storage/uploads/request-url", requireSession, async (req: Request,
       res.status(403).json({ error: "Sem permissão para carregar ficheiros neste negócio" });
       return;
     }
-    const uploadURL = await objectStorageService.getObjectEntityUploadURL();
+    const prefix = parsed.data.purpose === "traffic_creative"
+      ? `traffic-creatives/${parsed.data.businessSlug}`
+      : "uploads";
+    const uploadURL = await objectStorageService.getObjectEntityUploadURL(prefix);
     const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
     res.json({ uploadURL, objectPath, metadata: { name, size, contentType } });
   } catch (error) {

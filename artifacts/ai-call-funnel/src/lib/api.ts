@@ -411,6 +411,7 @@ export interface LeadOrigin {
   content?: string;
   term?: string;
   url?: string;
+  trafficCreativeId?: string;
 }
 
 export interface ChatMessage {
@@ -660,6 +661,34 @@ export async function uploadPrivateImage(file: File, businessSlug: string): Prom
   return objectPath;
 }
 
+export async function uploadMedia(file: File, businessSlug: string): Promise<string> {
+  const allowed = ["image/png", "image/jpeg", "image/webp", "video/mp4", "video/quicktime", "video/webm"];
+  if (!allowed.includes(file.type)) {
+    throw new Error("Escolhe uma imagem (PNG/JPG/WebP) ou vídeo (MP4/WebM/MOV)");
+  }
+  if (file.size > 50 * 1024 * 1024) throw new Error("O ficheiro deve ter no máximo 50 MB");
+  const { uploadURL, objectPath } = await request<{ uploadURL: string; objectPath: string }>(
+    "/storage/uploads/request-url",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        name: file.name,
+        size: file.size,
+        contentType: file.type,
+        businessSlug,
+        purpose: "traffic_creative",
+      }),
+    },
+  );
+  const upload = await fetch(uploadURL, {
+    method: "PUT",
+    headers: { "Content-Type": file.type },
+    body: file,
+  });
+  if (!upload.ok) throw new Error("Não foi possível carregar o ficheiro");
+  return objectPath;
+}
+
 export interface CampaignMetrics {
   campaignId: string;
   totalLeads: number;
@@ -671,6 +700,35 @@ export interface CampaignMetrics {
   costPerLead: number | null;
   costPerQualifiedLead: number | null;
   captationUrl: string;
+}
+
+export interface TrafficCreative {
+  id: string;
+  description: string;
+  objectPath: string;
+  mediaMimeType: string;
+  mediaType: "image" | "video";
+  publicSlug: string;
+  active: number;
+  visitCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TrafficContext {
+  id: string;
+  slug: string;
+  description: string;
+  mediaUrl: string;
+  mediaMimeType: string;
+  mediaType: "image" | "video";
+  visitCount: number;
+}
+
+export function getPublicTrafficCreative(businessSlug: string, publicSlug: string): Promise<{ creative: TrafficContext }> {
+  return request<{ creative: TrafficContext }>(
+    `/b/${encodeURIComponent(businessSlug)}/traffic-creatives/${encodeURIComponent(publicSlug)}/public`,
+  );
 }
 
 // ─── Analytics ────────────────────────────────────────────────────────────────
@@ -1030,6 +1088,18 @@ export function businessApi(slug: string) {
     unsubscribePush: (endpoint: string) =>
       bRequest<{ unsubscribed: boolean }>("/notifications/subscribe", {
         method: "DELETE", body: JSON.stringify({ endpoint }),
+      }),
+
+    // Traffic Creatives
+    listTrafficCreatives: () =>
+      bRequest<{ creatives: TrafficCreative[] }>("/traffic-creatives"),
+    createTrafficCreative: (data: { description: string; objectPath: string; mediaMimeType: string }) =>
+      bRequest<{ creative: TrafficCreative }>("/traffic-creatives", {
+        method: "POST", body: JSON.stringify(data),
+      }),
+    updateTrafficCreative: (id: string, data: { active?: boolean }) =>
+      bRequest<{ creative: TrafficCreative }>(`/traffic-creatives/${id}`, {
+        method: "PATCH", body: JSON.stringify(data),
       }),
 
     // Campaigns

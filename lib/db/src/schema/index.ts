@@ -27,3 +27,4 @@ export * from "./auth";
 export * from "./catalogAnalytics";
 export * from "./scheduledJobRuns";
 export * from "./authRateLimits";
+export * from "./trafficCreatives";

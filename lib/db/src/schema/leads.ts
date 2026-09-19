@@ -28,6 +28,13 @@ export interface LeadOrigin {
   term?: string;     // utm_term
   /** Raw landing URL */
   url?: string;
+  /** Trusted Linkealls traffic creative attribution, resolved server-side. */
+  trafficCreative?: {
+    id: string;
+    slug: string;
+    description: string;
+    mediaType: "image" | "video";
+  };
 }
 
 /** A single message from the pre-call chat. */
@@ -107,6 +114,8 @@ export const leadOriginSchema = z.object({
   content:  z.string().max(200).optional(),
   term:     z.string().max(200).optional(),
   url:      z.string().max(2000).optional(),
+  /** Client may submit only the opaque slug; the server resolves the rest. */
+  trafficCreativeSlug: z.string().regex(/^[a-z0-9-]{3,80}$/).optional(),
 });
 
 export const chatMessageSchema = z.object({

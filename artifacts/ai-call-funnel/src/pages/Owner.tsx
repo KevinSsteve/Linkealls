@@ -4,7 +4,7 @@ import {
   Globe, Sparkles, Loader2, AlertCircle, CheckCircle2,
   Zap, Megaphone, Users, ChevronRight, X,
   Phone, Link2, SlidersHorizontal, ClipboardList,
-  PackageCheck, Crown, LogOut, Trash2, KeyRound,
+  PackageCheck, Crown, LogOut, Trash2, KeyRound, Wallet
 } from "lucide-react";
 import { OwnerNav } from "../components/owner/OwnerNav";
 import {
@@ -355,7 +355,7 @@ function ProfileView({
       <div style={{ background: D.surface, borderTop: `1px solid ${D.border}`, borderBottom: `1px solid ${D.border}` }}>
         <ToolRow icon={Users} title="Leads" description="Contactos qualificados pelo assistente" href={`/e/${slug}/dono/leads`} />
         <ToolRow icon={ClipboardList} title="Pedidos e pós-venda" description="Acompanha entregas e comprovativos" href={`/e/${slug}/dono/comercio`} />
-        <ToolRow icon={Megaphone} title="Campanhas" description="Consulta campanhas anteriores" href={`/e/${slug}/dono/campanhas`} />
+        <ToolRow icon={Wallet} title="Carteira" description="Saldo, histórico e saques" href={`/e/${slug}/dono/carteira`} />
         <ToolRow icon={Crown} title="Plano Linkealls" description="Consulta e gere a subscrição" href={`/e/${slug}/dono/plano`} last />
       </div>
 

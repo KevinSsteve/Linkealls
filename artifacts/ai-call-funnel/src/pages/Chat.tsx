@@ -499,11 +499,15 @@ export function Chat() {
       return "Quero saber mais sobre isso";
     }
   })();
+  const businessSlug = useBusinessSlug();
 
   const [inputValue, setInputValue] = useState(initialMessage);
   const [messages, setMessages] = useState<Message[]>([]);
   const [stage, setStage] = useState<Stage>("chat");
   const [isBusy, setIsBusy] = useState(false);
+  const [isRestoringSession, setIsRestoringSession] = useState(
+    () => Boolean(businessSlug && loadCurrentVisitorAccess(businessSlug)),
+  );
   const [callTriggered, setCallTriggered] = useState(false);
   const [leadId, setLeadId] = useState<string | null>(null);
   const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
@@ -529,7 +533,6 @@ export function Chat() {
 
   const chatMsgsRef = useRef<ChatMessage[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
-  const businessSlug = useBusinessSlug();
   const gemini = useGeminiLive(leadId, businessSlug ?? "");
 
   // Auth context — detect B2B mode (logged-in owner chatting with another business)
@@ -540,9 +543,16 @@ export function Chat() {
   // identifiers and visitor capabilities are intentionally never read from a
   // URL, where browser history, referrers, and shared links could expose them.
   useEffect(() => {
-    if (!businessSlug) return;
+    if (!businessSlug) {
+      setIsRestoringSession(false);
+      return;
+    }
     const access = loadCurrentVisitorAccess(businessSlug);
-    if (!access) return;
+    if (!access) {
+      setIsRestoringSession(false);
+      return;
+    }
+    setIsRestoringSession(true);
     let cancelled = false;
     visitorApi(businessSlug).getLeadSession(access.leadId)
       .then((session) => {
@@ -561,6 +571,9 @@ export function Chat() {
       })
       .catch(() => {
         if (!cancelled) setTrackingError("Não foi possível reabrir esta conversa.");
+      })
+      .finally(() => {
+        if (!cancelled) setIsRestoringSession(false);
       });
     return () => { cancelled = true; };
   }, [businessSlug]);
@@ -735,7 +748,7 @@ export function Chat() {
   // ── Main send handler ────────────────────────────────────────────────────
   const handleSend = useCallback(() => {
     const text = inputValue.trim();
-    if (!text || isBusy) return;
+    if (!text || isBusy || isRestoringSession) return;
     const userMsg = addMessage("user", text);
     chatMsgsRef.current.push(userMsg);
     setInputValue("");
@@ -753,7 +766,7 @@ export function Chat() {
         setIsBusy(false);
       }, 1000);
     }
-  }, [inputValue, isBusy, callTriggered, leadId, addMessage, handleFirstSend, handleChatSend]);
+  }, [inputValue, isBusy, isRestoringSession, callTriggered, leadId, addMessage, handleFirstSend, handleChatSend]);
 
   // ── Call flow ────────────────────────────────────────────────────────────
   const handleAccept = useCallback(() => {
@@ -1064,7 +1077,7 @@ export function Chat() {
               value={inputValue}
               onChange={setInputValue}
               onSend={handleSend}
-              disabled={isBusy}
+              disabled={isBusy || isRestoringSession}
             />
           </>
         )}

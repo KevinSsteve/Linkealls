@@ -21,6 +21,7 @@ export interface VisitorLeadOrigin {
   content?: string;
   term?: string;
   url?: string;
+  trafficCreativeSlug?: string;
 }
 
 export interface VisitorAccess {
