@@ -9,10 +9,11 @@ import { logger } from "../lib/logger.js";
 import { z } from "zod";
 import { getUserByToken, requestToken } from "./userAuth.js";
 import { and, eq } from "drizzle-orm";
-import { db, businessProfilesTable, ordersTable } from "@workspace/db";
+import { db, businessProfilesTable, ordersTable, trafficCreativeUploadsTable } from "@workspace/db";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
+const TRAFFIC_UPLOAD_PENDING_MS = 60 * 60_000;
 
 const RequestUploadUrlBody = z.object({
   name: z.string().trim().min(1).max(200),
@@ -66,6 +67,36 @@ router.post("/storage/uploads/request-url", requireSession, async (req: Request,
       : "uploads";
     const uploadURL = await objectStorageService.getObjectEntityUploadURL(prefix);
     const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
+    if (parsed.data.purpose === "traffic_creative") {
+      const businesses = await db
+        .select({ id: businessProfilesTable.id })
+        .from(businessProfilesTable)
+        .where(eq(businessProfilesTable.slug, parsed.data.businessSlug))
+        .limit(1);
+      const business = businesses[0];
+      if (!business) {
+        res.status(404).json({ error: "Negócio não encontrado" });
+        return;
+      }
+      const expiresAt = new Date(Date.now() + TRAFFIC_UPLOAD_PENDING_MS);
+      const uploads = await db.insert(trafficCreativeUploadsTable).values({
+        businessId: business.id,
+        businessSlug: parsed.data.businessSlug,
+        objectPath,
+        mediaMimeType: contentType,
+        originalName: name,
+        sizeBytes: size,
+        expiresAt,
+      }).returning({ id: trafficCreativeUploadsTable.id });
+      res.json({
+        uploadURL,
+        objectPath,
+        uploadId: uploads[0]!.id,
+        expiresAt: expiresAt.toISOString(),
+        metadata: { name, size, contentType },
+      });
+      return;
+    }
     res.json({ uploadURL, objectPath, metadata: { name, size, contentType } });
   } catch (error) {
     logger.error({ err: error }, "Error generating upload URL");

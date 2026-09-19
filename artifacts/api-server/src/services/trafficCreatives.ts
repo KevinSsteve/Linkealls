@@ -1,7 +1,8 @@
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, gt, sql } from "drizzle-orm";
 import {
   db,
   trafficCreativesTable,
+  trafficCreativeUploadsTable,
   type InsertTrafficCreative,
   type TrafficCreative,
   type TrafficCreativeMediaType,
@@ -61,8 +62,32 @@ export async function createTrafficCreative(
     mediaType,
     publicSlug,
   };
-  const rows = await db.insert(trafficCreativesTable).values(values).returning();
-  return rows[0]!;
+  return db.transaction(async (tx) => {
+    const rows = await tx.insert(trafficCreativesTable).values(values).returning();
+    const creative = rows[0]!;
+    const confirmed = await tx.update(trafficCreativeUploadsTable)
+      .set({
+        status: "confirmed",
+        creativeId: creative.id,
+        confirmedAt: new Date(),
+        cleanupClaimedAt: null,
+        lastCleanupError: null,
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(trafficCreativeUploadsTable.businessId, businessId),
+        eq(trafficCreativeUploadsTable.businessSlug, businessSlug),
+        eq(trafficCreativeUploadsTable.objectPath, input.objectPath),
+        eq(trafficCreativeUploadsTable.mediaMimeType, input.mediaMimeType),
+        eq(trafficCreativeUploadsTable.status, "pending"),
+        gt(trafficCreativeUploadsTable.expiresAt, new Date()),
+      ))
+      .returning({ id: trafficCreativeUploadsTable.id });
+    if (!confirmed[0]) {
+      throw new Error("O upload expirou, já foi utilizado ou não pertence a este negócio");
+    }
+    return creative;
+  });
 }
 
 export async function updateTrafficCreative(
