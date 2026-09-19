@@ -48,6 +48,45 @@ export async function saveMessage(
   return inserted[0]!;
 }
 
+export async function savePaymentFailureAlert(input: {
+  businessId: number;
+  merchantTransactionId: string;
+  destination: string;
+  content: string;
+}): Promise<AssistantMessage> {
+  const dedupeKey = `payment-webhook-failure:${input.businessId}:${input.merchantTransactionId}`;
+  const inserted = await db
+    .insert(assistantMessagesTable)
+    .values({
+      role: "proactive",
+      content: input.content,
+      businessId: input.businessId,
+      dedupeKey,
+      meta: {
+        proactiveType: "payment_webhook_failure",
+        merchantTransactionId: input.merchantTransactionId,
+        destination: input.destination,
+      },
+    })
+    .onConflictDoNothing({ target: assistantMessagesTable.dedupeKey })
+    .returning();
+  const message = inserted[0];
+  if (message) {
+    broadcastAssistantMessage(message);
+    return message;
+  }
+
+  const existing = await db
+    .select()
+    .from(assistantMessagesTable)
+    .where(eq(assistantMessagesTable.dedupeKey, dedupeKey))
+    .limit(1);
+  if (!existing[0]) {
+    throw new Error("Payment failure alert conflict resolved without a stored message");
+  }
+  return existing[0];
+}
+
 export async function clearMessages(businessId: number): Promise<void> {
   await db.delete(assistantMessagesTable).where(eq(assistantMessagesTable.businessId, businessId));
 }

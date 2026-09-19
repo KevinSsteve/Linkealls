@@ -4,6 +4,7 @@ import { setupCallFunnelWebSocket } from "./routes/callFunnelWs.js";
 import { startDailySummaryCron } from "./services/notifications.js";
 import { startCampaignSyncCron } from "./services/campaignAds.js";
 import { wireProactiveEvents } from "./services/assistant.js";
+import { startPaymentReconciliationCron } from "./services/paymentReconciliation.js";
 import { logger } from "./lib/logger.js";
 
 const rawPort = process.env["PORT"];
@@ -34,4 +35,5 @@ server.listen(port, () => {
   startDailySummaryCron();
   wireProactiveEvents();
   startCampaignSyncCron();
+  startPaymentReconciliationCron();
 });

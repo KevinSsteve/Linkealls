@@ -44,16 +44,47 @@ test("repeated fulfillment refreshes do not publish duplicate updates", async ()
 });
 
 test("payment webhook failures notify the right owner while preserving gateway retries", async () => {
-  const [payments, webhookRoute] = await Promise.all([
+  const [payments, assistant, schema, webhookRoute] = await Promise.all([
     source(path.join(apiServerDir, "src/services/payments.ts")),
+    source(path.join(apiServerDir, "src/services/assistant.ts")),
+    source(path.resolve(apiServerDir, "../../lib/db/src/schema/assistantMessages.ts")),
     source(path.join(apiServerDir, "src/routes/payments.ts")),
   ]);
 
   assert.match(payments, /export async function notifyPaymentWebhookFailure/);
+  assert.match(payments, /await savePaymentFailureAlert\(/);
   assert.match(payments, /payment-webhook-failure-\$\{merchantTransactionId\}/);
   assert.match(payments, /ownerUrl\(businessId, destination\)/);
+  assert.match(assistant, /export async function savePaymentFailureAlert/);
+  assert.match(assistant, /onConflictDoNothing\(\{ target: assistantMessagesTable\.dedupeKey \}\)/);
+  assert.match(assistant, /broadcastAssistantMessage\(message\)/);
+  assert.match(schema, /"payment_webhook_failure"/);
+  assert.match(schema, /dedupeKey: text\("dedupe_key"\)\.unique\(\)/);
   assert.match(webhookRoute, /notifyPaymentWebhookFailure\(/);
   assert.match(webhookRoute, /res\.status\(500\)\.json\(\{ status: "1" \}\)/);
+});
+
+test("unknown charge outcomes stay pending and payouts reconcile automatically", async () => {
+  const [payments, reconciliation, server] = await Promise.all([
+    source(path.join(apiServerDir, "src/services/payments.ts")),
+    source(path.join(apiServerDir, "src/services/paymentReconciliation.ts")),
+    source(path.join(apiServerDir, "src/index.ts")),
+  ]);
+
+  assert.doesNotMatch(
+    payments,
+    /catch \(err\) \{\s*await db\.update\(ordersTable\)[\s\S]{0,300}status: "falhada"/,
+  );
+  assert.doesNotMatch(
+    payments,
+    /catch \(err\) \{\s*await db\.update\(subscriptionsTable\)[\s\S]{0,300}status: "falhada"/,
+  );
+  assert.doesNotMatch(payments, /function maybeExpire/);
+  assert.match(reconciliation, /eq\(payoutsTable\.status, "pendente"\)/);
+  assert.match(reconciliation, /await reconcilePayout\(payout\.id, payout\.businessId\)/);
+  assert.match(reconciliation, /set\(\{ updatedAt: now \}\)/);
+  assert.match(reconciliation, /setInterval\(tick, RECONCILIATION_INTERVAL_MS\)/);
+  assert.match(server, /startPaymentReconciliationCron\(\)/);
 });
 
 test("subscription checkout exposes the real simulation state to the owner UI", async () => {

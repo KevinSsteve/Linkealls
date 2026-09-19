@@ -47,6 +47,26 @@ anteriores. Não usar chaves aleatórias diferentes por réplica.
 - Sem cobranças, saques, publicações de anúncios, escritas em produção ou publicação
   da aplicação. Os bloqueadores abaixo permanecem.
 
+### Protecções financeiras de 19 de Setembro de 2026
+
+- O workspace passou no TypeScript e a suite principal passou com **78 testes**.
+- Resultados incertos de cobranças de pedidos e planos (timeout/rede) permanecem
+  `pendente`; apenas uma rejeição explícita do provedor marca a operação como falhada.
+  Pedidos pendentes deixaram de expirar automaticamente, permitindo que uma
+  confirmação assinada atrasada ainda efectue a liquidação idempotente.
+- Saques pendentes são consultados automaticamente no endpoint de estado KWiK, em
+  lotes rotativos. Estados desconhecidos continuam pendentes; apenas `cancelled` ou
+  `voided` autorizam o estorno transaccional.
+- Falhas de liquidação recebidas pelo webhook criam primeiro um alerta persistente
+  e deduplicado no Assistente do dono e depois tentam Web Push. O gateway continua
+  a receber `5xx` para repetir a notificação.
+- A migração aditiva `0013_add_assistant_message_dedupe_key.sql` foi aplicada em
+  desenvolvimento. Deve ser aplicada/revista na produção antes da nova versão.
+- A API do projecto não possui um contrato documentado para consultar cobranças
+  GPO por `merchantTransactionId`; não foi inventado um endpoint. Cobranças pendentes
+  convergem por resposta síncrona ou webhook assinado. O registo e ensaio da URL
+  publicada do webhook continuam a exigir o portal/provedor.
+
 ## Verificado no código
 
 - `GET /api/healthz` continua a ser uma verificação de liveness, sem acesso à base
@@ -59,9 +79,11 @@ anteriores. Não usar chaves aleatórias diferentes por réplica.
 - Existem testes comportamentais sem base de dados ou serviços reais para sucesso,
   tabelas obrigatórias, erro, timeout e independência da liveness
   (`artifacts/api-server/tests/health-readiness.test.mjs`).
-- As migrações `0011_add_auth_rate_limits.sql` e
-  `0012_add_scheduled_job_runs.sql` são aditivas no texto revisto: criam tabelas
-  e índice com `IF NOT EXISTS`, sem `DROP`, `TRUNCATE` ou alteração de dados.
+- As migrações `0011_add_auth_rate_limits.sql`,
+  `0012_add_scheduled_job_runs.sql` e
+  `0013_add_assistant_message_dedupe_key.sql` são aditivas no texto revisto:
+  criam tabelas, coluna e índices com `IF NOT EXISTS`, sem `DROP`, `TRUNCATE`
+  ou alteração destrutiva de dados.
 - O esquema Drizzle exporta ambas as tabelas, incluindo o índice e a restrição
   de contagem de `auth_rate_limits`. Rever o diff de publicação antes de o aceitar.
 - Segundo o registo operacional comunicado pela equipa, 0011 e 0012 foram aplicadas
@@ -103,10 +125,11 @@ comprovam alertas activos nem capacidade de restauro.
 
 - [ ] Identificar o tipo e o alvo exacto da base de produção e obter aprovação do
   responsável pela publicação.
-- [ ] Garantir que **0011 e 0012 são aplicadas em produção antes de servir a nova
+- [ ] Garantir que **0011, 0012 e 0013 são aplicadas em produção antes de servir a nova
   versão** e
   comprovar, por leitura de metadados, a existência de `auth_rate_limits`,
-  respectivo índice, e `scheduled_job_runs`. Em PostgreSQL gerido pela Replit,
+  respectivo índice, `scheduled_job_runs` e o índice único de
+  `assistant_messages.dedupe_key`. Em PostgreSQL gerido pela Replit,
   usar exclusivamente o fluxo de diferença de esquema da publicação; não executar
   DDL manual, no arranque ou no build. Se a base for externa, seguir apenas o
   processo de migração aprovado para esse fornecedor. Não publicar se o mecanismo
@@ -118,7 +141,8 @@ comprovam alertas activos nem capacidade de restauro.
   ```sh
   psql "$PRODUCTION_DATABASE_URL" -v ON_ERROR_STOP=1 \
     -f lib/db/migrations/0011_add_auth_rate_limits.sql \
-    -f lib/db/migrations/0012_add_scheduled_job_runs.sql
+    -f lib/db/migrations/0012_add_scheduled_job_runs.sql \
+    -f lib/db/migrations/0013_add_assistant_message_dedupe_key.sql
   ```
 
   Não usar este comando numa base gerida pela Replit: nesse caso, o utilizador deve

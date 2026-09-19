@@ -16,9 +16,13 @@ export interface AssistantMessageMeta {
   /** Draft message ready to copy/send. */
   draftMessage?: string;
   /** Proactive event type (for system-generated messages). */
-  proactiveType?: "lead_qualified" | "stale_leads" | "daily_summary";
+  proactiveType?: "lead_qualified" | "stale_leads" | "daily_summary" | "payment_webhook_failure";
   /** Associated lead id (for proactive alerts). */
   leadId?: string;
+  /** Gateway transaction associated with a durable payment alert. */
+  merchantTransactionId?: string;
+  /** Owner-panel destination associated with a durable payment alert. */
+  destination?: string;
 }
 
 export const assistantMessagesTable = pgTable("assistant_messages", {
@@ -27,6 +31,8 @@ export const assistantMessagesTable = pgTable("assistant_messages", {
   content:   text("content").notNull(),
   meta:      jsonb("meta").$type<AssistantMessageMeta>().notNull().default({}),
   businessId: integer("business_id"),
+  /** Optional idempotency key for system-generated alerts. */
+  dedupeKey: text("dedupe_key").unique(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

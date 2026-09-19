@@ -35,13 +35,14 @@ import {
   IS_SIMULATION,
 } from "./ekwanza.js";
 import { sendPushToOwner } from "./notifications.js";
+import { savePaymentFailureAlert } from "./assistant.js";
 import { logger } from "../lib/logger.js";
 
 export const PLAN_PRICE_AOA = 10_000;
 export const PLAN_DAYS = 30;
 export const PAYOUT_MIN_AOA = 1_000;
-/** Pending orders older than this are treated as expired. */
-const ORDER_EXPIRY_HOURS = 24;
+/** Pending plan checkouts remain resumable in the owner UI for this window. */
+const PENDING_PLAN_DISPLAY_HOURS = 24;
 
 type OrderEventListener = (businessId: number) => void;
 const orderEventListeners = new Set<OrderEventListener>();
@@ -192,10 +193,12 @@ export async function createProductOrder(
           .where(and(eq(ordersTable.id, order.id), eq(ordersTable.status, "pendente")));
       }
     } catch (err) {
-      await db.update(ordersTable)
-        .set({ status: "falhada", updatedAt: new Date() })
-        .where(and(eq(ordersTable.id, order.id), eq(ordersTable.status, "pendente")));
-      logger.error({ err, merchantTransactionId }, "createProductOrder: background charge failed");
+      // A timeout/network failure does not prove that the provider rejected the
+      // charge. Keep it pending so a signed callback can still settle it.
+      logger.error(
+        { err, merchantTransactionId },
+        "createProductOrder: gateway outcome unknown — kept pending for webhook/reconciliation",
+      );
     }
   };
 
@@ -208,9 +211,7 @@ export async function createProductOrder(
 /** Public polling endpoint helper — the order UUID is the capability. */
 export async function getOrderPublicStatus(orderId: string): Promise<Order | null> {
   const rows = await db.select().from(ordersTable).where(eq(ordersTable.id, orderId)).limit(1);
-  const order = rows[0] ?? null;
-  if (!order) return null;
-  return maybeExpire(order);
+  return rows[0] ?? null;
 }
 
 export interface PublicOrderTracking {
@@ -277,29 +278,13 @@ export async function getOrderTracking(
   };
 }
 
-async function maybeExpire(order: Order): Promise<Order> {
-  if (
-    order.status === "pendente" &&
-    Date.now() - new Date(order.createdAt).getTime() > ORDER_EXPIRY_HOURS * 3600_000
-  ) {
-    const updated = await db
-      .update(ordersTable)
-      .set({ status: "expirada", updatedAt: new Date() })
-      .where(and(eq(ordersTable.id, order.id), eq(ordersTable.status, "pendente")))
-      .returning();
-    return updated[0] ?? order;
-  }
-  return order;
-}
-
 export async function listOrders(businessId: number): Promise<Order[]> {
-  const rows = await db
+  return db
     .select()
     .from(ordersTable)
     .where(eq(ordersTable.businessId, businessId))
     .orderBy(desc(ordersTable.createdAt))
     .limit(200);
-  return Promise.all(rows.map(maybeExpire));
 }
 
 export interface OrderAnalytics {
@@ -555,7 +540,7 @@ export async function getSubscriptionInfo(businessId: number): Promise<{
     .limit(50);
   const now = Date.now();
   const active = history.find((s) => s.status === "ativa" && s.expiresAt && new Date(s.expiresAt).getTime() > now) ?? null;
-  const pending = history.find((s) => s.status === "pendente" && now - new Date(s.createdAt).getTime() < ORDER_EXPIRY_HOURS * 3600_000) ?? null;
+  const pending = history.find((s) => s.status === "pendente" && now - new Date(s.createdAt).getTime() < PENDING_PLAN_DISPLAY_HOURS * 3600_000) ?? null;
   return { active, pending, history, planPrice: PLAN_PRICE_AOA };
 }
 
@@ -593,10 +578,12 @@ export async function createPlanCharge(businessId: number, phone: string): Promi
           .where(and(eq(subscriptionsTable.id, subscription.id), eq(subscriptionsTable.status, "pendente")));
       }
     } catch (err) {
-      await db.update(subscriptionsTable)
-        .set({ status: "falhada", updatedAt: new Date() })
-        .where(and(eq(subscriptionsTable.id, subscription.id), eq(subscriptionsTable.status, "pendente")));
-      logger.error({ err, merchantTransactionId }, "createPlanCharge: background charge failed");
+      // A timeout/network failure is an unknown outcome, not an authoritative
+      // rejection. A later signed callback remains able to activate the plan.
+      logger.error(
+        { err, merchantTransactionId },
+        "createPlanCharge: gateway outcome unknown — kept pending for webhook/reconciliation",
+      );
     }
   };
 
@@ -844,6 +831,14 @@ export async function notifyPaymentWebhookFailure(
       : subscriptionRows.length > 0
         ? "/dono/plano"
         : "/dono/campanhas";
+
+  const content = `⚠️ **Falha na confirmação de pagamento**\n\nA confirmação \`${merchantTransactionId}\` não foi processada. O gateway vai tentar novamente. Verifica o estado no painel.`;
+  await savePaymentFailureAlert({
+    businessId,
+    merchantTransactionId,
+    destination,
+    content,
+  });
 
   await sendPushToOwner({
     title: "Falha na confirmação de pagamento",
