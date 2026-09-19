@@ -26,6 +26,7 @@ test("public traffic creative routes resolve server-owned context and visitor se
   const routes = await readFile(path.join(apiServerDir, "src/routes/businessScoped.ts"), "utf8");
   const leads = await readFile(path.join(dbDir, "src/schema/leads.ts"), "utf8");
   const entry = await readFile(path.join(webDir, "src/pages/PublicTraffic.tsx"), "utf8");
+  const transition = await readFile(path.join(webDir, "src/lib/trafficConversation.ts"), "utf8");
   const chat = await readFile(path.join(webDir, "src/pages/Chat.tsx"), "utf8");
 
   assert.match(routes, /router\.get\("\/traffic-creatives\/:creativeSlug\/public"/);
@@ -34,7 +35,8 @@ test("public traffic creative routes resolve server-owned context and visitor se
   assert.match(routes, /publicTrafficCreativeContext\(creative\)/);
   assert.match(leads, /trafficCreativeSlug/);
   assert.match(leads, /trafficCreative\?:/);
-  assert.match(entry, /trafficCreativeSlug: creative\.slug/);
+  assert.match(entry, /startTrafficConversation\(businessSlug, creative, window\.location\)/);
+  assert.match(transition, /trafficCreativeSlug: creative\.slug/);
   assert.match(chat, /isRestoringSession/);
   assert.match(chat, /disabled=\{isBusy \|\| isRestoringSession\}/);
 });

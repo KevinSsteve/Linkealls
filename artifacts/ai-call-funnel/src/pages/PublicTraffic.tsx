@@ -3,22 +3,7 @@ import { Loader2, Megaphone } from "lucide-react";
 import { Redirect, useParams } from "wouter";
 import { ChatLayout } from "../components/ChatLayout";
 import { getPublicTrafficCreative, type TrafficContext } from "../lib/api";
-import { visitorApi, type VisitorLeadOrigin } from "../lib/visitorAccess";
-
-const DEFAULT_MESSAGE = "Quero saber mais sobre isto";
-
-function allowedOrigin(): VisitorLeadOrigin {
-  const params = new URLSearchParams(window.location.search);
-  const value = (name: string) => params.get(name)?.slice(0, 200) || undefined;
-  return {
-    source: value("utm_source"),
-    medium: value("utm_medium"),
-    campaign: value("utm_campaign"),
-    content: value("utm_content"),
-    term: value("utm_term"),
-    url: window.location.href,
-  };
-}
+import { startTrafficConversation } from "../lib/trafficConversation";
 
 export function PublicTraffic() {
   const { businessSlug, publicSlug } = useParams<{ businessSlug: string; publicSlug: string }>();
@@ -58,11 +43,7 @@ export function PublicTraffic() {
     setStarting(true);
     setError(null);
     try {
-      await visitorApi(businessSlug).createLeadSession(
-        { ...allowedOrigin(), trafficCreativeSlug: creative.slug },
-        [],
-      );
-      const target = `${import.meta.env.BASE_URL}e/${encodeURIComponent(businessSlug)}?message=${encodeURIComponent(DEFAULT_MESSAGE)}`;
+      const target = await startTrafficConversation(businessSlug, creative, window.location);
       window.location.assign(target);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Não foi possível iniciar a conversa.");

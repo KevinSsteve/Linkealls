@@ -10,6 +10,7 @@ import { BuyModal, parsePriceAoa } from "../components/BuyModal";
 import { useGeminiLive, type ProductCard, type AgentMessage } from "../hooks/useGeminiLive";
 import { businessApi, type ChatMessage, type OrderTracking } from "../lib/api";
 import { loadCurrentVisitorAccess, visitorApi } from "../lib/visitorAccess";
+import { restoreTrafficConversation } from "../lib/trafficConversation";
 import { useBusinessSlug } from "../hooks/useBusinessSlug";
 import { recordVisit } from "../lib/visitedBusinesses";
 import { useAuth } from "@/context/AuthContext";
@@ -554,9 +555,14 @@ export function Chat() {
     }
     setIsRestoringSession(true);
     let cancelled = false;
-    visitorApi(businessSlug).getLeadSession(access.leadId)
-      .then((session) => {
+    restoreTrafficConversation(businessSlug)
+      .then((restoredSession) => {
         if (cancelled) return;
+        if (!restoredSession) {
+          setIsRestoringSession(false);
+          return;
+        }
+        const { access: restoredAccess, session } = restoredSession;
         const restored = session.chatMessages.map((message, index) => ({
           id: `restored-${index}-${message.ts}`,
           role: message.role === "user" ? "user" as const : "bot" as const,
@@ -565,8 +571,8 @@ export function Chat() {
         }));
         setMessages(restored);
         chatMsgsRef.current = session.chatMessages;
-        setLeadId(access.leadId);
-        setTrackingOrderId(access.orderId ?? null);
+        setLeadId(restoredAccess.leadId);
+        setTrackingOrderId(restoredAccess.orderId ?? null);
         setCallTriggered(true);
       })
       .catch(() => {

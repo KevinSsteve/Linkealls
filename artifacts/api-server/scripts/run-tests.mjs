@@ -137,6 +137,10 @@ try {
       path.join(artifactDir, "tests/launch-notifications.test.mjs"),
       path.join(artifactDir, "tests/onboarding-business-analysis.test.mjs"),
       path.join(artifactDir, "tests/business-analysis-ai-runtime.test.mjs"),
+      path.join(artifactDir, "tests/traffic-creatives-contract.test.mjs"),
+      path.join(artifactDir, "tests/traffic-creatives-flow.test.mjs"),
+      path.join(artifactDir, "tests/lead-chat-context.test.mjs"),
+      path.join(artifactDir, "../ai-call-funnel/tests/traffic-conversation-browser.test.mjs"),
     ],
     { env: testEnv, stdio: "inherit" },
   );

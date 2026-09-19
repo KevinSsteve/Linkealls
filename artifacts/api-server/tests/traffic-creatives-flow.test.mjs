@@ -1,0 +1,381 @@
+import assert from "node:assert/strict";
+import test, { after } from "node:test";
+import { build } from "esbuild";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
+
+const apiServerDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const tempDir = await mkdtemp(path.join(os.tmpdir(), "linkealls-traffic-flow-"));
+const fixturePath = path.join(tempDir, "fixture.mjs");
+const entryPath = path.join(tempDir, "entry.mjs");
+const modulePath = path.join(tempDir, "router.mjs");
+
+await writeFile(fixturePath, `
+import { z } from "zod/v4";
+
+const uuid = (suffix) => \`00000000-0000-4000-8000-\${String(suffix).padStart(12, "0")}\`;
+const creative = (id, businessId, slug, mediaType, active = 1) => ({
+  id: uuid(id), businessId, publicSlug: slug, description: \`\${mediaType} creative\`,
+  objectPath: \`/objects/traffic-creatives/owner/\${uuid(id)}\`,
+  mediaMimeType: mediaType === "video" ? "video/mp4" : "image/webp",
+  mediaType, active, visitCount: 0, createdAt: new Date(), updatedAt: new Date(),
+});
+
+export const state = {
+  creatives: [
+    creative(1, 41, "image-link", "image"),
+    creative(2, 41, "video-link", "video"),
+    creative(3, 41, "paused-link", "image", 0),
+    creative(4, 42, "other-business-link", "image"),
+  ],
+  leads: [],
+  chats: [],
+  ownerReplies: [],
+};
+
+const any = z.any();
+export const createCampaignSchema = any;
+export const updateCampaignSchema = any;
+export const campaignSetupSchema = any;
+export const updateBusinessProfileSchema = any;
+export const updateLeadStateSchema = any;
+export const sendAssistantMessageSchema = any;
+export const confirmActionSchema = any;
+export const aoPhoneSchema = any;
+export const chatMessageSchema = z.object({
+  role: z.enum(["user", "bot"]),
+  text: z.string().max(4000),
+  ts: z.string(),
+});
+export const leadOriginSchema = z.object({
+  source: z.string().max(200).optional(),
+  medium: z.string().max(200).optional(),
+  campaign: z.string().max(200).optional(),
+  content: z.string().max(200).optional(),
+  term: z.string().max(200).optional(),
+  url: z.string().max(2000).optional(),
+  trafficCreativeSlug: z.string().regex(/^[a-z0-9-]{3,80}$/).optional(),
+});
+export const createTrafficCreativeSchema = z.object({
+  description: z.string().trim().min(1).max(2000),
+  objectPath: z.string().startsWith("/objects/traffic-creatives/"),
+  mediaMimeType: z.enum(["image/png", "image/jpeg", "image/webp", "video/mp4", "video/webm", "video/quicktime"]),
+});
+export const updateTrafficCreativeSchema = z.object({
+  description: z.string().trim().min(1).max(2000).optional(),
+  active: z.boolean().optional(),
+});
+
+export const db = new Proxy({}, { get() { return () => { throw new Error("database must not be used"); }; } });
+export const businessProfilesTable = {};
+export async function getProfileBySlug(slug) {
+  if (slug === "owner") return { id: 41, slug };
+  if (slug === "other") return { id: 42, slug };
+  return null;
+}
+export async function getUserByToken() { return { handle: "owner" }; }
+export function requestToken() { return "session"; }
+export async function hasRecentSensitiveAuth() { return true; }
+export function createPaymentsScopedRouter() { return (_req, _res, next) => next(); }
+export async function consumeSharedRateLimit() { return true; }
+export function clientIp() { return "127.0.0.1"; }
+
+export async function listTrafficCreatives(businessId) {
+  return state.creatives.filter((item) => item.businessId === businessId);
+}
+export async function createTrafficCreative(input, businessId) {
+  const item = creative(state.creatives.length + 10, businessId, \`created-\${state.creatives.length}\`, input.mediaMimeType.startsWith("video/") ? "video" : "image");
+  item.description = input.description;
+  item.objectPath = input.objectPath;
+  item.mediaMimeType = input.mediaMimeType;
+  state.creatives.push(item);
+  return item;
+}
+export async function updateTrafficCreative(id, patch, businessId) {
+  const item = state.creatives.find((candidate) => candidate.id === id && candidate.businessId === businessId);
+  if (!item) return null;
+  if (patch.active !== undefined) item.active = patch.active ? 1 : 0;
+  return item;
+}
+export async function resolvePublicTrafficCreative(businessId, slug) {
+  const item = state.creatives.find((candidate) =>
+    candidate.businessId === businessId && candidate.publicSlug === slug && candidate.active === 1
+  );
+  if (!item) return null;
+  item.visitCount += 1;
+  return {
+    id: item.id, slug: item.publicSlug, description: item.description,
+    mediaType: item.mediaType, mediaMimeType: item.mediaMimeType,
+    mediaUrl: \`/api/storage\${item.objectPath}\`, visitCount: item.visitCount,
+  };
+}
+export async function getTrafficCreativeBySlug(businessId, slug) {
+  return state.creatives.find((item) => item.businessId === businessId && item.publicSlug === slug) ?? null;
+}
+export function publicTrafficCreativeContext(item) {
+  return { id: item.id, slug: item.publicSlug, description: item.description, mediaType: item.mediaType };
+}
+
+export async function createLead(origin, chatMessages, businessId) {
+  const lead = { id: uuid(100 + state.leads.length), businessId, origin, chatMessages };
+  state.leads.push(lead);
+  return lead;
+}
+export async function getLead(id, businessId) {
+  return state.leads.find((lead) => lead.id === id && (businessId === undefined || lead.businessId === businessId)) ?? null;
+}
+export async function chatWithLead(id, message, businessId) {
+  const lead = await getLead(id, businessId);
+  if (!lead) throw new Error("lead missing");
+  state.chats.push({ id, message, businessId });
+  return {
+    reply: "Encontrei este produto no catálogo.",
+    products: [{ name: "Produto real", price: "1000 Kz", description: "Do catálogo" }],
+  };
+}
+export async function appendOwnerReply(id, message, businessId) {
+  const lead = await getLead(id, businessId);
+  if (!lead) throw new Error("lead missing");
+  state.ownerReplies.push({ id, message, businessId });
+  return lead;
+}
+export async function listLeads() { return state.leads; }
+export async function updateLeadState() {}
+export function subscribeToLeadQualified() { return () => {}; }
+export async function getLeadsAnalytics() { return {}; }
+
+export function issueConversationCapability(businessId, leadId) { return \`cap-\${businessId}-\${leadId}\`; }
+export function visitorTokenFromAuthorization(value) { return value?.startsWith("Visitor ") ? value.slice(8) : null; }
+export function verifyVisitorCapability(token, expected) {
+  if (token !== \`cap-\${expected.businessId}-\${expected.leadId}\`) throw new VisitorCapabilityError();
+  return expected;
+}
+export class VisitorCapabilityError extends Error {}
+
+export async function getOrCreateProfile(businessId) {
+  return {
+    id: businessId, slug: businessId === 41 ? "owner" : "other", name: "Loja",
+    avatarUrl: null, sector: "Comércio", description: "Loja de teste",
+    differentials: [], publicLinks: [], faq: [], catalogEnabled: true, catalogSlug: null,
+    offerings: [{ name: "Produto real", price: "1000 Kz", description: "Do catálogo" }],
+  };
+}
+export function withOfferingAnalyticsKey(value) { return value; }
+export function isProfileFilled() { return true; }
+export async function updateProfile() {}
+export async function getCatalogAnalytics() { return {}; }
+
+export async function getCampaign() {}
+export async function listCampaigns() { return []; }
+export async function getCampaignMetrics() { return {}; }
+export async function createCampaign() {}
+export async function duplicateCampaign() {}
+export async function deleteCampaign() {}
+export async function updateCampaign() {}
+export async function updateCampaignSetup() {}
+export async function generateCampaignKit() {}
+export async function generateOptimizationSuggestions() { return []; }
+export class CampaignDeleteError extends Error {}
+export class CampaignLockedError extends Error {}
+export async function payCampaignFromWallet() {}
+export async function payCampaignWithMulticaixa() {}
+export async function publishCampaign() {}
+export async function controlCampaignAd() {}
+export const CAMPAIGN_MIN_BUDGET_AOA = 5000;
+export async function analyzeCampaignImage() {}
+export async function startCreativeGeneration() {}
+export function effectiveAoaPerUsd() { return 900; }
+export function aoaToWholeUsd() { return 1; }
+export const IS_ZERNIO_SIMULATION = true;
+export async function searchMetaTargeting() { return []; }
+export class PaymentError extends Error {}
+
+export async function startSiteAnalysis() {}
+export async function assistFromDescription() {}
+export class StartAnalysisError extends Error {}
+export async function chat() {}
+export async function listMessages() { return []; }
+export async function clearMessages() {}
+export async function confirmAction() {}
+export function subscribeToAssistantMessages() { return () => {}; }
+export function broadcastAssistantMessage() {}
+export async function proactiveDailySummary() {}
+export async function proactiveStaleLeads() {}
+export function getVapidPublicKey() { return ""; }
+export async function saveSubscription() {}
+export async function removeSubscription() {}
+export async function hashPin() { return ""; }
+export async function verifyPin() { return { valid: true, needsUpgrade: false }; }
+export const logger = { error() {}, warn() {}, info() {} };
+`, "utf8");
+
+await writeFile(entryPath, `
+export { createBusinessScopedRouter } from ${JSON.stringify(path.join(apiServerDir, "src/routes/businessScoped.ts"))};
+export { state } from ${JSON.stringify(fixturePath)};
+`, "utf8");
+
+const stubPattern = /^(?:@workspace\/db|\.\.\/(?:services|lib|routes)\/[^/]+\.js|\.\/(?:userAuth|paymentsScoped)\.js)$/;
+await build({
+  entryPoints: [entryPath],
+  bundle: true,
+  format: "esm",
+  platform: "node",
+  outfile: modulePath,
+  logLevel: "silent",
+  banner: { js: "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);" },
+  nodePaths: [path.join(apiServerDir, "node_modules"), path.resolve(apiServerDir, "../../node_modules")],
+  plugins: [{
+    name: "traffic-flow-boundaries",
+    setup(api) {
+      api.onResolve({ filter: stubPattern }, (args) =>
+        args.path.endsWith("/launchPolicy.js") ? undefined : { path: fixturePath }
+      );
+    },
+  }],
+});
+
+const { createBusinessScopedRouter, state } = await import(pathToFileURL(modulePath).href);
+const router = createBusinessScopedRouter();
+after(async () => rm(tempDir, { recursive: true, force: true }));
+
+function findRoute(method, routePath) {
+  const layer = router.stack.find((item) => item.route?.path === routePath && item.route.methods?.[method]);
+  assert.ok(layer, `${method.toUpperCase()} ${routePath} must be registered`);
+  return layer.route;
+}
+
+async function invoke(method, routePath, {
+  body = {}, params = {}, businessId = 41, authorization,
+} = {}) {
+  const route = findRoute(method, routePath);
+  const req = {
+    body,
+    query: {},
+    params: { businessSlug: businessId === 41 ? "owner" : "other", ...params },
+    headers: authorization ? { authorization } : {},
+    on() {},
+    log: { error() {}, warn() {}, info() {} },
+  };
+  const res = {
+    locals: { businessId },
+    statusCode: 200,
+    body: undefined,
+    status(code) { this.statusCode = code; return this; },
+    json(value) { this.body = value; return this; },
+    setHeader() {},
+    flushHeaders() {},
+    write() {},
+  };
+  const handlers = route.stack.map((layer) => layer.handle);
+  async function dispatch(index) {
+    if (index >= handlers.length) return;
+    let nextPromise;
+    await handlers[index](req, res, () => {
+      nextPromise = dispatch(index + 1);
+      return nextPromise;
+    });
+    if (nextPromise) await nextPromise;
+  }
+  await dispatch(0);
+  return res;
+}
+
+test("owner can create isolated image and video traffic links", async () => {
+  for (const [mediaMimeType, expectedType, suffix] of [
+    ["image/webp", "image", "image-upload"],
+    ["video/mp4", "video", "video-upload"],
+  ]) {
+    const response = await invoke("post", "/traffic-creatives", {
+      body: {
+        description: `${expectedType} promotion`,
+        objectPath: `/objects/traffic-creatives/owner/${suffix}`,
+        mediaMimeType,
+      },
+    });
+    assert.equal(response.statusCode, 201);
+    assert.equal(response.body.creative.mediaType, expectedType);
+    assert.equal(response.body.creative.businessId, 41);
+  }
+});
+
+test("public image and video links resolve only inside their business", async () => {
+  for (const [slug, mediaType] of [["image-link", "image"], ["video-link", "video"]]) {
+    const response = await invoke("get", "/traffic-creatives/:creativeSlug/public", {
+      params: { creativeSlug: slug },
+    });
+    assert.equal(response.statusCode, 200);
+    assert.equal(response.body.creative.mediaType, mediaType);
+  }
+
+  for (const slug of ["paused-link", "missing-link", "other-business-link"]) {
+    const response = await invoke("get", "/traffic-creatives/:creativeSlug/public", {
+      params: { creativeSlug: slug },
+    });
+    assert.equal(response.statusCode, 404);
+  }
+});
+
+test("UTMs and trusted creative context stay on one lead through catalog chat and human reply", async () => {
+  const before = state.leads.length;
+  const created = await invoke("post", "/leads/session", {
+    body: {
+      origin: {
+        source: "meta",
+        medium: "paid",
+        campaign: "ignored-browser-label",
+        content: "variant-a",
+        term: "electric",
+        trafficCreativeSlug: "image-link",
+      },
+      chatMessages: [],
+    },
+  });
+  assert.equal(created.statusCode, 201);
+  assert.equal(state.leads.length, before + 1);
+
+  const lead = state.leads.at(-1);
+  assert.deepEqual(lead.origin, {
+    source: "meta",
+    medium: "paid",
+    campaign: "ignored-browser-label",
+    content: "variant-a",
+    term: "electric",
+    trafficCreative: {
+      id: "00000000-0000-4000-8000-000000000001",
+      slug: "image-link",
+      description: "image creative",
+      mediaType: "image",
+    },
+  });
+
+  const authorization = `Visitor ${created.body.visitorToken}`;
+  const chat = await invoke("post", "/leads/:id/chat", {
+    params: { id: lead.id },
+    body: { message: "Que produtos têm?" },
+    authorization,
+  });
+  assert.equal(chat.statusCode, 200);
+  assert.equal(chat.body.products[0].name, "Produto real");
+  assert.equal(state.leads.length, before + 1, "chat must continue the attributed lead");
+
+  const human = await invoke("post", "/leads/:id/owner-reply", {
+    params: { id: lead.id },
+    body: { message: "Um consultor vai continuar contigo." },
+  });
+  assert.equal(human.statusCode, 200);
+  assert.equal(state.ownerReplies.at(-1).id, lead.id);
+  assert.equal(state.leads.length, before + 1, "human handoff must not create a second lead");
+});
+
+test("paused, missing and cross-business creative slugs never create attributed leads", async () => {
+  for (const trafficCreativeSlug of ["paused-link", "missing-link", "other-business-link"]) {
+    const before = state.leads.length;
+    const response = await invoke("post", "/leads/session", {
+      body: { origin: { source: "meta", trafficCreativeSlug }, chatMessages: [] },
+    });
+    assert.equal(response.statusCode, 400);
+    assert.equal(state.leads.length, before);
+  }
+});
