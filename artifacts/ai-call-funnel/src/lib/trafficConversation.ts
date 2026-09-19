@@ -22,11 +22,18 @@ export async function startTrafficConversation(
   creative: ResolvedTrafficCreative,
   location: Pick<Location, "search" | "href">,
 ): Promise<string> {
-  await visitorApi(businessSlug).createLeadSession(
+  const api = visitorApi(businessSlug);
+  const { leadId } = await api.createLeadSession(
     { ...allowedTrafficOrigin(location.search, location.href), trafficCreativeSlug: creative.slug },
     [],
   );
-  return `${import.meta.env.BASE_URL}e/${encodeURIComponent(businessSlug)}?message=${encodeURIComponent("Quero saber mais sobre isto")}`;
+  const initialMessage = "Quero saber mais sobre este anúncio";
+  try {
+    await api.sendLeadChat(leadId, initialMessage);
+    return `${import.meta.env.BASE_URL}e/${encodeURIComponent(businessSlug)}`;
+  } catch {
+    return `${import.meta.env.BASE_URL}e/${encodeURIComponent(businessSlug)}?message=${encodeURIComponent(initialMessage)}`;
+  }
 }
 
 export async function restoreTrafficConversation(businessSlug: string) {

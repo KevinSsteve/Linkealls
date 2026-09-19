@@ -112,13 +112,15 @@ test("public traffic CTA restores the same lead for chat, catalog order and trac
     href: "https://linkealls.test/t/owner/image-link?utm_source=meta&utm_medium=paid-social&utm_campaign=september&utm_content=image-a&utm_term=catalog",
   };
   const target = await startTrafficConversation("owner", { slug: "image-link" }, location);
-  assert.equal(target, "/ai-call-funnel/e/owner?message=Quero%20saber%20mais%20sobre%20isto");
+  assert.equal(target, "/ai-call-funnel/e/owner");
   assert.equal(createdLeads, 1);
 
   const restored = await restoreTrafficConversation("owner");
   assert.equal(restored.access.leadId, "lead-contextual-1");
   assert.equal(restored.session.leadId, "lead-contextual-1");
 
+  const initialChat = requests.find((request) => request.url.endsWith("/leads/lead-contextual-1/chat"));
+  assert.equal(JSON.parse(initialChat.body).message, "Quero saber mais sobre este anúncio");
   const chat = await visitorApi("owner").sendLeadChat("lead-contextual-1", "Quero ver produtos");
   assert.equal(chat.products[0].name, "Produto real");
   const order = await visitorApi("owner").createOrder({
@@ -134,14 +136,14 @@ test("public traffic CTA restores the same lead for chat, catalog order and trac
   assert.equal(requests.filter((request) => request.url.endsWith("/leads/session")).length, 1);
 });
 
-test("the rendered CTA and Chat restoration use the executable browser transition", async () => {
+test("the public traffic route starts automatically and Chat restores the contextual conversation", async () => {
   const [publicTraffic, chat] = await Promise.all([
     readFile(path.join(artifactDir, "src/pages/PublicTraffic.tsx"), "utf8"),
     readFile(path.join(artifactDir, "src/pages/Chat.tsx"), "utf8"),
   ]);
-  assert.match(publicTraffic, /onClick=\{startConversation\}/);
-  assert.match(publicTraffic, /await startTrafficConversation\(businessSlug, creative, window\.location\)/);
-  assert.match(publicTraffic, /window\.location\.assign\(target\)/);
+  assert.doesNotMatch(publicTraffic, /Falar com o assistente/);
+  assert.match(publicTraffic, /startTrafficConversation\(businessSlug, creative, window\.location\)/);
+  assert.match(publicTraffic, /\.then\(\(target\) => window\.location\.assign\(target\)\)/);
   assert.match(chat, /restoreTrafficConversation\(businessSlug\)/);
   assert.match(chat, /setLeadId\(restoredAccess\.leadId\)/);
 });
