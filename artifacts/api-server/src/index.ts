@@ -6,6 +6,7 @@ import { startCampaignSyncCron } from "./services/campaignAds.js";
 import { wireProactiveEvents } from "./services/assistant.js";
 import { startPaymentReconciliationCron } from "./services/paymentReconciliation.js";
 import { startTrafficCreativeUploadCleanupCron } from "./services/trafficCreativeUploadCleanup.js";
+import { startBusinessBrainMaintenanceCron } from "./services/businessBrain.js";
 import { logger } from "./lib/logger.js";
 
 const rawPort = process.env["PORT"];
@@ -38,4 +39,5 @@ server.listen(port, () => {
   startCampaignSyncCron();
   startPaymentReconciliationCron();
   startTrafficCreativeUploadCleanupCron();
+  startBusinessBrainMaintenanceCron();
 });

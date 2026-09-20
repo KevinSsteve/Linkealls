@@ -43,6 +43,8 @@ export const updateBusinessProfileSchema = any;
 export const updateLeadStateSchema = any;
 export const sendAssistantMessageSchema = any;
 export const confirmActionSchema = any;
+export const proposeBusinessKnowledgeSchema = any;
+export const reviewBusinessKnowledgeSchema = any;
 export const aoPhoneSchema = any;
 export const chatMessageSchema = z.object({
   role: z.enum(["user", "bot"]),
@@ -255,6 +257,10 @@ export function withOfferingAnalyticsKey(value) { return value; }
 export function isProfileFilled() { return true; }
 export async function updateProfile() {}
 export async function getCatalogAnalytics() { return {}; }
+export async function listBusinessKnowledge() { return []; }
+export async function listBusinessAiEvaluations() { return []; }
+export async function proposeBusinessKnowledge() { return {}; }
+export async function reviewBusinessKnowledge() { return {}; }
 
 export async function getCampaign() {}
 export async function listCampaigns() { return []; }

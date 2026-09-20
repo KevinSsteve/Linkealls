@@ -27,3 +27,4 @@
 - [Visual scope](visual-scope.md) — warm product theme covers routed product surfaces, but landing and the four redesigned entry flows remain visually isolated.
 - [Contextual paid traffic](contextual-paid-traffic.md) — simple traffic links stay separate from legacy paid campaigns; only server-resolved creative context may reach leads or AI.
 - [Consented lead contact](consented-lead-contact.md) — follow-up phone is explicit and separate from checkout/AI extraction; WhatsApp handoffs are server-owned and capability-attributed.
+- [Business brain trust model](business-brain-trust-model.md) — shared tenant context keeps approved facts, observations, suggestions and untrusted inputs separate across every AI channel.

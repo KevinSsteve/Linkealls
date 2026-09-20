@@ -108,14 +108,10 @@ export function isProfileFilled(profile: BusinessProfile): boolean {
  * Builds the call agent's system prompt from the stored profile.
  * Falls back to the generic qualification script when the profile is empty.
  */
-export function buildCallAgentPrompt(profile: BusinessProfile | null): {
+export function buildCallAgentPrompt(profile: BusinessProfile, brainContext: string): {
   systemPrompt: string;
   greetingText: string;
 } {
-  if (!profile || !isProfileFilled(profile)) {
-    return { systemPrompt: GENERIC_PROMPT, greetingText: "inicio" };
-  }
-
   const offerings = profile.offerings
     .map((o) => `- ${o.name}${o.price ? ` (${o.price})` : ""}${o.imageUrl ? " [TEM FOTO]" : ""}: ${o.description}`)
     .join("\n");
@@ -135,6 +131,8 @@ export function buildCallAgentPrompt(profile: BusinessProfile | null): {
     .join("\n");
 
   const systemPrompt = `
+${brainContext}
+
 Você é o assistente virtual de "${profile.name}"${profile.sector ? `, negócio do setor: ${profile.sector}` : ""}.
 O utilizador acabou de clicar num anúncio e atendeu uma chamada da empresa.
 
@@ -172,30 +170,3 @@ RESPOND UNMISTAKABLY IN ANGOLAN PORTUGUESE. NUNCA mude de idioma.
 
   return { systemPrompt, greetingText: "inicio" };
 }
-
-const GENERIC_PROMPT = `
-Você é um assistente virtual especializado em qualificação de leads.
-O utilizador acabou de clicar num anúncio e atendeu uma chamada.
-
-INÍCIO DA CHAMADA: Quando receberes a mensagem "inicio", responde IMEDIATAMENTE com:
-"Alô! Obrigado por atender. Como posso ajudá-lo hoje?"
-Não acrescentes nada mais — espera que o utilizador fale.
-
-Fale em português de Angola, de forma natural, breve, profissional e acolhedora.
-
-O objetivo é descobrir:
-1. O que a pessoa procura exatamente
-2. Qual é o orçamento aproximado
-3. O prazo de decisão
-4. A melhor forma de contacto
-
-REGRAS IMPORTANTES:
-- Faça UMA pergunta de cada vez
-- Mantenha a conversa fluida e natural
-- Aja como um consultor humano premium
-- Respostas curtas e directas (máximo 2 frases)
-- Nunca liste perguntas de uma vez
-- Seja caloroso e confiante
-
-RESPOND UNMISTAKABLY IN ANGOLAN PORTUGUESE. NUNCA mude de idioma.
-`.trim();

@@ -45,6 +45,11 @@ export function ownerLeadView(lead) {
 export async function updateLeadState() { throw new Error("Mutation forbidden"); }
 export function subscribeToLeadQualified(fn) { effects.subscriptions.push(fn); }
 export async function getOrCreateProfile() { throw new Error("Profile access forbidden"); }
+export async function loadBusinessBrain() { throw new Error("Brain access forbidden"); }
+export function estimateGemini3FlashCostMicros() { return 0; }
+export async function proposeBusinessKnowledge() { throw new Error("Knowledge mutation forbidden"); }
+export async function recordBusinessAiEvaluation() {}
+export function renderBusinessBrain() { return "test brain"; }
 export class GoogleGenAI { constructor() { throw new Error("AI provider forbidden"); } }
 export const Type = { OBJECT: "OBJECT", STRING: "STRING" };
 export default {
@@ -78,7 +83,7 @@ await build({
     name: "isolate-notifications",
     setup(b) {
       b.onResolve({
-        filter: /^(launch-notification-fixture|@workspace\/db|@google\/genai|web-push)$|\/(logger|scheduledJobLock|leads|businessProfile)\.js$/,
+        filter: /^(launch-notification-fixture|@workspace\/db|@google\/genai|web-push)$|\/(logger|scheduledJobLock|leads|businessProfile|businessBrain)\.js$/,
       }, () => ({ path: "fixture", namespace: "isolated" }));
       b.onLoad({ filter: /.*/, namespace: "isolated" }, () => ({ contents: fixture, loader: "js" }));
     },

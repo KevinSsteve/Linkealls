@@ -39,6 +39,9 @@ export const getProfileBySlug = async () => {
   return { id: 7, name: "Test tenant", offerings: [] };
 };
 export const buildCallAgentPrompt = () => ({ systemPrompt: "test", greetingText: "test" });
+export const loadBusinessBrain = async () => ({ businessId: 7, profile: { id: 7 }, approvedFacts: [], approvedSuggestions: [], relevantMemories: [], playbook: {} });
+export const renderBusinessBrain = () => "test brain";
+export const recordBusinessAiEvaluation = async () => {};
 export const getLead = async (id, businessId) => {
   const s = globalThis.__visitorVoiceTest;
   s.leadReads++;
@@ -67,7 +70,7 @@ const relay = await bundle("artifacts/api-server/src/routes/callFunnelWs.ts", {
   plugins: [{
     name: "offline-voice-dependencies",
     setup(b) {
-      b.onResolve({ filter: /^(ws)$|\/(geminiLive|businessProfile|leads|payments|logger|httpSecurity)\.js$/ },
+      b.onResolve({ filter: /^(ws)$|\/(geminiLive|businessProfile|businessBrain|leads|payments|logger|httpSecurity)\.js$/ },
         () => ({ path: "voice-test-dependencies", namespace: "fixture" }));
       b.onLoad({ filter: /.*/, namespace: "fixture" }, () => ({ contents: mocks, loader: "js" }));
     },

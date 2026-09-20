@@ -24,6 +24,8 @@ import {
   campaignSetupSchema,
   createTrafficCreativeSchema,
   updateTrafficCreativeSchema,
+  proposeBusinessKnowledgeSchema,
+  reviewBusinessKnowledgeSchema,
 } from "@workspace/db";
 import {
   getProfileBySlug,
@@ -130,6 +132,12 @@ import {
   visitorRecoveryCookieName,
   VISITOR_RECOVERY_TTL_MS,
 } from "../services/visitorConversationRecovery.js";
+import {
+  listBusinessAiEvaluations,
+  listBusinessKnowledge,
+  proposeBusinessKnowledge,
+  reviewBusinessKnowledge,
+} from "../services/businessBrain.js";
 
 function bid(res: Response): number {
   return res.locals["businessId"] as number;
@@ -1167,6 +1175,71 @@ export function createBusinessScopedRouter(): Router {
     } catch (err) {
       logger.error({ err }, "GET /campaigns/:id/optimize failed");
       res.status(500).json({ error: "Erro ao gerar sugestões" });
+    }
+  });
+
+  // ── BUSINESS BRAIN ─────────────────────────────────────────────────────────────
+
+  router.get("/brain/knowledge", requireOwner, async (_req, res) => {
+    try {
+      res.json({ entries: await listBusinessKnowledge(bid(res)) });
+    } catch (err) {
+      logger.error({ err }, "GET /brain/knowledge failed");
+      res.status(500).json({ error: "Erro ao carregar o conhecimento" });
+    }
+  });
+
+  router.post("/brain/knowledge", requireOwner, async (req, res) => {
+    const parsed = proposeBusinessKnowledgeSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Proposta de conhecimento inválida", details: parsed.error.issues });
+      return;
+    }
+    try {
+      const entry = await proposeBusinessKnowledge(bid(res), {
+        ...parsed.data,
+        provenance: parsed.data.provenance ?? {
+          source: "owner",
+          reviewedAt: new Date().toISOString(),
+        },
+      });
+      res.status(201).json({ entry });
+    } catch (err) {
+      logger.error({ err }, "POST /brain/knowledge failed");
+      res.status(500).json({ error: "Erro ao guardar a proposta" });
+    }
+  });
+
+  router.post("/brain/knowledge/:id/review", requireOwner, requireRecentReauth, async (req, res) => {
+    const parsed = reviewBusinessKnowledgeSchema.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Revisão inválida" });
+      return;
+    }
+    try {
+      const entry = await reviewBusinessKnowledge(
+        bid(res),
+        String(req.params["id"] ?? ""),
+        parsed.data.decision,
+        parsed.data.comment,
+      );
+      if (!entry) {
+        res.status(404).json({ error: "Proposta pendente não encontrada" });
+        return;
+      }
+      res.json({ entry });
+    } catch (err) {
+      logger.error({ err }, "POST /brain/knowledge/:id/review failed");
+      res.status(500).json({ error: "Erro ao rever a proposta" });
+    }
+  });
+
+  router.get("/brain/evaluations", requireOwner, async (_req, res) => {
+    try {
+      res.json({ evaluations: await listBusinessAiEvaluations(bid(res)) });
+    } catch (err) {
+      logger.error({ err }, "GET /brain/evaluations failed");
+      res.status(500).json({ error: "Erro ao carregar avaliações" });
     }
   });
 

@@ -140,6 +140,7 @@ try {
       path.join(artifactDir, "tests/traffic-creatives-contract.test.mjs"),
       path.join(artifactDir, "tests/traffic-creatives-flow.test.mjs"),
       path.join(artifactDir, "tests/lead-chat-context.test.mjs"),
+      path.join(artifactDir, "tests/business-brain-contract.test.mjs"),
       path.join(artifactDir, "tests/traffic-upload-lifecycle.test.mjs"),
       path.join(artifactDir, "../ai-call-funnel/tests/traffic-conversation-browser.test.mjs"),
     ],

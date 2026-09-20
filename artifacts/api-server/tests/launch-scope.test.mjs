@@ -41,6 +41,8 @@ export const chatMessageSchema = schema;
 export const updateLeadStateSchema = schema;
 export const sendAssistantMessageSchema = schema;
 export const confirmActionSchema = schema;
+export const proposeBusinessKnowledgeSchema = schema;
+export const reviewBusinessKnowledgeSchema = schema;
 export const aoPhoneSchema = schema;
 export const db = new Proxy({}, { get() { return () => { throw new Error("live database must not be used"); }; } });
 export const businessProfilesTable = {};
@@ -98,6 +100,10 @@ export async function listMessages() { return []; }
 export async function clearMessages() {}
 export async function chat() { return {}; }
 export async function confirmAction() { return {}; }
+export async function listBusinessKnowledge() { return []; }
+export async function listBusinessAiEvaluations() { return []; }
+export async function proposeBusinessKnowledge() { return {}; }
+export async function reviewBusinessKnowledge() { return {}; }
 
 export async function getOrCreateProfile() { return { name: "", offerings: [] }; }
 export function isProfileFilled() { return true; }

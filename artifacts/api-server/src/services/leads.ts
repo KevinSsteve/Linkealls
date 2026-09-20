@@ -17,6 +17,14 @@ import { logger } from "../lib/logger.js";
 import { buildLeadChatContext, selectLeadChatProducts } from "../lib/leadChatContext.js";
 import { getOrCreateProfile } from "./businessProfile.js";
 import { sendPushToOwner } from "./notifications.js";
+import {
+  loadBusinessBrain,
+  estimateGemini3FlashCostMicros,
+  recordBusinessAiEvaluation,
+  renderBusinessBrain,
+  saveInteractionMemory,
+  summarizeOldInteraction,
+} from "./businessBrain.js";
 
 const EXTRACTION_MODEL = "gemini-3-flash-preview";
 const SCORE_QUALIFY_THRESHOLD = 60;
@@ -420,6 +428,7 @@ export async function processCallCompletion(
   businessName: string,
   businessId: number,
 ): Promise<void> {
+  const startedAt = Date.now();
   const apiKey = process.env["GEMINI_API_KEY"];
   if (!apiKey) {
     logger.error("GEMINI_API_KEY not set — skipping lead extraction");
@@ -485,7 +494,33 @@ Responde APENAS com JSON válido, sem texto adicional.`;
         callEndedAt: new Date(),
         updatedAt: new Date(),
       })
-      .where(eq(leadsTable.id, leadId));
+      .where(and(eq(leadsTable.id, leadId), eq(leadsTable.businessId, businessId)));
+
+    await saveInteractionMemory(
+      businessId,
+      leadId,
+      [
+        "Chamada anterior concluída.",
+        extracted.qualificationData.interest ? "Interesse comercial registado." : "",
+        extracted.qualificationData.budget ? "Orçamento discutido." : "",
+        extracted.qualificationData.timeline ? "Prazo discutido." : "",
+      ].filter(Boolean).join(" "),
+      {
+        source: "ai",
+        sourceRef: "post_call_summary",
+        reviewedAt: new Date().toISOString(),
+      },
+    ).catch((err) => logger.warn({ err, leadId, businessId }, "Failed to save post-call memory"));
+    void recordBusinessAiEvaluation({
+      businessId,
+      channel: "post_call",
+      scenario: "qualification_extraction",
+      outcome: "success",
+      latencyMs: Date.now() - startedAt,
+      inputForHash: safeTranscript,
+      outputForEvaluation: extracted.aiSummary,
+      costMicros: estimateGemini3FlashCostMicros(response),
+    }).catch((err) => logger.warn({ err, businessId }, "Failed to record post-call evaluation"));
 
     logger.info({ leadId, score: extracted.score, state: newState }, "Lead extraction complete");
 
@@ -510,12 +545,22 @@ Responde APENAS com JSON válido, sem texto adicional.`;
       }
     }
   } catch (err) {
-    logger.error({ err, leadId }, "Post-call lead extraction failed");
+    logger.error({ err, leadId, businessId }, "Post-call lead extraction failed");
+    void recordBusinessAiEvaluation({
+      businessId,
+      channel: "post_call",
+      scenario: "qualification_extraction",
+      outcome: "error",
+      latencyMs: Date.now() - startedAt,
+      inputForHash: callTranscript,
+    }).catch((evaluationErr) =>
+      logger.warn({ err: evaluationErr, businessId }, "Failed to record post-call error evaluation")
+    );
     // Don't leave the lead in limbo — mark call ended even without extraction
     await db
       .update(leadsTable)
       .set({ callEndedAt: new Date(), updatedAt: new Date() })
-      .where(eq(leadsTable.id, leadId));
+      .where(and(eq(leadsTable.id, leadId), eq(leadsTable.businessId, businessId)));
   }
 }
 
@@ -529,7 +574,7 @@ Responde APENAS com JSON válido, sem texto adicional.`;
 export async function chatWithLead(
   leadId: string,
   userMessage: string,
-  businessId?: number,
+  businessId: number,
   options?: { trafficWelcomeClaimToken?: string; requestContactConsent?: boolean },
 ): Promise<{
   reply: string;
@@ -538,8 +583,13 @@ export async function chatWithLead(
   const apiKey = process.env["GEMINI_API_KEY"];
   if (!apiKey) throw new Error("GEMINI_API_KEY não configurado");
 
-  const [lead, profile] = await Promise.all([getLead(leadId, businessId), getOrCreateProfile(businessId)]);
+  const startedAt = Date.now();
+  const [lead, brain] = await Promise.all([
+    getLead(leadId, businessId),
+    loadBusinessBrain(businessId, { leadId, query: userMessage }),
+  ]);
   if (!lead) throw new Error("Lead não encontrado");
+  const profile = brain.profile;
 
   const relatedOrders = await db
     .select({
@@ -552,21 +602,40 @@ export async function chatWithLead(
       paidAt: ordersTable.paidAt,
     })
     .from(ordersTable)
-    .where(eq(ordersTable.leadId, leadId))
+    .where(and(eq(ordersTable.leadId, leadId), eq(ordersTable.businessId, businessId)))
     .orderBy(desc(ordersTable.createdAt))
     .limit(5);
   const safeUserMessage = lead.contactConsentStatus === "consented"
     ? userMessage
     : redactAngolanPhoneCandidates(userMessage);
   const safeLead = ownerLeadView(lead);
-  const { systemInstruction, prompt } = buildLeadChatContext(safeLead, profile, relatedOrders, safeUserMessage);
+  const { systemInstruction, prompt } = buildLeadChatContext(
+    safeLead,
+    profile,
+    relatedOrders,
+    safeUserMessage,
+    renderBusinessBrain(brain, "visitor"),
+  );
 
   const ai = new GoogleGenAI({ apiKey });
-  const response = await ai.models.generateContent({
-    model: EXTRACTION_MODEL,
-    contents: prompt,
-    config: { systemInstruction },
-  });
+  let response;
+  try {
+    response = await ai.models.generateContent({
+      model: EXTRACTION_MODEL,
+      contents: prompt,
+      config: { systemInstruction },
+    });
+  } catch (err) {
+    void recordBusinessAiEvaluation({
+      businessId,
+      channel: "chat",
+      scenario: "visitor_chat",
+      outcome: "error",
+      latencyMs: Date.now() - startedAt,
+      inputForHash: safeUserMessage,
+    }).catch(() => undefined);
+    throw err;
+  }
 
   const rawReply = (response.text ?? "").trim() ||
     "Desculpa, não consegui processar a tua mensagem. Tenta outra vez.";
@@ -619,6 +688,25 @@ export async function chatWithLead(
     .where(guardedWhere)
     .returning({ id: leadsTable.id });
   if (!rows[0]) throw new Error("A operação desta resposta já não está activa");
+
+  const memorySummary = summarizeOldInteraction([...safeLead.chatMessages, ...appended]);
+  if (memorySummary) {
+    void saveInteractionMemory(businessId, leadId, memorySummary, {
+      source: "system",
+      sourceRef: "rolling_chat_summary",
+      reviewedAt: new Date().toISOString(),
+    }).catch((err) => logger.warn({ err, leadId, businessId }, "Failed to save rolling interaction memory"));
+  }
+  void recordBusinessAiEvaluation({
+    businessId,
+    channel: "chat",
+    scenario: "visitor_chat",
+    outcome: "success",
+    latencyMs: Date.now() - startedAt,
+    inputForHash: safeUserMessage,
+    outputForEvaluation: reply,
+    costMicros: estimateGemini3FlashCostMicros(response),
+  }).catch((err) => logger.warn({ err, businessId }, "Failed to record chat evaluation"));
 
   return { reply, products };
 }
