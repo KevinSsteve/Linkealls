@@ -20,7 +20,7 @@ test("chat, voice and owner assistant consume one explicitly tenant-scoped brain
   assert.match(brain, /eq\(businessKnowledgeTable\.businessId, businessId\)/);
   assert.match(brain, /getBusinessProfileStrict\(businessId\)/);
   assert.doesNotMatch(brain, /FIXED_PROFILE_ID|getOrCreateProfile/);
-  assert.match(leads, /loadBusinessBrain\(businessId, \{ leadId, query: userMessage \}\)/);
+  assert.match(leads, /loadBusinessBrain\(businessId, \{ leadId, query: safeUserMessage \}\)/);
   assert.match(voice, /loadBusinessBrain\(config\.businessId, \{ leadId: lead\.id \}\)/);
   assert.match(assistant, /loadBusinessBrain\(businessId, \{ query: userMessage, includeMemory: true \}\)/);
   assert.match(leads, /eq\(ordersTable\.businessId, businessId\)/);

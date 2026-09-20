@@ -15,6 +15,7 @@ import {
 } from "@workspace/db";
 import { getOrCreateProfile } from "./businessProfile.js";
 import { applySalesStrategyOverride, isRuntimeSourceEligible } from "../lib/salesStrategyRuntime.js";
+import { structurallyEqualJson } from "../lib/canonicalJson.js";
 export { applySalesStrategyOverride } from "../lib/salesStrategyRuntime.js";
 
 const template = (
@@ -102,7 +103,7 @@ export async function ensureAutomaticStrategyVersion(
       .where(and(eq(salesStrategyVersionsTable.businessId, businessId), eq(salesStrategyVersionsTable.status, "active")))
       .orderBy(desc(salesStrategyVersionsTable.createdAt)).limit(1))[0];
     if (latest && latest.name !== name) return latest;
-    if (latest && JSON.stringify(latest.config) === JSON.stringify(config)) return latest;
+    if (latest && structurallyEqualJson(latest.config, config)) return latest;
     if (latest) {
       await tx.update(salesStrategyVersionsTable).set({ status: "archived", updatedAt: new Date() })
         .where(and(eq(salesStrategyVersionsTable.id, latest.id), eq(salesStrategyVersionsTable.businessId, businessId), eq(salesStrategyVersionsTable.status, "active")));

@@ -189,6 +189,9 @@ export function normalizeAngolanMobilePhone(value) {
   const local = digits.startsWith("244") ? digits.slice(3) : digits;
   return /^9[1-5]\\d{7}$/.test(local) ? \`+244\${local}\` : null;
 }
+export function redactAngolanPhoneCandidates(value) {
+  return value.replace(/(?:\\+?244|00244)?[\\s().-]*9[1-5](?:[\\s().-]*\\d){7}\\b/g, "[telefone omitido — requer autorização]");
+}
 export function leadContactView(lead) {
   return {
     status: lead.contactConsentStatus,
@@ -224,12 +227,12 @@ export function buildWhatsAppHandoff(phone, businessName, description) {
 }
 export async function captureLeadContact(id, businessId, input) {
   const lead = await getLead(id, businessId);
-  if (!lead) return null;
+  if (!lead) return { lead: null, changed: false };
   lead.contactPurpose = "business_follow_up";
   lead.contactCapturedAt = new Date();
   lead.contactConsentStatus = input.action === "consent" ? "consented" : "declined";
   lead.contactPhone = input.action === "consent" ? input.phone : null;
-  return lead;
+  return { lead, changed: true };
 }
 export async function recordLeadWhatsAppClick(id, businessId) {
   const lead = await getLead(id, businessId);

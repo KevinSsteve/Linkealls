@@ -35,7 +35,6 @@ import {
   PackageCheck,
   RefreshCw,
   Trash2,
-  ShieldCheck,
   MessageCircle,
 } from "lucide-react";
 import "../styles/customer-ux.css";
@@ -47,6 +46,21 @@ interface Message {
   role: BubbleRole;
   text: string;
   ts: string;
+}
+
+type NextAction = {
+  type: "none" | "catalog" | "checkout" | "contact" | "whatsapp" | "owner_handoff" | "quote_request" | "appointment_request" | "visit_request" | "order_tracking";
+  label?: string;
+  reason: string;
+};
+
+interface LeadChatResult {
+  reply: string;
+  products?: ProductCard[];
+  nextAction?: NextAction;
+  contactCaptured?: boolean;
+  contact?: LeadContact | null;
+  whatsappHandoff?: WhatsAppHandoff | null;
 }
 
 type Stage = "chat" | "typing" | "call_incoming" | "call_active" | "call_ended";
@@ -564,86 +578,6 @@ function TrafficCreativeCard({ creative }: { creative: TrafficSessionCreative })
   );
 }
 
-function ContactCaptureCard({
-  contact,
-  saving,
-  error,
-  onConsent,
-  onDecline,
-}: {
-  contact: LeadContact;
-  saving: boolean;
-  error: string | null;
-  onConsent: (phone: string) => void;
-  onDecline: () => void;
-}) {
-  const [editing, setEditing] = useState(contact.status === "pending");
-  const [phone, setPhone] = useState(contact.phone ?? "");
-  if (contact.status === "declined") return null;
-  if (contact.status === "consented" && !editing) {
-    return (
-      <div className="mx-1 my-3 rounded-2xl p-3" style={{ background: "#E8F7F1", border: "1px solid #B7E4D3" }}>
-        <div className="flex items-center gap-2">
-          <ShieldCheck size={17} style={{ color: "var(--green)" }} />
-          <div className="min-w-0 flex-1">
-            <p className="text-[12px] font-semibold" style={{ color: "var(--ink)" }}>Contacto autorizado</p>
-            <p className="text-[12px]" style={{ color: "var(--ink-soft)" }}>{contact.phone}</p>
-          </div>
-          <button type="button" onClick={() => setEditing(true)} className="text-[11px] font-semibold underline" style={{ color: "var(--green)" }}>
-            Corrigir
-          </button>
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div className="mx-1 my-3 rounded-2xl p-4" style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "0 2px 8px rgba(23,19,31,.07)" }}>
-      <div className="flex items-start gap-2">
-        <div>
-          <p className="text-[14px] font-semibold" style={{ color: "var(--ink)" }}>Compartilha o seu número comigo</p>
-          <p className="mt-1 text-[12px] leading-relaxed" style={{ color: "var(--ink-soft)" }}>
-            Assim podemos continuar a conversa por WhatsApp. Também podes continuar sem partilhar.
-          </p>
-        </div>
-      </div>
-      <label htmlFor="lead-contact-phone" className="sr-only">Número móvel angolano</label>
-      <input
-        id="lead-contact-phone"
-        type="tel"
-        inputMode="tel"
-        autoComplete="tel"
-        value={phone}
-        onChange={(event) => setPhone(event.target.value)}
-        placeholder="923 456 789"
-        disabled={saving}
-        className="mt-3 min-h-11 w-full rounded-xl border px-3 text-[14px] outline-none"
-        style={{ borderColor: error ? "var(--errorBorder)" : "var(--border)", color: "var(--ink)", background: "#fff" }}
-      />
-      {error && <p className="mt-1.5 text-[11px]" style={{ color: "var(--errorText)" }}>{error}</p>}
-      <div className="mt-3 flex gap-2">
-        <button
-          type="button"
-          disabled={saving || !phone.trim()}
-          onClick={() => onConsent(phone)}
-          className="min-h-11 flex-1 rounded-xl px-3 text-[12px] font-semibold text-white disabled:opacity-50"
-          style={{ background: "var(--green)" }}
-        >
-          {saving ? "A guardar…" : "Partilhar número"}
-        </button>
-        <button
-          type="button"
-          disabled={saving}
-          onClick={onDecline}
-          className="min-h-11 rounded-xl px-3 text-[12px] font-semibold disabled:opacity-50"
-          style={{ background: "var(--subtle)", color: "var(--ink-soft)" }}
-        >
-          Agora não
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function WhatsAppHandoffCard({
   handoff,
   onClick,
@@ -697,8 +631,6 @@ export function Chat() {
   const [conversationError, setConversationError] = useState<string | null>(null);
   const [leadContact, setLeadContact] = useState<LeadContact | null>(null);
   const [whatsappHandoff, setWhatsappHandoff] = useState<WhatsAppHandoff | null>(null);
-  const [contactSaving, setContactSaving] = useState(false);
-  const [contactError, setContactError] = useState<string | null>(null);
   const [welcomeRetry, setWelcomeRetry] = useState(0);
   const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
   const [tracking, setTracking] = useState<OrderTracking | null>(null);
@@ -720,11 +652,6 @@ export function Chat() {
   // Product cards returned by the text-chat endpoint (the voice hook owns
   // shownProducts separately).
   const [chatProducts, setChatProducts] = useState<ProductCard[] | null>(null);
-  type NextAction = {
-    type: "none" | "catalog" | "checkout" | "contact" | "whatsapp" | "owner_handoff" | "quote_request" | "appointment_request" | "visit_request" | "order_tracking";
-    label?: string;
-    reason: string;
-  };
   const [nextAction, setNextAction] = useState<NextAction | null>(null);
 
   const chatMsgsRef = useRef<ChatMessage[]>([]);
@@ -870,21 +797,6 @@ export function Chat() {
     }
   }, [businessSlug]);
 
-  const saveContact = useCallback(async (input: { action: "consent"; phone: string } | { action: "decline" }) => {
-    if (!businessSlug || !leadId) return;
-    setContactSaving(true);
-    setContactError(null);
-    try {
-      const result = await visitorApi(businessSlug).captureLeadContact(leadId, input);
-      setLeadContact(result.contact);
-      setWhatsappHandoff(result.whatsappHandoff);
-    } catch (err) {
-      setContactError(err instanceof Error ? err.message : "Não foi possível guardar o contacto");
-    } finally {
-      setContactSaving(false);
-    }
-  }, [businessSlug, leadId]);
-
   const refreshTracking = useCallback(async () => {
     if (!businessSlug || !leadId || !trackingOrderId) return;
     setTrackingLoading(true);
@@ -966,6 +878,26 @@ export function Chat() {
     return { role: role === "user" ? "user" : "bot", text, ts };
   }, []);
 
+  const applyContactResult = useCallback((sentText: string, result: LeadChatResult) => {
+    if (result.contact) setLeadContact(result.contact);
+    setWhatsappHandoff(result.whatsappHandoff ?? null);
+    if (!result.contactCaptured) return;
+    const safeText = "Partilhei o meu WhatsApp.";
+    setMessages((current) => {
+      const next = [...current];
+      for (let index = next.length - 1; index >= 0; index -= 1) {
+        if (next[index]?.role === "user" && next[index]?.text === sentText) {
+          next[index] = { ...next[index]!, text: safeText };
+          break;
+        }
+      }
+      return next;
+    });
+    chatMsgsRef.current = chatMsgsRef.current.map((message) =>
+      message.role === "user" && message.text === sentText ? { ...message, text: safeText } : message
+    );
+  }, []);
+
   // ── First message ────────────────────────────────────────────────────────
   const handleFirstSend = useCallback(
     async (text: string) => {
@@ -1012,11 +944,13 @@ export function Chat() {
       // Every first text turn uses the same contextual sales runtime as later
       // turns. Voice remains available, but never replaces the requested answer.
       try {
-        const { reply, products, nextAction: action } = await visitorApi(businessSlug ?? "")
-          .sendLeadChat<{ reply: string; products?: ProductCard[]; nextAction?: NextAction }>(newLeadId!, text);
+        const result = await visitorApi(businessSlug ?? "")
+          .sendLeadChat<LeadChatResult>(newLeadId!, text);
+        const { reply, products, nextAction: action } = result;
         addMessage("bot", reply);
         setChatProducts(products?.length ? products : null);
         setNextAction(action ?? null);
+        applyContactResult(text, result);
       } catch {
         addMessage("bot", "Desculpa, não consegui responder neste momento. Tenta de novo.");
       }
@@ -1025,7 +959,7 @@ export function Chat() {
       setIsBusy(false);
       return newLeadId;
     },
-    [addMessage, businessSlug, isB2BMode, user],
+    [addMessage, applyContactResult, businessSlug, isB2BMode, user],
   );
 
   // ── Subsequent chat messages ─────────────────────────────────────────────
@@ -1034,11 +968,13 @@ export function Chat() {
       setIsBusy(true);
       setStage("typing");
       try {
-        const { reply, products, nextAction: action } = await visitorApi(businessSlug ?? "")
-          .sendLeadChat<{ reply: string; products?: ProductCard[]; nextAction?: NextAction }>(currentLeadId, text);
+        const result = await visitorApi(businessSlug ?? "")
+          .sendLeadChat<LeadChatResult>(currentLeadId, text);
+        const { reply, products, nextAction: action } = result;
         addMessage("bot", reply);
         setChatProducts(products?.length ? products : null);
         setNextAction(action ?? null);
+        applyContactResult(text, result);
       } catch {
         addMessage("bot", "Desculpa, não consegui responder neste momento. Tenta de novo.");
       } finally {
@@ -1046,7 +982,7 @@ export function Chat() {
         setIsBusy(false);
       }
     },
-    [addMessage],
+    [addMessage, applyContactResult, businessSlug],
   );
 
   // ── Main send handler ────────────────────────────────────────────────────
@@ -1357,19 +1293,6 @@ export function Chat() {
               {messages.map((m) => (
                 <ChatBubble key={m.id} role={m.role} text={m.text} />
               ))}
-              {leadId && leadContact && (
-                leadContact.status !== "pending"
-                || ["contact", "quote_request", "appointment_request", "visit_request", "owner_handoff"].includes(nextAction?.type ?? "")
-              ) && (
-                <ContactCaptureCard
-                  key={`${leadContact.status}:${leadContact.phone ?? ""}`}
-                  contact={leadContact}
-                  saving={contactSaving}
-                  error={contactError}
-                  onConsent={(phone) => void saveContact({ action: "consent", phone })}
-                  onDecline={() => void saveContact({ action: "decline" })}
-                />
-              )}
               {leadId && leadContact?.status === "consented" && whatsappHandoff && (
                 <WhatsAppHandoffCard
                   handoff={whatsappHandoff}

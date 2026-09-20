@@ -84,6 +84,8 @@ test("consented lead contact stays separate from payment phones and WhatsApp URL
   assert.match(routes, /router\.post\("\/leads\/:id\/contact"/);
   assert.match(routes, /router\.post\("\/leads\/:id\/whatsapp-click"/);
   assert.match(visitor, /Authorization: `Visitor \$\{access\.visitorToken\}`/);
-  assert.match(chat, /Partilhar número/);
-  assert.match(chat, /Agora não/);
+  assert.doesNotMatch(chat, /function ContactCaptureCard/);
+  assert.match(chat, /applyContactResult/);
+  assert.match(service, /contactRequested: botRequestsWhatsApp/);
+  assert.match(service, /const refusedContact = requestedContact && isContactRefusal/);
 });

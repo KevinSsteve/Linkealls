@@ -33,6 +33,16 @@ import { commercialMemoryPrompt, chooseNextAction, retryCommercialMemoryCas, upd
 import { ensureAutomaticStrategyVersion, deriveAutomaticStrategy, resolveSalesStrategy } from "./salesStrategy.js";
 import { applySalesStrategyOverride, orderOfferingsForStrategy } from "../lib/salesStrategyRuntime.js";
 import { sanitizeGroundedText } from "../lib/salesGrounding.js";
+import {
+  extractAngolanMobilePhone,
+  isContactRefusal,
+  normalizeAngolanMobilePhone,
+  redactAngolanPhoneCandidates,
+} from "../lib/visitorContact.js";
+export {
+  normalizeAngolanMobilePhone,
+  redactAngolanPhoneCandidates,
+} from "../lib/visitorContact.js";
 
 const EXTRACTION_MODEL = "gemini-3-flash-preview";
 const SCORE_QUALIFY_THRESHOLD = 60;
@@ -50,17 +60,15 @@ export interface WhatsAppHandoff {
   url: string;
 }
 
-export function normalizeAngolanMobilePhone(value: string): string | null {
-  const digits = value.trim().replace(/\D/g, "").replace(/^00/, "");
-  const local = digits.startsWith("244") ? digits.slice(3) : digits;
-  return /^9[1-5]\d{7}$/.test(local) ? `+244${local}` : null;
+function contactWasRequested(lead: Lead): boolean {
+  if (lead.contactConsentStatus !== "pending") return false;
+  const lastBot = [...lead.chatMessages].reverse().find((message) => message.role === "bot");
+  return lastBot?.contactRequested === true;
 }
 
-export function redactAngolanPhoneCandidates(value: string): string {
-  return value.replace(
-    /(?:\+?244|00244)?[\s().-]*9[1-5](?:[\s().-]*\d){7}\b/g,
-    "[telefone omitido — requer autorização]",
-  );
+function botRequestsWhatsApp(text: string): boolean {
+  return /\b(?:partilh|compartilh|indic|envi|deix)\w*\b[^.!?]{0,100}\b(?:whatsapp|número|numero|contacto)\b/i.test(text)
+    || /\bqual\s+(?:é\s+)?o\s+(?:teu|seu)\s+whatsapp\b/i.test(text);
 }
 
 export function leadContactView(lead: Pick<Lead, "contactConsentStatus" | "contactPhone" | "contactPurpose" | "contactCapturedAt">): LeadContactView {
@@ -80,30 +88,28 @@ export function ownerLeadView(lead: Lead): Lead {
   );
   const hasSafeExtras = Object.keys(safeExtras).length > 0;
   const consented = lead.contactConsentStatus === "consented";
-  const redactUnlessConsented = (value: string | null | undefined) =>
-    !value || consented ? value : redactAngolanPhoneCandidates(value);
+  const redactPrivateText = (value: string | null | undefined) =>
+    !value ? value : redactAngolanPhoneCandidates(value);
   return {
     ...lead,
     contactPhone: consented ? lead.contactPhone : null,
     qualificationData: {
       ...qualificationData,
-      name: redactUnlessConsented(qualificationData.name) ?? undefined,
+      name: redactPrivateText(qualificationData.name) ?? undefined,
       email: qualificationData.email,
-      interest: redactUnlessConsented(qualificationData.interest) ?? undefined,
-      budget: redactUnlessConsented(qualificationData.budget) ?? undefined,
-      timeline: redactUnlessConsented(qualificationData.timeline) ?? undefined,
-      location: redactUnlessConsented(qualificationData.location) ?? undefined,
+      interest: redactPrivateText(qualificationData.interest) ?? undefined,
+      budget: redactPrivateText(qualificationData.budget) ?? undefined,
+      timeline: redactPrivateText(qualificationData.timeline) ?? undefined,
+      location: redactPrivateText(qualificationData.location) ?? undefined,
       ...(hasSafeExtras ? { extras: safeExtras } : {}),
     },
     whatsappMessage: consented ? lead.whatsappMessage : null,
-    aiSummary: redactUnlessConsented(lead.aiSummary) ?? null,
-    callTranscript: redactUnlessConsented(lead.callTranscript) ?? null,
-    chatMessages: consented
-      ? lead.chatMessages
-      : lead.chatMessages.map((message) => ({
-        ...message,
-        text: redactAngolanPhoneCandidates(message.text),
-      })),
+    aiSummary: redactPrivateText(lead.aiSummary) ?? null,
+    callTranscript: redactPrivateText(lead.callTranscript) ?? null,
+    chatMessages: lead.chatMessages.map((message) => ({
+      ...message,
+      text: redactAngolanPhoneCandidates(message.text),
+    })),
   };
 }
 
@@ -128,7 +134,9 @@ export async function captureLeadContact(
   id: string,
   businessId: number,
   input: { action: "consent"; phone: string } | { action: "decline" },
-): Promise<Lead | null> {
+): Promise<{ lead: Lead | null; changed: boolean }> {
+  const current = await getLead(id, businessId);
+  if (!current || !contactWasRequested(current)) return { lead: current, changed: false };
   const now = new Date();
   const values = input.action === "decline"
     ? {
@@ -151,9 +159,14 @@ export async function captureLeadContact(
     };
   const rows = await db.update(leadsTable)
     .set(values)
-    .where(and(eq(leadsTable.id, id), eq(leadsTable.businessId, businessId)))
+    .where(and(
+      eq(leadsTable.id, id),
+      eq(leadsTable.businessId, businessId),
+      eq(leadsTable.contactConsentStatus, "pending"),
+    ))
     .returning();
-  return rows[0] ?? null;
+  if (rows[0]) return { lead: rows[0], changed: true };
+  return { lead: await getLead(id, businessId), changed: false };
 }
 
 export async function recordLeadWhatsAppClick(id: string, businessId: number): Promise<boolean> {
@@ -444,7 +457,7 @@ export async function processCallCompletion(
   }
 
   // Scoped fetch — a lead belonging to another business is treated as not found.
-  const lead = await getLead(leadId, businessId);
+  let lead = await getLead(leadId, businessId);
   if (!lead) {
     logger.warn({ leadId, businessId }, "Lead not found for post-call extraction (or belongs to another business)");
     return;
@@ -588,16 +601,22 @@ export async function chatWithLead(
   reply: string;
   products: Array<{ name: string; price: string; description: string; imageUrl?: string }>;
   nextAction: SalesNextAction;
+  contactCaptured: boolean;
 }> {
   const startedAt = Date.now();
-  const lead = await getLead(leadId, businessId);
+  let lead = await getLead(leadId, businessId);
   if (!lead) throw new Error("Lead não encontrado");
   if (options?.requestId) {
     const replayTurn = [...lead.chatMessages].reverse().find((message) =>
       message.role === "bot" && message.requestId === options.requestId && message.replay,
     );
     if (replayTurn?.replay) {
-      return { reply: replayTurn.text, products: replayTurn.replay.products, nextAction: replayTurn.replay.nextAction as SalesNextAction };
+      return {
+        reply: replayTurn.text,
+        products: replayTurn.replay.products,
+        nextAction: replayTurn.replay.nextAction as SalesNextAction,
+        contactCaptured: replayTurn.replay.contactCaptured ?? false,
+      };
     }
     const completed = (await db.select({ response: leadChatRequestsTable.response })
       .from(leadChatRequestsTable)
@@ -607,12 +626,64 @@ export async function chatWithLead(
         eq(leadChatRequestsTable.leadId, leadId),
         eq(leadChatRequestsTable.status, "complete"),
       )).limit(1))[0]?.response;
-    if (completed) return { ...completed, nextAction: completed.nextAction as SalesNextAction };
+    if (completed) return {
+      ...completed,
+      nextAction: completed.nextAction as SalesNextAction,
+      contactCaptured: completed.contactCaptured ?? false,
+    };
   }
   if (lead.commercialMemory.humanControl === "owner") {
     throw new Error("O dono está a atender esta conversa");
   }
-  const brain = await loadBusinessBrain(businessId, { leadId, query: userMessage });
+  const requestedContact = contactWasRequested(lead);
+  const refusedContact = requestedContact && isContactRefusal(userMessage);
+  const extractedPhone = requestedContact && !refusedContact ? extractAngolanMobilePhone(userMessage) : null;
+  const contactCaptured = Boolean(extractedPhone);
+  const contactDeclined = refusedContact;
+  if (options?.requestId) {
+    await db.delete(leadChatRequestsTable).where(and(
+      eq(leadChatRequestsTable.businessId, businessId),
+      eq(leadChatRequestsTable.leadId, leadId),
+      eq(leadChatRequestsTable.memoryRevision, lead.commercialMemory.revision),
+      eq(leadChatRequestsTable.status, "processing"),
+      lt(leadChatRequestsTable.updatedAt, new Date(Date.now() - 2 * 60_000)),
+    ));
+    const claimed = await db.insert(leadChatRequestsTable).values({
+      id: options.requestId,
+      businessId,
+      leadId,
+      memoryRevision: lead.commercialMemory.revision,
+    }).onConflictDoNothing().returning({ id: leadChatRequestsTable.id });
+    if (!claimed[0]) throw new Error("Esta mensagem já está a ser processada");
+  }
+  const contactNow = new Date();
+  const contactMutation = extractedPhone
+    ? {
+      contactPhone: extractedPhone,
+      contactPurpose: LEAD_CONTACT_PURPOSE,
+      contactConsentStatus: "consented" as const,
+      contactConsentedAt: contactNow,
+      contactCapturedAt: contactNow,
+      qualificationData: sql`(${leadsTable.qualificationData} - 'phone') || jsonb_build_object('extras', COALESCE(${leadsTable.qualificationData}->'extras', '{}'::jsonb) - 'paymentPhone')`,
+    }
+    : refusedContact
+      ? {
+        contactPhone: null,
+        contactPurpose: LEAD_CONTACT_PURPOSE,
+        contactConsentStatus: "declined" as const,
+        contactConsentedAt: null,
+        contactCapturedAt: contactNow,
+        qualificationData: sql`(${leadsTable.qualificationData} - 'phone') || jsonb_build_object('extras', COALESCE(${leadsTable.qualificationData}->'extras', '{}'::jsonb) - 'paymentPhone')`,
+      }
+      : {};
+  if (extractedPhone) lead = { ...lead, contactPhone: extractedPhone, contactPurpose: LEAD_CONTACT_PURPOSE, contactConsentStatus: "consented", contactConsentedAt: contactNow, contactCapturedAt: contactNow };
+  if (refusedContact) lead = { ...lead, contactPhone: null, contactPurpose: LEAD_CONTACT_PURPOSE, contactConsentStatus: "declined", contactConsentedAt: null, contactCapturedAt: contactNow };
+  const safeUserMessage = contactCaptured
+    ? "[O visitante partilhou o WhatsApp com consentimento. O número foi guardado pela aplicação e não é enviado ao modelo.]"
+    : contactDeclined
+      ? "[O visitante recusou partilhar o WhatsApp, mas quer continuar esta conversa por texto.]"
+      : redactAngolanPhoneCandidates(userMessage);
+  const brain = await loadBusinessBrain(businessId, { leadId, query: safeUserMessage });
   const profile = brain.profile;
 
   const relatedOrders = await db
@@ -629,9 +700,6 @@ export async function chatWithLead(
     .where(and(eq(ordersTable.leadId, leadId), eq(ordersTable.businessId, businessId)))
     .orderBy(desc(ordersTable.createdAt))
     .limit(5);
-  const safeUserMessage = lead.contactConsentStatus === "consented"
-    ? userMessage
-    : redactAngolanPhoneCandidates(userMessage);
   const safeLead = ownerLeadView(lead);
   const updatedMemory = updateCommercialMemory(
     lead.commercialMemory,
@@ -697,22 +765,6 @@ export async function chatWithLead(
     },
   );
 
-  if (options?.requestId) {
-    await db.delete(leadChatRequestsTable).where(and(
-      eq(leadChatRequestsTable.businessId, businessId),
-      eq(leadChatRequestsTable.leadId, leadId),
-      eq(leadChatRequestsTable.memoryRevision, lead.commercialMemory.revision),
-      eq(leadChatRequestsTable.status, "processing"),
-      lt(leadChatRequestsTable.updatedAt, new Date(Date.now() - 2 * 60_000)),
-    ));
-    const claimed = await db.insert(leadChatRequestsTable).values({
-      id: options.requestId,
-      businessId,
-      leadId,
-      memoryRevision: lead.commercialMemory.revision,
-    }).onConflictDoNothing().returning({ id: leadChatRequestsTable.id });
-    if (!claimed[0]) throw new Error("Esta mensagem já está a ser processada");
-  }
   const generation = await generateSalesDecision(
     systemInstruction,
     `${prompt}
@@ -721,8 +773,12 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
   );
   if (!generation) {
     const fallbackProducts = selectLeadChatProducts(profile.offerings ?? [], safeUserMessage);
-    const fallbackReply = updatedMemory.pendingAction === "owner_handoff" || updatedMemory.escalationReason
-      ? "Não tenho essa informação confirmada. Posso pedir à nossa equipa para responder; se concordares, partilha o teu WhatsApp no campo seguro abaixo."
+    const fallbackReply = extractedPhone
+      ? "Obrigado. Guardámos o teu WhatsApp com autorização e já podes continuar com a equipa pelo encaminhamento abaixo."
+      : contactDeclined
+        ? "Tudo bem. Continuamos por aqui sem guardar o teu WhatsApp. Em que mais posso ajudar?"
+        : updatedMemory.pendingAction === "owner_handoff" || updatedMemory.escalationReason
+      ? "Não tenho essa informação confirmada. Posso pedir à nossa equipa para responder. Compartilhe connosco o seu WhatsApp ou diga “Agora não” para continuar por aqui."
       : fallbackProducts.length
       ? `Temos ${fallbackProducts.slice(0, 2).map((item) => `${item.name} (${item.price})`).join(" e ")}. O que é mais importante para ti nesta escolha?`
       : "Quero ajudar-te a encontrar a opção certa. O que procuras exactamente?";
@@ -735,7 +791,7 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
       hasCatalog: Boolean(profile.catalogEnabled && profile.offerings?.length),
       hasWhatsApp: Boolean(profile.phone),
     });
-    const fallbackResponse = { reply: fallbackReply, products: fallbackProducts, nextAction: fallbackNextAction };
+    const fallbackResponse = { reply: fallbackReply, products: fallbackProducts, nextAction: fallbackNextAction, contactCaptured };
     const fallbackTs = new Date().toISOString();
     const fallbackAppended: ChatMessage[] = [
       { role: "user", text: safeUserMessage, ts: fallbackTs, requestId: options?.requestId },
@@ -744,13 +800,15 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
         text: fallbackReply,
         ts: new Date(Date.now() + 1).toISOString(),
         strategyVersionId: resolvedStrategy.strategy?.id,
+        contactRequested: botRequestsWhatsApp(fallbackReply),
         requestId: options?.requestId,
-        replay: { products: fallbackProducts, nextAction: fallbackNextAction },
+        replay: { products: fallbackProducts, nextAction: fallbackNextAction, contactCaptured },
       },
     ];
     const fallbackLeadWhere = and(
       eq(leadsTable.id, leadId),
       eq(leadsTable.businessId, businessId),
+      ...(extractedPhone || refusedContact ? [eq(leadsTable.contactConsentStatus, "pending")] : []),
     );
     const fallbackGuardedWhere = options?.trafficWelcomeClaimToken
       ? and(
@@ -766,6 +824,7 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
     const fallbackRows = await db.update(leadsTable).set({
       chatMessages: sql`${leadsTable.chatMessages} || ${JSON.stringify(fallbackAppended)}::jsonb`,
       commercialMemory: updatedMemory,
+      ...contactMutation,
       ...(options?.trafficWelcomeClaimToken
         ? {
           trafficWelcomeStatus: "complete" as const,
@@ -809,7 +868,10 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
   const decision = generation.decision;
 
   const groundingFacts = {
-    approvedPrices: (profile.offerings ?? []).map((offering) => offering.price),
+    approvedPrices: [
+      ...(profile.offerings ?? []).map((offering) => offering.price),
+      ...(lead.origin.trafficCreative?.preparation?.approvedPrices ?? []),
+    ],
     approvedPhones: lead.contactConsentStatus === "consented" && profile.phone ? [profile.phone] : [],
     approvedAvailability: relatedOrders.map((order) => `${order.status} ${order.fulfillmentStatus}`),
   };
@@ -886,12 +948,17 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
       text: reply,
       ts: new Date(Date.now() + 1).toISOString(),
       strategyVersionId: resolvedStrategy.strategy?.id,
+      contactRequested: botRequestsWhatsApp(reply),
       requestId: options?.requestId,
-      replay: { products, nextAction },
+      replay: { products, nextAction, contactCaptured },
     },
   ];
   const leadWhere = businessId !== undefined
-    ? and(eq(leadsTable.id, leadId), eq(leadsTable.businessId, businessId))
+    ? and(
+      eq(leadsTable.id, leadId),
+      eq(leadsTable.businessId, businessId),
+      ...(extractedPhone || refusedContact ? [eq(leadsTable.contactConsentStatus, "pending")] : []),
+    )
     : eq(leadsTable.id, leadId);
   const guardedWhere = options?.trafficWelcomeClaimToken
     ? and(
@@ -909,6 +976,7 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
     .set({
       chatMessages: sql`${leadsTable.chatMessages} || ${JSON.stringify(appended)}::jsonb`,
       commercialMemory: updatedMemory,
+      ...contactMutation,
       ...(options?.trafficWelcomeClaimToken
         ? {
           trafficWelcomeStatus: "complete" as const,
@@ -933,7 +1001,7 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
   if (options?.requestId) {
     await db.update(leadChatRequestsTable).set({
       status: "complete",
-      response: { reply, products, nextAction },
+      response: { reply, products, nextAction, contactCaptured },
       updatedAt: new Date(),
     }).where(and(
       eq(leadChatRequestsTable.id, options.requestId),
@@ -982,7 +1050,7 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
     costMicros: Math.min(10_000_000, generation.usage.totalTokens * 2),
   }).catch((err) => logger.warn({ err, businessId }, "Failed to record chat evaluation"));
 
-  return { reply, products, nextAction };
+  return { reply, products, nextAction, contactCaptured };
 }
 
 export async function correctCommercialMemory(

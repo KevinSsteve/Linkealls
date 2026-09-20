@@ -50,6 +50,7 @@ import {
   captureLeadContact,
   recordLeadWhatsAppClick,
   normalizeAngolanMobilePhone,
+  redactAngolanPhoneCandidates,
   leadContactView,
   buildWhatsAppHandoff,
   ownerLeadView,
@@ -700,17 +701,23 @@ export function createBusinessScopedRouter(): Router {
         return;
       }
       const recovery = createVisitorRecoveryFamily();
+      const safeChatMessages = (parsed.data.chatMessages ?? [])
+        .filter((message) => message.role === "user")
+        .map((message) => ({
+          ...message,
+          text: redactAngolanPhoneCandidates(message.text),
+        }));
       const lead = origin.trafficCreative
         ? await createOrReuseTrafficLead(
           origin,
-          parsed.data.chatMessages ?? [],
+          safeChatMessages,
           bid(res),
           parsed.data.trafficClickKey!,
           recovery,
         )
         : await createLead(
           origin,
-          parsed.data.chatMessages ?? [],
+          safeChatMessages,
           bid(res),
           {
             visitorRecoveryFamilyId: recovery.familyId,
@@ -785,7 +792,10 @@ export function createBusinessScopedRouter(): Router {
       }
       res.json({
         leadId: lead.id,
-        chatMessages: lead.chatMessages,
+        chatMessages: lead.chatMessages.map((message) => ({
+          ...message,
+          text: redactAngolanPhoneCandidates(message.text),
+        })),
         trafficCreative: lead.origin.trafficCreative ?? null,
         trafficWelcomeStatus: lead.trafficWelcomeStatus,
         contact: leadContactView(lead),
@@ -874,17 +884,22 @@ export function createBusinessScopedRouter(): Router {
         res.status(400).json({ error: "Usa um número móvel angolano válido, por exemplo 923 456 789" });
         return;
       }
-      const lead = await captureLeadContact(
+      const captured = await captureLeadContact(
         id,
         bid(res),
         parsed.data.action === "consent"
           ? { action: "consent", phone: normalized! }
           : { action: "decline" },
       );
-      if (!lead) {
+      if (!captured.lead) {
         res.status(404).json({ error: "Conversa não encontrada" });
         return;
       }
+      if (!captured.changed) {
+        res.status(409).json({ error: "O contacto só pode ser guardado depois de o assistente o pedir nesta conversa" });
+        return;
+      }
+      const lead = captured.lead;
       try {
         await db.insert(salesOutcomeEventsTable).values({
           businessId: bid(res),
@@ -1049,10 +1064,18 @@ export function createBusinessScopedRouter(): Router {
         businessId: bid(res),
         leadId: id,
       });
-      const { reply, products, nextAction } = await chatWithLead(id, parsed.data.message, bid(res), {
+      const { reply, products, nextAction, contactCaptured } = await chatWithLead(id, parsed.data.message, bid(res), {
         requestId: parsed.data.requestId,
       });
-      res.json({ reply, products, nextAction });
+      const current = await getLead(id, bid(res));
+      res.json({
+        reply,
+        products,
+        nextAction,
+        contactCaptured,
+        contact: current ? leadContactView(current) : null,
+        whatsappHandoff: current ? visitorWhatsAppHandoff(res, current) : null,
+      });
     } catch (err) {
       if (err instanceof VisitorCapabilityError) {
         res.status(401).json({ error: "Acesso à conversa inválido ou expirado" });

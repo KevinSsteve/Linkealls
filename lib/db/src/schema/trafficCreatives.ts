@@ -1,7 +1,22 @@
-import { pgTable, text, timestamp, integer, uuid, bigint, index } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, integer, uuid, bigint, index, jsonb } from "drizzle-orm/pg-core";
 import { z } from "zod/v4";
 
 export type TrafficCreativeMediaType = "image" | "video";
+export interface TrafficCreativePreparation {
+  version: number;
+  sourceHash: string;
+  summary: string;
+  objective: "purchase" | "quote" | "visit_request" | "contact";
+  approvedFacts: string[];
+  approvedPrices: string[];
+  likelyQuestions: string[];
+  responseGuidance: string[];
+  missingResources: Array<{
+    kind: "image" | "video" | "document" | "text";
+    purpose: string;
+    request: string;
+  }>;
+}
 
 export const trafficCreativesTable = pgTable("traffic_creatives", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -13,6 +28,10 @@ export const trafficCreativesTable = pgTable("traffic_creatives", {
   publicSlug: text("public_slug").notNull().unique(),
   active: integer("active").notNull().default(1),
   visitCount: integer("visit_count").notNull().default(0),
+  preparation: jsonb("preparation").$type<TrafficCreativePreparation>(),
+  preparationVersion: integer("preparation_version").notNull().default(0),
+  preparationSourceHash: text("preparation_source_hash"),
+  preparedAt: timestamp("prepared_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 });

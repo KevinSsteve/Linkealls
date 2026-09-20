@@ -39,6 +39,7 @@ export interface LeadOrigin {
     mediaType: "image" | "video";
     mediaMimeType?: string;
     mediaUrl?: string;
+    preparation?: import("./trafficCreatives").TrafficCreativePreparation;
   };
   /** Trusted legacy campaign attribution, resolved server-side from the tenant's UTM slug. */
   trustedCampaign?: {
@@ -56,12 +57,15 @@ export interface ChatMessage {
   ts: string; // ISO timestamp
   /** Runtime strategy provenance for assistant turns. */
   strategyVersionId?: string;
+  /** Server-authored proof that this bot turn explicitly requested WhatsApp consent. */
+  contactRequested?: boolean;
   /** Visitor-generated idempotency key shared by the user turn and its bot reply. */
   requestId?: string;
   /** Stored with the bot turn so an idempotent replay returns the original safe result. */
   replay?: {
     products: Array<{ name: string; price: string; description: string; imageUrl?: string }>;
     nextAction: { type: string; label?: string; reason: string };
+    contactCaptured?: boolean;
   };
 }
 

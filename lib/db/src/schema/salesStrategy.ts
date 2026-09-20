@@ -111,6 +111,7 @@ export const leadChatRequestsTable = pgTable("lead_chat_requests", {
     reply: string;
     products: Array<{ name: string; price: string; description: string; imageUrl?: string }>;
     nextAction: { type: string; label?: string; reason: string };
+    contactCaptured?: boolean;
   }>(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

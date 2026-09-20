@@ -144,6 +144,12 @@ function requireAccess(businessSlug: string, leadId: string, orderId?: string): 
   return access;
 }
 
+class VisitorRequestError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+  }
+}
+
 async function visitorRequest<T>(
   businessSlug: string,
   path: string,
@@ -160,7 +166,7 @@ async function visitorRequest<T>(
     },
   });
   const body = (await res.json().catch(() => null)) as (T & { error?: string }) | null;
-  if (!res.ok) throw new Error(body?.error ?? `Erro do servidor (${res.status})`);
+  if (!res.ok) throw new VisitorRequestError(body?.error ?? `Erro do servidor (${res.status})`, res.status);
   if (!body) throw new Error("Resposta inválida do servidor");
   return body;
 }
@@ -228,11 +234,23 @@ export function visitorApi(businessSlug: string) {
         { method: "POST", body: "{}" },
         requireAccess(businessSlug, leadId),
       ),
-    sendLeadChat: async <T extends { reply: string; products?: unknown[] }>(leadId: string, message: string, requestId = crypto.randomUUID()): Promise<T> =>
-      visitorRequest(businessSlug, `/leads/${encodeURIComponent(leadId)}/chat`, {
-        method: "POST",
-        body: JSON.stringify({ message, requestId }),
-      }, requireAccess(businessSlug, leadId)),
+    sendLeadChat: async <T extends { reply: string; products?: unknown[] }>(leadId: string, message: string, requestId = crypto.randomUUID()): Promise<T> => {
+      const access = requireAccess(businessSlug, leadId);
+      for (let attempt = 0; ; attempt += 1) {
+        try {
+          return await visitorRequest(businessSlug, `/leads/${encodeURIComponent(leadId)}/chat`, {
+            method: "POST",
+            body: JSON.stringify({ message, requestId }),
+          }, access);
+        } catch (error) {
+          const retryable = !(error instanceof VisitorRequestError)
+            || error.status >= 500
+            || (error.status === 409 && /processada|processamento/i.test(error.message));
+          if (!retryable || attempt >= 4) throw error;
+          await new Promise((resolve) => setTimeout(resolve, 500 * (attempt + 1)));
+        }
+      }
+    },
     captureLeadContact: async (
       leadId: string,
       input: { action: "consent"; phone: string } | { action: "decline" },
