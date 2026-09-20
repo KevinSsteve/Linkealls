@@ -133,7 +133,6 @@ export async function createProductOrder(
         origin: { source: "checkout-direct" },
         qualificationData: {
           ...(input.buyerName ? { name: input.buyerName } : {}),
-          phone: input.phone,
         },
         chatMessages: [],
       })
@@ -684,11 +683,9 @@ export async function settleGpoPayment(
                 qualificationData: {
                   ...(lead.qualificationData ?? {}),
                   ...(order.buyerName ? { name: order.buyerName } : {}),
-                  phone: order.buyerPhone,
                   extras: {
                     ...(lead.qualificationData?.extras ?? {}),
                     orderId: order.id,
-                    paymentPhone: order.buyerPhone,
                     paymentConfirmed: "sim",
                   },
                 },

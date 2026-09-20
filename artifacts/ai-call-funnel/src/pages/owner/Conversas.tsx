@@ -372,7 +372,7 @@ function ConversationDetail({ lead: initialLead, onBack, onStateChange, api }: {
     } finally { setUpdating(false); }
   }
 
-  const waPhone = lead.qualificationData.phone
+  const waPhone = (lead.contactConsentStatus === "consented" ? lead.contactPhone : null)
     ?.replace(/\D/g, "").replace(/^00/, "").replace(/^0/, "244");
   const waUrl = waPhone
     ? `https://wa.me/${waPhone}${lead.whatsappMessage ? `?text=${encodeURIComponent(lead.whatsappMessage)}` : ""}`
@@ -407,7 +407,7 @@ function ConversationDetail({ lead: initialLead, onBack, onStateChange, api }: {
         <div className="flex-1 min-w-0">
           <p className="font-semibold truncate text-white" style={{ fontSize: 15 }}>{name}</p>
           <p style={{ color: "rgba(255,255,255,0.7)", fontSize: 12 }}>
-            {lead.qualificationData.phone ?? lead.qualificationData.interest ?? formatTime(lead.createdAt)}
+            {lead.contactPhone ?? lead.qualificationData.interest ?? formatTime(lead.createdAt)}
           </p>
         </div>
         {lead.score !== null && (
@@ -485,13 +485,13 @@ function ConversationDetail({ lead: initialLead, onBack, onStateChange, api }: {
       {/* Footer */}
       <div className="shrink-0" style={{ background: D.surface, borderTop: `1px solid ${D.border}` }}>
         {/* Chips de info */}
-        {(lead.qualificationData.phone || lead.qualificationData.budget || lead.qualificationData.timeline || lead.qualificationData.location) && (
+        {(lead.contactPhone || lead.qualificationData.budget || lead.qualificationData.timeline || lead.qualificationData.location) && (
           <div
             className="flex flex-wrap gap-1.5"
             style={{ padding: "10px 16px", borderBottom: `1px solid ${D.borderSoft}` }}
           >
             {[
-              lead.qualificationData.phone    && { icon: Phone,    text: lead.qualificationData.phone },
+              lead.contactPhone               && { icon: Phone,    text: lead.contactPhone },
               lead.qualificationData.budget   && { icon: DollarSign, text: lead.qualificationData.budget },
               lead.qualificationData.timeline && { icon: Clock,    text: lead.qualificationData.timeline },
               lead.qualificationData.location && { icon: MapPin,   text: lead.qualificationData.location },
@@ -605,12 +605,19 @@ export function Conversas() {
   const [filter, setFilter] = useState<LeadState | "todos">("todos");
   const [newIds, setNewIds] = useState<Set<string>>(new Set());
   const [notification, setNotification] = useState<string | null>(null);
+  const [businessWhatsAppReady, setBusinessWhatsAppReady] = useState(true);
 
   const load = useCallback(async () => {
     if (!api) return;
     try {
-      const { leads: data } = await api.listLeads();
+      const [{ leads: data }, { profile }] = await Promise.all([
+        api.listLeads(),
+        api.getProfile(),
+      ]);
       setLeads([...data].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()));
+      const digits = (profile.phone ?? "").replace(/\D/g, "").replace(/^00/, "");
+      const local = digits.startsWith("244") ? digits.slice(3) : digits;
+      setBusinessWhatsAppReady(/^9[1-5]\d{7}$/.test(local));
     } finally { setLoading(false); }
   }, [api]);
 
@@ -635,7 +642,7 @@ export function Conversas() {
       const q = search.toLowerCase();
       if (
         !(l.qualificationData.name ?? "").toLowerCase().includes(q) &&
-        !(l.qualificationData.phone ?? "").toLowerCase().includes(q) &&
+        !(l.contactPhone ?? "").toLowerCase().includes(q) &&
         !(l.qualificationData.interest ?? "").toLowerCase().includes(q)
       ) return false;
     }
@@ -700,6 +707,24 @@ export function Conversas() {
           />
         </div>
       </div>
+
+      {!businessWhatsAppReady && (
+        <div
+          className="shrink-0 flex items-start gap-2"
+          style={{
+            margin: "12px 16px 0",
+            background: "#FFFBEB",
+            border: "1px solid #FDE68A",
+            color: "#92400E",
+            borderRadius: 10,
+            padding: "10px 14px",
+            fontSize: 13,
+          }}
+        >
+          <MessageCircle size={16} className="mt-0.5 shrink-0" />
+          <span>Adiciona um número móvel angolano em Perfil para mostrar o botão de WhatsApp aos visitantes.</span>
+        </div>
+      )}
 
       {/* Toast */}
       {notification && (

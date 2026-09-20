@@ -44,6 +44,12 @@ import {
   getLeadsAnalytics,
   claimTrafficWelcome,
   finishTrafficWelcome,
+  captureLeadContact,
+  recordLeadWhatsAppClick,
+  normalizeAngolanMobilePhone,
+  leadContactView,
+  buildWhatsAppHandoff,
+  ownerLeadView,
 } from "../services/leads.js";
 import {
   listCampaigns,
@@ -150,6 +156,19 @@ function clearVisitorRecoveryCookie(res: Response, slug: string): void {
     secure: process.env["NODE_ENV"] === "production",
     path: "/",
   });
+}
+
+function visitorWhatsAppHandoff(res: Response, lead: import("@workspace/db").Lead) {
+  if (lead.contactConsentStatus !== "consented") return null;
+  const profile = res.locals["businessProfile"] as {
+    name?: string | null;
+    phone?: string | null;
+  };
+  return buildWhatsAppHandoff(
+    profile.phone,
+    profile.name ?? "",
+    lead.origin.trafficCreative?.description,
+  );
 }
 
 /**
@@ -547,6 +566,8 @@ export function createBusinessScopedRouter(): Router {
         chatMessages: lead.chatMessages,
         trafficCreative: lead.origin.trafficCreative ?? null,
         trafficWelcomeStatus: lead.trafficWelcomeStatus,
+        contact: leadContactView(lead),
+        whatsappHandoff: visitorWhatsAppHandoff(res, lead),
         createdAt: lead.createdAt,
         updatedAt: lead.updatedAt,
       });
@@ -587,7 +608,7 @@ export function createBusinessScopedRouter(): Router {
           id,
           "Quero saber mais sobre este anúncio",
           bid(res),
-          { trafficWelcomeClaimToken: claimToken },
+          { trafficWelcomeClaimToken: claimToken, requestContactConsent: true },
         );
         res.json({ started: true, status: "complete", ...result });
       } catch (err) {
@@ -604,10 +625,79 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
+  router.post("/leads/:id/contact", publicRateLimit, async (req, res) => {
+    const id = String(req.params["id"] ?? "");
+    const parsed = z.discriminatedUnion("action", [
+      z.object({ action: z.literal("consent"), phone: z.string().trim().min(7).max(40) }),
+      z.object({ action: z.literal("decline") }),
+    ]).safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: "Escolhe um número válido ou continua sem partilhar" });
+      return;
+    }
+    try {
+      verifyVisitorCapability(visitorTokenFromAuthorization(req.headers.authorization), {
+        businessId: bid(res),
+        leadId: id,
+      });
+      const normalized = parsed.data.action === "consent"
+        ? normalizeAngolanMobilePhone(parsed.data.phone)
+        : null;
+      if (parsed.data.action === "consent" && !normalized) {
+        res.status(400).json({ error: "Usa um número móvel angolano válido, por exemplo 923 456 789" });
+        return;
+      }
+      const lead = await captureLeadContact(
+        id,
+        bid(res),
+        parsed.data.action === "consent"
+          ? { action: "consent", phone: normalized! }
+          : { action: "decline" },
+      );
+      if (!lead) {
+        res.status(404).json({ error: "Conversa não encontrada" });
+        return;
+      }
+      res.json({
+        contact: leadContactView(lead),
+        whatsappHandoff: visitorWhatsAppHandoff(res, lead),
+      });
+    } catch (err) {
+      if (err instanceof VisitorCapabilityError) {
+        res.status(401).json({ error: "Acesso à conversa inválido ou expirado" });
+        return;
+      }
+      logger.error({ err, id }, "POST /leads/:id/contact failed");
+      res.status(500).json({ error: "Não foi possível guardar o contacto" });
+    }
+  });
+
+  router.post("/leads/:id/whatsapp-click", publicRateLimit, async (req, res) => {
+    const id = String(req.params["id"] ?? "");
+    try {
+      verifyVisitorCapability(visitorTokenFromAuthorization(req.headers.authorization), {
+        businessId: bid(res),
+        leadId: id,
+      });
+      if (!(await recordLeadWhatsAppClick(id, bid(res)))) {
+        res.status(409).json({ error: "O contacto ainda não foi autorizado" });
+        return;
+      }
+      res.status(204).end();
+    } catch (err) {
+      if (err instanceof VisitorCapabilityError) {
+        res.status(401).json({ error: "Acesso à conversa inválido ou expirado" });
+        return;
+      }
+      logger.error({ err, id }, "POST /leads/:id/whatsapp-click failed");
+      res.status(500).json({ error: "Não foi possível registar o clique" });
+    }
+  });
+
   router.get("/leads", requireOwner, async (_req, res) => {
     try {
       const leads = await listLeads(bid(res));
-      res.json({ leads });
+      res.json({ leads: leads.map(ownerLeadView) });
     } catch (err) {
       logger.error({ err }, "GET /leads failed");
       res.status(500).json({ error: "Erro ao carregar leads" });
@@ -658,7 +748,7 @@ export function createBusinessScopedRouter(): Router {
     try {
       const lead = await getLead(id, bid(res));
       if (!lead) { res.status(404).json({ error: "Lead não encontrado" }); return; }
-      res.json({ lead });
+      res.json({ lead: ownerLeadView(lead) });
     } catch (err) {
       logger.error({ err }, "GET /leads/:id failed");
       res.status(500).json({ error: "Erro ao carregar lead" });
@@ -694,7 +784,7 @@ export function createBusinessScopedRouter(): Router {
     if (!parsed.success) { res.status(400).json({ error: "Mensagem inválida" }); return; }
     try {
       const lead = await appendOwnerReply(id, parsed.data.message, bid(res));
-      res.json({ lead });
+      res.json({ lead: ownerLeadView(lead) });
     } catch (err) {
       logger.error({ err }, "POST /leads/:id/owner-reply failed");
       res.status(500).json({ error: "Erro ao guardar resposta" });
@@ -708,7 +798,7 @@ export function createBusinessScopedRouter(): Router {
     try {
       const lead = await updateLeadState(id, parsed.data.state, bid(res));
       if (!lead) { res.status(404).json({ error: "Lead não encontrado" }); return; }
-      res.json({ lead });
+      res.json({ lead: ownerLeadView(lead) });
     } catch (err) {
       logger.error({ err }, "PATCH /leads/:id/state failed");
       res.status(500).json({ error: "Erro ao atualizar estado" });

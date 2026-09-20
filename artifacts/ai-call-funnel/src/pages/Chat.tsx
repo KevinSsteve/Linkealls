@@ -12,9 +12,11 @@ import { businessApi, type ChatMessage, type OrderTracking } from "../lib/api";
 import { visitorApi } from "../lib/visitorAccess";
 import {
   loadCurrentVisitorAccess,
+  type LeadContact,
   type LeadSessionResponse,
   type TrafficSessionCreative,
   type VisitorAccess,
+  type WhatsAppHandoff,
 } from "../lib/visitorAccess";
 import { restoreTrafficConversation } from "../lib/trafficConversation";
 import { useBusinessSlug } from "../hooks/useBusinessSlug";
@@ -33,6 +35,8 @@ import {
   PackageCheck,
   RefreshCw,
   Trash2,
+  ShieldCheck,
+  MessageCircle,
 } from "lucide-react";
 import "../styles/customer-ux.css";
 
@@ -560,6 +564,115 @@ function TrafficCreativeCard({ creative }: { creative: TrafficSessionCreative })
   );
 }
 
+function ContactCaptureCard({
+  contact,
+  saving,
+  error,
+  onConsent,
+  onDecline,
+}: {
+  contact: LeadContact;
+  saving: boolean;
+  error: string | null;
+  onConsent: (phone: string) => void;
+  onDecline: () => void;
+}) {
+  const [editing, setEditing] = useState(contact.status === "pending");
+  const [phone, setPhone] = useState(contact.phone ?? "");
+  if (contact.status === "declined") return null;
+  if (contact.status === "consented" && !editing) {
+    return (
+      <div className="mx-1 my-3 rounded-2xl p-3" style={{ background: "#E8F7F1", border: "1px solid #B7E4D3" }}>
+        <div className="flex items-center gap-2">
+          <ShieldCheck size={17} style={{ color: "var(--green)" }} />
+          <div className="min-w-0 flex-1">
+            <p className="text-[12px] font-semibold" style={{ color: "var(--ink)" }}>Contacto autorizado</p>
+            <p className="text-[12px]" style={{ color: "var(--ink-soft)" }}>{contact.phone}</p>
+          </div>
+          <button type="button" onClick={() => setEditing(true)} className="text-[11px] font-semibold underline" style={{ color: "var(--green)" }}>
+            Corrigir
+          </button>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="mx-1 my-3 rounded-2xl p-4" style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "0 2px 8px rgba(23,19,31,.07)" }}>
+      <div className="flex items-start gap-2">
+        <ShieldCheck size={18} className="mt-0.5 shrink-0" style={{ color: "var(--green)" }} />
+        <div>
+          <p className="text-[13px] font-semibold" style={{ color: "var(--ink)" }}>Partilhar contacto</p>
+          <p className="mt-1 text-[12px] leading-relaxed" style={{ color: "var(--ink-soft)" }}>
+            O número será usado só por este negócio para continuar este pedido. Não será retirado do pagamento.
+          </p>
+        </div>
+      </div>
+      <label htmlFor="lead-contact-phone" className="sr-only">Número móvel angolano</label>
+      <input
+        id="lead-contact-phone"
+        type="tel"
+        inputMode="tel"
+        autoComplete="tel"
+        value={phone}
+        onChange={(event) => setPhone(event.target.value)}
+        placeholder="923 456 789"
+        disabled={saving}
+        className="mt-3 min-h-11 w-full rounded-xl border px-3 text-[14px] outline-none"
+        style={{ borderColor: error ? "var(--errorBorder)" : "var(--border)", color: "var(--ink)", background: "#fff" }}
+      />
+      {error && <p className="mt-1.5 text-[11px]" style={{ color: "var(--errorText)" }}>{error}</p>}
+      <div className="mt-3 flex gap-2">
+        <button
+          type="button"
+          disabled={saving || !phone.trim()}
+          onClick={() => onConsent(phone)}
+          className="min-h-11 flex-1 rounded-xl px-3 text-[12px] font-semibold text-white disabled:opacity-50"
+          style={{ background: "var(--green)" }}
+        >
+          {saving ? "A guardar…" : "Autorizar e continuar"}
+        </button>
+        <button
+          type="button"
+          disabled={saving}
+          onClick={onDecline}
+          className="min-h-11 rounded-xl px-3 text-[12px] font-semibold disabled:opacity-50"
+          style={{ background: "var(--subtle)", color: "var(--ink-soft)" }}
+        >
+          Agora não
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function WhatsAppHandoffCard({
+  handoff,
+  onClick,
+}: {
+  handoff: WhatsAppHandoff;
+  onClick: () => void;
+}) {
+  return (
+    <a
+      href={handoff.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={onClick}
+      className="mx-1 my-3 flex items-center gap-3 rounded-2xl p-4 no-underline"
+      style={{ background: "#E8F7F1", border: "1px solid #B7E4D3", color: "var(--ink)" }}
+    >
+      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full" style={{ background: "#25D366", color: "#fff" }}>
+        <MessageCircle size={22} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[13px] font-semibold">Continuar no WhatsApp</span>
+        <span className="block truncate text-[12px]" style={{ color: "var(--ink-soft)" }}>{handoff.phone}</span>
+      </span>
+      <span className="text-[12px] font-semibold" style={{ color: "var(--green)" }}>Abrir</span>
+    </a>
+  );
+}
+
 // ─── Main Chat component ───────────────────────────────────────────────────
 
 export function Chat() {
@@ -583,6 +696,10 @@ export function Chat() {
   const [trafficWelcomeStatus, setTrafficWelcomeStatus] =
     useState<LeadSessionResponse["trafficWelcomeStatus"]>(null);
   const [conversationError, setConversationError] = useState<string | null>(null);
+  const [leadContact, setLeadContact] = useState<LeadContact | null>(null);
+  const [whatsappHandoff, setWhatsappHandoff] = useState<WhatsAppHandoff | null>(null);
+  const [contactSaving, setContactSaving] = useState(false);
+  const [contactError, setContactError] = useState<string | null>(null);
   const [welcomeRetry, setWelcomeRetry] = useState(0);
   const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
   const [tracking, setTracking] = useState<OrderTracking | null>(null);
@@ -630,6 +747,8 @@ export function Chat() {
     setTrackingOrderId(access.orderId ?? null);
     setTrafficCreative(session.trafficCreative);
     setTrafficWelcomeStatus(session.trafficWelcomeStatus);
+    setLeadContact(session.contact ?? null);
+    setWhatsappHandoff(session.whatsappHandoff ?? null);
     setCallTriggered(restored.length > 0 || Boolean(session.trafficCreative));
   }, []);
 
@@ -730,6 +849,8 @@ export function Chat() {
       setLeadId(null);
       setTrafficCreative(null);
       setTrafficWelcomeStatus(null);
+      setLeadContact(null);
+      setWhatsappHandoff(null);
       setTrackingOrderId(null);
       setTracking(null);
       setCallTriggered(false);
@@ -741,6 +862,21 @@ export function Chat() {
       setIsBusy(false);
     }
   }, [businessSlug]);
+
+  const saveContact = useCallback(async (input: { action: "consent"; phone: string } | { action: "decline" }) => {
+    if (!businessSlug || !leadId) return;
+    setContactSaving(true);
+    setContactError(null);
+    try {
+      const result = await visitorApi(businessSlug).captureLeadContact(leadId, input);
+      setLeadContact(result.contact);
+      setWhatsappHandoff(result.whatsappHandoff);
+    } catch (err) {
+      setContactError(err instanceof Error ? err.message : "Não foi possível guardar o contacto");
+    } finally {
+      setContactSaving(false);
+    }
+  }, [businessSlug, leadId]);
 
   const refreshTracking = useCallback(async () => {
     if (!businessSlug || !leadId || !trackingOrderId) return;
@@ -846,6 +982,7 @@ export function Chat() {
         );
         newLeadId = id;
         setLeadId(id);
+        setLeadContact({ status: "pending", phone: null, purpose: null, capturedAt: null });
         recordVisit(businessSlug);
       } catch {
         console.warn("[Chat] Failed to create lead session");
@@ -876,7 +1013,7 @@ export function Chat() {
 
       // Consumer mode — greet + trigger incoming call
       const botText =
-        "Olá. Obrigado pelo teu interesse. Vou ligar agora para te ajudar e perceber exactamente o que precisas.";
+        "Olá. Obrigado pelo teu interesse. Antes de continuar, podes indicar o teu número para este negócio te contactar sobre este pedido? Também podes recusar e continuar normalmente.";
       const botMsg = addMessage("bot", botText);
       chatMsgsRef.current.push(botMsg);
       setStage("chat");
@@ -1192,6 +1329,24 @@ export function Chat() {
               {messages.map((m) => (
                 <ChatBubble key={m.id} role={m.role} text={m.text} />
               ))}
+              {leadId && leadContact && (
+                <ContactCaptureCard
+                  key={`${leadContact.status}:${leadContact.phone ?? ""}`}
+                  contact={leadContact}
+                  saving={contactSaving}
+                  error={contactError}
+                  onConsent={(phone) => void saveContact({ action: "consent", phone })}
+                  onDecline={() => void saveContact({ action: "decline" })}
+                />
+              )}
+              {leadId && leadContact?.status === "consented" && whatsappHandoff && (
+                <WhatsAppHandoffCard
+                  handoff={whatsappHandoff}
+                  onClick={() => {
+                    if (businessSlug) void visitorApi(businessSlug).recordWhatsAppClick(leadId);
+                  }}
+                />
+              )}
               {conversationError && (
                 <div
                   className="my-3 rounded-2xl p-3"

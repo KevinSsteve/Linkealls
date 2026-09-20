@@ -10,6 +10,7 @@ import {
   type QualificationData,
   type LeadState,
   type TrafficWelcomeStatus,
+  type LeadContactConsentStatus,
 } from "@workspace/db";
 import { eq, and, desc, isNull, lt, or, sql } from "drizzle-orm";
 import { logger } from "../lib/logger.js";
@@ -19,6 +20,142 @@ import { sendPushToOwner } from "./notifications.js";
 
 const EXTRACTION_MODEL = "gemini-3-flash-preview";
 const SCORE_QUALIFY_THRESHOLD = 60;
+export const LEAD_CONTACT_PURPOSE = "business_follow_up";
+
+export interface LeadContactView {
+  status: LeadContactConsentStatus;
+  phone: string | null;
+  purpose: string | null;
+  capturedAt: Date | null;
+}
+
+export interface WhatsAppHandoff {
+  phone: string;
+  url: string;
+}
+
+export function normalizeAngolanMobilePhone(value: string): string | null {
+  const digits = value.trim().replace(/\D/g, "").replace(/^00/, "");
+  const local = digits.startsWith("244") ? digits.slice(3) : digits;
+  return /^9[1-5]\d{7}$/.test(local) ? `+244${local}` : null;
+}
+
+export function redactAngolanPhoneCandidates(value: string): string {
+  return value.replace(
+    /(?:\+?244|00244)?[\s().-]*9[1-5](?:[\s().-]*\d){7}\b/g,
+    "[telefone omitido — requer autorização]",
+  );
+}
+
+export function leadContactView(lead: Pick<Lead, "contactConsentStatus" | "contactPhone" | "contactPurpose" | "contactCapturedAt">): LeadContactView {
+  return {
+    status: lead.contactConsentStatus,
+    phone: lead.contactPhone,
+    purpose: lead.contactPurpose,
+    capturedAt: lead.contactCapturedAt,
+  };
+}
+
+export function ownerLeadView(lead: Lead): Lead {
+  const { phone: _legacyPhone, extras, ...qualificationData } = lead.qualificationData;
+  const { paymentPhone: _paymentPhone, ...remainingExtras } = extras ?? {};
+  const safeExtras = Object.fromEntries(
+    Object.entries(remainingExtras).map(([key, value]) => [key, redactAngolanPhoneCandidates(value)]),
+  );
+  const hasSafeExtras = Object.keys(safeExtras).length > 0;
+  const consented = lead.contactConsentStatus === "consented";
+  const redactUnlessConsented = (value: string | null | undefined) =>
+    !value || consented ? value : redactAngolanPhoneCandidates(value);
+  return {
+    ...lead,
+    contactPhone: consented ? lead.contactPhone : null,
+    qualificationData: {
+      ...qualificationData,
+      name: redactUnlessConsented(qualificationData.name) ?? undefined,
+      email: qualificationData.email,
+      interest: redactUnlessConsented(qualificationData.interest) ?? undefined,
+      budget: redactUnlessConsented(qualificationData.budget) ?? undefined,
+      timeline: redactUnlessConsented(qualificationData.timeline) ?? undefined,
+      location: redactUnlessConsented(qualificationData.location) ?? undefined,
+      ...(hasSafeExtras ? { extras: safeExtras } : {}),
+    },
+    whatsappMessage: consented ? lead.whatsappMessage : null,
+    aiSummary: redactUnlessConsented(lead.aiSummary) ?? null,
+    callTranscript: redactUnlessConsented(lead.callTranscript) ?? null,
+    chatMessages: consented
+      ? lead.chatMessages
+      : lead.chatMessages.map((message) => ({
+        ...message,
+        text: redactAngolanPhoneCandidates(message.text),
+      })),
+  };
+}
+
+export function buildWhatsAppHandoff(
+  publicBusinessPhone: string | null | undefined,
+  businessName: string,
+  creativeDescription?: string,
+): WhatsAppHandoff | null {
+  const phone = publicBusinessPhone ? normalizeAngolanMobilePhone(publicBusinessPhone) : null;
+  if (!phone) return null;
+  const context = creativeDescription?.trim()
+    ? ` sobre o anúncio “${creativeDescription.trim().replace(/\s+/g, " ").slice(0, 80)}”`
+    : "";
+  const message = `Olá ${businessName || ""}, vim da Linkealls${context} e quero continuar o atendimento.`.replace(/\s+,/, ",");
+  return {
+    phone,
+    url: `https://wa.me/${phone.slice(1)}?text=${encodeURIComponent(message)}`,
+  };
+}
+
+export async function captureLeadContact(
+  id: string,
+  businessId: number,
+  input: { action: "consent"; phone: string } | { action: "decline" },
+): Promise<Lead | null> {
+  const now = new Date();
+  const values = input.action === "decline"
+    ? {
+      contactPhone: null,
+      contactPurpose: LEAD_CONTACT_PURPOSE,
+      contactConsentStatus: "declined" as const,
+      contactConsentedAt: null,
+      contactCapturedAt: now,
+      qualificationData: sql`(${leadsTable.qualificationData} - 'phone') || jsonb_build_object('extras', COALESCE(${leadsTable.qualificationData}->'extras', '{}'::jsonb) - 'paymentPhone')`,
+      updatedAt: now,
+    }
+    : {
+      contactPhone: input.phone,
+      contactPurpose: LEAD_CONTACT_PURPOSE,
+      contactConsentStatus: "consented" as const,
+      contactConsentedAt: now,
+      contactCapturedAt: now,
+      qualificationData: sql`(${leadsTable.qualificationData} - 'phone') || jsonb_build_object('extras', COALESCE(${leadsTable.qualificationData}->'extras', '{}'::jsonb) - 'paymentPhone')`,
+      updatedAt: now,
+    };
+  const rows = await db.update(leadsTable)
+    .set(values)
+    .where(and(eq(leadsTable.id, id), eq(leadsTable.businessId, businessId)))
+    .returning();
+  return rows[0] ?? null;
+}
+
+export async function recordLeadWhatsAppClick(id: string, businessId: number): Promise<boolean> {
+  const now = new Date();
+  const rows = await db.update(leadsTable)
+    .set({
+      whatsappClickedAt: now,
+      whatsappClickCount: sql`${leadsTable.whatsappClickCount} + 1`,
+      updatedAt: now,
+    })
+    .where(and(
+      eq(leadsTable.id, id),
+      eq(leadsTable.businessId, businessId),
+      eq(leadsTable.contactConsentStatus, "consented"),
+    ))
+    .returning({ id: leadsTable.id });
+  return Boolean(rows[0]);
+}
 
 // ─── CRUD ────────────────────────────────────────────────────────────────────
 
@@ -241,14 +378,13 @@ function clampStr(v: unknown, max: number): string {
   return typeof v === "string" ? v.slice(0, max) : "";
 }
 
-function parseExtractionResult(raw: unknown, businessName: string): ExtractionResult {
+function parseExtractionResult(raw: unknown): ExtractionResult {
   const r = (raw ?? {}) as Record<string, unknown>;
   const qd = (r["qualificationData"] ?? {}) as Record<string, unknown>;
   const extras = (qd["extras"] ?? {}) as Record<string, unknown>;
 
   const qualificationData: QualificationData = {
     name:     clampStr(qd["name"], 200) || undefined,
-    phone:    clampStr(qd["phone"], 50) || undefined,
     email:    clampStr(qd["email"], 200) || undefined,
     interest: clampStr(qd["interest"], 1000) || undefined,
     budget:   clampStr(qd["budget"], 200) || undefined,
@@ -264,27 +400,13 @@ function parseExtractionResult(raw: unknown, businessName: string): ExtractionRe
   const rawScore = typeof r["score"] === "number" ? r["score"] : 0;
   const score = Math.max(0, Math.min(100, Math.round(rawScore)));
 
-  const phone = qualificationData.phone;
-  const waPhone = phone
-    ? phone.replace(/\D/g, "").replace(/^00/, "").replace(/^0/, "244")
-    : "";
-  const name = qualificationData.name ?? "cliente";
   const summary = clampStr(r["aiSummary"], 2000);
-  const interest = qualificationData.interest
-    ? `\n\nInteresse: ${qualificationData.interest}`
-    : "";
-  const budget = qualificationData.budget
-    ? `\nOrçamento: ${qualificationData.budget}`
-    : "";
-  const whatsappMessage = waPhone
-    ? `Olá ${name}! Aqui fala ${businessName}. Obrigado pelo contacto de há pouco.${interest}${budget}\n\nGostaria de continuar a nossa conversa. Quando seria boa hora?`
-    : "";
 
   return {
     qualificationData,
     aiSummary: summary,
     score,
-    whatsappMessage: whatsappMessage.slice(0, 2000),
+    whatsappMessage: "",
   };
 }
 
@@ -314,15 +436,15 @@ export async function processCallCompletion(
   try {
     const ai = new GoogleGenAI({ apiKey });
 
+    const safeTranscript = redactAngolanPhoneCandidates(callTranscript);
     const prompt = `Analisa esta transcrição de uma chamada de qualificação de leads e extrai informação estruturada.
 
 TRANSCRIÇÃO:
-${callTranscript || "(sem transcrição disponível)"}
+${safeTranscript || "(sem transcrição disponível)"}
 
 Devolve um JSON com:
-- qualificationData: { name, phone, email, interest, budget, timeline, location, extras }
+- qualificationData: { name, email, interest, budget, timeline, location, extras }
   - name: nome do potencial cliente (se mencionado)
-  - phone: número de telefone (se mencionado)
   - email: email (se mencionado)
   - interest: resumo do interesse/necessidade em 1-2 frases
   - budget: orçamento ou faixa de preço mencionada
@@ -332,8 +454,8 @@ Devolve um JSON com:
 - aiSummary: resumo da conversa em 2-4 parágrafos, do ponto de vista do agente comercial
 - score: pontuação de 0-100 baseada na qualidade do lead:
   * 0-39: baixa qualidade (não deu informação, desinteressado)
-  * 40-59: médio (interesse mas sem dados de contacto ou orçamento)
-  * 60-79: bom (interesse claro + algum dado de contacto)
+  * 40-59: médio (interesse mas sem orçamento ou prazo)
+  * 60-79: bom (interesse claro + orçamento, prazo ou email)
   * 80-100: excelente (dados completos, orçamento definido, decisão próxima)
 
 Responde APENAS com JSON válido, sem texto adicional.`;
@@ -346,7 +468,7 @@ Responde APENAS com JSON válido, sem texto adicional.`;
 
     const text = response.text ?? "";
     const raw = JSON.parse(text) as unknown;
-    const extracted = parseExtractionResult(raw, businessName);
+    const extracted = parseExtractionResult(raw);
 
     const newState: LeadState =
       extracted.score >= SCORE_QUALIFY_THRESHOLD ? "qualificado" : lead.state === "em_atendimento" ? "em_atendimento" : lead.state;
@@ -354,7 +476,7 @@ Responde APENAS com JSON válido, sem texto adicional.`;
     await db
       .update(leadsTable)
       .set({
-        callTranscript: callTranscript.slice(0, 50_000),
+        callTranscript: safeTranscript.slice(0, 50_000),
         qualificationData: extracted.qualificationData,
         aiSummary: extracted.aiSummary,
         score: extracted.score,
@@ -408,7 +530,7 @@ export async function chatWithLead(
   leadId: string,
   userMessage: string,
   businessId?: number,
-  options?: { trafficWelcomeClaimToken?: string },
+  options?: { trafficWelcomeClaimToken?: string; requestContactConsent?: boolean },
 ): Promise<{
   reply: string;
   products: Array<{ name: string; price: string; description: string; imageUrl?: string }>;
@@ -424,7 +546,6 @@ export async function chatWithLead(
       id: ordersTable.id,
       offeringName: ordersTable.offeringName,
       amount: ordersTable.amount,
-      buyerPhone: ordersTable.buyerPhone,
       status: ordersTable.status,
       fulfillmentStatus: ordersTable.fulfillmentStatus,
       proofStatus: ordersTable.proofStatus,
@@ -434,7 +555,11 @@ export async function chatWithLead(
     .where(eq(ordersTable.leadId, leadId))
     .orderBy(desc(ordersTable.createdAt))
     .limit(5);
-  const { systemInstruction, prompt } = buildLeadChatContext(lead, profile, relatedOrders, userMessage);
+  const safeUserMessage = lead.contactConsentStatus === "consented"
+    ? userMessage
+    : redactAngolanPhoneCandidates(userMessage);
+  const safeLead = ownerLeadView(lead);
+  const { systemInstruction, prompt } = buildLeadChatContext(safeLead, profile, relatedOrders, safeUserMessage);
 
   const ai = new GoogleGenAI({ apiKey });
   const response = await ai.models.generateContent({
@@ -446,7 +571,7 @@ export async function chatWithLead(
   const rawReply = (response.text ?? "").trim() ||
     "Desculpa, não consegui processar a tua mensagem. Tenta outra vez.";
   // Keep the WhatsApp-like chat compact even when the model ignores the limit.
-  const reply = rawReply
+  const compactReply = rawReply
     .replace(/\*\*/g, "")
     .replace(/^[-*#]\s*/gm, "")
     .replace(/\n{2,}/g, "\n")
@@ -456,13 +581,16 @@ export async function chatWithLead(
     .trim()
     .slice(0, 360)
     .trim();
+  const reply = options?.requestContactConsent
+    ? `${compactReply.split(/(?<=[.!?])\s+/)[0] ?? compactReply} Para continuar este atendimento e facilitar o contacto por WhatsApp, podes indicar o teu número? Será usado apenas por este negócio para este pedido, e também podes recusar.`
+    : compactReply;
 
-  const products = selectLeadChatProducts(profile.offerings ?? [], userMessage);
+  const products = selectLeadChatProducts(profile.offerings ?? [], safeUserMessage);
 
   // Persist both messages in the lead's chatMessages
   const ts = new Date().toISOString();
   const appended: ChatMessage[] = [
-    { role: "user" as const, text: userMessage, ts },
+    { role: "user" as const, text: safeUserMessage, ts },
     { role: "bot" as const, text: reply, ts: new Date(Date.now() + 1).toISOString() },
   ];
   const leadWhere = businessId !== undefined

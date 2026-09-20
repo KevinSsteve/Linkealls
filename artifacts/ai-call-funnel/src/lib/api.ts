@@ -442,6 +442,13 @@ export interface Lead {
   aiSummary: string | null;
   score: number | null;
   whatsappMessage: string | null;
+  contactPhone: string | null;
+  contactPurpose: string | null;
+  contactConsentStatus: "pending" | "consented" | "declined";
+  contactConsentedAt: string | null;
+  contactCapturedAt: string | null;
+  whatsappClickedAt: string | null;
+  whatsappClickCount: number;
   callEndedAt: string | null;
   createdAt: string;
   updatedAt: string;

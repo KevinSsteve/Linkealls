@@ -116,6 +116,12 @@ export function subscribeToLeadQualified() { return () => {}; }
 export async function getLeadsAnalytics() { return {}; }
 export async function claimTrafficWelcome() { return null; }
 export async function finishTrafficWelcome() {}
+export async function captureLeadContact() {}
+export async function recordLeadWhatsAppClick() { return false; }
+export function normalizeAngolanMobilePhone() { return null; }
+export function leadContactView() { return { status: "pending", phone: null, purpose: null, capturedAt: null }; }
+export function buildWhatsAppHandoff() { return null; }
+export function ownerLeadView(value) { return value; }
 export function getVapidPublicKey() { return ""; }
 export async function saveSubscription() {}
 export async function removeSubscription() {}

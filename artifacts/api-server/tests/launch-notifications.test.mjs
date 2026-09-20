@@ -31,7 +31,16 @@ export const logger = { info() {}, warn() {}, error() {}, debug() {} };
 export async function withScheduledJobLock() { effects.claims++; throw new Error("Claim forbidden"); }
 export async function listLeads() { throw new Error("Nonessential lead scan forbidden"); }
 export async function getLead() {
-  return { id: "lead-1", businessId: 7, qualificationData: { name: "Cliente", interest: "Produto" }, score: 80 };
+  return {
+    id: "lead-1", businessId: 7,
+    qualificationData: { name: "Cliente", phone: "+244923999888", interest: "Produto" },
+    contactConsentStatus: "declined", contactPhone: null, whatsappMessage: "Mensagem antiga",
+    score: 80,
+  };
+}
+export function ownerLeadView(lead) {
+  const { phone, ...qualificationData } = lead.qualificationData;
+  return { ...lead, qualificationData, contactPhone: null, whatsappMessage: null };
 }
 export async function updateLeadState() { throw new Error("Mutation forbidden"); }
 export function subscribeToLeadQualified(fn) { effects.subscriptions.push(fn); }
@@ -107,6 +116,8 @@ test("essential lead-qualified messages and event subscriptions are preserved", 
   assert.equal(message.businessId, 7);
   assert.equal(message.meta.proactiveType, "lead_qualified");
   assert.equal(message.meta.leadId, "lead-1");
+  assert.doesNotMatch(message.content, /923999888|WhatsApp|mensagem de follow-up pronta/);
+  assert.match(message.content, /não temos um contacto telefónico autorizado/i);
   mod.wireProactiveEvents();
   mod.wireProactiveEvents();
   assert.equal(mod.effects.subscriptions.length, 1);

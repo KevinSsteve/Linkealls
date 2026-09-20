@@ -52,6 +52,38 @@ test("paid chat bootstrap is fenced and appends messages atomically", async () =
   assert.match(service, /onConflictDoUpdate/);
   assert.match(service, /eq\(leadsTable\.trafficWelcomeClaimToken, options\.trafficWelcomeClaimToken\)/);
   assert.match(service, /chatMessages: sql`\$\{leadsTable\.chatMessages\} \|\|/);
-  assert.match(routes, /\{ trafficWelcomeClaimToken: claimToken \}/);
+  assert.match(routes, /trafficWelcomeClaimToken: claimToken/);
   assert.match(transition, /navigator\.locks\?\.request/);
+});
+
+test("consented lead contact stays separate from payment phones and WhatsApp URLs stay credential-free", async () => {
+  const service = await readFile(path.join(apiServerDir, "src/services/leads.ts"), "utf8");
+  const routes = await readFile(path.join(apiServerDir, "src/routes/businessScoped.ts"), "utf8");
+  const leadSchema = await readFile(path.join(dbDir, "src/schema/leads.ts"), "utf8");
+  const orderSchema = await readFile(path.join(dbDir, "src/schema/payments.ts"), "utf8");
+  const visitor = await readFile(path.join(webDir, "src/lib/visitorAccess.ts"), "utf8");
+  const chat = await readFile(path.join(webDir, "src/pages/Chat.tsx"), "utf8");
+  const assistant = await readFile(path.join(apiServerDir, "src/services/assistant.ts"), "utf8");
+  const payments = await readFile(path.join(apiServerDir, "src/services/payments.ts"), "utf8");
+
+  assert.match(leadSchema, /contactConsentStatus/);
+  assert.match(leadSchema, /contactPhone/);
+  assert.match(orderSchema, /buyerPhone/);
+  const captureBlock = service.slice(
+    service.indexOf("export async function captureLeadContact"),
+    service.indexOf("export async function recordLeadWhatsAppClick"),
+  );
+  assert.doesNotMatch(captureBlock, /buyerPhone|ordersTable/);
+  assert.match(service, /normalizeAngolanMobilePhone/);
+  assert.equal(service.includes('phone:    clampStr(qd["phone"]'), false);
+  assert.doesNotMatch(payments, /phone:\s*(?:input\.phone|order\.buyerPhone)|paymentPhone:/);
+  assert.doesNotMatch(assistant, /qualificationData\.phone/);
+  assert.match(assistant, /contactConsentStatus !== "consented"/);
+  assert.match(routes, /leads\.map\(ownerLeadView\)/);
+  assert.match(service, /https:\/\/wa\.me\/\$\{phone\.slice\(1\)\}/);
+  assert.match(routes, /router\.post\("\/leads\/:id\/contact"/);
+  assert.match(routes, /router\.post\("\/leads\/:id\/whatsapp-click"/);
+  assert.match(visitor, /Authorization: `Visitor \$\{access\.visitorToken\}`/);
+  assert.match(chat, /Autorizar e continuar/);
+  assert.match(chat, /Agora não/);
 });

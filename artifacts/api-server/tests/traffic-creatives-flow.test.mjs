@@ -71,8 +71,8 @@ export const updateTrafficCreativeSchema = z.object({
 export const db = new Proxy({}, { get() { return () => { throw new Error("database must not be used"); }; } });
 export const businessProfilesTable = {};
 export async function getProfileBySlug(slug) {
-  if (slug === "owner") return { id: 41, slug };
-  if (slug === "other") return { id: 42, slug };
+  if (slug === "owner") return { id: 41, slug, name: "Loja Owner", phone: "+244 923 456 789" };
+  if (slug === "other") return { id: 42, slug, name: "Loja Other", phone: "+244 924 000 000" };
   return null;
 }
 export async function getUserByToken() { return { handle: "owner" }; }
@@ -122,7 +122,12 @@ export function publicTrafficCreativeContext(item) {
 }
 
 export async function createLead(origin, chatMessages, businessId, session = {}) {
-  const lead = { id: uuid(100 + state.leads.length), businessId, origin, chatMessages, createdAt: new Date(), ...session };
+  const lead = {
+    id: uuid(100 + state.leads.length), businessId, origin, chatMessages, createdAt: new Date(),
+    contactPhone: null, contactPurpose: null, contactConsentStatus: "pending",
+    contactConsentedAt: null, contactCapturedAt: null, whatsappClickCount: 0,
+    ...session,
+  };
   state.leads.push(lead);
   return lead;
 }
@@ -170,6 +175,50 @@ export function subscribeToLeadQualified() { return () => {}; }
 export async function getLeadsAnalytics() { return {}; }
 export async function claimTrafficWelcome() { return "00000000-0000-4000-8000-000000000999"; }
 export async function finishTrafficWelcome() {}
+export function normalizeAngolanMobilePhone(value) {
+  const digits = value.trim().replace(/\\D/g, "").replace(/^00/, "");
+  const local = digits.startsWith("244") ? digits.slice(3) : digits;
+  return /^9[1-5]\\d{7}$/.test(local) ? \`+244\${local}\` : null;
+}
+export function leadContactView(lead) {
+  return {
+    status: lead.contactConsentStatus,
+    phone: lead.contactPhone,
+    purpose: lead.contactPurpose,
+    capturedAt: lead.contactCapturedAt,
+  };
+}
+export function ownerLeadView(lead) {
+  const { phone, ...qualificationData } = lead.qualificationData ?? {};
+  return {
+    ...lead,
+    contactPhone: lead.contactConsentStatus === "consented" ? lead.contactPhone : null,
+    qualificationData,
+    whatsappMessage: lead.contactConsentStatus === "consented" ? lead.whatsappMessage : null,
+  };
+}
+export function buildWhatsAppHandoff(phone, businessName, description) {
+  const normalized = normalizeAngolanMobilePhone(phone ?? "");
+  if (!normalized) return null;
+  const text = \`Olá \${businessName}, vim da Linkealls sobre o anúncio “\${description}” e quero continuar o atendimento.\`;
+  return { phone: normalized, url: \`https://wa.me/\${normalized.slice(1)}?text=\${encodeURIComponent(text)}\` };
+}
+export async function captureLeadContact(id, businessId, input) {
+  const lead = await getLead(id, businessId);
+  if (!lead) return null;
+  lead.contactPurpose = "business_follow_up";
+  lead.contactCapturedAt = new Date();
+  lead.contactConsentStatus = input.action === "consent" ? "consented" : "declined";
+  lead.contactPhone = input.action === "consent" ? input.phone : null;
+  return lead;
+}
+export async function recordLeadWhatsAppClick(id, businessId) {
+  const lead = await getLead(id, businessId);
+  if (!lead || lead.contactConsentStatus !== "consented") return false;
+  lead.whatsappClickCount += 1;
+  lead.whatsappClickedAt = new Date();
+  return true;
+}
 
 export const VISITOR_RECOVERY_TTL_MS = 604800000;
 export function createVisitorRecoveryFamily() {
@@ -299,7 +348,12 @@ async function invoke(method, routePath, {
     log: { error() {}, warn() {}, info() {} },
   };
   const res = {
-    locals: { businessId },
+    locals: {
+      businessId,
+      businessProfile: businessId === 41
+        ? { id: 41, name: "Loja Owner", phone: "+244 923 456 789" }
+        : { id: 42, name: "Loja Other", phone: "+244 924 000 000" },
+    },
     statusCode: 200,
     body: undefined,
     status(code) { this.statusCode = code; return this; },
@@ -431,6 +485,75 @@ test("concurrent retries with the same paid-click key reuse one lead", async () 
   assert.equal(second.statusCode, 201);
   assert.equal(first.body.leadId, second.body.leadId);
   assert.equal(state.leads.length, before + 1);
+});
+
+test("visitor consents to a normalized contact and opens an attributed WhatsApp handoff", async () => {
+  const opened = await invoke("post", "/leads/session", {
+    body: {
+      origin: { source: "meta", trafficCreativeSlug: "image-link" },
+      chatMessages: [],
+      trafficClickKey: "00000000-0000-4000-8000-000000000880",
+    },
+  });
+  const authorization = `Visitor ${opened.body.visitorToken}`;
+  const invalid = await invoke("post", "/leads/:id/contact", {
+    params: { id: opened.body.leadId },
+    authorization,
+    body: { action: "consent", phone: "123" },
+  });
+  assert.equal(invalid.statusCode, 400);
+
+  const captured = await invoke("post", "/leads/:id/contact", {
+    params: { id: opened.body.leadId },
+    authorization,
+    body: { action: "consent", phone: "923 111 222" },
+  });
+  assert.equal(captured.statusCode, 200);
+  assert.equal(captured.body.contact.phone, "+244923111222");
+  assert.equal(captured.body.contact.purpose, "business_follow_up");
+  assert.equal(captured.body.contact.status, "consented");
+  assert.match(captured.body.whatsappHandoff.url, /^https:\/\/wa\.me\/244923456789\?text=/);
+  assert.doesNotMatch(captured.body.whatsappHandoff.url, /00000000|cap-|923111222/);
+
+  const clicked = await invoke("post", "/leads/:id/whatsapp-click", {
+    params: { id: opened.body.leadId },
+    authorization,
+  });
+  assert.equal(clicked.statusCode, 204);
+  const lead = state.leads.find((item) => item.id === opened.body.leadId);
+  assert.equal(lead.whatsappClickCount, 1);
+  assert.equal(lead.origin.trafficCreative.slug, "image-link");
+});
+
+test("contact access is business-scoped and visitors may decline without blocking chat", async () => {
+  const opened = await invoke("post", "/leads/session", {
+    body: { origin: {}, chatMessages: [] },
+  });
+  const authorization = `Visitor ${opened.body.visitorToken}`;
+  const crossTenant = await invoke("post", "/leads/:id/contact", {
+    businessId: 42,
+    params: { id: opened.body.leadId },
+    authorization,
+    body: { action: "consent", phone: "923111222" },
+  });
+  assert.equal(crossTenant.statusCode, 401);
+
+  const declined = await invoke("post", "/leads/:id/contact", {
+    params: { id: opened.body.leadId },
+    authorization,
+    body: { action: "decline" },
+  });
+  assert.equal(declined.statusCode, 200);
+  assert.equal(declined.body.contact.status, "declined");
+  assert.equal(declined.body.contact.phone, null);
+  assert.equal(declined.body.whatsappHandoff, null);
+
+  const chat = await invoke("post", "/leads/:id/chat", {
+    params: { id: opened.body.leadId },
+    authorization,
+    body: { message: "Quero continuar sem partilhar o número" },
+  });
+  assert.equal(chat.statusCode, 200);
 });
 
 test("a paid-click key cannot reopen an old private conversation", async () => {

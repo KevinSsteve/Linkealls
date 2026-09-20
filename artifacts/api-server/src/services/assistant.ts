@@ -16,7 +16,7 @@ import {
 } from "@workspace/db";
 import { asc, and, eq } from "drizzle-orm";
 import { logger } from "../lib/logger.js";
-import { listLeads, getLead, updateLeadState, subscribeToLeadQualified } from "./leads.js";
+import { listLeads, getLead, updateLeadState, subscribeToLeadQualified, ownerLeadView } from "./leads.js";
 import { getOrCreateProfile } from "./businessProfile.js";
 import { assertNonessentialSummariesEnabled } from "../lib/launchPolicy.js";
 
@@ -182,7 +182,7 @@ async function executeTool(
   try {
     switch (name) {
       case "get_platform_summary": {
-        const leads = await listLeads(businessId);
+        const leads = (await listLeads(businessId)).map(ownerLeadView);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         const todayLeads = leads.filter((l) => new Date(l.createdAt) >= today);
@@ -207,7 +207,7 @@ async function executeTool(
               id: l.id,
               state: l.state,
               name: l.qualificationData.name ?? "sem nome",
-              phone: l.qualificationData.phone ?? "sem contacto",
+              phone: l.contactPhone ?? "sem contacto autorizado",
               score: l.score,
               created_at: l.createdAt,
             })),
@@ -216,7 +216,7 @@ async function executeTool(
       }
 
       case "list_leads": {
-        const leads = await listLeads(businessId);
+        const leads = (await listLeads(businessId)).map(ownerLeadView);
         const filtered = args["state"]
           ? leads.filter((l) => l.state === args["state"])
           : leads;
@@ -226,7 +226,7 @@ async function executeTool(
               id: l.id,
               state: l.state,
               name: l.qualificationData.name ?? "sem nome",
-              phone: l.qualificationData.phone,
+              phone: l.contactPhone,
               email: l.qualificationData.email,
               interest: l.qualificationData.interest,
               budget: l.qualificationData.budget,
@@ -242,18 +242,21 @@ async function executeTool(
       case "get_lead_detail": {
         const lead = await getLead(args["lead_id"] ?? "", businessId);
         if (!lead) return { text: JSON.stringify({ error: "Lead não encontrado" }) };
+        const safeLead = ownerLeadView(lead);
         return {
           text: JSON.stringify({
-            id: lead.id,
-            state: lead.state,
-            qualification_data: lead.qualificationData,
-            ai_summary: lead.aiSummary,
-            score: lead.score,
-            origin: lead.origin,
-            call_transcript: lead.callTranscript?.slice(0, 3000),
-            chat_messages: lead.chatMessages,
-            whatsapp_message: lead.whatsappMessage,
-            created_at: lead.createdAt,
+            id: safeLead.id,
+            state: safeLead.state,
+            qualification_data: safeLead.qualificationData,
+            contact_phone: safeLead.contactPhone,
+            contact_consent_status: safeLead.contactConsentStatus,
+            ai_summary: safeLead.aiSummary,
+            score: safeLead.score,
+            origin: safeLead.origin,
+            call_transcript: safeLead.callTranscript?.slice(0, 3000),
+            chat_messages: safeLead.chatMessages,
+            whatsapp_message: safeLead.whatsappMessage,
+            created_at: safeLead.createdAt,
           }),
         };
       }
@@ -305,6 +308,9 @@ async function executeTool(
       case "draft_followup_message": {
         const lead = await getLead(args["lead_id"] ?? "", businessId);
         if (!lead) return { text: JSON.stringify({ error: "Lead não encontrado" }) };
+        if (lead.contactConsentStatus !== "consented" || !lead.contactPhone) {
+          return { text: JSON.stringify({ error: "Este lead não autorizou contacto por telefone" }) };
+        }
         const draft =
           lead.whatsappMessage ||
           `Olá ${lead.qualificationData.name ?? ""}! Aqui fala [Nome do negócio]. Obrigado pelo contacto de há pouco.${lead.qualificationData.interest ? `\n\nVi que tem interesse em: ${lead.qualificationData.interest}.` : ""}\n\nGostaria de continuar a nossa conversa. Quando seria uma boa hora para falarmos?`;
@@ -461,7 +467,7 @@ export async function proactiveLeadQualified(leadId: string): Promise<AssistantM
   const businessId = lead.businessId;
 
   const name = lead.qualificationData.name ?? "Lead sem nome";
-  const phone = lead.qualificationData.phone;
+  const phone = lead.contactConsentStatus === "consented" ? lead.contactPhone : null;
   const interest = lead.qualificationData.interest;
   const score = lead.score;
 
@@ -471,7 +477,7 @@ export async function proactiveLeadQualified(leadId: string): Promise<AssistantM
     phone ? `Contacto: ${phone}` : null,
     phone
       ? `Já tens a mensagem de follow-up pronta — vai à caixa de leads para enviar pelo WhatsApp.`
-      : `Ainda não temos o número de telefone. Considera contactar por outro canal.`,
+      : `Ainda não temos um contacto telefónico autorizado. Considera continuar pela conversa na Linkealls.`,
   ]
     .filter(Boolean)
     .join("\n");

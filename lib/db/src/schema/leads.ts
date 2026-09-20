@@ -12,6 +12,7 @@ export type LeadState =
   | "perdido";
 
 export type TrafficWelcomeStatus = "pending" | "processing" | "complete" | "failed";
+export type LeadContactConsentStatus = "pending" | "consented" | "declined";
 
 export const LEAD_STATES: LeadState[] = [
   "novo",
@@ -96,6 +97,18 @@ export const leadsTable = pgTable("leads", {
 
   /** Pre-built WhatsApp message the owner can send with one tap. */
   whatsappMessage: text("whatsapp_message"),
+
+  /** Contact supplied explicitly for business follow-up; never sourced from checkout. */
+  contactPhone: text("contact_phone"),
+  contactPurpose: text("contact_purpose"),
+  contactConsentStatus: text("contact_consent_status")
+    .$type<LeadContactConsentStatus>()
+    .notNull()
+    .default("pending"),
+  contactConsentedAt: timestamp("contact_consented_at"),
+  contactCapturedAt: timestamp("contact_captured_at"),
+  whatsappClickedAt: timestamp("whatsapp_clicked_at"),
+  whatsappClickCount: integer("whatsapp_click_count").notNull().default(0),
 
   /** Hash of an opaque HttpOnly recovery token; the raw token is never stored. */
   visitorRecoveryHash: text("visitor_recovery_hash"),

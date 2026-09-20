@@ -40,11 +40,25 @@ export interface TrafficSessionCreative {
   mediaUrl?: string;
 }
 
+export interface LeadContact {
+  status: "pending" | "consented" | "declined";
+  phone: string | null;
+  purpose: string | null;
+  capturedAt: string | null;
+}
+
+export interface WhatsAppHandoff {
+  phone: string;
+  url: string;
+}
+
 export interface LeadSessionResponse {
   leadId: string;
   chatMessages: Array<{ role: "user" | "bot" | "agent"; text: string; ts: string }>;
   trafficCreative: TrafficSessionCreative | null;
   trafficWelcomeStatus: "pending" | "processing" | "complete" | "failed" | null;
+  contact: LeadContact;
+  whatsappHandoff: WhatsAppHandoff | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -219,6 +233,31 @@ export function visitorApi(businessSlug: string) {
         method: "POST",
         body: JSON.stringify({ message }),
       }, requireAccess(businessSlug, leadId)),
+    captureLeadContact: async (
+      leadId: string,
+      input: { action: "consent"; phone: string } | { action: "decline" },
+    ): Promise<{ contact: LeadContact; whatsappHandoff: WhatsAppHandoff | null }> =>
+      visitorRequest(
+        businessSlug,
+        `/leads/${encodeURIComponent(leadId)}/contact`,
+        { method: "POST", body: JSON.stringify(input) },
+        requireAccess(businessSlug, leadId),
+      ),
+    recordWhatsAppClick: async (leadId: string): Promise<void> => {
+      const access = requireAccess(businessSlug, leadId);
+      const res = await fetch(`${API_BASE}/b/${encodeURIComponent(businessSlug)}/leads/${encodeURIComponent(leadId)}/whatsapp-click`, {
+        method: "POST",
+        credentials: "omit",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Visitor ${access.visitorToken}`,
+        },
+      });
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(body?.error ?? "Não foi possível registar o clique");
+      }
+    },
     createOrder: async (data: {
       offeringName: string;
       quantity: number;

@@ -47,7 +47,7 @@ function formatDate(iso: string) {
 }
 function getLeadName(lead: Lead) { return lead.qualificationData.name || "Lead sem nome"; }
 function getLeadContact(lead: Lead) {
-  return lead.qualificationData.phone || lead.qualificationData.email || "sem contacto";
+  return lead.contactPhone || lead.qualificationData.email || "sem contacto";
 }
 function scoreColor(score: number) {
   if (score >= 80) return "#2E7D32"; if (score >= 60) return "#00838F";
@@ -145,7 +145,7 @@ function LeadDetail({ lead: initialLead, onBack, onStateChange, api }: {
     } finally { setUpdatingState(false); }
   }
 
-  const waPhone = lead.qualificationData.phone
+  const waPhone = (lead.contactConsentStatus === "consented" ? lead.contactPhone : null)
     ?.replace(/\D/g, "").replace(/^00/, "").replace(/^0/, "244");
   const waUrl = waPhone
     ? `https://wa.me/${waPhone}${lead.whatsappMessage ? `?text=${encodeURIComponent(lead.whatsappMessage)}` : ""}`
@@ -201,7 +201,7 @@ function LeadDetail({ lead: initialLead, onBack, onStateChange, api }: {
         {/* Qualification data */}
         <InfoCard title="Dados do Lead">
           {lead.qualificationData.name && <DetailRow icon={User} label="Nome" value={lead.qualificationData.name} />}
-          {lead.qualificationData.phone && <DetailRow icon={Phone} label="Telefone" value={lead.qualificationData.phone} />}
+          {lead.contactPhone && <DetailRow icon={Phone} label="Telefone autorizado" value={lead.contactPhone} />}
           {lead.qualificationData.interest && <DetailRow icon={Star} label="Interesse" value={lead.qualificationData.interest} />}
           {lead.qualificationData.budget && <DetailRow icon={DollarSign} label="Orçamento" value={lead.qualificationData.budget} />}
           {lead.qualificationData.timeline && <DetailRow icon={Clock} label="Prazo" value={lead.qualificationData.timeline} />}
@@ -210,7 +210,7 @@ function LeadDetail({ lead: initialLead, onBack, onStateChange, api }: {
             Object.entries(lead.qualificationData.extras).map(([k, v]) => (
               <DetailRow key={k} icon={FileText} label={k} value={v} />
             ))}
-          {!lead.qualificationData.name && !lead.qualificationData.phone && !lead.qualificationData.interest && (
+          {!lead.qualificationData.name && !lead.contactPhone && !lead.qualificationData.interest && (
             <p className="text-[13px] italic" style={{ color: C.text3 }}>Sem dados extraídos ainda</p>
           )}
         </InfoCard>
@@ -344,7 +344,7 @@ export function Leads() {
       const q = search.toLowerCase();
       if (
         !(l.qualificationData.name ?? "").toLowerCase().includes(q) &&
-        !(l.qualificationData.phone ?? "").toLowerCase().includes(q) &&
+        !(l.contactPhone ?? "").toLowerCase().includes(q) &&
         !(l.qualificationData.interest ?? "").toLowerCase().includes(q)
       ) return false;
     }
