@@ -15,6 +15,8 @@
     <meta name="twitter:description" content="Linkealls é o diretório de negócios angolanos com assistente IA integrado." />
     <script>
       (() => {
+        if (!/^\/e\/[^/]+$/.test(window.location.pathname)) return;
+
         try {
           history.scrollRestoration = "manual";
         } catch {}
