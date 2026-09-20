@@ -157,5 +157,7 @@ export function publicTrafficCreativeContext(row: TrafficCreative): NonNullable<
     slug: row.publicSlug,
     description: row.description,
     mediaType: row.mediaType,
+    mediaMimeType: row.mediaMimeType,
+    mediaUrl: `/api/storage${row.objectPath}`,
   };
 }

@@ -1,9 +1,9 @@
 /**
  * Browser storage and request helpers for anonymous visitor capabilities.
  *
- * Capabilities intentionally live in sessionStorage (not a URL and not durable
- * localStorage). A browser restart therefore requires the visitor to start a
- * new conversation instead of silently reviving access to old private data.
+ * Capabilities intentionally live in sessionStorage and never in URLs or
+ * durable JavaScript-readable storage. Browser restarts recover through a
+ * rotating opaque HttpOnly cookie and receive a fresh capability.
  */
 const API_BASE = import.meta.env.DEV
   ? `${import.meta.env.BASE_URL}api`
@@ -31,9 +31,20 @@ export interface VisitorAccess {
   visitorToken: string;
 }
 
-interface LeadSessionResponse {
+export interface TrafficSessionCreative {
+  id: string;
+  slug: string;
+  description: string;
+  mediaType: "image" | "video";
+  mediaMimeType?: string;
+  mediaUrl?: string;
+}
+
+export interface LeadSessionResponse {
   leadId: string;
   chatMessages: Array<{ role: "user" | "bot" | "agent"; text: string; ts: string }>;
+  trafficCreative: TrafficSessionCreative | null;
+  trafficWelcomeStatus: "pending" | "processing" | "complete" | "failed" | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -96,6 +107,23 @@ export function loadCurrentVisitorAccess(businessSlug: string): VisitorAccess | 
   }
 }
 
+export function clearVisitorAccess(businessSlug: string): void {
+  currentLeads.delete(businessSlug);
+  for (const accessKey of [...memoryAccess.keys()]) {
+    if (accessKey.startsWith(`${KEY_PREFIX}${businessSlug}:`)) memoryAccess.delete(accessKey);
+  }
+  try {
+    const keys: string[] = [];
+    for (let index = 0; index < sessionStorage.length; index += 1) {
+      const storageKey = sessionStorage.key(index);
+      if (storageKey?.startsWith(`${KEY_PREFIX}${businessSlug}:`)) keys.push(storageKey);
+    }
+    for (const storageKey of keys) sessionStorage.removeItem(storageKey);
+  } catch {
+    // Memory state was already cleared.
+  }
+}
+
 function requireAccess(businessSlug: string, leadId: string, orderId?: string): VisitorAccess {
   const access = loadVisitorAccess(businessSlug, leadId, orderId);
   if (!access) throw new Error("Esta sessão de visitante expirou. Inicia uma nova conversa.");
@@ -110,7 +138,7 @@ async function visitorRequest<T>(
 ): Promise<T> {
   const res = await fetch(`${API_BASE}/b/${encodeURIComponent(businessSlug)}${path}`, {
     ...init,
-    credentials: "omit",
+    credentials: init.credentials ?? "omit",
     headers: {
       "Content-Type": "application/json",
       ...(access ? { Authorization: `Visitor ${access.visitorToken}` } : {}),
@@ -128,17 +156,64 @@ export function visitorApi(businessSlug: string) {
     createLeadSession: async (
       origin: VisitorLeadOrigin,
       chatMessages: LeadSessionResponse["chatMessages"],
+      trafficClickKey?: string,
     ): Promise<{ leadId: string; visitorToken: string }> => {
       const result = await visitorRequest<{ leadId: string; visitorToken: string }>(
         businessSlug,
         "/leads/session",
-        { method: "POST", body: JSON.stringify({ origin, chatMessages }) },
+        {
+          method: "POST",
+          credentials: "include",
+          body: JSON.stringify({ origin, chatMessages, trafficClickKey }),
+        },
       );
       saveVisitorAccess({ businessSlug, leadId: result.leadId, visitorToken: result.visitorToken });
       return result;
     },
     getLeadSession: async (leadId: string): Promise<LeadSessionResponse> =>
       visitorRequest(businessSlug, `/leads/${encodeURIComponent(leadId)}/session`, {}, requireAccess(businessSlug, leadId)),
+    recoverLeadSession: async (): Promise<VisitorAccess | null> => {
+      const res = await fetch(`${API_BASE}/b/${encodeURIComponent(businessSlug)}/leads/recovery`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+      if (res.status === 404) return null;
+      const body = (await res.json().catch(() => null)) as
+        | { leadId: string; visitorToken: string; error?: string }
+        | null;
+      if (!res.ok || !body) throw new Error(body?.error ?? "Não foi possível recuperar a conversa");
+      const access = { businessSlug, leadId: body.leadId, visitorToken: body.visitorToken };
+      saveVisitorAccess(access);
+      return access;
+    },
+    endLeadSession: async (): Promise<void> => {
+      try {
+        const res = await fetch(`${API_BASE}/b/${encodeURIComponent(businessSlug)}/leads/recovery`, {
+          method: "DELETE",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+        });
+        if (!res.ok && res.status !== 404) {
+          const body = (await res.json().catch(() => null)) as { error?: string } | null;
+          throw new Error(body?.error ?? "Não foi possível terminar a conversa");
+        }
+      } finally {
+        clearVisitorAccess(businessSlug);
+      }
+    },
+    startTrafficWelcome: async <T extends {
+      started: boolean;
+      status: "pending" | "processing" | "complete" | "failed";
+      reply?: string;
+      products?: unknown[];
+    }>(leadId: string): Promise<T> =>
+      visitorRequest(
+        businessSlug,
+        `/leads/${encodeURIComponent(leadId)}/traffic-welcome`,
+        { method: "POST", body: "{}" },
+        requireAccess(businessSlug, leadId),
+      ),
     sendLeadChat: async <T extends { reply: string; products?: unknown[] }>(leadId: string, message: string): Promise<T> =>
       visitorRequest(businessSlug, `/leads/${encodeURIComponent(leadId)}/chat`, {
         method: "POST",

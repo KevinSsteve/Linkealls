@@ -40,3 +40,18 @@ test("public traffic creative routes resolve server-owned context and visitor se
   assert.match(chat, /isRestoringSession/);
   assert.match(chat, /disabled=\{isBusy \|\| isRestoringSession\}/);
 });
+
+test("paid chat bootstrap is fenced and appends messages atomically", async () => {
+  const service = await readFile(path.join(apiServerDir, "src/services/leads.ts"), "utf8");
+  const schema = await readFile(path.join(dbDir, "src/schema/leads.ts"), "utf8");
+  const routes = await readFile(path.join(apiServerDir, "src/routes/businessScoped.ts"), "utf8");
+  const transition = await readFile(path.join(webDir, "src/lib/trafficConversation.ts"), "utf8");
+
+  assert.match(schema, /uniqueIndex\("leads_traffic_click_unique"\)/);
+  assert.match(schema, /trafficWelcomeClaimToken/);
+  assert.match(service, /onConflictDoUpdate/);
+  assert.match(service, /eq\(leadsTable\.trafficWelcomeClaimToken, options\.trafficWelcomeClaimToken\)/);
+  assert.match(service, /chatMessages: sql`\$\{leadsTable\.chatMessages\} \|\|/);
+  assert.match(routes, /\{ trafficWelcomeClaimToken: claimToken \}/);
+  assert.match(transition, /navigator\.locks\?\.request/);
+});

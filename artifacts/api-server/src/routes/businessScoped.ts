@@ -34,6 +34,7 @@ import {
 import { startSiteAnalysis, assistFromDescription, StartAnalysisError } from "../services/siteAnalysis.js";
 import {
   createLead,
+  createOrReuseTrafficLead,
   getLead,
   listLeads,
   updateLeadState,
@@ -41,6 +42,8 @@ import {
   appendOwnerReply,
   subscribeToLeadQualified,
   getLeadsAnalytics,
+  claimTrafficWelcome,
+  finishTrafficWelcome,
 } from "../services/leads.js";
 import {
   listCampaigns,
@@ -112,9 +115,41 @@ import {
   launchFeaturePausedPayload,
   PAID_CAMPAIGN_PENDING_REVIEW_MESSAGE,
 } from "../lib/launchPolicy.js";
+import {
+  createVisitorRecoveryFamily,
+  readCookie,
+  revokeVisitorRecovery,
+  rotateVisitorRecovery,
+  visitorRecoveryTokenForLead,
+  visitorRecoveryCookieName,
+  VISITOR_RECOVERY_TTL_MS,
+} from "../services/visitorConversationRecovery.js";
 
 function bid(res: Response): number {
   return res.locals["businessId"] as number;
+}
+
+function businessSlug(req: Request): string {
+  return (req.params as { businessSlug?: string }).businessSlug ?? "";
+}
+
+function setVisitorRecoveryCookie(res: Response, slug: string, token: string): void {
+  res.cookie(visitorRecoveryCookieName(slug), token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env["NODE_ENV"] === "production",
+    maxAge: VISITOR_RECOVERY_TTL_MS,
+    path: "/",
+  });
+}
+
+function clearVisitorRecoveryCookie(res: Response, slug: string): void {
+  res.clearCookie(visitorRecoveryCookieName(slug), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env["NODE_ENV"] === "production",
+    path: "/",
+  });
 }
 
 /**
@@ -400,6 +435,7 @@ export function createBusinessScopedRouter(): Router {
   const createSessionSchema = z.object({
     origin: leadOriginSchema.optional(),
     chatMessages: z.array(chatMessageSchema).max(50).optional(),
+    trafficClickKey: z.string().uuid().optional(),
   });
 
   router.post("/leads/session", publicRateLimit, async (req, res) => {
@@ -418,11 +454,31 @@ export function createBusinessScopedRouter(): Router {
         origin.campaign = origin.campaign ?? creative.publicSlug;
         origin.trafficCreative = publicTrafficCreativeContext(creative);
       }
-      const lead = await createLead(
-        origin,
-        parsed.data.chatMessages ?? [],
-        bid(res),
-      );
+      if (origin.trafficCreative && !parsed.data.trafficClickKey) {
+        res.status(400).json({ error: "Identificador de abertura do anúncio em falta" });
+        return;
+      }
+      const recovery = createVisitorRecoveryFamily();
+      const lead = origin.trafficCreative
+        ? await createOrReuseTrafficLead(
+          origin,
+          parsed.data.chatMessages ?? [],
+          bid(res),
+          parsed.data.trafficClickKey!,
+          recovery,
+        )
+        : await createLead(
+          origin,
+          parsed.data.chatMessages ?? [],
+          bid(res),
+          {
+            visitorRecoveryFamilyId: recovery.familyId,
+            visitorRecoveryExpiresAt: recovery.expiresAt,
+            trafficWelcomeStatus: null,
+          },
+        );
+      const recoveryToken = visitorRecoveryTokenForLead(bid(res), lead);
+      setVisitorRecoveryCookie(res, businessSlug(req), recoveryToken);
       res.status(201).json({
         leadId: lead.id,
         visitorToken: issueConversationCapability(bid(res), lead.id),
@@ -430,6 +486,43 @@ export function createBusinessScopedRouter(): Router {
     } catch (err) {
       logger.error({ err }, "POST /leads/session failed");
       res.status(500).json({ error: "Erro ao criar sessão" });
+    }
+  });
+
+  router.post("/leads/recovery", publicRateLimit, async (req, res) => {
+    const slug = businessSlug(req);
+    try {
+      const token = readCookie(req.headers.cookie, visitorRecoveryCookieName(slug));
+      if (!token) {
+        res.status(404).json({ error: "Conversa guardada não encontrada" });
+        return;
+      }
+      const recovered = await rotateVisitorRecovery(bid(res), token);
+      if (!recovered) {
+        res.status(404).json({ error: "Conversa guardada não encontrada ou expirada" });
+        return;
+      }
+      setVisitorRecoveryCookie(res, slug, recovered.token);
+      res.json({
+        leadId: recovered.leadId,
+        visitorToken: issueConversationCapability(bid(res), recovered.leadId),
+      });
+    } catch (err) {
+      logger.error({ err }, "POST /leads/recovery failed");
+      res.status(500).json({ error: "Não foi possível recuperar a conversa" });
+    }
+  });
+
+  router.delete("/leads/recovery", publicRateLimit, async (req, res) => {
+    const slug = businessSlug(req);
+    try {
+      const token = readCookie(req.headers.cookie, visitorRecoveryCookieName(slug));
+      if (token) await revokeVisitorRecovery(bid(res), token);
+      clearVisitorRecoveryCookie(res, slug);
+      res.status(204).end();
+    } catch (err) {
+      logger.error({ err }, "DELETE /leads/recovery failed");
+      res.status(500).json({ error: "Não foi possível terminar a conversa" });
     }
   });
 
@@ -452,6 +545,8 @@ export function createBusinessScopedRouter(): Router {
       res.json({
         leadId: lead.id,
         chatMessages: lead.chatMessages,
+        trafficCreative: lead.origin.trafficCreative ?? null,
+        trafficWelcomeStatus: lead.trafficWelcomeStatus,
         createdAt: lead.createdAt,
         updatedAt: lead.updatedAt,
       });
@@ -462,6 +557,50 @@ export function createBusinessScopedRouter(): Router {
       }
       logger.error({ err, id }, "GET /leads/:id/session failed");
       res.status(500).json({ error: "Erro ao carregar conversa" });
+    }
+  });
+
+  router.post("/leads/:id/traffic-welcome", publicRateLimit, async (req, res) => {
+    const id = String(req.params["id"] ?? "");
+    if (!/^[0-9a-f-]{36}$/i.test(id)) {
+      res.status(404).json({ error: "Conversa não encontrada" });
+      return;
+    }
+    try {
+      verifyVisitorCapability(visitorTokenFromAuthorization(req.headers.authorization), {
+        businessId: bid(res),
+        leadId: id,
+      });
+      const lead = await getLead(id, bid(res));
+      if (!lead?.origin.trafficCreative) {
+        res.status(400).json({ error: "Esta conversa não veio de um anúncio" });
+        return;
+      }
+      const claimToken = await claimTrafficWelcome(id, bid(res));
+      if (!claimToken) {
+        const current = await getLead(id, bid(res));
+        res.json({ started: false, status: current?.trafficWelcomeStatus ?? "failed" });
+        return;
+      }
+      try {
+        const result = await chatWithLead(
+          id,
+          "Quero saber mais sobre este anúncio",
+          bid(res),
+          { trafficWelcomeClaimToken: claimToken },
+        );
+        res.json({ started: true, status: "complete", ...result });
+      } catch (err) {
+        await finishTrafficWelcome(id, bid(res), claimToken, "failed");
+        throw err;
+      }
+    } catch (err) {
+      if (err instanceof VisitorCapabilityError) {
+        res.status(401).json({ error: "Acesso à conversa inválido ou expirado" });
+        return;
+      }
+      logger.error({ err, id }, "POST /leads/:id/traffic-welcome failed");
+      res.status(500).json({ error: "Não foi possível iniciar a resposta do assistente" });
     }
   });
 

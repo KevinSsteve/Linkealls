@@ -106,6 +106,7 @@ export async function startSiteAnalysis() {}
 export async function assistFromDescription() {}
 export class StartAnalysisError extends Error { statusCode = 400; }
 export async function createLead() {}
+export async function createOrReuseTrafficLead() {}
 export async function getLead() {}
 export async function listLeads() { return []; }
 export async function updateLeadState() {}
@@ -113,6 +114,8 @@ export async function chatWithLead() {}
 export async function appendOwnerReply() {}
 export function subscribeToLeadQualified() { return () => {}; }
 export async function getLeadsAnalytics() { return {}; }
+export async function claimTrafficWelcome() { return null; }
+export async function finishTrafficWelcome() {}
 export function getVapidPublicKey() { return ""; }
 export async function saveSubscription() {}
 export async function removeSubscription() {}
@@ -126,6 +129,13 @@ export function issueConversationCapability() { return ""; }
 export function verifyVisitorCapability() {}
 export function visitorTokenFromAuthorization() { return ""; }
 export class VisitorCapabilityError extends Error {}
+export const VISITOR_RECOVERY_TTL_MS = 604800000;
+export function createVisitorRecoveryFamily() { return { familyId: "00000000-0000-4000-8000-000000000001", expiresAt: new Date() }; }
+export function readCookie() { return null; }
+export async function revokeVisitorRecovery() {}
+export async function rotateVisitorRecovery() { return null; }
+export function visitorRecoveryCookieName() { return "test-recovery"; }
+export function visitorRecoveryTokenForLead() { return "test-recovery-token"; }
 `, "utf8");
 
 await writeFile(serviceFixturePath, `

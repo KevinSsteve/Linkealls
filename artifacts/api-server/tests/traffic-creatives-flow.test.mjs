@@ -115,13 +115,36 @@ export async function getTrafficCreativeBySlug(businessId, slug) {
   return state.creatives.find((item) => item.businessId === businessId && item.publicSlug === slug) ?? null;
 }
 export function publicTrafficCreativeContext(item) {
-  return { id: item.id, slug: item.publicSlug, description: item.description, mediaType: item.mediaType };
+  return {
+    id: item.id, slug: item.publicSlug, description: item.description, mediaType: item.mediaType,
+    mediaMimeType: item.mediaMimeType, mediaUrl: \`/api/storage\${item.objectPath}\`,
+  };
 }
 
-export async function createLead(origin, chatMessages, businessId) {
-  const lead = { id: uuid(100 + state.leads.length), businessId, origin, chatMessages };
+export async function createLead(origin, chatMessages, businessId, session = {}) {
+  const lead = { id: uuid(100 + state.leads.length), businessId, origin, chatMessages, createdAt: new Date(), ...session };
   state.leads.push(lead);
   return lead;
+}
+export async function createOrReuseTrafficLead(origin, chatMessages, businessId, trafficClickKey, recovery) {
+  const retryWindowStart = Date.now() - 15_000;
+  for (const lead of state.leads) {
+    if (
+      lead.businessId === businessId &&
+      lead.trafficClickKey === trafficClickKey &&
+      lead.createdAt.getTime() < retryWindowStart
+    ) lead.trafficClickKey = null;
+  }
+  const existing = state.leads.find((lead) =>
+    lead.businessId === businessId && lead.trafficClickKey === trafficClickKey
+  );
+  if (existing) return existing;
+  return createLead(origin, chatMessages, businessId, {
+    trafficClickKey,
+    visitorRecoveryFamilyId: recovery.familyId,
+    visitorRecoveryExpiresAt: recovery.expiresAt,
+    trafficWelcomeStatus: "pending",
+  });
 }
 export async function getLead(id, businessId) {
   return state.leads.find((lead) => lead.id === id && (businessId === undefined || lead.businessId === businessId)) ?? null;
@@ -145,6 +168,23 @@ export async function listLeads() { return state.leads; }
 export async function updateLeadState() {}
 export function subscribeToLeadQualified() { return () => {}; }
 export async function getLeadsAnalytics() { return {}; }
+export async function claimTrafficWelcome() { return "00000000-0000-4000-8000-000000000999"; }
+export async function finishTrafficWelcome() {}
+
+export const VISITOR_RECOVERY_TTL_MS = 604800000;
+export function createVisitorRecoveryFamily() {
+  return { familyId: uuid(999), expiresAt: new Date(Date.now() + VISITOR_RECOVERY_TTL_MS) };
+}
+export function visitorRecoveryTokenForLead(_businessId, lead) {
+  return \`recovery-\${lead.id}\`;
+}
+export function createVisitorRecoveryCredentials() {
+  return { token: "recovery-token", hash: "recovery-hash", expiresAt: new Date(Date.now() + VISITOR_RECOVERY_TTL_MS) };
+}
+export function visitorRecoveryCookieName(slug) { return \`linkealls_visitor_\${slug}\`; }
+export function readCookie() { return null; }
+export async function rotateVisitorRecovery() { return null; }
+export async function revokeVisitorRecovery() {}
 
 export function issueConversationCapability(businessId, leadId) { return \`cap-\${businessId}-\${leadId}\`; }
 export function visitorTokenFromAuthorization(value) { return value?.startsWith("Visitor ") ? value.slice(8) : null; }
@@ -264,6 +304,9 @@ async function invoke(method, routePath, {
     body: undefined,
     status(code) { this.statusCode = code; return this; },
     json(value) { this.body = value; return this; },
+    cookie() { return this; },
+    clearCookie() { return this; },
+    end() { return this; },
     setHeader() {},
     flushHeaders() {},
     write() {},
@@ -330,6 +373,7 @@ test("UTMs and trusted creative context stay on one lead through catalog chat an
         trafficCreativeSlug: "image-link",
       },
       chatMessages: [],
+      trafficClickKey: "00000000-0000-4000-8000-000000000777",
     },
   });
   assert.equal(created.statusCode, 201);
@@ -347,6 +391,8 @@ test("UTMs and trusted creative context stay on one lead through catalog chat an
       slug: "image-link",
       description: "image creative",
       mediaType: "image",
+      mediaMimeType: "image/webp",
+      mediaUrl: "/api/storage/objects/traffic-creatives/owner/00000000-0000-4000-8000-000000000001",
     },
   });
 
@@ -367,6 +413,41 @@ test("UTMs and trusted creative context stay on one lead through catalog chat an
   assert.equal(human.statusCode, 200);
   assert.equal(state.ownerReplies.at(-1).id, lead.id);
   assert.equal(state.leads.length, before + 1, "human handoff must not create a second lead");
+});
+
+test("concurrent retries with the same paid-click key reuse one lead", async () => {
+  const before = state.leads.length;
+  const body = {
+    origin: { source: "meta", trafficCreativeSlug: "video-link" },
+    chatMessages: [],
+    trafficClickKey: "00000000-0000-4000-8000-000000000778",
+  };
+  const [first, second] = await Promise.all([
+    invoke("post", "/leads/session", { body }),
+    invoke("post", "/leads/session", { body }),
+  ]);
+
+  assert.equal(first.statusCode, 201);
+  assert.equal(second.statusCode, 201);
+  assert.equal(first.body.leadId, second.body.leadId);
+  assert.equal(state.leads.length, before + 1);
+});
+
+test("a paid-click key cannot reopen an old private conversation", async () => {
+  const before = state.leads.length;
+  const body = {
+    origin: { source: "meta", trafficCreativeSlug: "image-link" },
+    chatMessages: [],
+    trafficClickKey: "00000000-0000-4000-8000-000000000779",
+  };
+  const first = await invoke("post", "/leads/session", { body });
+  const firstLead = state.leads.find((lead) => lead.id === first.body.leadId);
+  firstLead.createdAt = new Date(Date.now() - 16_000);
+
+  const second = await invoke("post", "/leads/session", { body });
+  assert.equal(second.statusCode, 201);
+  assert.notEqual(first.body.leadId, second.body.leadId);
+  assert.equal(state.leads.length, before + 2);
 });
 
 test("paused, missing and cross-business creative slugs never create attributed leads", async () => {

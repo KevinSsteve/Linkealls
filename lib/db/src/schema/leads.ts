@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, jsonb, integer, uuid } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, jsonb, integer, uuid, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -10,6 +10,8 @@ export type LeadState =
   | "qualificado"
   | "entregue"
   | "perdido";
+
+export type TrafficWelcomeStatus = "pending" | "processing" | "complete" | "failed";
 
 export const LEAD_STATES: LeadState[] = [
   "novo",
@@ -34,6 +36,8 @@ export interface LeadOrigin {
     slug: string;
     description: string;
     mediaType: "image" | "video";
+    mediaMimeType?: string;
+    mediaUrl?: string;
   };
 }
 
@@ -93,12 +97,29 @@ export const leadsTable = pgTable("leads", {
   /** Pre-built WhatsApp message the owner can send with one tap. */
   whatsappMessage: text("whatsapp_message"),
 
+  /** Hash of an opaque HttpOnly recovery token; the raw token is never stored. */
+  visitorRecoveryHash: text("visitor_recovery_hash"),
+  /** Non-secret family identifier carried only inside a signed recovery token. */
+  visitorRecoveryFamilyId: uuid("visitor_recovery_family_id"),
+  visitorRecoveryExpiresAt: timestamp("visitor_recovery_expires_at"),
+  visitorRecoveryRevokedAt: timestamp("visitor_recovery_revoked_at"),
+
+  /** Idempotent bootstrap state for paid-traffic conversations. */
+  trafficClickKey: uuid("traffic_click_key"),
+  trafficWelcomeStatus: text("traffic_welcome_status").$type<TrafficWelcomeStatus>(),
+  trafficWelcomeClaimedAt: timestamp("traffic_welcome_claimed_at"),
+  trafficWelcomeClaimToken: uuid("traffic_welcome_claim_token"),
+
   /** ISO timestamp of when the call ended. */
   callEndedAt: timestamp("call_ended_at"),
 
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
-});
+}, (table) => [
+  index("leads_visitor_recovery_idx").on(table.businessId, table.visitorRecoveryHash),
+  index("leads_visitor_recovery_family_idx").on(table.businessId, table.visitorRecoveryFamilyId),
+  uniqueIndex("leads_traffic_click_unique").on(table.businessId, table.trafficClickKey),
+]);
 
 // ─── Schemas ─────────────────────────────────────────────────────────────────
 

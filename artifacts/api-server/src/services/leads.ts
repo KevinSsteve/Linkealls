@@ -1,16 +1,17 @@
+import { randomUUID } from "node:crypto";
 import { GoogleGenAI } from "@google/genai";
 import {
   db,
   leadsTable,
   ordersTable,
   type Lead,
-  type InsertLead,
   type LeadOrigin,
   type ChatMessage,
   type QualificationData,
   type LeadState,
+  type TrafficWelcomeStatus,
 } from "@workspace/db";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, isNull, lt, or, sql } from "drizzle-orm";
 import { logger } from "../lib/logger.js";
 import { buildLeadChatContext, selectLeadChatProducts } from "../lib/leadChatContext.js";
 import { getOrCreateProfile } from "./businessProfile.js";
@@ -25,12 +26,107 @@ export async function createLead(
   origin: LeadOrigin,
   chatMessages: ChatMessage[],
   businessId?: number,
+  session?: {
+    visitorRecoveryFamilyId?: string | null;
+    visitorRecoveryExpiresAt?: Date | null;
+    trafficWelcomeStatus?: TrafficWelcomeStatus | null;
+  },
 ): Promise<Lead> {
   const inserted = await db
     .insert(leadsTable)
-    .values({ origin, chatMessages, ...(businessId !== undefined ? { businessId } : {}) })
+    .values({
+      origin,
+      chatMessages,
+      ...(businessId !== undefined ? { businessId } : {}),
+      ...(session ?? {}),
+    })
     .returning();
   return inserted[0]!;
+}
+
+export async function createOrReuseTrafficLead(
+  origin: LeadOrigin,
+  chatMessages: ChatMessage[],
+  businessId: number,
+  trafficClickKey: string,
+  recovery: { familyId: string; expiresAt: Date },
+): Promise<Lead> {
+  const retryWindowStart = new Date(Date.now() - 15_000);
+  await db.update(leadsTable)
+    .set({ trafficClickKey: null })
+    .where(and(
+      eq(leadsTable.businessId, businessId),
+      eq(leadsTable.trafficClickKey, trafficClickKey),
+      lt(leadsTable.createdAt, retryWindowStart),
+    ));
+  const inserted = await db.insert(leadsTable)
+    .values({
+      businessId,
+      origin,
+      chatMessages,
+      trafficClickKey,
+      visitorRecoveryFamilyId: recovery.familyId,
+      visitorRecoveryExpiresAt: recovery.expiresAt,
+      trafficWelcomeStatus: "pending",
+    })
+    .onConflictDoUpdate({
+      target: [leadsTable.businessId, leadsTable.trafficClickKey],
+      set: { trafficClickKey },
+    })
+    .returning();
+  return inserted[0]!;
+}
+
+export async function claimTrafficWelcome(
+  id: string,
+  businessId: number,
+  now = new Date(),
+): Promise<string | null> {
+  const staleBefore = new Date(now.getTime() - 60_000);
+  const claimToken = randomUUID();
+  const rows = await db.update(leadsTable)
+    .set({
+      trafficWelcomeStatus: "processing",
+      trafficWelcomeClaimedAt: now,
+      trafficWelcomeClaimToken: claimToken,
+      updatedAt: now,
+    })
+    .where(and(
+      eq(leadsTable.id, id),
+      eq(leadsTable.businessId, businessId),
+      sql`jsonb_array_length(${leadsTable.chatMessages}) = 0`,
+      or(
+        isNull(leadsTable.trafficWelcomeStatus),
+        eq(leadsTable.trafficWelcomeStatus, "pending"),
+        eq(leadsTable.trafficWelcomeStatus, "failed"),
+        and(
+          eq(leadsTable.trafficWelcomeStatus, "processing"),
+          lt(leadsTable.trafficWelcomeClaimedAt, staleBefore),
+        ),
+      ),
+    ))
+    .returning({ id: leadsTable.id });
+  return rows[0] ? claimToken : null;
+}
+
+export async function finishTrafficWelcome(
+  id: string,
+  businessId: number,
+  claimToken: string,
+  status: "complete" | "failed",
+): Promise<void> {
+  await db.update(leadsTable)
+    .set({
+      trafficWelcomeStatus: status,
+      trafficWelcomeClaimedAt: null,
+      trafficWelcomeClaimToken: null,
+      updatedAt: new Date(),
+    })
+    .where(and(
+      eq(leadsTable.id, id),
+      eq(leadsTable.businessId, businessId),
+      eq(leadsTable.trafficWelcomeClaimToken, claimToken),
+    ));
 }
 
 export async function getLead(id: string, businessId?: number): Promise<Lead | null> {
@@ -312,6 +408,7 @@ export async function chatWithLead(
   leadId: string,
   userMessage: string,
   businessId?: number,
+  options?: { trafficWelcomeClaimToken?: string },
 ): Promise<{
   reply: string;
   products: Array<{ name: string; price: string; description: string; imageUrl?: string }>;
@@ -364,19 +461,36 @@ export async function chatWithLead(
 
   // Persist both messages in the lead's chatMessages
   const ts = new Date().toISOString();
-  const updated: ChatMessage[] = [
-    ...lead.chatMessages,
+  const appended: ChatMessage[] = [
     { role: "user" as const, text: userMessage, ts },
     { role: "bot" as const, text: reply, ts: new Date(Date.now() + 1).toISOString() },
   ];
-  await db
+  const leadWhere = businessId !== undefined
+    ? and(eq(leadsTable.id, leadId), eq(leadsTable.businessId, businessId))
+    : eq(leadsTable.id, leadId);
+  const guardedWhere = options?.trafficWelcomeClaimToken
+    ? and(
+      leadWhere,
+      eq(leadsTable.trafficWelcomeStatus, "processing"),
+      eq(leadsTable.trafficWelcomeClaimToken, options.trafficWelcomeClaimToken),
+    )
+    : leadWhere;
+  const rows = await db
     .update(leadsTable)
-    .set({ chatMessages: updated, updatedAt: new Date() })
-    .where(
-      businessId !== undefined
-        ? and(eq(leadsTable.id, leadId), eq(leadsTable.businessId, businessId))
-        : eq(leadsTable.id, leadId),
-    );
+    .set({
+      chatMessages: sql`${leadsTable.chatMessages} || ${JSON.stringify(appended)}::jsonb`,
+      ...(options?.trafficWelcomeClaimToken
+        ? {
+          trafficWelcomeStatus: "complete" as const,
+          trafficWelcomeClaimedAt: null,
+          trafficWelcomeClaimToken: null,
+        }
+        : {}),
+      updatedAt: new Date(),
+    })
+    .where(guardedWhere)
+    .returning({ id: leadsTable.id });
+  if (!rows[0]) throw new Error("A operação desta resposta já não está activa");
 
   return { reply, products };
 }
@@ -393,19 +507,19 @@ export async function appendOwnerReply(
   message: string,
   businessId: number,
 ): Promise<Lead> {
-  const lead = await getLead(leadId, businessId);
-  if (!lead) throw new Error("Lead não encontrado");
   const ts = new Date().toISOString();
-  // Use type assertion — "agent" is a valid ChatMessage role per the interface
-  const updated = [
-    ...lead.chatMessages,
+  const appended = [
     { role: "agent" as ChatMessage["role"], text: message, ts },
   ];
   const rows = await db
     .update(leadsTable)
-    .set({ chatMessages: updated, updatedAt: new Date() })
+    .set({
+      chatMessages: sql`${leadsTable.chatMessages} || ${JSON.stringify(appended)}::jsonb`,
+      updatedAt: new Date(),
+    })
     .where(and(eq(leadsTable.id, leadId), eq(leadsTable.businessId, businessId)))
     .returning();
+  if (!rows[0]) throw new Error("Lead não encontrado");
   return rows[0]!;
 }
 

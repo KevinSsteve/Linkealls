@@ -9,7 +9,13 @@ import { InlineCheckout } from "../components/InlineCheckout";
 import { BuyModal, parsePriceAoa } from "../components/BuyModal";
 import { useGeminiLive, type ProductCard, type AgentMessage } from "../hooks/useGeminiLive";
 import { businessApi, type ChatMessage, type OrderTracking } from "../lib/api";
-import { loadCurrentVisitorAccess, visitorApi } from "../lib/visitorAccess";
+import { visitorApi } from "../lib/visitorAccess";
+import {
+  loadCurrentVisitorAccess,
+  type LeadSessionResponse,
+  type TrafficSessionCreative,
+  type VisitorAccess,
+} from "../lib/visitorAccess";
 import { restoreTrafficConversation } from "../lib/trafficConversation";
 import { useBusinessSlug } from "../hooks/useBusinessSlug";
 import { recordVisit } from "../lib/visitedBusinesses";
@@ -26,6 +32,7 @@ import {
   Clock3,
   PackageCheck,
   RefreshCw,
+  Trash2,
 } from "lucide-react";
 import "../styles/customer-ux.css";
 
@@ -490,6 +497,69 @@ function InlineProductShelf({
   );
 }
 
+function TrafficCreativeCard({ creative }: { creative: TrafficSessionCreative }) {
+  const [mediaError, setMediaError] = useState(false);
+  const [mediaKey, setMediaKey] = useState(0);
+  const mediaUrl = creative.mediaUrl
+    ? import.meta.env.DEV && creative.mediaUrl.startsWith("/api/")
+      ? `${import.meta.env.BASE_URL}${creative.mediaUrl.slice(1)}`
+      : creative.mediaUrl
+    : "";
+
+  const retryMedia = () => {
+    setMediaError(false);
+    setMediaKey((value) => value + 1);
+  };
+
+  return (
+    <article
+      className="mb-3 overflow-hidden rounded-2xl"
+      style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "0 2px 8px rgba(23,19,31,0.08)" }}
+      aria-label="Anúncio que iniciou esta conversa"
+    >
+      {!mediaError && mediaUrl ? (
+        creative.mediaType === "video" ? (
+          <video
+            key={mediaKey}
+            src={mediaUrl}
+            controls
+            playsInline
+            preload="metadata"
+            onError={() => setMediaError(true)}
+            className="block aspect-video w-full bg-black object-contain"
+          />
+        ) : (
+          <img
+            key={mediaKey}
+            src={mediaUrl}
+            alt="Imagem do anúncio"
+            onError={() => setMediaError(true)}
+            className="block aspect-video w-full object-cover"
+          />
+        )
+      ) : (
+        <div className="flex aspect-video w-full flex-col items-center justify-center gap-2 bg-[var(--subtle)] px-6 text-center">
+          <ImageOff size={28} style={{ color: "var(--ink-faint)" }} />
+          <p className="text-xs" style={{ color: "var(--ink-soft)" }}>Não foi possível carregar o conteúdo do anúncio.</p>
+          {mediaUrl && (
+            <button type="button" onClick={retryMedia} className="text-xs font-semibold underline" style={{ color: "var(--green)" }}>
+              Tentar novamente
+            </button>
+          )}
+        </div>
+      )}
+      <div className="px-4 py-3">
+        <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "var(--ink-faint)" }}>
+          Anúncio que viste
+        </p>
+        <p className="mt-1 whitespace-pre-wrap text-[14px] leading-relaxed" style={{ color: "var(--ink)" }}>
+          {creative.description}
+        </p>
+      </div>
+    </article>
+  );
+}
+
 // ─── Main Chat component ───────────────────────────────────────────────────
 
 export function Chat() {
@@ -506,11 +576,14 @@ export function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [stage, setStage] = useState<Stage>("chat");
   const [isBusy, setIsBusy] = useState(false);
-  const [isRestoringSession, setIsRestoringSession] = useState(
-    () => Boolean(businessSlug && loadCurrentVisitorAccess(businessSlug)),
-  );
+  const [isRestoringSession, setIsRestoringSession] = useState(Boolean(businessSlug));
   const [callTriggered, setCallTriggered] = useState(false);
   const [leadId, setLeadId] = useState<string | null>(null);
+  const [trafficCreative, setTrafficCreative] = useState<TrafficSessionCreative | null>(null);
+  const [trafficWelcomeStatus, setTrafficWelcomeStatus] =
+    useState<LeadSessionResponse["trafficWelcomeStatus"]>(null);
+  const [conversationError, setConversationError] = useState<string | null>(null);
+  const [welcomeRetry, setWelcomeRetry] = useState(0);
   const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
   const [tracking, setTracking] = useState<OrderTracking | null>(null);
   const [trackingLoading, setTrackingLoading] = useState(false);
@@ -534,6 +607,7 @@ export function Chat() {
 
   const chatMsgsRef = useRef<ChatMessage[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const welcomeAttemptsRef = useRef(new Set<string>());
   const gemini = useGeminiLive(leadId, businessSlug ?? "");
 
   // Auth context — detect B2B mode (logged-in owner chatting with another business)
@@ -543,45 +617,129 @@ export function Chat() {
   // Restore only the capability held in this browser session. Conversation
   // identifiers and visitor capabilities are intentionally never read from a
   // URL, where browser history, referrers, and shared links could expose them.
-  useEffect(() => {
+  const hydrateSession = useCallback((access: VisitorAccess, session: LeadSessionResponse) => {
+    const restored = session.chatMessages.map((message, index) => ({
+      id: `restored-${index}-${message.ts}`,
+      role: message.role === "user" ? "user" as const : "bot" as const,
+      text: message.text,
+      ts: message.ts,
+    }));
+    setMessages(restored);
+    chatMsgsRef.current = session.chatMessages;
+    setLeadId(access.leadId);
+    setTrackingOrderId(access.orderId ?? null);
+    setTrafficCreative(session.trafficCreative);
+    setTrafficWelcomeStatus(session.trafficWelcomeStatus);
+    setCallTriggered(restored.length > 0 || Boolean(session.trafficCreative));
+  }, []);
+
+  const restoreSession = useCallback(async () => {
     if (!businessSlug) {
       setIsRestoringSession(false);
       return;
     }
-    const access = loadCurrentVisitorAccess(businessSlug);
-    if (!access) {
-      setIsRestoringSession(false);
-      return;
-    }
     setIsRestoringSession(true);
+    setConversationError(null);
+    try {
+      const restoredSession = await restoreTrafficConversation(businessSlug);
+      if (restoredSession) hydrateSession(restoredSession.access, restoredSession.session);
+    } catch {
+      setConversationError("Não foi possível reabrir esta conversa. Verifica a ligação e tenta novamente.");
+    } finally {
+      setIsRestoringSession(false);
+    }
+  }, [businessSlug, hydrateSession]);
+
+  useEffect(() => {
+    void restoreSession();
+  }, [restoreSession]);
+
+  useEffect(() => {
+    if (
+      !businessSlug ||
+      !leadId ||
+      !trafficCreative ||
+      trafficWelcomeStatus === "complete" ||
+      messages.length > 0
+    ) return;
+    const attemptKey = `${leadId}:${welcomeRetry}`;
+    if (welcomeAttemptsRef.current.has(attemptKey)) return;
+    welcomeAttemptsRef.current.add(attemptKey);
     let cancelled = false;
-    restoreTrafficConversation(businessSlug)
-      .then((restoredSession) => {
-        if (cancelled) return;
-        if (!restoredSession) {
-          setIsRestoringSession(false);
-          return;
+
+    const refreshUntilReady = async (): Promise<void> => {
+      const api = visitorApi(businessSlug);
+      setIsBusy(true);
+      setStage("typing");
+      setConversationError(null);
+      try {
+        const welcome = await api.startTrafficWelcome<{
+          started: boolean;
+          status: "pending" | "processing" | "complete" | "failed";
+          reply?: string;
+          products?: ProductCard[];
+        }>(leadId);
+        if (welcome.products?.length) setChatProducts(welcome.products);
+
+        for (let attempt = 0; attempt < 20 && !cancelled; attempt += 1) {
+          const access = loadCurrentVisitorAccess(businessSlug);
+          if (!access) throw new Error("A sessão de visitante expirou");
+          const session = await api.getLeadSession(leadId);
+          if (session.chatMessages.length > 0 || session.trafficWelcomeStatus === "complete") {
+            hydrateSession(access, session);
+            return;
+          }
+          if (session.trafficWelcomeStatus === "failed") {
+            throw new Error("O assistente não conseguiu responder");
+          }
+          await new Promise((resolve) => window.setTimeout(resolve, 1000));
         }
-        const { access: restoredAccess, session } = restoredSession;
-        const restored = session.chatMessages.map((message, index) => ({
-          id: `restored-${index}-${message.ts}`,
-          role: message.role === "user" ? "user" as const : "bot" as const,
-          text: message.text,
-          ts: message.ts,
-        }));
-        setMessages(restored);
-        chatMsgsRef.current = session.chatMessages;
-        setLeadId(restoredAccess.leadId);
-        setTrackingOrderId(restoredAccess.orderId ?? null);
-        setCallTriggered(true);
-      })
-      .catch(() => {
-        if (!cancelled) setTrackingError("Não foi possível reabrir esta conversa.");
-      })
-      .finally(() => {
-        if (!cancelled) setIsRestoringSession(false);
-      });
+        if (!cancelled) throw new Error("A resposta está a demorar mais do que o esperado");
+      } catch {
+        if (!cancelled) {
+          setConversationError("Não foi possível obter a primeira resposta. Podes tentar novamente sem perder a conversa.");
+          setTrafficWelcomeStatus("failed");
+        }
+      } finally {
+        if (!cancelled) {
+          setStage("chat");
+          setIsBusy(false);
+        }
+      }
+    };
+
+    void refreshUntilReady();
     return () => { cancelled = true; };
+  }, [
+    businessSlug,
+    hydrateSession,
+    leadId,
+    messages.length,
+    trafficCreative,
+    trafficWelcomeStatus,
+    welcomeRetry,
+  ]);
+
+  const endConversation = useCallback(async () => {
+    if (!businessSlug || !window.confirm("Terminar esta conversa guardada neste dispositivo?")) return;
+    setIsBusy(true);
+    try {
+      await visitorApi(businessSlug).endLeadSession();
+      setMessages([]);
+      chatMsgsRef.current = [];
+      setLeadId(null);
+      setTrafficCreative(null);
+      setTrafficWelcomeStatus(null);
+      setTrackingOrderId(null);
+      setTracking(null);
+      setCallTriggered(false);
+      setConversationError(null);
+      setInputValue("Quero saber mais sobre isso");
+    } catch {
+      setConversationError("Não foi possível terminar a conversa. Tenta novamente.");
+    } finally {
+      setIsBusy(false);
+    }
   }, [businessSlug]);
 
   const refreshTracking = useCallback(async () => {
@@ -1015,9 +1173,52 @@ export function Chat() {
                 </span>
               </div>
 
+              {leadId && (
+                <div className="mb-3 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => void endConversation()}
+                    disabled={isBusy}
+                    className="flex min-h-9 items-center gap-1.5 rounded-full px-3 text-[11px] font-semibold disabled:opacity-50"
+                    style={{ background: "rgba(255,255,255,0.8)", color: "var(--ink-soft)", border: "1px solid var(--border)" }}
+                  >
+                    <Trash2 size={13} /> Terminar conversa
+                  </button>
+                </div>
+              )}
+
+              {trafficCreative && <TrafficCreativeCard creative={trafficCreative} />}
+
               {messages.map((m) => (
                 <ChatBubble key={m.id} role={m.role} text={m.text} />
               ))}
+              {conversationError && (
+                <div
+                  className="my-3 rounded-2xl p-3"
+                  style={{ background: "var(--errorBg)", border: "1px solid var(--errorBorder)", color: "var(--errorText)" }}
+                >
+                  <p className="text-[13px] leading-relaxed">{conversationError}</p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (trafficCreative && leadId) {
+                        welcomeAttemptsRef.current.delete(`${leadId}:${welcomeRetry}`);
+                        setWelcomeRetry((value) => value + 1);
+                      } else {
+                        void restoreSession();
+                      }
+                    }}
+                    className="mt-2 flex items-center gap-1 text-[12px] font-semibold underline"
+                  >
+                    <RefreshCw size={13} /> Tentar novamente
+                  </button>
+                </div>
+              )}
+              {isRestoringSession && (
+                <div className="flex justify-center py-4">
+                  <RefreshCw size={20} className="animate-spin" style={{ color: "var(--green)" }} />
+                </div>
+              )}
               {(trackingOrderId || trackingLoading || trackingError) && (
                 <OrderTrackingCard
                   tracking={tracking}
