@@ -49,7 +49,7 @@ export function LegalPage({ kind }: { kind: LegalKind }) {
   }, [page]);
 
   return (
-    <main className="min-h-screen bg-[var(--bg)] text-[var(--ink)]">
+    <main className="page-scroll-container min-h-screen bg-[var(--bg)] text-[var(--ink)]">
       <header className="mx-auto flex w-full max-w-5xl items-center justify-between px-5 py-5 sm:px-8">
         <Link href="/" className="inline-flex items-center gap-2 text-[17px] font-extrabold tracking-[-0.04em]">
           <span className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-[var(--green)] text-white">

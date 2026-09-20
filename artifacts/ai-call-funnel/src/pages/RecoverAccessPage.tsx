@@ -115,7 +115,7 @@ export function RecoverAccessPage() {
 
   return (
     <main
-      className="auth-clean-page min-h-[100dvh] overflow-x-hidden"
+      className="auth-clean-page page-scroll-container min-h-[100dvh]"
       style={{
         background: COLORS.page,
         color: COLORS.ink,

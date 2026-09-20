@@ -105,6 +105,20 @@ body {
   overflow: hidden;
 }
 
+/*
+ * The document itself stays locked so chat pages never scroll the browser
+ * viewport and hide their fixed header/composer. Long standalone pages must
+ * therefore own their scrolling explicitly.
+ */
+.page-scroll-container {
+  height: 100%;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
 /* ─── Chat background ─── */
 .chat-bg {
   background-color: var(--subtle);
@@ -1557,7 +1571,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   --home-paper: #F6F9FC;
   --home-line: #DCE5EF;
   min-height: 100dvh;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   color: var(--home-ink);
   background: var(--home-paper);
 }
@@ -2043,7 +2058,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   max-width: none;
   min-width: 0;
   margin: 0;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   color: var(--page-ink);
   background: var(--page-cream);
   font-family: 'DM Sans', system-ui, sans-serif;

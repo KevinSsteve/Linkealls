@@ -222,7 +222,7 @@ export function HomePage() {
   };
 
   return (
-    <main className="linkealls-home">
+    <main className="linkealls-home page-scroll-container">
       <header className="home-nav" data-testid="header-home">
         <Link href="/" className="home-logo" data-testid="link-home-logo" aria-label="Linkealls, página inicial">
           <AuthBrand style={{ color: "inherit", fontSize: 20 }} />

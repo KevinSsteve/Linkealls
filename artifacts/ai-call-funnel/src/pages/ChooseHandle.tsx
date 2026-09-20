@@ -81,7 +81,7 @@ export function ChooseHandle() {
   }
 
   if (isLoading) return (
-    <main className="min-h-[100dvh] flex flex-col items-center justify-center gap-4 bg-[var(--bg)] text-[var(--ink)] font-sans">
+    <main className="page-scroll-container min-h-[100dvh] flex flex-col items-center justify-center gap-4 bg-[var(--bg)] text-[var(--ink)] font-sans">
       <AuthBrand />
       <p role="status" className="flex items-center gap-3 text-[var(--ink-soft)] font-medium text-[16px]">
         <Loader2 className="animate-spin" size={22} /> A abrir o teu espaço…
@@ -100,7 +100,7 @@ export function ChooseHandle() {
     : checkState === "error" ? check.reason || "Erro ao verificar." : "";
 
   return (
-    <main className="min-h-[100dvh] bg-[var(--bg)] text-[var(--ink)] flex flex-col items-center p-6 sm:p-12 font-sans" style={{ paddingTop: "max(32px, env(safe-area-inset-top, 32px))", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+    <main className="page-scroll-container min-h-[100dvh] bg-[var(--bg)] text-[var(--ink)] flex flex-col items-center p-6 sm:p-12 font-sans" style={{ paddingTop: "max(32px, env(safe-area-inset-top, 32px))", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
       <div className="w-full max-w-[500px] flex flex-col">
         <header className="mb-10 flex items-center justify-between">
           <AuthBrand />

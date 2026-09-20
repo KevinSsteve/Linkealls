@@ -67,7 +67,7 @@ export function BusinessOnboardingPage() {
 
   if (isLoading) {
     return (
-      <main className="min-h-[100dvh] flex flex-col items-center justify-center gap-4 bg-[var(--bg)] text-[var(--ink)]">
+      <main className="page-scroll-container min-h-[100dvh] flex flex-col items-center justify-center gap-4 bg-[var(--bg)] text-[var(--ink)]">
         <AuthMark size={64} className="animate-pulse" />
       </main>
     );
@@ -255,7 +255,7 @@ export function BusinessOnboardingPage() {
   }
 
   return (
-    <main className="min-h-[100dvh] bg-[var(--bg)] text-[var(--ink)] flex flex-col items-center p-6 sm:p-12 font-sans" style={{ paddingTop: "max(32px, env(safe-area-inset-top, 32px))", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+    <main className="page-scroll-container min-h-[100dvh] bg-[var(--bg)] text-[var(--ink)] flex flex-col items-center p-6 sm:p-12 font-sans" style={{ paddingTop: "max(32px, env(safe-area-inset-top, 32px))", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
       <div className="w-full max-w-[500px] flex flex-col">
         <div className="mb-12 flex items-center justify-between">
           <AuthBrand />

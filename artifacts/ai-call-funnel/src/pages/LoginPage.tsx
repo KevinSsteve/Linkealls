@@ -176,7 +176,7 @@ export function LoginPage() {
   }
 
   return (
-    <main className="min-h-[100dvh] bg-[var(--bg)] text-[var(--ink)] flex flex-col lg:flex-row overflow-x-hidden font-sans" style={{ paddingTop: "env(safe-area-inset-top, 0px)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
+    <main className="page-scroll-container min-h-[100dvh] bg-[var(--bg)] text-[var(--ink)] flex flex-col lg:flex-row font-sans" style={{ paddingTop: "env(safe-area-inset-top, 0px)", paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
       <div className="hidden lg:flex flex-col justify-between w-[40%] max-w-[500px] p-12 bg-[#2d176d] text-white">
         <AuthBrand style={{ color: "#fff" }} />
         <div>

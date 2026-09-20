@@ -467,7 +467,7 @@ export function Catalogo() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
   return (
-    <div className="catalog-page customer-selectable">
+    <div className="catalog-page customer-selectable page-scroll-container">
       <div className="catalog-shell">
         {selectedOffering ? (
           <ProductDetail

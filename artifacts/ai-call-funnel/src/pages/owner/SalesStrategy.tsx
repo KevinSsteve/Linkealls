@@ -117,13 +117,13 @@ export function SalesStrategy() {
   );
 
   return (
-    <div className="app-page flex flex-col min-h-[100dvh] bg-[var(--app-bg)]">
+    <div className="app-page flex h-full min-h-0 flex-col bg-[var(--app-bg)]">
       <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-[var(--border)] bg-white px-4 py-3">
         <Link href={`/e/${slug}/dono`}><ArrowLeft size={20} /></Link>
         <div className="flex-1"><h1 className="font-bold text-[var(--ink)]">Estratégia de vendas</h1><p className="text-xs text-[var(--ink-soft)]">Regras comerciais aprovadas, executadas no chat</p></div>
         <ShieldCheck size={22} className="text-[var(--green)]" />
       </header>
-      <main className="mx-auto w-full max-w-3xl flex-1 space-y-4 p-4 pb-28">
+      <main className="page-scroll-container mx-auto w-full max-w-3xl flex-1 space-y-4 p-4 pb-28">
         <section className="rounded-2xl border border-[var(--border)] bg-white p-4">
           <div className="mb-3 flex items-center gap-2"><Target size={18} className="text-[var(--green)]" /><h2 className="font-bold">Escolhe um ponto de partida</h2></div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
