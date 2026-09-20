@@ -722,7 +722,7 @@ export function Chat() {
   const [chatProducts, setChatProducts] = useState<ProductCard[] | null>(null);
 
   const chatMsgsRef = useRef<ChatMessage[]>([]);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const messagesScrollRef = useRef<HTMLDivElement>(null);
   const welcomeAttemptsRef = useRef(new Set<string>());
   const gemini = useGeminiLive(leadId, businessSlug ?? "");
 
@@ -943,7 +943,12 @@ export function Chat() {
   }, [stage]);
 
   useEffect(() => {
-    if (!isCallMinimized) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    // scrollIntoView also scrolls overflow-hidden ancestors, moving the header
+    // offscreen when an existing conversation is restored after navigation.
+    const pane = messagesScrollRef.current;
+    if (!isCallMinimized && pane) {
+      pane.scrollTo({ top: pane.scrollHeight, behavior: "smooth" });
+    }
   }, [messages, stage, isCallMinimized]);
 
   const addMessage = useCallback((role: BubbleRole, text: string): ChatMessage => {
@@ -1294,7 +1299,7 @@ export function Chat() {
         {/* ── Chat view (always rendered when not in full call screen) ── */}
         {(!isCallActive || isCallMinimized) && (
           <>
-            <div className="flex-1 overflow-y-auto chat-bg px-3 py-3 min-h-0">
+            <div ref={messagesScrollRef} className="flex-1 overflow-y-auto overscroll-contain chat-bg px-3 py-3 min-h-0">
               {/* Date label */}
               <div className="flex justify-center mb-3">
                 <span
@@ -1396,7 +1401,6 @@ export function Chat() {
 
               {stage === "typing" && <ChatBubble role="bot" text="" isTyping />}
 
-              <div ref={bottomRef} />
             </div>
 
             {/* Inline product shelf (when minimised and products available) */}
