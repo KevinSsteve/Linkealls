@@ -477,6 +477,7 @@ export interface ChatMessage {
   role: "user" | "bot" | "agent";
   text: string;
   ts: string;
+  strategyVersionId?: string;
 }
 
 export interface QualificationData {
@@ -510,6 +511,61 @@ export interface Lead {
   callEndedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  commercialMemory: LeadCommercialMemory;
+}
+
+export type CommercialStage = "welcome" | "understand" | "recommend" | "clarify" | "next_step" | "handoff" | "follow_up" | "disinterested";
+export interface LeadCommercialMemory {
+  revision: number;
+  goal?: { value: string; provenance: "declared" | "inferred" | "confirmed" | "owner"; updatedAt: string };
+  interests: Array<{ value: string; provenance: "declared" | "inferred" | "confirmed" | "owner"; updatedAt: string }>;
+  criteria: Array<{ value: string; provenance: string; updatedAt: string }>;
+  constraints: Array<{ value: string; provenance: string; updatedAt: string }>;
+  answeredQuestions: string[];
+  objections: Array<{ text: string; status: "pending" | "resolved"; provenance: string; updatedAt: string }>;
+  stage: CommercialStage;
+  pendingAction?: string;
+  factualSummary?: string;
+  recommendationReason?: string;
+  missingData: string[];
+  escalationReason?: string;
+  humanControl: "ai" | "owner";
+  strategyVersionId?: string;
+  ownerCorrectedFields?: string[];
+  visitorChangeRequests?: Array<{ field: string; value: string; updatedAt: string }>;
+}
+export interface LeadCommercialCorrection {
+  goal?: string;
+  interests?: string[];
+  objections?: Array<{ text: string; status: "pending" | "resolved" }>;
+  stage?: CommercialStage;
+  pendingAction?: string;
+  factualSummary?: string;
+  recommendationReason?: string;
+  missingData?: string[];
+  escalationReason?: string;
+  humanControl?: "ai" | "owner";
+}
+
+export type SalesStrategyTemplate = "product_commerce" | "quote_service" | "appointment_service" | "high_value" | "b2b_project" | "consultative";
+export interface SalesStrategyConfig {
+  template: SalesStrategyTemplate;
+  objective: "purchase" | "quote" | "appointment_request" | "visit_request" | "contact";
+  audience: string;
+  priorityOffers: string[];
+  essentialQuestions: string[];
+  verifiedDifferentials: string[];
+  objectionResponses: Array<{ objection: string; response: string }>;
+  negotiationLimits: string[];
+  escalationRules: string[];
+  stageConditions: string[];
+  availableActions: Array<"catalog" | "checkout" | "quote_request" | "appointment_request" | "visit_request" | "contact" | "whatsapp" | "owner_handoff">;
+  tone?: string;
+}
+export interface SalesStrategyVersion {
+  id: string; version: number; name: string; status: "draft" | "approved" | "active" | "archived";
+  config: SalesStrategyConfig; gaps: string[]; basedOnId?: string; approvedAt: string | null;
+  activatedAt: string | null; createdAt: string; updatedAt: string;
 }
 
 // ─── HTTP helpers ────────────────────────────────────────────────────────────
@@ -1099,6 +1155,38 @@ export function businessApi(slug: string) {
       }),
     getLeadsAnalytics: () =>
       bRequest<{ analytics: LeadsAnalytics }>("/leads/analytics"),
+    correctLeadCommercial: (id: string, expectedRevision: number, patch: LeadCommercialCorrection) =>
+      bRequest<{ lead: Lead }>(`/leads/${id}/commercial`, {
+        method: "PATCH", body: JSON.stringify({ expectedRevision, patch }),
+      }),
+
+    // Versioned runtime sales strategy
+    getSalesStrategyTemplates: () =>
+      bRequest<{ templates: Array<{ id: SalesStrategyTemplate; config: SalesStrategyConfig }> }>("/sales-strategies/templates"),
+    listSalesStrategies: () =>
+      bRequest<{ strategies: SalesStrategyVersion[] }>("/sales-strategies"),
+    createSalesStrategy: (name: string, config: SalesStrategyConfig, basedOnId?: string) =>
+      bRequest<{ strategy: SalesStrategyVersion }>("/sales-strategies", {
+        method: "POST", body: JSON.stringify({ name, config, ...(basedOnId ? { basedOnId } : {}) }),
+      }),
+    updateSalesStrategy: (id: string, name: string, config: SalesStrategyConfig) =>
+      bRequest<{ strategy: SalesStrategyVersion }>(`/sales-strategies/${id}`, {
+        method: "PUT", body: JSON.stringify({ name, config }),
+      }),
+    activateSalesStrategy: (id: string) =>
+      bRequest<{ strategy: SalesStrategyVersion }>(`/sales-strategies/${id}/activate`, { method: "POST" }),
+    approveSalesStrategy: (id: string) =>
+      bRequest<{ strategy: SalesStrategyVersion }>(`/sales-strategies/${id}/approve`, { method: "POST" }),
+    simulateSalesStrategy: (config: SalesStrategyConfig, message: string, contactDeclined = false, source?: { type: "campaign" | "traffic_creative"; id: string }) =>
+      bRequest<{ result: { intent: string; stage: string; action: string; strategyVersionId: string | null; strategyName: string; sourceOverrideApplied: boolean; expectedBehaviour: string } }>("/sales-strategies/simulate", {
+        method: "POST", body: JSON.stringify({ config, message, contactDeclined, source }),
+      }),
+    saveSalesStrategyOverride: (input: {
+      sourceType: "campaign" | "traffic_creative"; sourceId: string; strategyVersionId?: string;
+      config: { focusedOffer?: string; expectedIntent?: string; objective?: SalesStrategyConfig["objective"]; minimumQuestions?: string[]; cta?: string };
+    }) => bRequest<{ override: unknown }>("/sales-strategies/override/source", {
+      method: "PUT", body: JSON.stringify(input),
+    }),
 
     // Catalog
     getCatalog: () =>

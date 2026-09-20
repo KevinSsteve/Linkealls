@@ -13,6 +13,7 @@ import {
 } from "@workspace/db";
 import { and, desc, eq, gt, isNull, lte, ne, or, sql } from "drizzle-orm";
 import { utcIntervalRunKey, withScheduledJobLock } from "../lib/scheduledJobLock.js";
+import { purgeExpiredCommercialData } from "./salesRetention.js";
 import { logger } from "../lib/logger.js";
 
 export const BUSINESS_BRAIN_PROMPT_VERSION = "brain-v1-2026-09";
@@ -117,10 +118,13 @@ function knowledgeLockKey(
 let lastMemoryPurgeAt = 0;
 
 export async function purgeExpiredInteractionMemories(now = new Date()): Promise<void> {
-  await db.delete(businessKnowledgeTable).where(and(
-    eq(businessKnowledgeTable.kind, "interaction_memory"),
-    lte(businessKnowledgeTable.validUntil, now),
-  ));
+  await Promise.all([
+    db.delete(businessKnowledgeTable).where(and(
+      eq(businessKnowledgeTable.kind, "interaction_memory"),
+      lte(businessKnowledgeTable.validUntil, now),
+    )),
+    purgeExpiredCommercialData(now),
+  ]);
 }
 
 export function startBusinessBrainMaintenanceCron(): void {

@@ -49,6 +49,7 @@ export const profileChangeProposalInputSchema = any;
 export const resourceRequestInputSchema = any;
 export const resourceInputSchema = any;
 export const aoPhoneSchema = any;
+export const salesStrategyConfigSchema = any;
 export const chatMessageSchema = z.object({
   role: z.enum(["user", "bot"]),
   text: z.string().max(4000),
@@ -75,6 +76,8 @@ export const updateTrafficCreativeSchema = z.object({
 
 export const db = new Proxy({}, { get() { return () => { throw new Error("database must not be used"); }; } });
 export const businessProfilesTable = {};
+export const campaignsTable = {};
+export const salesOutcomeEventsTable = {};
 export async function getProfileBySlug(slug) {
   if (slug === "owner") return { id: 41, slug, name: "Loja Owner", phone: "+244 923 456 789" };
   if (slug === "other") return { id: 42, slug, name: "Loja Other", phone: "+244 924 000 000" };
@@ -90,6 +93,7 @@ export function clientIp() { return "127.0.0.1"; }
 export async function listTrafficCreatives(businessId) {
   return state.creatives.filter((item) => item.businessId === businessId);
 }
+export async function resolveTrustedCampaignAttribution() { return null; }
 export async function createTrafficCreative(input, businessId) {
   const item = creative(state.creatives.length + 10, businessId, \`created-\${state.creatives.length}\`, input.mediaMimeType.startsWith("video/") ? "video" : "image");
   item.description = input.description;
@@ -202,6 +206,16 @@ export function ownerLeadView(lead) {
     whatsappMessage: lead.contactConsentStatus === "consented" ? lead.whatsappMessage : null,
   };
 }
+export async function correctCommercialMemory() { return {}; }
+export async function activateStrategy() { return {}; }
+export async function approveStrategy() { return {}; }
+export async function createStrategyDraft() { return {}; }
+export async function listStrategies() { return []; }
+export async function saveStrategyOverride() { return {}; }
+export function simulateSalesAction() { return {}; }
+export async function simulateSalesPreview() { return {}; }
+export function templates() { return []; }
+export async function updateStrategyDraft() { return {}; }
 export function buildWhatsAppHandoff(phone, businessName, description) {
   const normalized = normalizeAngolanMobilePhone(phone ?? "");
   if (!normalized) return null;
@@ -480,7 +494,7 @@ test("UTMs and trusted creative context stay on one lead through catalog chat an
   const authorization = `Visitor ${created.body.visitorToken}`;
   const chat = await invoke("post", "/leads/:id/chat", {
     params: { id: lead.id },
-    body: { message: "Que produtos têm?" },
+    body: { message: "Que produtos têm?", requestId: "00000000-0000-4000-8000-000000000501" },
     authorization,
   });
   assert.equal(chat.statusCode, 200);
@@ -578,7 +592,7 @@ test("contact access is business-scoped and visitors may decline without blockin
   const chat = await invoke("post", "/leads/:id/chat", {
     params: { id: opened.body.leadId },
     authorization,
-    body: { message: "Quero continuar sem partilhar o número" },
+    body: { message: "Quero continuar sem partilhar o número", requestId: "00000000-0000-4000-8000-000000000592" },
   });
   assert.equal(chat.statusCode, 200);
 });

@@ -307,10 +307,13 @@ function ConversationDetail({ lead: initialLead, onBack, onStateChange, api }: {
   const [orderUpdatingId, setOrderUpdatingId] = useState<string | null>(null);
   const [ordersError, setOrdersError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const threadRef = useRef<HTMLDivElement>(null);
   const replyInputRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, []);
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [lead.chatMessages.length]);
+  useEffect(() => {
+    const pane = threadRef.current;
+    if (pane) pane.scrollTo({ top: pane.scrollHeight, behavior: "smooth" });
+  }, [lead.chatMessages.length]);
 
   const loadOrders = useCallback(async () => {
     setOrdersLoading(true);
@@ -372,6 +375,14 @@ function ConversationDetail({ lead: initialLead, onBack, onStateChange, api }: {
     } finally { setUpdating(false); }
   }
 
+  async function patchCommercial(patch: Parameters<typeof api.correctLeadCommercial>[2]) {
+    setUpdating(true);
+    try {
+      const { lead: updated } = await api.correctLeadCommercial(lead.id, lead.commercialMemory.revision, patch);
+      setLead(updated); onStateChange(updated);
+    } finally { setUpdating(false); }
+  }
+
   const waPhone = (lead.contactConsentStatus === "consented" ? lead.contactPhone : null)
     ?.replace(/\D/g, "").replace(/^00/, "").replace(/^0/, "244");
   const waUrl = waPhone
@@ -424,7 +435,7 @@ function ConversationDetail({ lead: initialLead, onBack, onStateChange, api }: {
       </div>
 
       {/* Thread */}
-      <div className="owner-content-scroll px-3 py-4" style={{ background: C.chatBg }}>
+      <div ref={threadRef} className="owner-content-scroll px-3 py-4" style={{ background: C.chatBg }}>
         <div className="flex justify-center mb-4">
           <span
             className="rounded-full px-3 py-1"
@@ -433,6 +444,46 @@ function ConversationDetail({ lead: initialLead, onBack, onStateChange, api }: {
             {new Date(lead.createdAt).toLocaleDateString("pt-AO", { day: "2-digit", month: "long", year: "numeric" })}
           </span>
         </div>
+        <section className="mb-4 rounded-2xl border border-black/5 bg-white/90 p-3 shadow-sm">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2"><Target size={15} style={{ color: D.green }} /><b className="text-sm">Contexto comercial</b></div>
+            <span className="rounded-full px-2 py-1 text-[10px] font-semibold" style={{ background: lead.commercialMemory.humanControl === "owner" ? "#FFF3E0" : D.greenLt, color: lead.commercialMemory.humanControl === "owner" ? "#9A5600" : D.greenDk }}>
+              {lead.commercialMemory.humanControl === "owner" ? "Dono a atender" : "IA activa"}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div><span style={{ color: D.inkFaint }}>Objectivo</span><p className="font-medium">{lead.commercialMemory.goal?.value ?? "Não declarado"}</p></div>
+            <div><span style={{ color: D.inkFaint }}>Etapa</span><p className="font-medium">{lead.commercialMemory.stage}</p></div>
+            <div><span style={{ color: D.inkFaint }}>Próximo passo</span><p className="font-medium">{lead.commercialMemory.pendingAction ?? "Continuar conversa"}</p></div>
+            <div><span style={{ color: D.inkFaint }}>Dados em falta</span><p className="font-medium">{lead.commercialMemory.missingData.join(", ") || "Nenhum assinalado"}</p></div>
+          </div>
+          {lead.commercialMemory.interests.length > 0 && <p className="mt-2 text-xs"><span style={{ color: D.inkFaint }}>Interesses: </span>{lead.commercialMemory.interests.map((item) => `${item.value} (${item.provenance === "owner" ? "corrigido pelo dono" : item.provenance})`).join(", ")}</p>}
+          {lead.commercialMemory.objections.length > 0 && <p className="mt-1 text-xs"><span style={{ color: D.inkFaint }}>Objecções: </span>{lead.commercialMemory.objections.map((item) => `${item.text} · ${item.status}`).join("; ")}</p>}
+          {lead.commercialMemory.recommendationReason && <p className="mt-1 text-xs"><span style={{ color: D.inkFaint }}>Motivo da recomendação: </span>{lead.commercialMemory.recommendationReason}</p>}
+          {lead.commercialMemory.escalationReason && <p className="mt-1 text-xs text-amber-800">{lead.commercialMemory.escalationReason}</p>}
+          {Boolean(lead.commercialMemory.visitorChangeRequests?.length) && (
+            <div className="mt-2 rounded-lg bg-amber-50 p-2 text-xs text-amber-900">
+              <p className="font-semibold">Alterações declaradas pelo cliente após correcção</p>
+              {lead.commercialMemory.visitorChangeRequests!.slice(-3).map((item, index) => (
+                <p key={`${item.updatedAt}-${index}`}>{item.field}: {item.value}</p>
+              ))}
+            </div>
+          )}
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button disabled={updating} onClick={() => {
+              const goal = window.prompt("Corrigir o objectivo declarado:", lead.commercialMemory.goal?.value ?? "");
+              if (goal !== null) void patchCommercial({ goal });
+            }} className="rounded-lg border px-2.5 py-1.5 text-xs font-semibold">Corrigir objectivo</button>
+            <button disabled={updating} onClick={() => {
+              const values = window.prompt("Interesses, separados por vírgula:", lead.commercialMemory.interests.map((item) => item.value).join(", "));
+              if (values !== null) void patchCommercial({ interests: values.split(",").map((item) => item.trim()).filter(Boolean) });
+            }} className="rounded-lg border px-2.5 py-1.5 text-xs font-semibold">Corrigir interesses</button>
+            <button disabled={updating} onClick={() => void patchCommercial({ humanControl: lead.commercialMemory.humanControl === "owner" ? "ai" : "owner", stage: lead.commercialMemory.humanControl === "owner" ? lead.commercialMemory.stage : "handoff" })}
+              className="rounded-lg px-2.5 py-1.5 text-xs font-semibold text-white" style={{ background: D.green }}>
+              {lead.commercialMemory.humanControl === "owner" ? "Devolver à IA" : "Assumir conversa"}
+            </button>
+          </div>
+        </section>
         {lead.chatMessages.map((m, i) => (
           <Bubble key={i} role={m.role} text={m.text} ts={m.ts} />
         ))}

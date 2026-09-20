@@ -9,7 +9,7 @@
  */
 import { Router, type Request, type Response } from "express";
 import { z } from "zod/v4";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import {
   db,
   businessProfilesTable,
@@ -26,6 +26,7 @@ import {
   updateTrafficCreativeSchema,
   proposeBusinessKnowledgeSchema,
   reviewBusinessKnowledgeSchema,
+  salesOutcomeEventsTable,
 } from "@workspace/db";
 import {
   getProfileBySlug,
@@ -52,7 +53,19 @@ import {
   leadContactView,
   buildWhatsAppHandoff,
   ownerLeadView,
+  correctCommercialMemory,
 } from "../services/leads.js";
+import {
+  activateStrategy,
+  approveStrategy,
+  createStrategyDraft,
+  listStrategies,
+  saveStrategyOverride,
+  simulateSalesPreview,
+  templates as salesStrategyTemplates,
+  updateStrategyDraft,
+} from "../services/salesStrategy.js";
+import { salesStrategyConfigSchema } from "@workspace/db";
 import {
   listCampaigns,
   getCampaign,
@@ -66,6 +79,7 @@ import {
   generateCampaignKit,
   getCampaignMetrics,
   generateOptimizationSuggestions,
+  resolveTrustedCampaignAttribution,
 } from "../services/campaigns.js";
 import {
   payCampaignFromWallet,
@@ -322,6 +336,89 @@ export function createBusinessScopedRouter(): Router {
     } catch (err) {
       logger.error({ err }, "PUT /profile failed");
       res.status(500).json({ error: "Não foi possível guardar o perfil" });
+    }
+  });
+
+  // ── VERSIONED SALES STRATEGY ──────────────────────────────────────────────
+  router.get("/sales-strategies/templates", requireOwner, (_req, res) => {
+    res.json({ templates: salesStrategyTemplates() });
+  });
+
+  router.get("/sales-strategies", requireOwner, async (_req, res) => {
+    res.json({ strategies: await listStrategies(bid(res)) });
+  });
+
+  const strategyDraftSchema = z.object({
+    name: z.string().trim().min(1).max(120),
+    config: salesStrategyConfigSchema,
+    basedOnId: z.string().uuid().optional(),
+  });
+  router.post("/sales-strategies", requireOwner, async (req, res) => {
+    const parsed = strategyDraftSchema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Estratégia inválida", details: parsed.error.flatten() }); return; }
+    try {
+      res.status(201).json({ strategy: await createStrategyDraft(bid(res), parsed.data) });
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : "Não foi possível criar a estratégia" });
+    }
+  });
+  router.put("/sales-strategies/:id", requireOwner, async (req, res) => {
+    const parsed = strategyDraftSchema.omit({ basedOnId: true }).safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Estratégia inválida", details: parsed.error.flatten() }); return; }
+    try {
+      res.json({ strategy: await updateStrategyDraft(bid(res), String(req.params["id"]), parsed.data) });
+    } catch (err) {
+      res.status(409).json({ error: err instanceof Error ? err.message : "Não foi possível editar" });
+    }
+  });
+  router.post("/sales-strategies/:id/activate", requireOwner, requireRecentReauth, async (req, res) => {
+    try {
+      res.json({ strategy: await activateStrategy(bid(res), String(req.params["id"])) });
+    } catch (err) {
+      res.status(404).json({ error: err instanceof Error ? err.message : "Estratégia não encontrada" });
+    }
+  });
+  router.post("/sales-strategies/:id/approve", requireOwner, requireRecentReauth, async (req, res) => {
+    try {
+      res.json({ strategy: await approveStrategy(bid(res), String(req.params["id"])) });
+    } catch (err) {
+      res.status(409).json({ error: err instanceof Error ? err.message : "Não foi possível aprovar" });
+    }
+  });
+  const overrideSchema = z.object({
+    sourceType: z.enum(["campaign", "traffic_creative"]),
+    sourceId: z.string().uuid(),
+    strategyVersionId: z.string().uuid().optional(),
+    config: z.object({
+      focusedOffer: z.string().max(200).optional(),
+      expectedIntent: z.string().max(300).optional(),
+      objective: z.enum(["purchase", "quote", "appointment_request", "visit_request", "contact"]).optional(),
+      minimumQuestions: z.array(z.string().max(500)).max(10).optional(),
+      cta: z.string().max(200).optional(),
+    }),
+  });
+  router.put("/sales-strategies/override/source", requireOwner, requireRecentReauth, async (req, res) => {
+    const parsed = overrideSchema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Variação inválida" }); return; }
+    try {
+      res.json({ override: await saveStrategyOverride(bid(res), { ...parsed.data, approved: true }) });
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : "Origem inválida" });
+    }
+  });
+  router.post("/sales-strategies/simulate", requireOwner, async (req, res) => {
+    const parsed = z.object({
+      config: salesStrategyConfigSchema.optional(),
+      strategyVersionId: z.string().uuid().optional(),
+      source: z.object({ type: z.enum(["campaign", "traffic_creative"]), id: z.string().uuid() }).optional(),
+      message: z.string().trim().min(1).max(2000),
+      contactDeclined: z.boolean().optional(),
+    }).safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Cenário inválido" }); return; }
+    try {
+      res.json({ result: await simulateSalesPreview(bid(res), parsed.data) });
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : "Não foi possível simular" });
     }
   });
 
@@ -632,6 +729,10 @@ export function createBusinessScopedRouter(): Router {
       const rawOrigin = parsed.data.origin ?? {};
       const { trafficCreativeSlug, ...allowedOrigin } = rawOrigin;
       const origin: import("@workspace/db").LeadOrigin = { ...allowedOrigin };
+      if (origin.campaign) {
+        const campaign = await resolveTrustedCampaignAttribution(bid(res), origin.campaign);
+        if (campaign) origin.trustedCampaign = campaign;
+      }
       if (trafficCreativeSlug) {
         const creative = await getTrafficCreativeBySlug(bid(res), trafficCreativeSlug);
         if (!creative || !creative.active) {
@@ -738,6 +839,11 @@ export function createBusinessScopedRouter(): Router {
         whatsappHandoff: visitorWhatsAppHandoff(res, lead),
         createdAt: lead.createdAt,
         updatedAt: lead.updatedAt,
+        commercial: {
+          stage: lead.commercialMemory.stage,
+          pendingAction: lead.commercialMemory.pendingAction ?? null,
+          humanControl: lead.commercialMemory.humanControl,
+        },
       });
     } catch (err) {
       if (err instanceof VisitorCapabilityError) {
@@ -826,6 +932,16 @@ export function createBusinessScopedRouter(): Router {
         res.status(404).json({ error: "Conversa não encontrada" });
         return;
       }
+      try {
+        await db.insert(salesOutcomeEventsTable).values({
+          businessId: bid(res),
+          leadId: id,
+          strategyVersionId: lead.commercialMemory?.strategyVersionId,
+          event: parsed.data.action === "decline" ? "cta_declined" : "cta_accepted",
+        });
+      } catch (eventError) {
+        logger.warn({ err: eventError, id }, "Failed to record contact CTA outcome");
+      }
       res.json({
         contact: leadContactView(lead),
         whatsappHandoff: visitorWhatsAppHandoff(res, lead),
@@ -859,6 +975,25 @@ export function createBusinessScopedRouter(): Router {
       }
       logger.error({ err, id }, "POST /leads/:id/whatsapp-click failed");
       res.status(500).json({ error: "Não foi possível registar o clique" });
+    }
+  });
+
+  router.post("/leads/:id/sales-event", publicRateLimit, async (req, res) => {
+    const id = String(req.params["id"] ?? "");
+    const parsed = z.object({ event: z.enum(["cta_accepted", "cta_declined"]) }).safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Evento inválido" }); return; }
+    try {
+      verifyVisitorCapability(visitorTokenFromAuthorization(req.headers.authorization), { businessId: bid(res), leadId: id });
+      const lead = await getLead(id, bid(res));
+      if (!lead) { res.status(404).json({ error: "Conversa não encontrada" }); return; }
+      await db.insert(salesOutcomeEventsTable).values({
+        businessId: bid(res), leadId: id, strategyVersionId: lead.commercialMemory.strategyVersionId, event: parsed.data.event,
+      });
+      res.status(204).end();
+    } catch (err) {
+      if (err instanceof VisitorCapabilityError) { res.status(401).json({ error: "Acesso inválido" }); return; }
+      logger.error({ err, id }, "POST sales event failed");
+      res.status(500).json({ error: "Não foi possível registar o resultado" });
     }
   });
 
@@ -923,9 +1058,37 @@ export function createBusinessScopedRouter(): Router {
     }
   });
 
+  router.patch("/leads/:id/commercial", requireOwner, async (req, res) => {
+    const parsed = z.object({
+      expectedRevision: z.number().int().nonnegative(),
+      patch: z.object({
+        goal: z.string().trim().max(500).optional(),
+        interests: z.array(z.string().trim().min(1).max(300)).max(10).optional(),
+        objections: z.array(z.object({ text: z.string().trim().min(1).max(500), status: z.enum(["pending", "resolved"]) })).max(10).optional(),
+        stage: z.enum(["welcome", "understand", "recommend", "clarify", "next_step", "handoff", "follow_up", "disinterested"]).optional(),
+        pendingAction: z.string().max(100).optional(),
+        factualSummary: z.string().max(2000).optional(),
+        recommendationReason: z.string().max(1000).optional(),
+        missingData: z.array(z.string().max(300)).max(20).optional(),
+        escalationReason: z.string().max(1000).optional(),
+        humanControl: z.enum(["ai", "owner"]).optional(),
+      }),
+    }).safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Correcção inválida" }); return; }
+    try {
+      const lead = await correctCommercialMemory(String(req.params["id"]), bid(res), parsed.data.expectedRevision, parsed.data.patch);
+      res.json({ lead: ownerLeadView(lead) });
+    } catch (err) {
+      res.status(409).json({ error: err instanceof Error ? err.message : "Não foi possível corrigir" });
+    }
+  });
+
   router.post("/leads/:id/chat", publicRateLimit, async (req, res) => {
     const id = String(req.params["id"] ?? "");
-    const schema = z.object({ message: z.string().min(1).max(2000) });
+    const schema = z.object({
+      message: z.string().min(1).max(2000),
+      requestId: z.string().uuid(),
+    });
     const parsed = schema.safeParse(req.body);
     if (!parsed.success) { res.status(400).json({ error: "Mensagem inválida" }); return; }
     try {
@@ -933,11 +1096,21 @@ export function createBusinessScopedRouter(): Router {
         businessId: bid(res),
         leadId: id,
       });
-      const { reply, products } = await chatWithLead(id, parsed.data.message, bid(res));
-      res.json({ reply, products });
+      const { reply, products, nextAction } = await chatWithLead(id, parsed.data.message, bid(res), {
+        requestId: parsed.data.requestId,
+      });
+      res.json({ reply, products, nextAction });
     } catch (err) {
       if (err instanceof VisitorCapabilityError) {
         res.status(401).json({ error: "Acesso à conversa inválido ou expirado" });
+        return;
+      }
+      if (err instanceof Error && err.message === "O dono está a atender esta conversa") {
+        res.status(409).json({ error: err.message });
+        return;
+      }
+      if (err instanceof Error && (err.message === "Esta mensagem já está a ser processada" || err.message === "A operação desta resposta já não está activa")) {
+        res.status(409).json({ error: err.message });
         return;
       }
       logger.error({ err, id }, "POST /leads/:id/chat failed");

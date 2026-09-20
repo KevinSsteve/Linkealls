@@ -30,3 +30,4 @@
 - [Business brain trust model](business-brain-trust-model.md) — shared tenant context keeps approved facts, observations, suggestions and untrusted inputs separate across every AI channel.
 - [AI profile improvement trust boundary](ai-profile-improvement-trust.md) — AI proposes only; owner-reviewed versions use CAS, private tenant-owned resources, and explicit delivery gates.
 - [Chrome Android chat viewport](chrome-android-chat-viewport.md) — confirmed header loss came from default scrollIntoView scrolling the document; test populated history, not empty chats.
+- [Sales strategy boundaries](sales-strategy-boundaries.md) — automatic CTA permissions must not block voluntary purchases; preserve owner corrections and surface conflicting visitor changes.

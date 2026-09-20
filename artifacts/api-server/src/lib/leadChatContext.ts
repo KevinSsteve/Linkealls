@@ -36,12 +36,21 @@ export interface LeadChatOrder {
   paidAt?: Date | string | null;
 }
 
+interface RuntimeSalesContext {
+  strategyName?: string;
+  strategyVersionId?: string;
+  strategyText?: string;
+  campaignText?: string;
+  memoryText?: string;
+}
+
 export function buildLeadChatContext(
   lead: LeadChatSource,
   profile: LeadChatProfile,
   relatedOrders: LeadChatOrder[],
   userMessage: string,
   brainContext: string,
+  salesContext?: RuntimeSalesContext,
 ): { systemInstruction: string; prompt: string } {
   const offeringsText = profile.offerings?.length
     ? profile.offerings.map((offering) => `- ${offering.name}: ${offering.description} (${offering.price})`).join("\n")
@@ -77,8 +86,20 @@ ${trafficContext}
 
 PEDIDOS ASSOCIADOS A ESTA CONVERSA:
 ${ordersText}
+${salesContext?.strategyText ? `\nESTRATÉGIA COMERCIAL APROVADA (${salesContext.strategyName ?? "activa"}, versão ${salesContext.strategyVersionId ?? "base"}):\n${salesContext.strategyText}\n` : ""}
+${salesContext?.campaignText ? `\nOBJECTIVO DE ORIGEM APROVADO:\n${salesContext.campaignText}\n` : ""}
+${salesContext?.memoryText ? `\n${salesContext.memoryText}\n` : ""}
 REGRAS:
-- Responde de forma natural, útil e muito curta: no máximo 2 frases e 3 linhas.
+- Responde primeiro à pergunta explícita, de forma natural, factual e concisa. Usa mais de duas frases apenas quando uma comparação ou condição precisar de clareza; evita paredes de texto.
+- Faz no máximo uma pergunta relevante por turno e nunca repitas uma pergunta já respondida.
+- Adapta a descoberta à decisão: para decisões complexas esclarece situação, necessidade e resultado; nunca exageres consequências nem explores inseguranças.
+- Recomenda uma opção principal e no máximo duas alternativas com uma diferença concreta. Traduz características em benefícios ligados à necessidade declarada.
+- Para objecções: reconhece, esclarece só quando necessário, responde com facto/alternativa autorizada e confirma se ajudou. Nunca inventes descontos.
+- Para preço, dá directamente o preço e condições válidas; não peças telefone para revelar preço.
+- Propõe apenas um próximo passo real. Não assumes compra, não inicias pagamento sem confirmação e não condicionas uma compra clara a um interrogatório.
+- Marcações e visitas são apenas pedidos de preferência; nunca digas que ficaram confirmadas sem capacidade de calendário.
+- Não inventes prova social, escassez, disponibilidade, garantias, descontos ou urgência.
+- Se o anúncio divergir do catálogo, estiver inactivo ou mencionar uma oferta removida, explica a divergência e apresenta apenas uma alternativa autorizada; não repitas a promessa do anúncio.
 - Não repitas a descrição do negócio nem faças introduções longas. Responde directamente ao que o cliente perguntou.
 - NÃO uses formatação markdown (sem asteriscos, sem #, sem bullets).
 - Quando fizer sentido, sugere continuar o atendimento nesta conversa.
@@ -106,11 +127,12 @@ export function selectLeadChatProducts(
   userMessage: string,
 ): LeadChatOffering[] {
   const normalizedQuery = userMessage.toLocaleLowerCase("pt-AO");
+  if (/\b(não quero|nao quero|sem interesse|deixa|já paguei|ja paguei|paguei|entrega|encomenda|pedido|reembolso)\b/i.test(userMessage)) return [];
   const matchedOfferings = offerings.filter((offering) => {
     const haystack = `${offering.name} ${offering.description}`.toLocaleLowerCase("pt-AO");
     return haystack.split(/\s+/).some((word) => word.length > 3 && normalizedQuery.includes(word));
   });
   const explicitCatalogIntent = /\b(produto|produtos|serviço|serviços|preço|preços|quanto custa|menu|catálogo|catalogo|comprar|compra|mostra(?:r)?(?:-me)?(?: os| as)?|quais (?:são )?(?:os |as )?(?:produtos|serviços)|o que (?:vendem|oferecem))\b/i.test(userMessage);
   if (!explicitCatalogIntent && matchedOfferings.length === 0) return [];
-  return (matchedOfferings.length > 0 ? matchedOfferings : offerings).slice(0, 12);
+  return (matchedOfferings.length > 0 ? matchedOfferings : offerings).slice(0, 3);
 }

@@ -72,6 +72,8 @@ test("trusted traffic description and real catalog reach the production chat pro
   assert.deepEqual(selectLeadChatProducts(offerings, "Quero saber mais sobre este anúncio"), []);
   assert.deepEqual(selectLeadChatProducts(offerings, "Quais são os produtos disponíveis?"), offerings);
   assert.deepEqual(selectLeadChatProducts(offerings, "Fala-me da bateria"), [offerings[1]]);
+  assert.deepEqual(selectLeadChatProducts(offerings, "Não quero comprar o gerador"), []);
+  assert.deepEqual(selectLeadChatProducts(offerings, "Já paguei o gerador, quando chega a encomenda?"), []);
 });
 
 test("visitor content is bounded and explicitly isolated from trusted brain instructions", () => {

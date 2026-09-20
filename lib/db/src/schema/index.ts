@@ -30,3 +30,4 @@ export * from "./authRateLimits";
 export * from "./trafficCreatives";
 export * from "./businessBrain";
 export * from "./profileImprovements";
+export * from "./salesStrategy";

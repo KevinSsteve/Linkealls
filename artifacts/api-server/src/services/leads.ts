@@ -11,6 +11,9 @@ import {
   type LeadState,
   type TrafficWelcomeStatus,
   type LeadContactConsentStatus,
+  type LeadCommercialMemory,
+  salesOutcomeEventsTable,
+  leadChatRequestsTable,
 } from "@workspace/db";
 import { eq, and, desc, isNull, lt, or, sql } from "drizzle-orm";
 import { logger } from "../lib/logger.js";
@@ -25,6 +28,9 @@ import {
   saveInteractionMemory,
   summarizeOldInteraction,
 } from "./businessBrain.js";
+import { commercialMemoryPrompt, chooseNextAction, retryCommercialMemoryCas, updateCommercialMemory, type SalesNextAction } from "../lib/commercialSales.js";
+import { resolveSalesStrategy } from "./salesStrategy.js";
+import { applySalesStrategyOverride, orderOfferingsForStrategy } from "../lib/salesStrategyRuntime.js";
 
 const EXTRACTION_MODEL = "gemini-3-flash-preview";
 const SCORE_QUALIFY_THRESHOLD = 60;
@@ -575,20 +581,39 @@ export async function chatWithLead(
   leadId: string,
   userMessage: string,
   businessId: number,
-  options?: { trafficWelcomeClaimToken?: string; requestContactConsent?: boolean },
+  options?: { trafficWelcomeClaimToken?: string; requestContactConsent?: boolean; requestId?: string },
 ): Promise<{
   reply: string;
   products: Array<{ name: string; price: string; description: string; imageUrl?: string }>;
+  nextAction: SalesNextAction;
 }> {
   const apiKey = process.env["GEMINI_API_KEY"];
   if (!apiKey) throw new Error("GEMINI_API_KEY não configurado");
 
   const startedAt = Date.now();
-  const [lead, brain] = await Promise.all([
-    getLead(leadId, businessId),
-    loadBusinessBrain(businessId, { leadId, query: userMessage }),
-  ]);
+  const lead = await getLead(leadId, businessId);
   if (!lead) throw new Error("Lead não encontrado");
+  if (options?.requestId) {
+    const replayTurn = [...lead.chatMessages].reverse().find((message) =>
+      message.role === "bot" && message.requestId === options.requestId && message.replay,
+    );
+    if (replayTurn?.replay) {
+      return { reply: replayTurn.text, products: replayTurn.replay.products, nextAction: replayTurn.replay.nextAction as SalesNextAction };
+    }
+    const completed = (await db.select({ response: leadChatRequestsTable.response })
+      .from(leadChatRequestsTable)
+      .where(and(
+        eq(leadChatRequestsTable.id, options.requestId),
+        eq(leadChatRequestsTable.businessId, businessId),
+        eq(leadChatRequestsTable.leadId, leadId),
+        eq(leadChatRequestsTable.status, "complete"),
+      )).limit(1))[0]?.response;
+    if (completed) return { ...completed, nextAction: completed.nextAction as SalesNextAction };
+  }
+  if (lead.commercialMemory.humanControl === "owner") {
+    throw new Error("O dono está a atender esta conversa");
+  }
+  const brain = await loadBusinessBrain(businessId, { leadId, query: userMessage });
   const profile = brain.profile;
 
   const relatedOrders = await db
@@ -609,15 +634,86 @@ export async function chatWithLead(
     ? userMessage
     : redactAngolanPhoneCandidates(userMessage);
   const safeLead = ownerLeadView(lead);
+  const updatedMemory = updateCommercialMemory(
+    lead.commercialMemory,
+    safeUserMessage,
+    (profile.offerings ?? []).map((offering) => offering.name),
+  );
+  const trustedCreativeId = lead.origin.trafficCreative?.id;
+  const trustedCampaignId = lead.origin.trustedCampaign?.id;
+  const resolvedStrategy = await resolveSalesStrategy(
+    businessId,
+    trustedCreativeId
+      ? { type: "traffic_creative", id: trustedCreativeId }
+      : trustedCampaignId
+        ? { type: "campaign", id: trustedCampaignId }
+        : undefined,
+  );
+  const strategyConfig = resolvedStrategy.strategy
+    ? applySalesStrategyOverride(
+      resolvedStrategy.strategy.config,
+      resolvedStrategy.override?.config,
+      (profile.offerings ?? []).map((offering) => offering.name),
+    )
+    : null;
+  updatedMemory.strategyVersionId = resolvedStrategy.strategy?.id;
+  if (strategyConfig) {
+    if (!updatedMemory.ownerCorrectedFields?.includes("missingData")) {
+      updatedMemory.missingData = strategyConfig.essentialQuestions.filter((question) =>
+        !updatedMemory.answeredQuestions.some((answered) =>
+          question.toLocaleLowerCase("pt-AO").includes(answered.toLocaleLowerCase("pt-AO")),
+        ),
+      ).slice(0, 5);
+    }
+  }
+  const strategyText = strategyConfig ? [
+    `Objectivo: ${strategyConfig.objective}`,
+    `Público: ${strategyConfig.audience || "não definido"}`,
+    `Ofertas prioritárias: ${strategyConfig.priorityOffers.join(", ") || "não definidas"}`,
+    `Perguntas essenciais: ${strategyConfig.essentialQuestions.join("; ") || "nenhuma"}`,
+    `Diferenciais comprovados: ${strategyConfig.verifiedDifferentials.join("; ") || "nenhum"}`,
+    `Respostas aprovadas a objecções: ${strategyConfig.objectionResponses.map((item) => `${item.objection}: ${item.response}`).join("; ") || "nenhuma"}`,
+    `Limites: ${strategyConfig.negotiationLimits.join("; ")}`,
+    `Encaminhar quando: ${strategyConfig.escalationRules.join("; ")}`,
+    `Acções disponíveis: ${strategyConfig.availableActions.join(", ")}`,
+    strategyConfig.focusedOffer ? `Oferta focada validada no catálogo: ${strategyConfig.focusedOffer}` : "",
+    strategyConfig.expectedIntent ? `Intenção esperada da origem (não sobrepor declaração explícita): ${strategyConfig.expectedIntent}` : "",
+    strategyConfig.sourceCta ? `Texto da CTA aprovada: ${strategyConfig.sourceCta}` : "",
+  ].filter(Boolean).join("\n") : undefined;
   const { systemInstruction, prompt } = buildLeadChatContext(
     safeLead,
     profile,
     relatedOrders,
     safeUserMessage,
     renderBusinessBrain(brain, "visitor"),
+    {
+      strategyName: resolvedStrategy.strategy?.name,
+      strategyVersionId: resolvedStrategy.strategy?.id,
+      strategyText,
+      campaignText: resolvedStrategy.override?.config
+        ? JSON.stringify(resolvedStrategy.override.config).slice(0, 2000)
+        : undefined,
+      memoryText: commercialMemoryPrompt(updatedMemory),
+    },
   );
 
   const ai = new GoogleGenAI({ apiKey });
+  if (options?.requestId) {
+    await db.delete(leadChatRequestsTable).where(and(
+      eq(leadChatRequestsTable.businessId, businessId),
+      eq(leadChatRequestsTable.leadId, leadId),
+      eq(leadChatRequestsTable.memoryRevision, lead.commercialMemory.revision),
+      eq(leadChatRequestsTable.status, "processing"),
+      lt(leadChatRequestsTable.updatedAt, new Date(Date.now() - 2 * 60_000)),
+    ));
+    const claimed = await db.insert(leadChatRequestsTable).values({
+      id: options.requestId,
+      businessId,
+      leadId,
+      memoryRevision: lead.commercialMemory.revision,
+    }).onConflictDoNothing().returning({ id: leadChatRequestsTable.id });
+    if (!claimed[0]) throw new Error("Esta mensagem já está a ser processada");
+  }
   let response;
   try {
     response = await ai.models.generateContent({
@@ -626,6 +722,13 @@ export async function chatWithLead(
       config: { systemInstruction },
     });
   } catch (err) {
+    if (options?.requestId) {
+      await db.delete(leadChatRequestsTable).where(and(
+        eq(leadChatRequestsTable.id, options.requestId),
+        eq(leadChatRequestsTable.businessId, businessId),
+        eq(leadChatRequestsTable.leadId, leadId),
+      )).catch(() => undefined);
+    }
     void recordBusinessAiEvaluation({
       businessId,
       channel: "chat",
@@ -639,28 +742,51 @@ export async function chatWithLead(
 
   const rawReply = (response.text ?? "").trim() ||
     "Desculpa, não consegui processar a tua mensagem. Tenta outra vez.";
-  // Keep the WhatsApp-like chat compact even when the model ignores the limit.
+  // Keep the WhatsApp-like chat readable even when the model ignores the limit.
   const compactReply = rawReply
     .replace(/\*\*/g, "")
     .replace(/^[-*#]\s*/gm, "")
     .replace(/\n{2,}/g, "\n")
     .split(/(?<=[.!?])\s+/)
-    .slice(0, 2)
+    .slice(0, 5)
     .join(" ")
     .trim()
-    .slice(0, 360)
+    .slice(0, 720)
     .trim();
-  const reply = options?.requestContactConsent
-    ? "Compartilha o seu número comigo."
-    : compactReply;
+  const reply = compactReply;
 
-  const products = selectLeadChatProducts(profile.offerings ?? [], safeUserMessage);
+  const orderedOfferings = orderOfferingsForStrategy(profile.offerings ?? [], strategyConfig?.focusedOffer);
+  const products = selectLeadChatProducts(orderedOfferings, safeUserMessage);
+  if (products.length > 0) {
+    if (!updatedMemory.ownerCorrectedFields?.includes("recommendationReason")) {
+      updatedMemory.recommendationReason = updatedMemory.interests.length
+        ? `Corresponde ao interesse declarado em ${updatedMemory.interests[0]!.value}.`
+        : "O cliente pediu opções do catálogo.";
+    }
+    if (updatedMemory.stage === "understand") updatedMemory.stage = "recommend";
+  }
+  const nextAction = chooseNextAction({
+    memory: updatedMemory,
+    strategy: strategyConfig,
+    contactStatus: lead.contactConsentStatus,
+    hasPaidOrder: relatedOrders.some((order) => order.status === "paga"),
+    hasPendingOrder: relatedOrders.some((order) => order.status === "pendente"),
+    hasCatalog: Boolean(profile.catalogEnabled && profile.offerings?.length),
+    hasWhatsApp: Boolean(profile.phone),
+  });
 
   // Persist both messages in the lead's chatMessages
   const ts = new Date().toISOString();
   const appended: ChatMessage[] = [
-    { role: "user" as const, text: safeUserMessage, ts },
-    { role: "bot" as const, text: reply, ts: new Date(Date.now() + 1).toISOString() },
+    { role: "user" as const, text: safeUserMessage, ts, requestId: options?.requestId },
+    {
+      role: "bot" as const,
+      text: reply,
+      ts: new Date(Date.now() + 1).toISOString(),
+      strategyVersionId: resolvedStrategy.strategy?.id,
+      requestId: options?.requestId,
+      replay: { products, nextAction },
+    },
   ];
   const leadWhere = businessId !== undefined
     ? and(eq(leadsTable.id, leadId), eq(leadsTable.businessId, businessId))
@@ -670,12 +796,17 @@ export async function chatWithLead(
       leadWhere,
       eq(leadsTable.trafficWelcomeStatus, "processing"),
       eq(leadsTable.trafficWelcomeClaimToken, options.trafficWelcomeClaimToken),
+      sql`${leadsTable.commercialMemory}->>'revision' = ${String(lead.commercialMemory.revision)}`,
     )
-    : leadWhere;
+    : and(
+      leadWhere,
+      sql`${leadsTable.commercialMemory}->>'revision' = ${String(lead.commercialMemory.revision)}`,
+    );
   const rows = await db
     .update(leadsTable)
     .set({
       chatMessages: sql`${leadsTable.chatMessages} || ${JSON.stringify(appended)}::jsonb`,
+      commercialMemory: updatedMemory,
       ...(options?.trafficWelcomeClaimToken
         ? {
           trafficWelcomeStatus: "complete" as const,
@@ -687,7 +818,47 @@ export async function chatWithLead(
     })
     .where(guardedWhere)
     .returning({ id: leadsTable.id });
-  if (!rows[0]) throw new Error("A operação desta resposta já não está activa");
+  if (!rows[0]) {
+    if (options?.requestId) {
+      await db.delete(leadChatRequestsTable).where(and(
+        eq(leadChatRequestsTable.id, options.requestId),
+        eq(leadChatRequestsTable.businessId, businessId),
+        eq(leadChatRequestsTable.leadId, leadId),
+      )).catch(() => undefined);
+    }
+    throw new Error("A operação desta resposta já não está activa");
+  }
+  if (options?.requestId) {
+    await db.update(leadChatRequestsTable).set({
+      status: "complete",
+      response: { reply, products, nextAction },
+      updatedAt: new Date(),
+    }).where(and(
+      eq(leadChatRequestsTable.id, options.requestId),
+      eq(leadChatRequestsTable.businessId, businessId),
+      eq(leadChatRequestsTable.leadId, leadId),
+    ));
+  }
+
+  const outcomeEvent = options?.trafficWelcomeClaimToken
+    ? "welcome"
+    : updatedMemory.stage === "handoff"
+      ? "handoff"
+      : products.length > 0
+        ? "recommendation"
+        : lead.chatMessages.length > 0 && lead.chatMessages.at(-1)?.role !== "user"
+          ? "resumed"
+          : null;
+  if (outcomeEvent) {
+    void db.insert(salesOutcomeEventsTable).values({
+      businessId,
+      leadId,
+      strategyVersionId: resolvedStrategy.strategy?.id,
+      sourceType: trustedCreativeId ? "traffic_creative" : trustedCampaignId ? "campaign" : undefined,
+      sourceId: trustedCreativeId ?? trustedCampaignId,
+      event: outcomeEvent,
+    }).catch((err) => logger.warn({ err, businessId, leadId }, "Failed to record privacy-safe sales event"));
+  }
 
   const memorySummary = summarizeOldInteraction([...safeLead.chatMessages, ...appended]);
   if (memorySummary) {
@@ -708,7 +879,38 @@ export async function chatWithLead(
     costMicros: estimateGemini3FlashCostMicros(response),
   }).catch((err) => logger.warn({ err, businessId }, "Failed to record chat evaluation"));
 
-  return { reply, products };
+  return { reply, products, nextAction };
+}
+
+export async function correctCommercialMemory(
+  leadId: string,
+  businessId: number,
+  expectedRevision: number,
+  patch: Partial<Pick<LeadCommercialMemory, "stage" | "pendingAction" | "factualSummary" | "recommendationReason" | "missingData" | "escalationReason" | "humanControl">>
+    & { goal?: string; interests?: string[]; objections?: Array<{ text: string; status: "pending" | "resolved" }> },
+): Promise<Lead> {
+  const lead = await getLead(leadId, businessId);
+  if (!lead) throw new Error("Lead não encontrado");
+  if (lead.commercialMemory.revision !== expectedRevision) throw new Error("A conversa mudou; actualiza antes de corrigir");
+  const now = new Date().toISOString();
+  const { goal, interests, objections, ...scalarPatch } = patch;
+  const memory: LeadCommercialMemory = {
+    ...lead.commercialMemory,
+    ...scalarPatch,
+    revision: expectedRevision + 1,
+    ...(goal !== undefined ? { goal: goal ? { value: goal, provenance: "owner", updatedAt: now } : undefined } : {}),
+    ...(interests ? { interests: interests.map((value) => ({ value, provenance: "owner" as const, updatedAt: now })) } : {}),
+    ...(objections ? { objections: objections.map((item) => ({ ...item, provenance: "owner" as const, updatedAt: now })) } : {}),
+    ownerCorrectedFields: [...new Set([
+      ...(lead.commercialMemory.ownerCorrectedFields ?? []),
+      ...Object.keys(patch),
+    ])],
+  };
+  const rows = await db.update(leadsTable).set({ commercialMemory: memory, updatedAt: new Date() })
+    .where(and(eq(leadsTable.id, leadId), eq(leadsTable.businessId, businessId), sql`${leadsTable.commercialMemory}->>'revision' = ${String(expectedRevision)}`))
+    .returning();
+  if (!rows[0]) throw new Error("A conversa mudou; actualiza antes de corrigir");
+  return rows[0];
 }
 
 // ─── Owner manual reply (agent message, no AI) ───────────────────────────────
@@ -723,20 +925,38 @@ export async function appendOwnerReply(
   message: string,
   businessId: number,
 ): Promise<Lead> {
-  const ts = new Date().toISOString();
-  const appended = [
-    { role: "agent" as ChatMessage["role"], text: message, ts },
-  ];
-  const rows = await db
-    .update(leadsTable)
-    .set({
-      chatMessages: sql`${leadsTable.chatMessages} || ${JSON.stringify(appended)}::jsonb`,
-      updatedAt: new Date(),
-    })
-    .where(and(eq(leadsTable.id, leadId), eq(leadsTable.businessId, businessId)))
-    .returning();
-  if (!rows[0]) throw new Error("Lead não encontrado");
-  return rows[0]!;
+  const updated = await retryCommercialMemoryCas(
+    () => getLead(leadId, businessId),
+    async (current) => {
+    const appended = [{ role: "agent" as ChatMessage["role"], text: message, ts: new Date().toISOString() }];
+    const rows = await db
+      .update(leadsTable)
+      .set({
+        chatMessages: sql`${leadsTable.chatMessages} || ${JSON.stringify(appended)}::jsonb`,
+        commercialMemory: {
+          ...current.commercialMemory,
+          revision: current.commercialMemory.revision + 1,
+          stage: "handoff",
+          humanControl: "owner",
+          ownerCorrectedFields: [...new Set([
+            ...(current.commercialMemory.ownerCorrectedFields ?? []),
+            "stage", "humanControl",
+          ])],
+        },
+        updatedAt: new Date(),
+      })
+      .where(and(
+        eq(leadsTable.id, leadId),
+        eq(leadsTable.businessId, businessId),
+        sql`${leadsTable.commercialMemory}->>'revision' = ${String(current.commercialMemory.revision)}`,
+      ))
+      .returning();
+      return rows[0] ?? null;
+    },
+  );
+  if (updated) return updated;
+  if (!(await getLead(leadId, businessId))) throw new Error("Lead não encontrado");
+  throw new Error("A conversa mudou; tenta responder novamente");
 }
 
 // ─── SSE notification bus ─────────────────────────────────────────────────────

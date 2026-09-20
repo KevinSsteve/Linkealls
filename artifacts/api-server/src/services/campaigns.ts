@@ -31,6 +31,19 @@ export async function listCampaigns(businessId?: number): Promise<Campaign[]> {
   return db.select().from(campaignsTable).orderBy(desc(campaignsTable.createdAt));
 }
 
+/** Resolves an untrusted UTM slug inside one tenant before it can affect runtime strategy. */
+export async function resolveTrustedCampaignAttribution(businessId: number, utmSlug: string) {
+  const rows = await db.select({
+    id: campaignsTable.id,
+    name: campaignsTable.name,
+    utmSlug: campaignsTable.utmSlug,
+  }).from(campaignsTable).where(and(
+    eq(campaignsTable.businessId, businessId),
+    eq(campaignsTable.utmSlug, utmSlug),
+  )).limit(1);
+  return rows[0] ?? null;
+}
+
 export async function getCampaign(id: string, businessId?: number): Promise<Campaign | null> {
   const rows = await db
     .select()

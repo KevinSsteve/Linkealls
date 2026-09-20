@@ -720,6 +720,12 @@ export function Chat() {
   // Product cards returned by the text-chat endpoint (the voice hook owns
   // shownProducts separately).
   const [chatProducts, setChatProducts] = useState<ProductCard[] | null>(null);
+  type NextAction = {
+    type: "none" | "catalog" | "checkout" | "contact" | "whatsapp" | "owner_handoff" | "quote_request" | "appointment_request" | "visit_request" | "order_tracking";
+    label?: string;
+    reason: string;
+  };
+  const [nextAction, setNextAction] = useState<NextAction | null>(null);
 
   const chatMsgsRef = useRef<ChatMessage[]>([]);
   const messagesScrollRef = useRef<HTMLDivElement>(null);
@@ -796,8 +802,10 @@ export function Chat() {
           status: "pending" | "processing" | "complete" | "failed";
           reply?: string;
           products?: ProductCard[];
+          nextAction?: NextAction;
         }>(leadId);
         if (welcome.products?.length) setChatProducts(welcome.products);
+        if (welcome.nextAction) setNextAction(welcome.nextAction);
 
         for (let attempt = 0; attempt < 20 && !cancelled; attempt += 1) {
           const access = loadCurrentVisitorAccess(businessSlug);
@@ -982,7 +990,9 @@ export function Chat() {
 
         const { leadId: id } = await visitorApi(businessSlug).createLeadSession(
           origin,
-          chatMsgsRef.current,
+          // The first visitor turn is processed through the real runtime below;
+          // do not pre-persist it and then append it a second time.
+          chatMsgsRef.current.slice(0, -1),
         );
         newLeadId = id;
         setLeadId(id);
@@ -999,31 +1009,20 @@ export function Chat() {
         return null;
       }
 
-      if (isB2BMode) {
-        // B2B mode: get AI text reply directly — no voice call trigger
-        try {
-          const { reply, products } = await visitorApi(businessSlug ?? "")
-            .sendLeadChat<{ reply: string; products?: ProductCard[] }>(newLeadId!, text);
-          addMessage("bot", reply);
-          setChatProducts(products?.length ? products : null);
-        } catch {
-          addMessage("bot", "Desculpa, não consegui responder neste momento. Tenta de novo.");
-        }
-        setCallTriggered(true);
-        setStage("chat");
-        setIsBusy(false);
-        return newLeadId;
+      // Every first text turn uses the same contextual sales runtime as later
+      // turns. Voice remains available, but never replaces the requested answer.
+      try {
+        const { reply, products, nextAction: action } = await visitorApi(businessSlug ?? "")
+          .sendLeadChat<{ reply: string; products?: ProductCard[]; nextAction?: NextAction }>(newLeadId!, text);
+        addMessage("bot", reply);
+        setChatProducts(products?.length ? products : null);
+        setNextAction(action ?? null);
+      } catch {
+        addMessage("bot", "Desculpa, não consegui responder neste momento. Tenta de novo.");
       }
-
-      // Consumer mode — greet + trigger incoming call
-      const botText = "Compartilha o seu número comigo.";
-      const botMsg = addMessage("bot", botText);
-      chatMsgsRef.current.push(botMsg);
       setStage("chat");
-
       setCallTriggered(true);
       setIsBusy(false);
-      setTimeout(() => setStage("call_incoming"), 1000);
       return newLeadId;
     },
     [addMessage, businessSlug, isB2BMode, user],
@@ -1035,10 +1034,11 @@ export function Chat() {
       setIsBusy(true);
       setStage("typing");
       try {
-        const { reply, products } = await visitorApi(businessSlug ?? "")
-          .sendLeadChat<{ reply: string; products?: ProductCard[] }>(currentLeadId, text);
+        const { reply, products, nextAction: action } = await visitorApi(businessSlug ?? "")
+          .sendLeadChat<{ reply: string; products?: ProductCard[]; nextAction?: NextAction }>(currentLeadId, text);
         addMessage("bot", reply);
         setChatProducts(products?.length ? products : null);
+        setNextAction(action ?? null);
       } catch {
         addMessage("bot", "Desculpa, não consegui responder neste momento. Tenta de novo.");
       } finally {
@@ -1071,6 +1071,31 @@ export function Chat() {
       }, 1000);
     }
   }, [inputValue, isBusy, isRestoringSession, callTriggered, leadId, addMessage, handleFirstSend, handleChatSend]);
+
+  const handleSalesAction = useCallback(() => {
+    if (!nextAction || nextAction.type === "none") return;
+    if (leadId && businessSlug) {
+      void visitorApi(businessSlug).recordSalesEvent(leadId, "cta_accepted").catch(() => undefined);
+    }
+    if (nextAction.type === "whatsapp" && whatsappHandoff) {
+      window.open(whatsappHandoff.url, "_blank", "noopener,noreferrer");
+      return;
+    }
+    if (nextAction.type === "order_tracking") {
+      void refreshTracking();
+      return;
+    }
+    const prompts: Record<string, string> = {
+      catalog: "Mostra-me as opções mais adequadas.",
+      checkout: "Quero avançar com a compra. Vamos confirmar o produto e a quantidade.",
+      contact: "Quero deixar o meu contacto para este assunto.",
+      owner_handoff: "Quero falar com o dono sobre este assunto.",
+      quote_request: "Quero pedir um orçamento.",
+      appointment_request: "Quero pedir uma marcação.",
+      visit_request: "Quero pedir uma visita.",
+    };
+    setInputValue(prompts[nextAction.type] ?? "");
+  }, [businessSlug, leadId, nextAction, refreshTracking, whatsappHandoff]);
 
   // ── Call flow ────────────────────────────────────────────────────────────
   const handleAccept = useCallback(() => {
@@ -1333,6 +1358,9 @@ export function Chat() {
                 <ChatBubble key={m.id} role={m.role} text={m.text} />
               ))}
               {leadId && leadContact && (
+                leadContact.status !== "pending"
+                || ["contact", "quote_request", "appointment_request", "visit_request", "owner_handoff"].includes(nextAction?.type ?? "")
+              ) && (
                 <ContactCaptureCard
                   key={`${leadContact.status}:${leadContact.phone ?? ""}`}
                   contact={leadContact}
@@ -1421,6 +1449,31 @@ export function Chat() {
                 onBuy={handleProductBuy}
                 onClose={() => setChatProducts(null)}
               />
+            )}
+
+            {!isCallActive && nextAction && nextAction.type !== "none" && (
+              <div className="relative px-3 pb-2">
+                <button
+                  type="button"
+                  onClick={handleSalesAction}
+                  className="w-full rounded-xl px-4 py-2.5 text-[13px] font-semibold text-white transition-opacity active:opacity-80"
+                  style={{ background: "var(--green)" }}
+                  title={nextAction.reason}
+                >
+                  {nextAction.label ?? "Continuar"}
+                </button>
+                <button
+                  type="button"
+                  aria-label="Dispensar sugestão"
+                  onClick={() => {
+                    if (leadId && businessSlug) void visitorApi(businessSlug).recordSalesEvent(leadId, "cta_declined").catch(() => undefined);
+                    setNextAction(null);
+                  }}
+                  className="absolute right-4 top-1 flex h-8 w-8 items-center justify-center rounded-full text-white/80"
+                >
+                  <X size={15} />
+                </button>
+              </div>
             )}
 
             {/* Inline checkout panel (shown when the AI agent initiates a payment during a call) */}

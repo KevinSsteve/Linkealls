@@ -30,6 +30,10 @@ import {
   subscriptionsTable,
   walletLedgerTable,
   payoutsTable,
+  leadChatRequestsTable,
+  salesOutcomeEventsTable,
+  salesStrategyOverridesTable,
+  salesStrategyVersionsTable,
 } from "@workspace/db";
 import { logger } from "../lib/logger.js";
 import {
@@ -767,7 +771,11 @@ router.delete("/user-auth/account", async (req, res) => {
         await tx.delete(subscriptionsTable).where(eq(subscriptionsTable.businessId, businessId));
         await tx.delete(walletLedgerTable).where(eq(walletLedgerTable.businessId, businessId));
         await tx.delete(payoutsTable).where(eq(payoutsTable.businessId, businessId));
+        await tx.delete(leadChatRequestsTable).where(eq(leadChatRequestsTable.businessId, businessId));
+        await tx.delete(salesOutcomeEventsTable).where(eq(salesOutcomeEventsTable.businessId, businessId));
         await tx.delete(leadsTable).where(eq(leadsTable.businessId, businessId));
+        await tx.delete(salesStrategyOverridesTable).where(eq(salesStrategyOverridesTable.businessId, businessId));
+        await tx.delete(salesStrategyVersionsTable).where(eq(salesStrategyVersionsTable.businessId, businessId));
         await tx.delete(assistantMessagesTable).where(eq(assistantMessagesTable.businessId, businessId));
         await tx.delete(campaignsTable).where(eq(campaignsTable.businessId, businessId));
         await tx.delete(businessProfilesTable).where(eq(businessProfilesTable.id, businessId));

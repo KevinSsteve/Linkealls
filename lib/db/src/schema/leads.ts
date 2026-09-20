@@ -40,6 +40,12 @@ export interface LeadOrigin {
     mediaMimeType?: string;
     mediaUrl?: string;
   };
+  /** Trusted legacy campaign attribution, resolved server-side from the tenant's UTM slug. */
+  trustedCampaign?: {
+    id: string;
+    name: string;
+    utmSlug: string;
+  };
 }
 
 /** A single message from the pre-call chat. */
@@ -48,6 +54,15 @@ export interface ChatMessage {
   role: "user" | "bot" | "agent";
   text: string;
   ts: string; // ISO timestamp
+  /** Runtime strategy provenance for assistant turns. */
+  strategyVersionId?: string;
+  /** Visitor-generated idempotency key shared by the user turn and its bot reply. */
+  requestId?: string;
+  /** Stored with the bot turn so an idempotent replay returns the original safe result. */
+  replay?: {
+    products: Array<{ name: string; price: string; description: string; imageUrl?: string }>;
+    nextAction: { type: string; label?: string; reason: string };
+  };
 }
 
 /**
@@ -63,6 +78,35 @@ export interface QualificationData {
   timeline?: string;
   location?: string;
   extras?: Record<string, string>;
+}
+
+export type CommercialStage = "welcome" | "understand" | "recommend" | "clarify" | "next_step" | "handoff" | "follow_up" | "disinterested";
+export type CommercialProvenance = "declared" | "inferred" | "confirmed" | "owner";
+export interface CommercialObservation {
+  value: string;
+  provenance: CommercialProvenance;
+  updatedAt: string;
+}
+export interface LeadCommercialMemory {
+  revision: number;
+  goal?: CommercialObservation;
+  interests: CommercialObservation[];
+  criteria: CommercialObservation[];
+  constraints: CommercialObservation[];
+  answeredQuestions: string[];
+  objections: Array<{ text: string; status: "pending" | "resolved"; provenance: CommercialProvenance; updatedAt: string }>;
+  stage: CommercialStage;
+  pendingAction?: string;
+  factualSummary?: string;
+  recommendationReason?: string;
+  missingData: string[];
+  escalationReason?: string;
+  humanControl: "ai" | "owner";
+  strategyVersionId?: string;
+  /** Fields intentionally corrected by the owner and protected from inference. */
+  ownerCorrectedFields?: string[];
+  /** Visitor declarations that conflict with an owner correction, kept for review. */
+  visitorChangeRequests?: Array<{ field: string; value: string; updatedAt: string }>;
 }
 
 // ─── Table ──────────────────────────────────────────────────────────────────
@@ -122,6 +166,12 @@ export const leadsTable = pgTable("leads", {
   trafficWelcomeStatus: text("traffic_welcome_status").$type<TrafficWelcomeStatus>(),
   trafficWelcomeClaimedAt: timestamp("traffic_welcome_claimed_at"),
   trafficWelcomeClaimToken: uuid("traffic_welcome_claim_token"),
+
+  /** Durable, tenant-private commercial state; separate from pipeline/payment. */
+  commercialMemory: jsonb("commercial_memory").$type<LeadCommercialMemory>().notNull().default({
+    revision: 0, interests: [], criteria: [], constraints: [], answeredQuestions: [],
+    objections: [], stage: "welcome", missingData: [], humanControl: "ai",
+  }),
 
   /** ISO timestamp of when the call ended. */
   callEndedAt: timestamp("call_ended_at"),

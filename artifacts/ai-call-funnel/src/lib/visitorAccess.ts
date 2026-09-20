@@ -228,10 +228,10 @@ export function visitorApi(businessSlug: string) {
         { method: "POST", body: "{}" },
         requireAccess(businessSlug, leadId),
       ),
-    sendLeadChat: async <T extends { reply: string; products?: unknown[] }>(leadId: string, message: string): Promise<T> =>
+    sendLeadChat: async <T extends { reply: string; products?: unknown[] }>(leadId: string, message: string, requestId = crypto.randomUUID()): Promise<T> =>
       visitorRequest(businessSlug, `/leads/${encodeURIComponent(leadId)}/chat`, {
         method: "POST",
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message, requestId }),
       }, requireAccess(businessSlug, leadId)),
     captureLeadContact: async (
       leadId: string,
@@ -257,6 +257,16 @@ export function visitorApi(businessSlug: string) {
         const body = (await res.json().catch(() => null)) as { error?: string } | null;
         throw new Error(body?.error ?? "Não foi possível registar o clique");
       }
+    },
+    recordSalesEvent: async (leadId: string, event: "cta_accepted" | "cta_declined"): Promise<void> => {
+      const access = requireAccess(businessSlug, leadId);
+      const res = await fetch(`${API_BASE}/b/${encodeURIComponent(businessSlug)}/leads/${encodeURIComponent(leadId)}/sales-event`, {
+        method: "POST",
+        credentials: "omit",
+        headers: { "Content-Type": "application/json", Authorization: `Visitor ${access.visitorToken}` },
+        body: JSON.stringify({ event }),
+      });
+      if (!res.ok) throw new Error("Não foi possível registar o resultado");
     },
     createOrder: async (data: {
       offeringName: string;

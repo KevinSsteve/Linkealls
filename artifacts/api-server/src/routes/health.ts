@@ -28,6 +28,10 @@ async function databaseProbe(timeoutMs: number): Promise<void> {
           AND to_regclass('public.profile_change_proposals') IS NOT NULL
           AND to_regclass('public.resource_library') IS NOT NULL
           AND to_regclass('public.resource_uploads') IS NOT NULL
+          AND to_regclass('public.sales_strategy_versions') IS NOT NULL
+          AND to_regclass('public.sales_strategy_overrides') IS NOT NULL
+          AND to_regclass('public.sales_outcome_events') IS NOT NULL
+          AND to_regclass('public.lead_chat_requests') IS NOT NULL
           AS required_tables_ok
     `,
     query_timeout: timeoutMs,

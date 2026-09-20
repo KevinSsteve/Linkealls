@@ -47,8 +47,11 @@ export const profileChangeProposalInputSchema = schema;
 export const resourceRequestInputSchema = schema;
 export const resourceInputSchema = schema;
 export const aoPhoneSchema = schema;
+export const salesStrategyConfigSchema = schema;
 export const db = new Proxy({}, { get() { return () => { throw new Error("live database must not be used"); }; } });
 export const businessProfilesTable = {};
+export const campaignsTable = {};
+export const salesOutcomeEventsTable = {};
 
 export async function getProfileBySlug(slug) { return { id: 41, slug }; }
 export async function getUserByToken() { state.auth++; return { handle: "owner" }; }
@@ -63,6 +66,7 @@ const existing = {
 export async function listCampaigns() { return [existing]; }
 export async function getCampaign() { return existing; }
 export async function getCampaignMetrics() { return { campaignId: "existing", totalSpend: 1200 }; }
+export async function resolveTrustedCampaignAttribution() { return null; }
 export async function listTrafficCreatives() { return []; }
 export async function createTrafficCreative() { return {}; }
 export async function updateTrafficCreative() { return {}; }
@@ -149,6 +153,16 @@ export function normalizeAngolanMobilePhone() { return null; }
 export function leadContactView() { return { status: "pending", phone: null, purpose: null, capturedAt: null }; }
 export function buildWhatsAppHandoff() { return null; }
 export function ownerLeadView(value) { return value; }
+export async function correctCommercialMemory() { return {}; }
+export async function activateStrategy() { return {}; }
+export async function approveStrategy() { return {}; }
+export async function createStrategyDraft() { return {}; }
+export async function listStrategies() { return []; }
+export async function saveStrategyOverride() { return {}; }
+export function simulateSalesAction() { return {}; }
+export async function simulateSalesPreview() { return {}; }
+export function templates() { return []; }
+export async function updateStrategyDraft() { return {}; }
 export function getVapidPublicKey() { return ""; }
 export async function saveSubscription() {}
 export async function removeSubscription() {}

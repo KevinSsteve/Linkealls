@@ -19,6 +19,7 @@ import {
   payoutsTable,
   businessProfilesTable,
   campaignsTable,
+  salesOutcomeEventsTable,
   type Order,
   type Subscription,
   type Payout,
@@ -166,6 +167,11 @@ export async function createProductOrder(
     type: "criada",
     actor: "sistema",
     content: `Pedido criado para ${order.offeringName} x${order.quantity}.`,
+  });
+  await db.insert(salesOutcomeEventsTable).values({
+    businessId,
+    leadId: resolvedLeadId,
+    event: "checkout",
   });
   notifyOrderEvent(businessId);
 
@@ -656,6 +662,11 @@ export async function settleGpoPayment(
              actor: "sistema",
              content: `Pagamento confirmado: ${order.offeringName} x${order.quantity}.`,
            });
+            await tx.insert(salesOutcomeEventsTable).values({
+              businessId: order.businessId,
+              leadId: order.leadId,
+              event: "payment_confirmed",
+            });
           }
         }
         return { firstSettle: updated.length > 0 };
