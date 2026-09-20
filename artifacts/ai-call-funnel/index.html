@@ -13,6 +13,40 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Linkealls — Negócios angolanos com IA" />
     <meta name="twitter:description" content="Linkealls é o diretório de negócios angolanos com assistente IA integrado." />
+    <script>
+      (() => {
+        try {
+          history.scrollRestoration = "manual";
+        } catch {}
+
+        let userInteracted = false;
+        const markInteraction = () => {
+          userInteracted = true;
+        };
+        const resetScroll = () => {
+          window.scrollTo(0, 0);
+          document.documentElement.scrollTop = 0;
+          document.body?.scrollTo(0, 0);
+        };
+        const rejectRestoredFocus = (event) => {
+          if (userInteracted) return;
+          const target = event.target;
+          if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+            target.blur();
+            resetScroll();
+          }
+        };
+
+        window.addEventListener("pointerdown", markInteraction, { capture: true, once: true });
+        window.addEventListener("touchstart", markInteraction, { capture: true, once: true });
+        window.addEventListener("keydown", markInteraction, { capture: true, once: true });
+        document.addEventListener("focusin", rejectRestoredFocus, true);
+        window.addEventListener("pageshow", resetScroll);
+        window.addEventListener("load", resetScroll);
+        window.setTimeout(resetScroll, 0);
+        window.setTimeout(resetScroll, 250);
+      })();
+    </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
