@@ -34,22 +34,23 @@ import { ADVERTISING_NEW_ACTIONS_ENABLED } from "@/lib/launchPolicy";
 const routerBase = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 /**
- * Sync --vh to the visual viewport height so the layout always fits the
- * visible area — even when the virtual keyboard is open on iOS/Android.
+ * Sync --vh to the stable layout viewport height.
+ *
+ * On Chrome Android, visualViewport.height can briefly report the reduced
+ * visual area while the address bar is settling during navigation. Using that
+ * transient value for the app shell permanently clips the page and leaves a
+ * large white area below it. innerHeight/clientHeight is stable for the shell;
+ * the chat's own scroll area handles content and keyboard changes.
  */
 function useVisualViewportHeight() {
   useEffect(() => {
     const apply = () => {
-      const h = window.visualViewport?.height ?? window.innerHeight;
+      const h = Math.max(window.innerHeight, document.documentElement.clientHeight);
       document.documentElement.style.setProperty("--vh", `${h}px`);
     };
     apply();
-    window.visualViewport?.addEventListener("resize", apply);
-    window.visualViewport?.addEventListener("scroll", apply);
     window.addEventListener("resize", apply);
     return () => {
-      window.visualViewport?.removeEventListener("resize", apply);
-      window.visualViewport?.removeEventListener("scroll", apply);
       window.removeEventListener("resize", apply);
     };
   }, []);
@@ -127,12 +128,12 @@ export default function App() {
           <Route path="/privacidade" component={() => <LegalPage kind="privacy" />} />
           <Route path="/dono"><LegacyOwnerRedirect /></Route>
           <Route path="/conversas">
-            <div className="w-full flex flex-col overflow-hidden" style={{ height: "var(--vh, 100dvh)" }}>
+              <div className="h-[100svh] w-full flex flex-col overflow-hidden">
               <LegacyLinkNotice />
             </div>
           </Route>
           <Route path="/captacao">
-            <div className="w-full flex flex-col overflow-hidden" style={{ height: "var(--vh, 100dvh)" }}>
+              <div className="h-[100svh] w-full flex flex-col overflow-hidden">
               <LegacyLinkNotice />
             </div>
           </Route>
@@ -144,8 +145,8 @@ export default function App() {
           <Route>
             {() => (
               <div
-                  className="w-full flex flex-col overflow-hidden"
-                style={{ background: "var(--bg)", height: "var(--vh, 100dvh)" }}
+                  className="h-[100svh] w-full flex flex-col overflow-hidden"
+                style={{ background: "var(--bg)" }}
               >
                 <Switch>
                   {/* Legacy user profile URL → canonical short catalog URL */}

@@ -48,7 +48,7 @@ export function ChatLayout({ children, onBack, onCall, businessName, businessSlu
   }
 
   return (
-    <div className="flex h-[100dvh] min-h-0 flex-col overflow-hidden">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
       <AppHeader
         variant="light"
         className="chat-header"
