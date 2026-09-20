@@ -90,15 +90,14 @@ body {
 }
 
 /*
- * Keep the page shell tied to Chrome's large viewport. Chrome Android can
- * retain a keyboard-reduced dynamic viewport after refresh, so 100dvh may leave
- * a large white area even after the keyboard has disappeared. ChatLayout
- * temporarily follows visualViewport only while the keyboard is actually open.
+ * Follow the available viewport as browser chrome expands and collapses.
+ * 100lvh includes space behind the expanded address bar and clips the composer.
+ * ChatLayout separately handles the software keyboard's visual viewport.
  */
 .app-viewport-shell {
   display: flex;
   height: 100vh;
-  height: 100lvh;
+  height: 100dvh;
   width: 100%;
   min-width: 0;
   min-height: 0;
