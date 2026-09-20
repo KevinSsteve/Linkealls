@@ -45,6 +45,9 @@ export const sendAssistantMessageSchema = any;
 export const confirmActionSchema = any;
 export const proposeBusinessKnowledgeSchema = any;
 export const reviewBusinessKnowledgeSchema = any;
+export const profileChangeProposalInputSchema = any;
+export const resourceRequestInputSchema = any;
+export const resourceInputSchema = any;
 export const aoPhoneSchema = any;
 export const chatMessageSchema = z.object({
   role: z.enum(["user", "bot"]),
@@ -261,6 +264,24 @@ export async function listBusinessKnowledge() { return []; }
 export async function listBusinessAiEvaluations() { return []; }
 export async function proposeBusinessKnowledge() { return {}; }
 export async function reviewBusinessKnowledge() { return {}; }
+export async function assessProfileGaps() { return []; }
+export async function createProfileChangeProposal() { return {}; }
+export async function listProfileChangeProposals() { return []; }
+export async function reviewProfileChangeProposal() { return {}; }
+export async function adjustProfileChangeProposal() { return {}; }
+export async function reopenProfileChangeProposal() { return {}; }
+export async function applyProfileChangeProposal() { return {}; }
+export async function reverseProfileChangeProposal() { return {}; }
+export async function createResourceRequest() { return {}; }
+export async function listResourceRequests() { return []; }
+export async function createResource() { return {}; }
+export async function updateResource() { return {}; }
+export async function listResources() { return []; }
+export async function approveResource() { return {}; }
+export async function reviewResource() { return {}; }
+export async function updateResourceRequestStatus() { return {}; }
+export async function deliverResource() { return {}; }
+export class ProfileImprovementError extends Error {}
 
 export async function getCampaign() {}
 export async function listCampaigns() { return []; }

@@ -43,6 +43,9 @@ export const sendAssistantMessageSchema = schema;
 export const confirmActionSchema = schema;
 export const proposeBusinessKnowledgeSchema = schema;
 export const reviewBusinessKnowledgeSchema = schema;
+export const profileChangeProposalInputSchema = schema;
+export const resourceRequestInputSchema = schema;
+export const resourceInputSchema = schema;
 export const aoPhoneSchema = schema;
 export const db = new Proxy({}, { get() { return () => { throw new Error("live database must not be used"); }; } });
 export const businessProfilesTable = {};
@@ -104,6 +107,24 @@ export async function listBusinessKnowledge() { return []; }
 export async function listBusinessAiEvaluations() { return []; }
 export async function proposeBusinessKnowledge() { return {}; }
 export async function reviewBusinessKnowledge() { return {}; }
+export async function assessProfileGaps() { return []; }
+export async function createProfileChangeProposal() { return {}; }
+export async function listProfileChangeProposals() { return []; }
+export async function reviewProfileChangeProposal() { return {}; }
+export async function adjustProfileChangeProposal() { return {}; }
+export async function reopenProfileChangeProposal() { return {}; }
+export async function applyProfileChangeProposal() { return {}; }
+export async function reverseProfileChangeProposal() { return {}; }
+export async function createResourceRequest() { return {}; }
+export async function listResourceRequests() { return []; }
+export async function createResource() { return {}; }
+export async function updateResource() { return {}; }
+export async function listResources() { return []; }
+export async function approveResource() { return {}; }
+export async function reviewResource() { return {}; }
+export async function updateResourceRequestStatus() { return {}; }
+export async function deliverResource() { return {}; }
+export class ProfileImprovementError extends Error {}
 
 export async function getOrCreateProfile() { return { name: "", offerings: [] }; }
 export function isProfileFilled() { return true; }

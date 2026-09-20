@@ -29,3 +29,4 @@ export * from "./scheduledJobRuns";
 export * from "./authRateLimits";
 export * from "./trafficCreatives";
 export * from "./businessBrain";
+export * from "./profileImprovements";

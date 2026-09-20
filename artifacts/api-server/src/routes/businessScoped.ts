@@ -138,6 +138,31 @@ import {
   proposeBusinessKnowledge,
   reviewBusinessKnowledge,
 } from "../services/businessBrain.js";
+import {
+  assessProfileGaps,
+  createProfileChangeProposal,
+  listProfileChangeProposals,
+  reviewProfileChangeProposal,
+  adjustProfileChangeProposal,
+  applyProfileChangeProposal,
+  reverseProfileChangeProposal,
+  reopenProfileChangeProposal,
+  createResourceRequest,
+  listResourceRequests,
+  createResource,
+  updateResource,
+  listResources,
+  approveResource,
+  reviewResource,
+  updateResourceRequestStatus,
+  deliverResource,
+  ProfileImprovementError,
+} from "../services/profileImprovements.js";
+import {
+  profileChangeProposalInputSchema,
+  resourceRequestInputSchema,
+  resourceInputSchema,
+} from "@workspace/db";
 
 function bid(res: Response): number {
   return res.locals["businessId"] as number;
@@ -334,6 +359,141 @@ export function createBusinessScopedRouter(): Router {
       logger.error({ err }, "POST /profile/assist failed");
       res.status(500).json({ error: "A IA não conseguiu estruturar a descrição. Tenta de novo." });
     }
+  });
+
+  // ── PROFILE IMPROVEMENTS / RESOURCE LIBRARY ─────────────────────────────────
+  router.get("/profile-improvements/gaps", requireOwner, async (_req, res) => {
+    try { res.json({ gaps: await assessProfileGaps(bid(res)) }); }
+    catch (err) { logger.error({ err }, "GET profile improvement gaps failed"); res.status(500).json({ error: "Não foi possível analisar o perfil" }); }
+  });
+  router.get("/profile-improvements/proposals", requireOwner, async (_req, res) => {
+    try { res.json({ proposals: await listProfileChangeProposals(bid(res)) }); }
+    catch (err) { logger.error({ err }, "GET profile proposals failed"); res.status(500).json({ error: "Não foi possível carregar propostas" }); }
+  });
+  router.get("/profile-improvements", requireOwner, async (_req, res) => {
+    try {
+      const [proposals, requests] = await Promise.all([listProfileChangeProposals(bid(res)), listResourceRequests(bid(res))]);
+      res.json({ proposals, requests });
+    } catch (err) { logger.error({ err }, "GET profile improvements failed"); res.status(500).json({ error: "Não foi possível carregar melhorias" }); }
+  });
+  router.post("/profile-improvements/proposals", requireOwner, async (req, res) => {
+    const parsed = profileChangeProposalInputSchema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Proposta inválida", details: parsed.error.issues }); return; }
+    try { res.status(201).json({ proposal: await createProfileChangeProposal(bid(res), parsed.data) }); }
+    catch (err) { const e = err as ProfileImprovementError; res.status(e.code ? 400 : 500).json({ error: e.message ?? "Não foi possível criar a proposta" }); }
+  });
+  router.patch("/profile-improvements/proposals/:id", requireOwner, async (req, res) => {
+    const parsed = z.object({
+      decision: z.enum(["approve", "reject"]).optional(),
+      proposedValue: z.unknown().optional(),
+      reason: z.string().trim().min(3).max(2000).optional(),
+      expectedUpdatedAt: z.string().datetime(),
+    }).safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Revisão inválida" }); return; }
+    if (!parsed.data.decision && parsed.data.proposedValue === undefined) {
+      res.status(400).json({ error: "Indica a decisão ou um valor ajustado" });
+      return;
+    }
+    try {
+      const proposal = parsed.data.decision
+        ? await reviewProfileChangeProposal(
+            bid(res), String(req.params["id"]), parsed.data.decision,
+            new Date(parsed.data.expectedUpdatedAt),
+            parsed.data.proposedValue, parsed.data.reason,
+          )
+        : await adjustProfileChangeProposal(
+            bid(res), String(req.params["id"]), parsed.data.proposedValue,
+            new Date(parsed.data.expectedUpdatedAt), parsed.data.reason,
+          );
+      res.json({ proposal });
+    }
+    catch (err) { const e = err as ProfileImprovementError; res.status(e.code ? 409 : 500).json({ error: e.message ?? "Não foi possível rever a proposta" }); }
+  });
+  router.post("/profile-improvements/proposals/:id/apply", requireOwner, requireRecentReauth, async (req, res) => {
+    const parsed = z.object({ idempotencyKey: z.string().trim().min(8).max(200) }).safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Chave de idempotência obrigatória" }); return; }
+    try { res.json({ proposal: await applyProfileChangeProposal(bid(res), String(req.params["id"]), parsed.data.idempotencyKey) }); }
+    catch (err) { const e = err as ProfileImprovementError; res.status(e.code === "CONFLICT" ? 409 : 400).json({ error: e.message ?? "Não foi possível aplicar a proposta" }); }
+  });
+  router.post("/profile-improvements/proposals/:id/reverse", requireOwner, requireRecentReauth, async (req, res) => {
+    const parsed = z.object({ idempotencyKey: z.string().trim().min(8).max(200) }).safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Chave de idempotência obrigatória" }); return; }
+    try { res.json({ proposal: await reverseProfileChangeProposal(bid(res), String(req.params["id"]), parsed.data.idempotencyKey) }); }
+    catch (err) { const e = err as ProfileImprovementError; res.status(e.code === "CONFLICT" ? 409 : 400).json({ error: e.message ?? "Não foi possível reverter" }); }
+  });
+  router.post("/profile-improvements/proposals/:id/reopen", requireOwner, async (req, res) => {
+    const parsed = z.object({ expectedUpdatedAt: z.string().datetime() }).safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Versão revista obrigatória" }); return; }
+    try {
+      res.json({ proposal: await reopenProfileChangeProposal(
+        bid(res), String(req.params["id"]), new Date(parsed.data.expectedUpdatedAt),
+      ) });
+    } catch (err) {
+      const e = err as ProfileImprovementError;
+      res.status(e.code === "CONFLICT" ? 409 : 400).json({ error: e.message ?? "Não foi possível reabrir" });
+    }
+  });
+  router.get("/resources/requests", requireOwner, async (_req, res) => {
+    try { res.json({ requests: await listResourceRequests(bid(res)) }); }
+    catch (err) { logger.error({ err }, "GET resource requests failed"); res.status(500).json({ error: "Não foi possível carregar pedidos" }); }
+  });
+  router.post("/resources/requests", requireOwner, async (req, res) => {
+    const parsed = resourceRequestInputSchema.safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Pedido inválido" }); return; }
+    try { res.status(201).json({ request: await createResourceRequest(bid(res), parsed.data) }); }
+    catch (err) { const e = err as ProfileImprovementError; res.status(400).json({ error: e.message }); }
+  });
+  router.patch("/resources/requests/:id", requireOwner, async (req, res) => {
+    const parsed = z.object({ status: z.enum(["open", "fulfilled", "cancelled"]) }).safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Estado inválido" }); return; }
+    try { res.json({ request: await updateResourceRequestStatus(bid(res), String(req.params["id"]), parsed.data.status) }); }
+    catch (err) { const e = err as ProfileImprovementError; res.status(400).json({ error: e.message }); }
+  });
+  router.get("/resources", requireOwner, async (_req, res) => {
+    try {
+      const resources = await listResources(bid(res));
+      res.json({ resources: resources.map((resource) => ({ ...resource, textContent: resource.content, purposes: [resource.purpose] })) });
+    }
+    catch (err) { logger.error({ err }, "GET resources failed"); res.status(500).json({ error: "Não foi possível carregar recursos" }); }
+  });
+  router.post("/resources", requireOwner, async (req, res) => {
+    const requestId = z.string().uuid().optional().safeParse(req.body?.requestId);
+    if (!requestId.success) { res.status(400).json({ error: "Pedido associado inválido" }); return; }
+    const parsed = resourceInputSchema.safeParse({
+      ...req.body,
+      purpose: req.body?.purpose ?? req.body?.purposes?.[0],
+      content: req.body?.content ?? req.body?.textContent,
+    });
+    if (!parsed.success) { res.status(400).json({ error: "Recurso inválido" }); return; }
+    try {
+      const resource = await createResource(bid(res), parsed.data, requestId.data);
+      res.status(201).json({ resource: { ...resource, textContent: resource.content, purposes: [resource.purpose] } });
+    }
+    catch (err) { const e = err as ProfileImprovementError; res.status(400).json({ error: e.message }); }
+  });
+  router.patch("/resources/:id", requireOwner, async (req, res) => {
+    try {
+      const resource = await updateResource(bid(res), String(req.params["id"]), req.body);
+      res.json({ resource: { ...resource, textContent: resource.content, purposes: [resource.purpose] } });
+    } catch (err) { const e = err as ProfileImprovementError; res.status(400).json({ error: e.message }); }
+  });
+  router.post("/resources/:id/approve", requireOwner, requireRecentReauth, async (req, res) => {
+    const parsed = z.object({ expectedUpdatedAt: z.string().datetime() }).safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Versão revista obrigatória" }); return; }
+    try { res.json({ resource: await approveResource(bid(res), String(req.params["id"]), new Date(parsed.data.expectedUpdatedAt)) }); }
+    catch (err) { const e = err as ProfileImprovementError; res.status(e.code === "CONFLICT" ? 409 : 400).json({ error: e.message }); }
+  });
+  router.post("/resources/:id/review", requireOwner, requireRecentReauth, async (req, res) => {
+    const parsed = z.object({ decision: z.enum(["approve", "reject"]), expectedUpdatedAt: z.string().datetime() }).safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Revisão inválida" }); return; }
+    try { res.json({ resource: await reviewResource(bid(res), String(req.params["id"]), parsed.data.decision, new Date(parsed.data.expectedUpdatedAt)) }); }
+    catch (err) { const e = err as ProfileImprovementError; res.status(e.code === "CONFLICT" ? 409 : 400).json({ error: e.message }); }
+  });
+  router.post("/resources/:id/send", requireOwner, requireRecentReauth, async (req, res) => {
+    const parsed = z.object({ leadId: z.string().uuid(), purpose: z.string().min(1).max(200), idempotencyKey: z.string().min(8).max(200) }).safeParse(req.body);
+    if (!parsed.success) { res.status(400).json({ error: "Dados de envio inválidos" }); return; }
+    try { res.json({ resource: await deliverResource(bid(res), String(req.params["id"]), parsed.data.leadId, parsed.data.purpose, parsed.data.idempotencyKey) }); }
+    catch (err) { const e = err as ProfileImprovementError; res.status(e.code === "CONFLICT" ? 409 : 400).json({ error: e.message }); }
   });
 
   // ── AUTH / PIN ────────────────────────────────────────────────────────────────

@@ -6,6 +6,8 @@ export type AssistantRole = "user" | "assistant" | "proactive";
 
 /** Extra metadata stored with a message (e.g. action payload, lead id). */
 export interface AssistantMessageMeta {
+  profileProposalIds?: string[];
+  resourceRequestIds?: string[];
   /** Action the assistant proposed that needs owner confirmation. */
   pendingAction?: {
     type: "update_lead_state";

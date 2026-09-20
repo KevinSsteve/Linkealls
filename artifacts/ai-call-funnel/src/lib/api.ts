@@ -306,6 +306,64 @@ export async function setUserHandle(
   return body;
 }
 
+// ─── Resources ─────────────────────────────────────────────────────────────
+
+export type ResourceVisibility = "private" | "public";
+export type ResourceStatus = "draft" | "approved" | "archived";
+export type ResourceKind = "link" | "image" | "document" | "text" | "video";
+
+export interface Resource {
+  id: string;
+  businessId: number;
+  title: string;
+  description: string | null;
+  kind: ResourceKind;
+  url: string | null;
+  objectPath: string | null;
+  textContent: string | null;
+  mimeType: string | null;
+  purposes: string[];
+  visibility: ResourceVisibility;
+  status: ResourceStatus;
+  validFrom: string | null;
+  validUntil: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ─── Profile Improvements ──────────────────────────────────────────────────
+
+export type ProfileImprovementStatus = "proposed" | "approved" | "rejected" | "applied" | "conflict" | "reversed";
+
+export interface ProfileImprovementProposal {
+  id: string;
+  fieldPath: string;
+  baseValue: unknown;
+  reason: string;
+  source: string;
+  sourceRef: string | null;
+  preview: string | null;
+  proposedValue: unknown;
+  status: ProfileImprovementStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProfileImprovementRequest {
+  id: string;
+  kind: ResourceKind;
+  purpose: string;
+  request: string;
+  status: "open" | "fulfilled" | "cancelled";
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProfileImprovementsResponse {
+  proposals: ProfileImprovementProposal[];
+  requests: ProfileImprovementRequest[];
+}
+
 // ─── Business Profile ────────────────────────────────────────────────────────
 
 export interface Offering {
@@ -665,6 +723,31 @@ export async function uploadPrivateImage(file: File, businessSlug: string): Prom
     body: file,
   });
   if (!upload.ok) throw new Error("Não foi possível carregar a imagem");
+  return objectPath;
+}
+
+export async function uploadResourceFile(file: File, businessSlug: string): Promise<string> {
+  const supported = ["image/png", "image/jpeg", "image/webp", "video/mp4", "video/webm", "video/quicktime", "application/pdf"];
+  if (!supported.includes(file.type)) {
+    throw new Error("Usa PNG, JPEG, WebP, MP4, WebM, MOV ou PDF");
+  }
+  const maxBytes = file.type.startsWith("video/") ? 50 * 1024 * 1024 : 20 * 1024 * 1024;
+  if (file.size > maxBytes) throw new Error(`O ficheiro não pode ultrapassar ${maxBytes / 1024 / 1024} MB`);
+  const { uploadURL, objectPath } = await request<{ uploadURL: string; objectPath: string }>(
+    "/storage/uploads/request-url",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        name: file.name,
+        size: file.size,
+        contentType: file.type,
+        businessSlug,
+        purpose: "resource_library",
+      }),
+    },
+  );
+  const put = await fetch(uploadURL, { method: "PUT", body: file, headers: { "Content-Type": file.type } });
+  if (!put.ok) throw new Error("Não foi possível carregar a imagem");
   return objectPath;
 }
 
@@ -1188,5 +1271,63 @@ export function businessApi(slug: string) {
       bRequest<{ cleared: boolean }>("/assistant/messages", { method: "DELETE" }),
     getAssistantEventsUrl: () =>
       `${API_BASE}/b/${encodeURIComponent(slug)}/assistant/events`,
+
+    // Profile Improvements
+    listProfileImprovements: () =>
+      bRequest<ProfileImprovementsResponse>("/profile-improvements"),
+    updateProfileImprovement: (id: string, patch: { expectedUpdatedAt: string; proposedValue?: unknown; reason?: string; decision?: "approve" | "reject" }) =>
+      bRequest<{ proposal: ProfileImprovementProposal }>(`/profile-improvements/proposals/${id}`, {
+        method: "PATCH", body: JSON.stringify(patch)
+      }),
+    applyProfileImprovement: (id: string, idempotencyKey: string) =>
+      bRequest<{ proposal: ProfileImprovementProposal }>(`/profile-improvements/proposals/${id}/apply`, {
+        method: "POST", body: JSON.stringify({ idempotencyKey })
+      }),
+    reverseProfileImprovement: (id: string, idempotencyKey: string) =>
+      bRequest<{ proposal: ProfileImprovementProposal }>(`/profile-improvements/proposals/${id}/reverse`, {
+        method: "POST", body: JSON.stringify({ idempotencyKey })
+      }),
+    reopenProfileImprovement: (id: string, expectedUpdatedAt: string) =>
+      bRequest<{ proposal: ProfileImprovementProposal }>(`/profile-improvements/proposals/${id}/reopen`, {
+        method: "POST", body: JSON.stringify({ expectedUpdatedAt })
+      }),
+
+    // Resources
+    listResources: () =>
+      bRequest<{ resources: Resource[] }>("/resources"),
+    createResource: (data: {
+      title: string;
+      description?: string | null;
+      kind: ResourceKind;
+      visibility?: ResourceVisibility;
+      status?: ResourceStatus;
+      url?: string | null;
+      objectPath?: string | null;
+      textContent?: string | null;
+      mimeType?: string | null;
+      purposes?: string[];
+      validFrom?: string | null;
+      validUntil?: string | null;
+      requestId?: string;
+    }) =>
+      bRequest<{ resource: Resource }>("/resources", {
+        method: "POST", body: JSON.stringify(data)
+      }),
+    updateResourceRequest: (id: string, status: "open" | "fulfilled" | "cancelled") =>
+      bRequest<{ request: ProfileImprovementRequest }>(`/resources/requests/${id}`, {
+        method: "PATCH", body: JSON.stringify({ status })
+      }),
+    updateResource: (id: string, patch: Partial<Resource>) =>
+      bRequest<{ resource: Resource }>(`/resources/${id}`, {
+        method: "PATCH", body: JSON.stringify(patch)
+      }),
+    reviewResource: (id: string, decision: "approve" | "reject", expectedUpdatedAt: string) =>
+      bRequest<{ resource: Resource }>(`/resources/${id}/review`, {
+        method: "POST", body: JSON.stringify({ decision, expectedUpdatedAt })
+      }),
+    sendResource: (id: string, leadId: string, purpose: string, idempotencyKey: string) =>
+      bRequest<{ resource: Resource }>(`/resources/${id}/send`, {
+        method: "POST", body: JSON.stringify({ leadId, purpose, idempotencyKey })
+      }),
   };
 }

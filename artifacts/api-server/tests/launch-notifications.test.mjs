@@ -50,6 +50,9 @@ export function estimateGemini3FlashCostMicros() { return 0; }
 export async function proposeBusinessKnowledge() { throw new Error("Knowledge mutation forbidden"); }
 export async function recordBusinessAiEvaluation() {}
 export function renderBusinessBrain() { return "test brain"; }
+export async function assessProfileGaps() { throw new Error("Profile analysis forbidden"); }
+export async function createProfileChangeProposal() { throw new Error("Profile proposal forbidden"); }
+export async function createResourceRequest() { throw new Error("Resource request forbidden"); }
 export class GoogleGenAI { constructor() { throw new Error("AI provider forbidden"); } }
 export const Type = { OBJECT: "OBJECT", STRING: "STRING" };
 export default {
@@ -83,7 +86,7 @@ await build({
     name: "isolate-notifications",
     setup(b) {
       b.onResolve({
-        filter: /^(launch-notification-fixture|@workspace\/db|@google\/genai|web-push)$|\/(logger|scheduledJobLock|leads|businessProfile|businessBrain)\.js$/,
+        filter: /^(launch-notification-fixture|@workspace\/db|@google\/genai|web-push)$|\/(logger|scheduledJobLock|leads|businessProfile|businessBrain|profileImprovements)\.js$/,
       }, () => ({ path: "fixture", namespace: "isolated" }));
       b.onLoad({ filter: /.*/, namespace: "isolated" }, () => ({ contents: fixture, loader: "js" }));
     },

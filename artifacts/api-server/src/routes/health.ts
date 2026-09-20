@@ -25,6 +25,9 @@ async function databaseProbe(timeoutMs: number): Promise<void> {
         1 AS db_ok,
         to_regclass('public.auth_rate_limits') IS NOT NULL
           AND to_regclass('public.scheduled_job_runs') IS NOT NULL
+          AND to_regclass('public.profile_change_proposals') IS NOT NULL
+          AND to_regclass('public.resource_library') IS NOT NULL
+          AND to_regclass('public.resource_uploads') IS NOT NULL
           AS required_tables_ok
     `,
     query_timeout: timeoutMs,

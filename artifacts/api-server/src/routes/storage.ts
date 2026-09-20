@@ -9,7 +9,14 @@ import { logger } from "../lib/logger.js";
 import { z } from "zod";
 import { getUserByToken, requestToken } from "./userAuth.js";
 import { and, eq } from "drizzle-orm";
-import { db, businessProfilesTable, ordersTable, trafficCreativeUploadsTable } from "@workspace/db";
+import {
+  db,
+  businessProfilesTable,
+  ordersTable,
+  resourceLibraryTable,
+  resourceUploadsTable,
+  trafficCreativeUploadsTable,
+} from "@workspace/db";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -18,10 +25,16 @@ const TRAFFIC_UPLOAD_PENDING_MS = 60 * 60_000;
 const RequestUploadUrlBody = z.object({
   name: z.string().trim().min(1).max(200),
   size: z.number().int().positive().max(50 * 1024 * 1024),
-  contentType: z.enum(["image/png", "image/jpeg", "image/webp", "video/mp4", "video/webm", "video/quicktime"]),
+  contentType: z.enum(["image/png", "image/jpeg", "image/webp", "video/mp4", "video/webm", "video/quicktime", "application/pdf"]),
   businessSlug: z.string().trim().min(1).max(80),
-  purpose: z.enum(["traffic_creative", "general"]).optional().default("general"),
+  purpose: z.enum(["traffic_creative", "resource_library", "general"]).optional().default("general"),
 }).superRefine((value, ctx) => {
+  if (value.purpose === "general" && !value.contentType.startsWith("image/")) {
+    ctx.addIssue({ code: "custom", path: ["contentType"], message: "Este upload aceita apenas imagens" });
+  }
+  if (value.purpose === "traffic_creative" && value.contentType === "application/pdf") {
+    ctx.addIssue({ code: "custom", path: ["contentType"], message: "A criatividade deve ser imagem ou vídeo" });
+  }
   if (value.purpose === "general" && value.size > 10 * 1024 * 1024) {
     ctx.addIssue({ code: "custom", path: ["size"], message: "O ficheiro não pode ultrapassar 10 MB" });
   }
@@ -64,10 +77,12 @@ router.post("/storage/uploads/request-url", requireSession, async (req: Request,
     }
     const prefix = parsed.data.purpose === "traffic_creative"
       ? `traffic-creatives/${parsed.data.businessSlug}`
-      : "uploads";
+      : parsed.data.purpose === "resource_library"
+        ? `resource-library/${parsed.data.businessSlug}`
+        : "uploads";
     const uploadURL = await objectStorageService.getObjectEntityUploadURL(prefix);
     const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
-    if (parsed.data.purpose === "traffic_creative") {
+    if (parsed.data.purpose === "traffic_creative" || parsed.data.purpose === "resource_library") {
       const businesses = await db
         .select({ id: businessProfilesTable.id })
         .from(businessProfilesTable)
@@ -76,6 +91,17 @@ router.post("/storage/uploads/request-url", requireSession, async (req: Request,
       const business = businesses[0];
       if (!business) {
         res.status(404).json({ error: "Negócio não encontrado" });
+        return;
+      }
+      if (parsed.data.purpose === "resource_library") {
+        await db.insert(resourceUploadsTable).values({
+          businessId: business.id,
+          objectPath,
+          mimeType: contentType,
+          originalName: name,
+          sizeBytes: size,
+        });
+        res.json({ uploadURL, objectPath, metadata: { name, size, contentType } });
         return;
       }
       const expiresAt = new Date(Date.now() + TRAFFIC_UPLOAD_PENDING_MS);
@@ -136,6 +162,33 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
   try {
     const raw = req.params.path;
     const wildcardPath = Array.isArray(raw) ? raw.join("/") : raw;
+    if (wildcardPath.startsWith("resource-library/")) {
+      const objectPath = `/objects/${wildcardPath}`;
+      const now = new Date();
+      const rows = await db
+        .select({
+          id: resourceLibraryTable.id,
+          status: resourceLibraryTable.status,
+          visibility: resourceLibraryTable.visibility,
+          validFrom: resourceLibraryTable.validFrom,
+          validUntil: resourceLibraryTable.validUntil,
+        })
+        .from(resourceLibraryTable)
+        .where(eq(resourceLibraryTable.objectPath, objectPath))
+        .limit(1);
+      const resource = rows[0];
+      const isPublic = resource?.status === "approved"
+        && resource.visibility === "public"
+        && (!resource.validFrom || resource.validFrom <= now)
+        && (!resource.validUntil || resource.validUntil >= now);
+      if (!isPublic) {
+        const user = await getUserByToken(requestToken(req));
+        if (!user?.handle || !wildcardPath.startsWith(`resource-library/${user.handle}/`)) {
+          res.status(404).json({ error: "File not found" });
+          return;
+        }
+      }
+    }
     // Order proofs use a dedicated private prefix. Unlike catalog assets,
     // they must only be readable by the owner of the matching business.
     if (wildcardPath.startsWith("order-proofs/")) {

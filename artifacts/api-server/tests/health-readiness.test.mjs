@@ -61,7 +61,7 @@ test("readiness reports ready only after the database probe succeeds", async () 
   assert.deepEqual(res.body, { status: "ready" });
 });
 
-test("readiness requires both additive migration tables", () => {
+test("readiness requires every additive migration table", () => {
   assert.equal(
     health.hasRequiredDatabaseState([{ db_ok: 1, required_tables_ok: true }]),
     true,

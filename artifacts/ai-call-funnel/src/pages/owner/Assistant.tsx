@@ -6,7 +6,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   Zap, Trash2, BarChart2, AlertCircle,
-  CheckCircle2, XCircle, Copy, Check, Loader2, Bell, Send,
+  CheckCircle2, XCircle, Copy, Check, Loader2, Bell, Send, Settings,
 } from "lucide-react";
 import { businessApi, confirmSensitiveAction, type AssistantMessage } from "../../lib/api";
 import { useBusinessSlug } from "../../hooks/useBusinessSlug";
@@ -14,6 +14,7 @@ import { OwnerNav } from "../../components/owner/OwnerNav";
 import { C } from "../../theme";
 import { AppHeader, AppIconButton } from "../../components/app/AppHeader";
 import { NONESSENTIAL_SUMMARIES_ENABLED } from "../../lib/launchPolicy";
+import { AssistantManager } from "../../components/owner/AssistantManager";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function formatTime(iso: string) {
@@ -154,6 +155,7 @@ export function Assistant() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState<string | null>(null);
+  const [showManager, setShowManager] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -270,6 +272,9 @@ export function Assistant() {
           </div>
         }
         actions={<>
+          <AppIconButton label="Gestão do Assistente" onClick={() => setShowManager(true)}>
+            <Settings size={18} strokeWidth={1.8} />
+          </AppIconButton>
           {NONESSENTIAL_SUMMARIES_ENABLED && (
             <AppIconButton label="Resumo diário" onClick={handleDailySummary}>
               <BarChart2 size={18} strokeWidth={1.8} />
@@ -393,6 +398,10 @@ export function Assistant() {
       </div>
 
       <OwnerNav />
+
+      {showManager && (
+        <AssistantManager slug={slug} onClose={() => setShowManager(false)} />
+      )}
     </div>
   );
 }
