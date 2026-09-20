@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { Router, Route, Switch, Redirect, useLocation, useParams } from "wouter";
 import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
@@ -32,29 +31,6 @@ import { ADVERTISING_NEW_ACTIONS_ENABLED } from "@/lib/launchPolicy";
 
 // Serve under the artifact base path. With BASE_PATH="/" this is "".
 const routerBase = import.meta.env.BASE_URL.replace(/\/$/, "");
-
-/**
- * Sync --vh to the stable layout viewport height.
- *
- * On Chrome Android, visualViewport.height can briefly report the reduced
- * visual area while the address bar is settling during navigation. Using that
- * transient value for the app shell permanently clips the page and leaves a
- * large white area below it. innerHeight/clientHeight is stable for the shell;
- * the chat's own scroll area handles content and keyboard changes.
- */
-function useVisualViewportHeight() {
-  useEffect(() => {
-    const apply = () => {
-      const h = Math.max(window.innerHeight, document.documentElement.clientHeight);
-      document.documentElement.style.setProperty("--vh", `${h}px`);
-    };
-    apply();
-    window.addEventListener("resize", apply);
-    return () => {
-      window.removeEventListener("resize", apply);
-    };
-  }, []);
-}
 
 /**
  * Smart redirect for legacy /dono/* routes.
@@ -102,8 +78,6 @@ function LegacyUserProfileRedirect() {
 }
 
 export default function App() {
-  useVisualViewportHeight();
-
   return (
     <AuthProvider>
       <Toaster />
@@ -128,12 +102,12 @@ export default function App() {
           <Route path="/privacidade" component={() => <LegalPage kind="privacy" />} />
           <Route path="/dono"><LegacyOwnerRedirect /></Route>
           <Route path="/conversas">
-              <div className="h-[100svh] w-full flex flex-col overflow-hidden">
+              <div className="app-viewport-shell">
               <LegacyLinkNotice />
             </div>
           </Route>
           <Route path="/captacao">
-              <div className="h-[100svh] w-full flex flex-col overflow-hidden">
+              <div className="app-viewport-shell">
               <LegacyLinkNotice />
             </div>
           </Route>
@@ -145,7 +119,7 @@ export default function App() {
           <Route>
             {() => (
               <div
-                  className="h-[100svh] w-full flex flex-col overflow-hidden"
+                  className="app-viewport-shell"
                 style={{ background: "var(--bg)" }}
               >
                 <Switch>

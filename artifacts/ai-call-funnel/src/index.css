@@ -87,6 +87,23 @@ body {
   min-height: 100dvh;
 }
 
+/*
+ * Full-screen application routes must not depend on a JS-measured viewport
+ * height. Chrome Android can expose a transient short viewport during refresh,
+ * leaving the app clipped at the top of an otherwise white page. Pinning the
+ * shell to the viewport keeps it full-height from the first paint.
+ */
+.app-viewport-shell {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 /* ─── Chat background ─── */
 .chat-bg {
   background-color: var(--subtle);
