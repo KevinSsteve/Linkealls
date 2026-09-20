@@ -105,12 +105,12 @@ export function selectLeadChatProducts(
   offerings: LeadChatOffering[],
   userMessage: string,
 ): LeadChatOffering[] {
-  const productIntent = /\b(produto|produtos|serviço|serviços|preço|preços|quanto|menu|catálogo|catalogo|comprar|compra|quero|mostra|mostrar|tem|disponível|disponivel)\b/i.test(userMessage);
-  if (!productIntent) return [];
   const normalizedQuery = userMessage.toLocaleLowerCase("pt-AO");
   const matchedOfferings = offerings.filter((offering) => {
     const haystack = `${offering.name} ${offering.description}`.toLocaleLowerCase("pt-AO");
     return haystack.split(/\s+/).some((word) => word.length > 3 && normalizedQuery.includes(word));
   });
+  const explicitCatalogIntent = /\b(produto|produtos|serviço|serviços|preço|preços|quanto custa|menu|catálogo|catalogo|comprar|compra|mostra(?:r)?(?:-me)?(?: os| as)?|quais (?:são )?(?:os |as )?(?:produtos|serviços)|o que (?:vendem|oferecem))\b/i.test(userMessage);
+  if (!explicitCatalogIntent && matchedOfferings.length === 0) return [];
   return (matchedOfferings.length > 0 ? matchedOfferings : offerings).slice(0, 12);
 }

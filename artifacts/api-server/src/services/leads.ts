@@ -651,7 +651,7 @@ export async function chatWithLead(
     .slice(0, 360)
     .trim();
   const reply = options?.requestContactConsent
-    ? `${compactReply.split(/(?<=[.!?])\s+/)[0] ?? compactReply} Para continuar este atendimento e facilitar o contacto por WhatsApp, podes indicar o teu número? Será usado apenas por este negócio para este pedido, e também podes recusar.`
+    ? "Compartilha o seu número comigo."
     : compactReply;
 
   const products = selectLeadChatProducts(profile.offerings ?? [], safeUserMessage);

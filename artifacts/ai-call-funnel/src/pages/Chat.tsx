@@ -599,11 +599,10 @@ function ContactCaptureCard({
   return (
     <div className="mx-1 my-3 rounded-2xl p-4" style={{ background: "var(--surface)", border: "1px solid var(--border)", boxShadow: "0 2px 8px rgba(23,19,31,.07)" }}>
       <div className="flex items-start gap-2">
-        <ShieldCheck size={18} className="mt-0.5 shrink-0" style={{ color: "var(--green)" }} />
         <div>
-          <p className="text-[13px] font-semibold" style={{ color: "var(--ink)" }}>Partilhar contacto</p>
+          <p className="text-[14px] font-semibold" style={{ color: "var(--ink)" }}>Compartilha o seu número comigo</p>
           <p className="mt-1 text-[12px] leading-relaxed" style={{ color: "var(--ink-soft)" }}>
-            O número será usado só por este negócio para continuar este pedido. Não será retirado do pagamento.
+            Assim podemos continuar a conversa por WhatsApp. Também podes continuar sem partilhar.
           </p>
         </div>
       </div>
@@ -629,7 +628,7 @@ function ContactCaptureCard({
           className="min-h-11 flex-1 rounded-xl px-3 text-[12px] font-semibold text-white disabled:opacity-50"
           style={{ background: "var(--green)" }}
         >
-          {saving ? "A guardar…" : "Autorizar e continuar"}
+          {saving ? "A guardar…" : "Partilhar número"}
         </button>
         <button
           type="button"
@@ -1012,8 +1011,7 @@ export function Chat() {
       }
 
       // Consumer mode — greet + trigger incoming call
-      const botText =
-        "Olá. Obrigado pelo teu interesse. Antes de continuar, podes indicar o teu número para este negócio te contactar sobre este pedido? Também podes recusar e continuar normalmente.";
+      const botText = "Compartilha o seu número comigo.";
       const botMsg = addMessage("bot", botText);
       chatMsgsRef.current.push(botMsg);
       setStage("chat");
