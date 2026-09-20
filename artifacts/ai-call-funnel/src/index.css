@@ -79,24 +79,25 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background: #FFFFFF;
+  overflow: hidden;
   overscroll-behavior: none;
 }
 
 #root {
   height: 100%;
-  min-height: 100dvh;
+  min-height: 0;
 }
 
 /*
- * Full-screen application routes must not depend on a JS-measured viewport
- * height. Chrome Android can expose a transient short viewport during refresh,
- * leaving the app clipped at the top of an otherwise white page. Pinning the
- * shell to the viewport keeps it full-height from the first paint.
+ * Chrome Android resizes the layout viewport when the keyboard opens because
+ * index.html declares interactive-widget=resizes-content. Keep the route shell
+ * in normal flow so it follows that resized viewport instead of remaining
+ * pinned behind the keyboard.
  */
 .app-viewport-shell {
-  position: fixed;
-  inset: 0;
   display: flex;
+  height: 100vh;
+  height: 100dvh;
   width: 100%;
   min-width: 0;
   min-height: 0;

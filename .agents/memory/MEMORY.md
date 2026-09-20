@@ -29,3 +29,4 @@
 - [Consented lead contact](consented-lead-contact.md) — follow-up phone is explicit and separate from checkout/AI extraction; WhatsApp handoffs are server-owned and capability-attributed.
 - [Business brain trust model](business-brain-trust-model.md) — shared tenant context keeps approved facts, observations, suggestions and untrusted inputs separate across every AI channel.
 - [AI profile improvement trust boundary](ai-profile-improvement-trust.md) — AI proposes only; owner-reviewed versions use CAS, private tenant-owned resources, and explicit delivery gates.
+- [Chrome Android chat viewport](chrome-android-chat-viewport.md) — let interactive-widget resize normal-flow 100dvh shells; fixed viewport shells break keyboard and refresh recovery.
