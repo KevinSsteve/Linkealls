@@ -69,6 +69,7 @@
 
 html {
   height: 100%;
+  overflow: hidden;
   -webkit-text-size-adjust: 100%;
   touch-action: manipulation;
 }
@@ -89,15 +90,15 @@ body {
 }
 
 /*
- * Chrome Android resizes the layout viewport when the keyboard opens because
- * index.html declares interactive-widget=resizes-content. Keep the route shell
- * in normal flow so it follows that resized viewport instead of remaining
- * pinned behind the keyboard.
+ * Keep the page shell tied to Chrome's large viewport. Chrome Android can
+ * retain a keyboard-reduced dynamic viewport after refresh, so 100dvh may leave
+ * a large white area even after the keyboard has disappeared. ChatLayout
+ * temporarily follows visualViewport only while the keyboard is actually open.
  */
 .app-viewport-shell {
   display: flex;
   height: 100vh;
-  height: 100dvh;
+  height: 100lvh;
   width: 100%;
   min-width: 0;
   min-height: 0;

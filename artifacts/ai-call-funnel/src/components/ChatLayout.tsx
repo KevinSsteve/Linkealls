@@ -1,4 +1,4 @@
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { Phone, MoreVertical } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
@@ -28,6 +28,54 @@ function palFor(s: string) {
 export function ChatLayout({ children, onBack, onCall, businessName, businessSlug }: ChatLayoutProps) {
   const [, nav] = useLocation();
   const { isLoggedIn } = useAuth();
+  const layoutRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    const layout = layoutRef.current;
+    if (!viewport || !layout) return;
+
+    if ("scrollRestoration" in window.history) {
+      window.history.scrollRestoration = "manual";
+    }
+
+    const isComposerFocused = () => {
+      const active = document.activeElement;
+      return active instanceof HTMLTextAreaElement || active instanceof HTMLInputElement;
+    };
+
+    const syncHeight = () => {
+      const keyboardHeight = window.innerHeight - viewport.height;
+      layout.style.height =
+        isComposerFocused() && keyboardHeight > 120
+          ? `${Math.round(viewport.height)}px`
+          : "100%";
+      window.scrollTo(0, 0);
+    };
+
+    const resetAfterPageShow = () => {
+      const active = document.activeElement;
+      if (active instanceof HTMLTextAreaElement || active instanceof HTMLInputElement) {
+        active.blur();
+      }
+      layout.style.height = "100%";
+      window.scrollTo(0, 0);
+      requestAnimationFrame(() => window.scrollTo(0, 0));
+    };
+
+    viewport.addEventListener("resize", syncHeight);
+    document.addEventListener("focusin", syncHeight);
+    document.addEventListener("focusout", syncHeight);
+    window.addEventListener("pageshow", resetAfterPageShow);
+    resetAfterPageShow();
+
+    return () => {
+      viewport.removeEventListener("resize", syncHeight);
+      document.removeEventListener("focusin", syncHeight);
+      document.removeEventListener("focusout", syncHeight);
+      window.removeEventListener("pageshow", resetAfterPageShow);
+    };
+  }, []);
 
   const initials = businessName
     ? businessName.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase()
@@ -48,7 +96,7 @@ export function ChatLayout({ children, onBack, onCall, businessName, businessSlu
   }
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+    <div ref={layoutRef} className="flex h-full min-h-0 flex-col overflow-hidden">
       <AppHeader
         variant="light"
         className="chat-header"
