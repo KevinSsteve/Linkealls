@@ -185,7 +185,7 @@ test("normal chat claims one revision before model effects and retention is boun
   const retention = await readFile(path.join(artifactDir, "src/services/salesRetention.ts"), "utf8");
   const chatRuntime = leads.slice(leads.indexOf("export async function chatWithLead"), leads.indexOf("export async function correctCommercialMemory"));
   assert.match(schema, /lead_chat_request_revision_unique/);
-  assert.ok(chatRuntime.indexOf("onConflictDoNothing") < chatRuntime.indexOf("ai.models.generateContent"));
+  assert.ok(chatRuntime.indexOf("onConflictDoNothing") < chatRuntime.indexOf("generateSalesDecision"));
   assert.ok(chatRuntime.indexOf("if (!rows[0])") < chatRuntime.indexOf("const outcomeEvent"));
   assert.match(chatRuntime, /trafficWelcomeClaimToken[\s\S]*commercialMemory}->>'revision'/);
   assert.match(retention, /COMMERCIAL_DATA_RETENTION_DAYS = 90/);

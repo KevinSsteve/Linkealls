@@ -1,5 +1,5 @@
 import { useLocation, Link } from "wouter";
-import { Store, MessageSquare, ShoppingCart, Megaphone, Target } from "lucide-react";
+import { Store, MessageSquare, ShoppingCart, Megaphone } from "lucide-react";
 import { useBusinessSlug } from "../../hooks/useBusinessSlug";
 
 const TABS = [
@@ -7,7 +7,6 @@ const TABS = [
   { sub: "/conversas", icon: MessageSquare, label: "Conversas", exact: false },
   { sub: "/vendas",     icon: ShoppingCart,  label: "Vendas",    exact: false },
   { sub: "/campanhas",  icon: Megaphone,     label: "Tráfego",   exact: false },
-  { sub: "/estrategia",  icon: Target,        label: "Estratégia", exact: false },
 ] as const;
 
 export function OwnerNav() {

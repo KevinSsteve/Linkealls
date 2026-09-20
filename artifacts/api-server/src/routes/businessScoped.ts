@@ -56,14 +56,9 @@ import {
   correctCommercialMemory,
 } from "../services/leads.js";
 import {
-  activateStrategy,
-  approveStrategy,
-  createStrategyDraft,
   listStrategies,
   saveStrategyOverride,
   simulateSalesPreview,
-  templates as salesStrategyTemplates,
-  updateStrategyDraft,
 } from "../services/salesStrategy.js";
 import { salesStrategyConfigSchema } from "@workspace/db";
 import {
@@ -340,50 +335,8 @@ export function createBusinessScopedRouter(): Router {
   });
 
   // ── VERSIONED SALES STRATEGY ──────────────────────────────────────────────
-  router.get("/sales-strategies/templates", requireOwner, (_req, res) => {
-    res.json({ templates: salesStrategyTemplates() });
-  });
-
   router.get("/sales-strategies", requireOwner, async (_req, res) => {
     res.json({ strategies: await listStrategies(bid(res)) });
-  });
-
-  const strategyDraftSchema = z.object({
-    name: z.string().trim().min(1).max(120),
-    config: salesStrategyConfigSchema,
-    basedOnId: z.string().uuid().optional(),
-  });
-  router.post("/sales-strategies", requireOwner, async (req, res) => {
-    const parsed = strategyDraftSchema.safeParse(req.body);
-    if (!parsed.success) { res.status(400).json({ error: "Estratégia inválida", details: parsed.error.flatten() }); return; }
-    try {
-      res.status(201).json({ strategy: await createStrategyDraft(bid(res), parsed.data) });
-    } catch (err) {
-      res.status(400).json({ error: err instanceof Error ? err.message : "Não foi possível criar a estratégia" });
-    }
-  });
-  router.put("/sales-strategies/:id", requireOwner, async (req, res) => {
-    const parsed = strategyDraftSchema.omit({ basedOnId: true }).safeParse(req.body);
-    if (!parsed.success) { res.status(400).json({ error: "Estratégia inválida", details: parsed.error.flatten() }); return; }
-    try {
-      res.json({ strategy: await updateStrategyDraft(bid(res), String(req.params["id"]), parsed.data) });
-    } catch (err) {
-      res.status(409).json({ error: err instanceof Error ? err.message : "Não foi possível editar" });
-    }
-  });
-  router.post("/sales-strategies/:id/activate", requireOwner, requireRecentReauth, async (req, res) => {
-    try {
-      res.json({ strategy: await activateStrategy(bid(res), String(req.params["id"])) });
-    } catch (err) {
-      res.status(404).json({ error: err instanceof Error ? err.message : "Estratégia não encontrada" });
-    }
-  });
-  router.post("/sales-strategies/:id/approve", requireOwner, requireRecentReauth, async (req, res) => {
-    try {
-      res.json({ strategy: await approveStrategy(bid(res), String(req.params["id"])) });
-    } catch (err) {
-      res.status(409).json({ error: err instanceof Error ? err.message : "Não foi possível aprovar" });
-    }
   });
   const overrideSchema = z.object({
     sourceType: z.enum(["campaign", "traffic_creative"]),

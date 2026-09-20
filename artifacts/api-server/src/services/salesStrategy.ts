@@ -46,6 +46,81 @@ export const SALES_STRATEGY_TEMPLATE_CONFIGS: Record<SalesStrategyTemplate, Sale
   consultative: template("consultative", "contact", ["O que pretende alcançar?", "Que critério mais pesa na decisão?"], ["catalog", "quote_request", "contact", "whatsapp", "owner_handoff"], ["Responder primeiro; fazer no máximo uma pergunta útil.", "Propor apenas um próximo passo real."]),
 };
 
+/** Conservative strategy derived from the approved business profile at runtime.
+ * It is deliberately factual: no model output can invent negotiation rules,
+ * prices, stock, availability or promises. */
+export function deriveAutomaticStrategy(profile: {
+  sector?: string | null;
+  description?: string | null;
+  targetAudience?: string | null;
+  toneOfVoice?: string | null;
+  differentials?: string[] | null;
+  offerings?: Array<{ name: string }> | null;
+  qualificationGoals?: string[] | null;
+}): SalesStrategyConfig {
+  const offerings = (profile.offerings ?? []).map((item) => item.name).filter(Boolean).slice(0, 20);
+  const sector = `${profile.sector ?? ""} ${profile.description ?? ""}`.toLocaleLowerCase("pt-AO");
+  const highValue = /\b(im[oó]vel|casa|terreno|apartamento|viatura|carro)\b/i.test(sector);
+  const service = /\b(servi[cç]o|consult|agenc|project|projeto|obra)\b/i.test(sector);
+  const objective = highValue ? "visit_request" : service ? "quote" : "purchase";
+  return {
+    template: highValue ? "high_value" : service ? "quote_service" : "product_commerce",
+    objective,
+    audience: profile.targetAudience?.trim() ?? "",
+    priorityOffers: offerings.slice(0, 5),
+    essentialQuestions: highValue
+      ? ["Que características e localização são essenciais para ti?"]
+      : service
+        ? ["Que resultado precisas e qual é o âmbito do trabalho?"]
+        : ["O que procuras ou que uso tens em mente?"],
+    verifiedDifferentials: (profile.differentials ?? []).slice(0, 10),
+    objectionResponses: [],
+    negotiationLimits: ["Não inventar descontos, stock, garantias, prazos ou condições."],
+    escalationRules: ["Encaminhar quando faltar um facto aprovado ou o cliente pedir a equipa."],
+    stageConditions: ["Responder primeiro; fazer no máximo uma pergunta relevante.", "Não confirmar marcação, visita ou entrega sem capacidade real."],
+    availableActions: highValue
+      ? ["catalog", "visit_request", "contact", "owner_handoff"]
+      : service
+        ? ["quote_request", "contact", "owner_handoff"]
+        : ["catalog", "checkout", "contact", "owner_handoff"],
+    tone: profile.toneOfVoice?.trim() || undefined,
+  };
+}
+
+/** Persist the generated strategy so every turn is auditable and replayable.
+ * Manual/approved strategies are never replaced. A changed approved profile
+ * creates a new active automatic version and archives the previous one. */
+export async function ensureAutomaticStrategyVersion(
+  businessId: number,
+  profile: Parameters<typeof deriveAutomaticStrategy>[0],
+): Promise<SalesStrategyVersion | undefined> {
+  const config = deriveAutomaticStrategy(profile);
+  const name = "Estratégia automática";
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`automatic-sales-strategy:${businessId}`}, 0))`);
+    const latest = (await tx.select().from(salesStrategyVersionsTable)
+      .where(and(eq(salesStrategyVersionsTable.businessId, businessId), eq(salesStrategyVersionsTable.status, "active")))
+      .orderBy(desc(salesStrategyVersionsTable.createdAt)).limit(1))[0];
+    if (latest && latest.name !== name) return latest;
+    if (latest && JSON.stringify(latest.config) === JSON.stringify(config)) return latest;
+    if (latest) {
+      await tx.update(salesStrategyVersionsTable).set({ status: "archived", updatedAt: new Date() })
+        .where(and(eq(salesStrategyVersionsTable.id, latest.id), eq(salesStrategyVersionsTable.businessId, businessId), eq(salesStrategyVersionsTable.status, "active")));
+    }
+    const rows = await tx.insert(salesStrategyVersionsTable).values({
+      businessId,
+      name,
+      config,
+      gaps: strategyGaps(config),
+      basedOnId: latest?.id,
+      status: "active",
+      activatedAt: new Date(),
+      approvedAt: new Date(),
+    }).returning();
+    return rows[0];
+  });
+}
+
 export function strategyGaps(config: SalesStrategyConfig): string[] {
   const gaps: string[] = [];
   if (!config.audience.trim()) gaps.push("Público por definir");

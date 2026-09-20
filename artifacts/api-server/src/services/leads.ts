@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { GoogleGenAI } from "@google/genai";
+import { generateSalesDecision } from "../lib/openaiSales.js";
 import {
   db,
   leadsTable,
@@ -29,8 +30,9 @@ import {
   summarizeOldInteraction,
 } from "./businessBrain.js";
 import { commercialMemoryPrompt, chooseNextAction, retryCommercialMemoryCas, updateCommercialMemory, type SalesNextAction } from "../lib/commercialSales.js";
-import { resolveSalesStrategy } from "./salesStrategy.js";
+import { ensureAutomaticStrategyVersion, deriveAutomaticStrategy, resolveSalesStrategy } from "./salesStrategy.js";
 import { applySalesStrategyOverride, orderOfferingsForStrategy } from "../lib/salesStrategyRuntime.js";
+import { sanitizeGroundedText } from "../lib/salesGrounding.js";
 
 const EXTRACTION_MODEL = "gemini-3-flash-preview";
 const SCORE_QUALIFY_THRESHOLD = 60;
@@ -587,9 +589,6 @@ export async function chatWithLead(
   products: Array<{ name: string; price: string; description: string; imageUrl?: string }>;
   nextAction: SalesNextAction;
 }> {
-  const apiKey = process.env["GEMINI_API_KEY"];
-  if (!apiKey) throw new Error("GEMINI_API_KEY não configurado");
-
   const startedAt = Date.now();
   const lead = await getLead(leadId, businessId);
   if (!lead) throw new Error("Lead não encontrado");
@@ -641,6 +640,7 @@ export async function chatWithLead(
   );
   const trustedCreativeId = lead.origin.trafficCreative?.id;
   const trustedCampaignId = lead.origin.trustedCampaign?.id;
+  await ensureAutomaticStrategyVersion(businessId, profile);
   const resolvedStrategy = await resolveSalesStrategy(
     businessId,
     trustedCreativeId
@@ -655,7 +655,7 @@ export async function chatWithLead(
       resolvedStrategy.override?.config,
       (profile.offerings ?? []).map((offering) => offering.name),
     )
-    : null;
+    : deriveAutomaticStrategy(profile);
   updatedMemory.strategyVersionId = resolvedStrategy.strategy?.id;
   if (strategyConfig) {
     if (!updatedMemory.ownerCorrectedFields?.includes("missingData")) {
@@ -697,7 +697,6 @@ export async function chatWithLead(
     },
   );
 
-  const ai = new GoogleGenAI({ apiKey });
   if (options?.requestId) {
     await db.delete(leadChatRequestsTable).where(and(
       eq(leadChatRequestsTable.businessId, businessId),
@@ -714,20 +713,88 @@ export async function chatWithLead(
     }).onConflictDoNothing().returning({ id: leadChatRequestsTable.id });
     if (!claimed[0]) throw new Error("Esta mensagem já está a ser processada");
   }
-  let response;
-  try {
-    response = await ai.models.generateContent({
-      model: EXTRACTION_MODEL,
-      contents: prompt,
-      config: { systemInstruction },
+  const generation = await generateSalesDecision(
+    systemInstruction,
+    `${prompt}
+
+Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém da equipa de ${profile.name || "este negócio"}, não como a Linkealls. Usa apenas ofertas e factos presentes no contexto. Não menciones um número de telefone, fotos, vídeos ou uma acção do proprietário sem confirmação no contexto.`,
+  );
+  if (!generation) {
+    const fallbackProducts = selectLeadChatProducts(profile.offerings ?? [], safeUserMessage);
+    const fallbackReply = updatedMemory.pendingAction === "owner_handoff" || updatedMemory.escalationReason
+      ? "Não tenho essa informação confirmada. Posso pedir à nossa equipa para responder; se concordares, partilha o teu WhatsApp no campo seguro abaixo."
+      : fallbackProducts.length
+      ? `Temos ${fallbackProducts.slice(0, 2).map((item) => `${item.name} (${item.price})`).join(" e ")}. O que é mais importante para ti nesta escolha?`
+      : "Quero ajudar-te a encontrar a opção certa. O que procuras exactamente?";
+    const fallbackNextAction = chooseNextAction({
+      memory: updatedMemory,
+      strategy: strategyConfig,
+      contactStatus: lead.contactConsentStatus,
+      hasPaidOrder: relatedOrders.some((order) => order.status === "paga"),
+      hasPendingOrder: relatedOrders.some((order) => order.status === "pendente"),
+      hasCatalog: Boolean(profile.catalogEnabled && profile.offerings?.length),
+      hasWhatsApp: Boolean(profile.phone),
     });
-  } catch (err) {
+    const fallbackResponse = { reply: fallbackReply, products: fallbackProducts, nextAction: fallbackNextAction };
+    const fallbackTs = new Date().toISOString();
+    const fallbackAppended: ChatMessage[] = [
+      { role: "user", text: safeUserMessage, ts: fallbackTs, requestId: options?.requestId },
+      {
+        role: "bot",
+        text: fallbackReply,
+        ts: new Date(Date.now() + 1).toISOString(),
+        strategyVersionId: resolvedStrategy.strategy?.id,
+        requestId: options?.requestId,
+        replay: { products: fallbackProducts, nextAction: fallbackNextAction },
+      },
+    ];
+    const fallbackLeadWhere = and(
+      eq(leadsTable.id, leadId),
+      eq(leadsTable.businessId, businessId),
+    );
+    const fallbackGuardedWhere = options?.trafficWelcomeClaimToken
+      ? and(
+        fallbackLeadWhere,
+        eq(leadsTable.trafficWelcomeStatus, "processing"),
+        eq(leadsTable.trafficWelcomeClaimToken, options.trafficWelcomeClaimToken),
+        sql`${leadsTable.commercialMemory}->>'revision' = ${String(lead.commercialMemory.revision)}`,
+      )
+      : and(
+        fallbackLeadWhere,
+        sql`${leadsTable.commercialMemory}->>'revision' = ${String(lead.commercialMemory.revision)}`,
+      );
+    const fallbackRows = await db.update(leadsTable).set({
+      chatMessages: sql`${leadsTable.chatMessages} || ${JSON.stringify(fallbackAppended)}::jsonb`,
+      commercialMemory: updatedMemory,
+      ...(options?.trafficWelcomeClaimToken
+        ? {
+          trafficWelcomeStatus: "complete" as const,
+          trafficWelcomeClaimedAt: null,
+          trafficWelcomeClaimToken: null,
+        }
+        : {}),
+      updatedAt: new Date(),
+    }).where(fallbackGuardedWhere).returning({ id: leadsTable.id });
+    if (!fallbackRows[0]) {
+      if (options?.requestId) {
+        await db.delete(leadChatRequestsTable).where(and(
+          eq(leadChatRequestsTable.id, options.requestId),
+          eq(leadChatRequestsTable.businessId, businessId),
+          eq(leadChatRequestsTable.leadId, leadId),
+        )).catch(() => undefined);
+      }
+      throw new Error("A operação desta resposta já não está activa");
+    }
     if (options?.requestId) {
-      await db.delete(leadChatRequestsTable).where(and(
+      await db.update(leadChatRequestsTable).set({
+        status: "complete",
+        response: fallbackResponse,
+        updatedAt: new Date(),
+      }).where(and(
         eq(leadChatRequestsTable.id, options.requestId),
         eq(leadChatRequestsTable.businessId, businessId),
         eq(leadChatRequestsTable.leadId, leadId),
-      )).catch(() => undefined);
+      ));
     }
     void recordBusinessAiEvaluation({
       businessId,
@@ -737,11 +804,19 @@ export async function chatWithLead(
       latencyMs: Date.now() - startedAt,
       inputForHash: safeUserMessage,
     }).catch(() => undefined);
-    throw err;
+    return fallbackResponse;
   }
+  const decision = generation.decision;
 
-  const rawReply = (response.text ?? "").trim() ||
-    "Desculpa, não consegui processar a tua mensagem. Tenta outra vez.";
+  const groundingFacts = {
+    approvedPrices: (profile.offerings ?? []).map((offering) => offering.price),
+    approvedPhones: lead.contactConsentStatus === "consented" && profile.phone ? [profile.phone] : [],
+    approvedAvailability: relatedOrders.map((order) => `${order.status} ${order.fulfillmentStatus}`),
+  };
+  const groundedReply = sanitizeGroundedText(decision.reply, groundingFacts);
+  const groundedQuestion = decision.nextQuestion ? sanitizeGroundedText(decision.nextQuestion, groundingFacts) : null;
+  const groundedHandoffReason = decision.handoffReason ? sanitizeGroundedText(decision.handoffReason, groundingFacts) : null;
+  const rawReply = redactAngolanPhoneCandidates(groundedReply);
   // Keep the WhatsApp-like chat readable even when the model ignores the limit.
   const compactReply = rawReply
     .replace(/\*\*/g, "")
@@ -753,10 +828,33 @@ export async function chatWithLead(
     .trim()
     .slice(0, 720)
     .trim();
-  const reply = compactReply;
+  let reply = compactReply || "Posso ajudar-te com isso. O que procuras exactamente?";
+  // Model action/intent are advisory only. The server remains the sole authority
+  // for capabilities, consent and the actual next action.
+  const proposedAction = strategyConfig?.availableActions.includes(
+    decision.proposedAction as (typeof strategyConfig.availableActions)[number],
+  ) ? decision.proposedAction : "none";
+  if (groundedQuestion && !reply.includes("?")) {
+    // Keep the model's single useful question, but never allow it to become a
+    // second CTA or an unvalidated contact instruction.
+    reply = `${reply} ${groundedQuestion}`.slice(0, 720).trim();
+  }
+  if (
+    groundedHandoffReason
+    && (decision.intent === "human" || proposedAction === "owner_handoff")
+    && !updatedMemory.ownerCorrectedFields?.includes("escalationReason")
+  ) {
+    updatedMemory.escalationReason = groundedHandoffReason.slice(0, 300);
+  }
 
   const orderedOfferings = orderOfferingsForStrategy(profile.offerings ?? [], strategyConfig?.focusedOffer);
-  const products = selectLeadChatProducts(orderedOfferings, safeUserMessage);
+  const namedProducts = decision.recommendedOfferings.length
+    ? orderedOfferings.filter((offering) => decision.recommendedOfferings.some((name) =>
+      name.toLocaleLowerCase("pt-AO") === offering.name.toLocaleLowerCase("pt-AO")))
+    : [];
+  const products = namedProducts.length > 0
+    ? namedProducts.slice(0, 3)
+    : selectLeadChatProducts(orderedOfferings, safeUserMessage);
   if (products.length > 0) {
     if (!updatedMemory.ownerCorrectedFields?.includes("recommendationReason")) {
       updatedMemory.recommendationReason = updatedMemory.interests.length
@@ -774,6 +872,10 @@ export async function chatWithLead(
     hasCatalog: Boolean(profile.catalogEnabled && profile.offerings?.length),
     hasWhatsApp: Boolean(profile.phone),
   });
+  // Keep this advisory value observable in the response context without
+  // allowing it to bypass server checks. It is intentionally not returned as
+  // nextAction, which is generated from consent and real capabilities.
+  void proposedAction;
 
   // Persist both messages in the lead's chatMessages
   const ts = new Date().toISOString();
@@ -876,7 +978,8 @@ export async function chatWithLead(
     latencyMs: Date.now() - startedAt,
     inputForHash: safeUserMessage,
     outputForEvaluation: reply,
-    costMicros: estimateGemini3FlashCostMicros(response),
+    // Bounded estimate only; provider billing remains authoritative.
+    costMicros: Math.min(10_000_000, generation.usage.totalTokens * 2),
   }).catch((err) => logger.warn({ err, businessId }, "Failed to record chat evaluation"));
 
   return { reply, products, nextAction };

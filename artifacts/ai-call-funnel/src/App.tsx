@@ -27,7 +27,6 @@ import { Vendas } from "@/pages/owner/Vendas";
 import { Comercio } from "@/pages/owner/Comercio";
 import { Carteira } from "@/pages/owner/Carteira";
 import { Plano } from "@/pages/owner/Plano";
-import { SalesStrategy } from "@/pages/owner/SalesStrategy";
 import { ADVERTISING_NEW_ACTIONS_ENABLED } from "@/lib/launchPolicy";
 
 // Serve under the artifact base path. With BASE_PATH="/" this is "".
@@ -76,6 +75,11 @@ function LegacyLinkNotice() {
 function LegacyUserProfileRedirect() {
   const { handle } = useParams<{ handle?: string }>();
   return <Redirect to={handle ? `/${handle}` : "/"} />;
+}
+
+function LegacyStrategyRedirect() {
+  const { businessSlug } = useParams<{ businessSlug?: string }>();
+  return <Redirect to={businessSlug ? `/e/${businessSlug}/dono` : "/"} />;
 }
 
 export default function App() {
@@ -140,7 +144,7 @@ export default function App() {
                   <Route path="/e/:businessSlug/dono/comercio">{() => <OwnerGate><Comercio /></OwnerGate>}</Route>
                   <Route path="/e/:businessSlug/dono/carteira">{() => <OwnerGate><Carteira /></OwnerGate>}</Route>
                   <Route path="/e/:businessSlug/dono/plano">{() => <OwnerGate><Plano /></OwnerGate>}</Route>
-                  <Route path="/e/:businessSlug/dono/estrategia">{() => <OwnerGate><SalesStrategy /></OwnerGate>}</Route>
+                  <Route path="/e/:businessSlug/dono/estrategia"><LegacyStrategyRedirect /></Route>
                   <Route path="/e/:businessSlug/dono">{() => <OwnerGate><Owner /></OwnerGate>}</Route>
                   <Route path="/e/:businessSlug/captacao" component={Captacao} />
                   <Route path="/e/:businessSlug/t/:publicSlug" component={PublicTraffic} />

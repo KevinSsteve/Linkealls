@@ -146,6 +146,9 @@ export function chooseNextAction(input: {
   if (memory.humanControl === "owner") return { type: "none", reason: "O dono está a atender esta conversa" };
   if (input.hasPaidOrder || memory.stage === "follow_up") return { type: "order_tracking", label: "Acompanhar pedido", reason: "A conversa está em pós-venda" };
   if (memory.stage === "disinterested") return { type: "none", reason: "O cliente indicou desinteresse" };
+  if (input.contactStatus === "declined") {
+    return permits("catalog") && input.hasCatalog ? { type: "catalog", label: "Ver opções", reason: "O contacto foi recusado; a conversa pode continuar" } : { type: "none", reason: "Continuar por texto sem repetir consentimento" };
+  }
   if ((memory.pendingAction === "owner_handoff" || memory.escalationReason) && permits("owner_handoff")) return { type: "owner_handoff", label: label("Falar com o dono"), reason: memory.escalationReason ?? "Atendimento humano necessário" };
   if (memory.pendingAction === "checkout") {
     return permits("checkout") && input.hasCatalog && memory.interests.length
@@ -157,9 +160,6 @@ export function chooseNextAction(input: {
   if (memory.pendingAction === "quote_request" && permits("quote_request")) return { type: "quote_request", label: label("Pedir orçamento"), reason: "O cliente pediu orçamento" };
   if (memory.pendingAction === "appointment_request" && permits("appointment_request")) return { type: "appointment_request", label: label("Pedir marcação"), reason: "Regista uma preferência; não confirma reserva" };
   if (memory.pendingAction === "visit_request" && permits("visit_request")) return { type: "visit_request", label: label("Pedir visita"), reason: "Regista uma preferência; não confirma visita" };
-  if (input.contactStatus === "declined") {
-    return permits("catalog") && input.hasCatalog ? { type: "catalog", label: "Ver opções", reason: "O contacto foi recusado; a conversa pode continuar" } : { type: "none", reason: "Continuar por texto sem repetir consentimento" };
-  }
   if (memory.stage === "recommend" && permits("catalog") && input.hasCatalog) return { type: "catalog", label: label("Ver recomendação"), reason: "Existe uma recomendação relevante" };
   if (permits("whatsapp") && input.hasWhatsApp && input.contactStatus === "consented") return { type: "whatsapp", label: label("Continuar no WhatsApp"), reason: "Contacto autorizado" };
   if (memory.stage === "welcome" || memory.stage === "understand") {

@@ -25,6 +25,10 @@ export interface SalesStrategyConfig {
   stageConditions: string[];
   availableActions: Array<"catalog" | "checkout" | "quote_request" | "appointment_request" | "visit_request" | "contact" | "whatsapp" | "owner_handoff">;
   tone?: string;
+  /** Runtime-only fields from an approved campaign override. */
+  focusedOffer?: string;
+  expectedIntent?: string;
+  sourceCta?: string;
 }
 
 export const salesStrategyConfigSchema = z.object({
