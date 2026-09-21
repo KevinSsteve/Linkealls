@@ -1,0 +1,292 @@
+Sim — e acho que isso pode ser **muito mais importante do que simplesmente criar um conjunto de respostas prontas**.
+
+Eu criaria um **Sales Conversation Skill** para o Linkealls, mas com uma diferença fundamental:
+
+> **O Skill não ensina a IA o que dizer. Ensina a IA a decidir o que fazer a seguir numa conversa de vendas.**
+
+Isso combina muito bem com a direção que já definimos para o Linkealls: sair de “responder mensagens” para **entender contexto → decidir → executar → aprender**.
+
+### Como eu imaginaria o Skill
+
+Ele teria uma espécie de **árvore de decisão comercial**:
+
+```text
+NOVA MENSAGEM
+     ↓
+Entender intenção
+     ↓
+Em que estágio da venda estamos?
+     ↓
+┌───────────────────────────────┐
+│ Descoberta                    │
+│ Interesse                     │
+│ Qualificação                  │
+│ Consideração                  │
+│ Objeção                       │
+│ Negociação                    │
+│ Compra                        │
+│ Pós-venda                     │
+│ Reativação                    │
+└───────────────────────────────┘
+     ↓
+Qual é a próxima melhor ação?
+     ↓
+Responder / perguntar / mostrar
+catálogo / enviar contacto /
+enviar localização / propor visita /
+fazer follow-up / etc.
+```
+
+### E aí entrariam as regras
+
+Por exemplo:
+
+**Lead:**
+
+> Quanto custa?
+
+O Skill não deveria simplesmente procurar uma resposta padrão.
+
+Ele raciocinaria:
+
+> O preço está disponível?
+> → Sim: informar.
+> → Produto/serviço tem várias opções? → Mostrar catálogo.
+> → O preço depende de características? → Fazer uma pergunta de qualificação.
+> → Lead já demonstrou intenção forte? → Responder preço + conduzir para próximo passo.
+
+---
+
+### Outro exemplo
+
+**Lead:**
+
+> Manda o catálogo.
+
+Skill:
+
+> Intenção explícita de explorar oferta → **mostrar catálogo**.
+
+Depois de mostrar:
+
+> Não terminar a conversa com “alguma dúvida?”
+
+Talvez:
+
+> “Algum destes produtos chamou sua atenção?”
+
+Porque agora o objetivo é **transformar browsing em intenção específica**.
+
+---
+
+### E o contacto?
+
+Isso também deveria ser uma decisão do Skill.
+
+Não:
+
+> “Qual é o seu número?”
+
+automaticamente.
+
+Mas:
+
+**Lead:**
+
+> Quero falar com alguém.
+
+→ Alta intenção / pedido explícito de humano.
+
+Então:
+
+> “Claro. Pode falar diretamente com a nossa equipa pelo [contacto]. Se preferir, também posso continuar a ajudá-lo por aqui.”
+
+E se o lead já forneceu o número:
+
+> não pedir novamente.
+
+A IA deve perceber o que **já sabe** através do contexto/Knowledge Graph.
+
+---
+
+## Objeções seriam outro módulo
+
+Por exemplo:
+
+**“Está muito caro.”**
+
+Não responder imediatamente:
+
+> “Podemos negociar.”
+
+O Skill primeiro identifica a objeção:
+
+```text
+OBJEÇÃO
+├── Preço
+├── Confiança
+├── Timing
+├── Comparação
+├── Necessidade
+├── Localização
+├── Condições
+└── Outro
+```
+
+E cada uma teria estratégias.
+
+### Preço
+
+Objetivo:
+
+> entender se é realmente preço ou se o produto simplesmente não tem valor percebido.
+
+Resposta possível:
+
+> “Entendo. O que está a pesar mais para si: o valor total ou a relação entre o preço e o que está incluído?”
+
+Isso gera informação comercial.
+
+---
+
+## E eu adicionaria uma coisa ainda mais importante
+
+O Skill deveria ter **“ações comerciais”**, não apenas “respostas”.
+
+Por exemplo:
+
+```text
+SALES ACTIONS
+
+ask_question
+answer_question
+show_catalog
+show_product
+show_service
+send_company_contact
+request_customer_contact
+send_location
+send_media
+recommend_product
+compare_products
+qualify_budget
+qualify_need
+qualify_timing
+handle_objection
+propose_visit
+propose_call
+create_follow_up
+reactivate_lead
+handoff_to_human
+close_sale
+```
+
+A IA escolhe uma ação e **só depois gera a linguagem**.
+
+Isso é muito mais poderoso.
+
+---
+
+# Eu faria o Skill em 3 camadas
+
+### 1. Sales Intelligence
+
+Determina:
+
+* intenção;
+* estágio;
+* necessidade;
+* urgência;
+* objeção;
+* nível de interesse;
+* informações que faltam;
+* próxima ação.
+
+### 2. Conversation Strategy
+
+Determina:
+
+* responder ou perguntar;
+* qual pergunta;
+* quando mostrar produto;
+* quando mostrar catálogo;
+* quando enviar contacto;
+* quando propor reunião/visita;
+* quando parar de perguntar;
+* quando passar para humano.
+
+### 3. Message Generation
+
+Só então produz a mensagem:
+
+> natural
+> curta
+> contextual
+> humana
+> sem parecer script
+
+---
+
+## E isso pode funcionar para qualquer negócio
+
+É aí que fica interessante para o Linkealls.
+
+Um imobiliário:
+
+> “Quero ver esse T3.”
+
+→ mostrar fotos/vídeo → qualificar → visita.
+
+Uma loja:
+
+> “Tem tamanho 42?”
+
+→ verificar produto → responder → mostrar opções → perguntar se deseja comprar.
+
+Um restaurante:
+
+> “Quanto custa o menu para 10 pessoas?”
+
+→ responder → talvez mostrar menu → perguntar data → encaminhar reserva.
+
+Uma empresa de serviços:
+
+> “Quanto custa fazer um website?”
+
+→ entender tipo de website → apresentar serviço adequado → orçamento/contacto.
+
+Ou seja, o **mesmo Sales Skill**, alimentado pelo conhecimento específico daquele negócio.
+
+---
+
+# E eu faria uma regra central
+
+### **Nunca fazer uma pergunta sem motivo comercial.**
+
+Cada pergunta precisa existir porque a resposta vai permitir uma decisão.
+
+Por exemplo:
+
+❌ “Qual é o seu orçamento?”
+❌ “Quando pretende comprar?”
+❌ “Qual é o seu nome?”
+
+tudo de uma vez.
+
+Melhor:
+
+> “Perfeito. Para eu indicar as opções que realmente fazem sentido, pretende ficar até que faixa de preço?”
+
+A pergunta tem **propósito**.
+
+---
+
+E isso conecta diretamente com o que estamos construindo no Knowledge Graph: cada resposta relevante do lead pode virar conhecimento persistente — interesse, orçamento, produto desejado, relação com produto, intenção etc. A conversa deixa de ser apenas conversa e passa a **alterar o estado comercial do negócio**.
+
+### Eu daria ao Skill uma missão extremamente simples:
+
+> **“Em cada interação, determine a próxima ação que mais aproxime o cliente de uma decisão, usando o mínimo necessário de perguntas e sem forçar a venda.”**
+
+Isso, para mim, é muito mais valioso do que uma biblioteca de “100 respostas para vendas”.
+
+E podemos transformar isso num **Skill formal do Linkealls**, com `purpose`, princípios, estados da conversa, triggers, regras de decisão, ações disponíveis, tratamento de objeções, exemplos bons/ruins e critérios para saber quando a conversa deve ser considerada uma venda concluída.
