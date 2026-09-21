@@ -31,7 +31,7 @@ import {
   saveInteractionMemory,
   summarizeOldInteraction,
 } from "./businessBrain.js";
-import { commercialIntent, commercialQuestionAnswered, detectResourceRequest, finalizeCommercialSummary, isAffirmativeConfirmation, parseCommercialAmount, commercialMemoryPrompt, chooseNextAction, retryCommercialMemoryCas, updateCommercialMemory, type SalesNextAction } from "../lib/commercialSales.js";
+import { buildInterestDiscoveryReply, buildTrafficWelcomeReply, commercialIntent, commercialQuestionAnswered, detectResourceRequest, finalizeCommercialSummary, isAffirmativeConfirmation, parseCommercialAmount, commercialMemoryPrompt, chooseNextAction, retryCommercialMemoryCas, updateCommercialMemory, type SalesNextAction } from "../lib/commercialSales.js";
 import { ensureAutomaticStrategyVersion, deriveAutomaticStrategy, resolveSalesStrategy } from "./salesStrategy.js";
 import { applySalesStrategyOverride, orderOfferingsForStrategy } from "../lib/salesStrategyRuntime.js";
 import { sanitizeGroundedText } from "../lib/salesGrounding.js";
@@ -98,6 +98,12 @@ function resourceMatchesRequest(resource: {
     || subject.split(/\s+/).filter((word: string) => word.length > 3).some((word: string) => haystack.includes(word));
 }
 
+function trafficWelcomeSubject(lead: Lead): string {
+  const description = lead.origin.trafficCreative?.description ?? "";
+  const firstLine = description.split(/\r?\n/).map((line) => line.trim()).find(Boolean) ?? "este anúncio";
+  return redactAngolanPhoneCandidates(firstLine.replace(/^[^A-Za-zÀ-ÿ0-9]+/u, "")).slice(0, 120);
+}
+
 async function findApprovedChatResources(
   businessId: number,
   request: ReturnType<typeof detectResourceRequest>,
@@ -148,7 +154,8 @@ async function findApprovedChatResources(
     });
   }
   const creative = lead.origin.trafficCreative;
-  if (creative?.mediaUrl && ((request.kind === "image" && creative.mediaType === "image") || (request.kind === "video" && creative.mediaType === "video"))) {
+  const asksForAdditionalMedia = /\bmais\b/i.test(request.request);
+  if (!asksForAdditionalMedia && creative?.mediaUrl && ((request.kind === "image" && creative.mediaType === "image") || (request.kind === "video" && creative.mediaType === "video"))) {
     resources.unshift({
       id: `traffic-creative:${creative.id}`,
       title: "Mídia do anúncio",
@@ -810,13 +817,29 @@ export async function chatWithLead(
   const profile = brain.profile;
   const offeringNames = (profile.offerings ?? []).map((offering) => offering.name);
   const currentIntent = commercialIntent(userMessage, offeringNames);
+  const isTrafficWelcome = Boolean(options?.trafficWelcomeClaimToken && lead.origin.trafficCreative);
+  const isInterestOnly = /^interessante\b[.! ]*$/i.test(safeUserMessage.trim());
+  const isTrafficDiscovery = isTrafficWelcome || isInterestOnly;
   const requestedResource = detectResourceRequest(userMessage, offeringNames);
-  const approvedResources = await findApprovedChatResources(
-    businessId,
-    requestedResource,
-    lead,
-    (profile.offerings ?? []).map((offering) => ({ name: offering.name, imageUrl: offering.imageUrl })),
-  );
+  const resourceLookups = requestedResource
+    ? [requestedResource]
+    : isTrafficDiscovery
+      ? [
+        detectResourceRequest("Quero ver fotos desta oferta", offeringNames)!,
+        detectResourceRequest("Quero ver o vídeo desta oferta", offeringNames)!,
+      ]
+      : [];
+  const resourceResults = await Promise.all(resourceLookups.map((request) =>
+    findApprovedChatResources(
+      businessId,
+      request,
+      lead,
+      (profile.offerings ?? []).map((offering) => ({ name: offering.name, imageUrl: offering.imageUrl })),
+    ),
+  ));
+  const approvedResources = resourceResults.flat().filter((resource, index, list) =>
+    list.findIndex((item) => item.url === resource.url) === index,
+  ).slice(0, 5);
 
   const relatedOrders = await db
     .select({
@@ -981,7 +1004,7 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
   if (!generation) {
     const fallbackProducts = selectLeadChatProducts(profile.offerings ?? [], safeUserMessage, parseCommercialAmount(updatedMemory.criteria.find((item) => item.value.startsWith("Orçamento:"))?.value ?? ""), updatedMemory.criteria.map((item) => item.value));
     const fallbackCore = resourceRequestRegistered
-      ? `Pedido registado sobre ${pendingProposal?.subject ?? "a oferta"}. A equipa vai rever este pedido nesta conversa.`
+      ? `Pedido registado sobre ${pendingProposal?.subject ?? "a oferta"}. A equipa recebeu o pedido e poderá responder nesta conversa.`
       : approvedResources.length
         ? `Encontrei ${approvedResources.length === 1 ? "este recurso" : "estes recursos"} aprovados sobre ${requestedResource?.subject ?? "a oferta"}.`
         : requestedResource && updatedMemory.pendingProposal
@@ -1119,6 +1142,14 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
     : contactDeclined
       ? "Tudo bem. Continuamos por aqui."
       : compactReply || "Posso ajudar-te com isso. O que procuras exactamente?";
+  if (isTrafficWelcome) {
+    reply = buildTrafficWelcomeReply(
+      trafficWelcomeSubject(lead),
+      approvedResources.map((resource) => resource.kind),
+    );
+  } else if (isInterestOnly) {
+    reply = buildInterestDiscoveryReply(approvedResources.map((resource) => resource.kind));
+  }
   // Model action/intent are advisory only. The server remains the sole authority
   // for capabilities, consent and the actual next action.
   const proposedAction = strategyConfig?.availableActions.includes(
@@ -1174,14 +1205,16 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
   const resourceReply = resourceRequestRegistered
     ? `Pedido registado sobre ${pendingProposal?.subject ?? "a oferta"}. A equipa recebeu o pedido e poderá responder nesta conversa.`
     : approvedResources.length
-      ? `Encontrei ${approvedResources.length === 1 ? "um recurso aprovado" : "recursos aprovados"} sobre ${requestedResource?.subject ?? "a oferta"}.`
+      ? `Aqui estão ${approvedResources.length === 1 ? "o recurso aprovado" : "os recursos aprovados"} sobre ${requestedResource?.subject ?? "a oferta"}.`
       : requestedResource && updatedMemory.pendingProposal
         ? `Não encontrei ${requestedResource.kind === "image" ? "uma imagem" : requestedResource.kind === "video" ? "um vídeo" : requestedResource.kind === "document" ? "um documento" : "esse detalhe"} aprovado sobre ${requestedResource.subject}. Posso registar um pedido interno para a equipa rever.`
         : null;
   const interestQuestion = strategyConfig?.essentialQuestions.find((question) =>
     !commercialQuestionAnswered(question, updatedMemory.answeredQuestions),
   ) ?? "O que pesa mais para ti nesta opção?";
-  const contextAwareReply = resourceReply
+  const contextAwareReply = isTrafficWelcome || isInterestOnly
+    ? reply
+    : resourceReply
     ? `${contactCaptured ? "Obrigado. Guardámos o teu WhatsApp com autorização. " : contactDeclined ? "Tudo bem. Continuamos por aqui sem guardar o teu WhatsApp. " : ""}${resourceReply}`
     : /^interessante\b/i.test(safeUserMessage) && !compactedReply.includes("?")
       ? `${compactedReply} ${interestQuestion}`

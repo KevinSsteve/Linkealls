@@ -35,6 +35,8 @@ const {
   commercialIntent,
   detectResourceRequest,
   isAffirmativeConfirmation,
+  buildTrafficWelcomeReply,
+  buildInterestDiscoveryReply,
 } = await import(pathToFileURL(modulePath).href);
 const { applySalesStrategyOverride, orderOfferingsForStrategy, isRuntimeSourceEligible } = await import(pathToFileURL(runtimeModulePath).href);
 after(async () => rm(tempDir, { recursive: true, force: true }));
@@ -82,6 +84,20 @@ test("resource proposals are explicit and confirmations are narrow", () => {
   assert.equal(isAffirmativeConfirmation("Sim"), true);
   assert.equal(isAffirmativeConfirmation("Sim, quero comprar"), false);
   assert.equal(isAffirmativeConfirmation("Sim"), true);
+});
+
+test("traffic discovery recognises the clicked announcement without repeating it", () => {
+  const welcome = buildTrafficWelcomeReply("VENDE-SE T3 NO ZANGO 3", ["image", "video"]);
+  assert.match(welcome, /interesse em VENDE-SE T3 NO ZANGO 3/);
+  assert.match(welcome, /fotos e vídeo aprovados/);
+  assert.match(welcome, /localização ou condições de pagamento/);
+
+  const withoutResources = buildTrafficWelcomeReply("VENDE-SE T3 NO ZANGO 3");
+  assert.doesNotMatch(withoutResources, /posso enviar|fotos e vídeo aprovados/i);
+  assert.match(withoutResources, /sem repetir o anúncio/);
+
+  assert.match(buildInterestDiscoveryReply(["image"]), /fotos\/vídeo/);
+  assert.match(buildInterestDiscoveryReply([]), /localização/);
 });
 
 test("automatic CTAs are gated by the approved strategy and runtime capabilities", () => {
@@ -221,6 +237,9 @@ test("normal chat claims one revision before model effects and retention is boun
   assert.match(retention, /delete\(salesOutcomeEventsTable\)/);
   assert.match(retention, /JSON\.stringify\(emptyCommercialMemory\)/);
   assert.match(retention, /commercialMemory}->>'revision'[\s\S]*\+ 1/);
+  assert.match(chatRuntime, /isTrafficWelcome/);
+  assert.match(leads, /asksForAdditionalMedia/);
+  assert.doesNotMatch(leads, /A equipa vai rever este pedido/);
 });
 
 test("memory survives the short model window as bounded factual data", () => {

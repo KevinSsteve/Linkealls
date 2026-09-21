@@ -65,6 +65,26 @@ export function detectResourceRequest(
   };
 }
 
+export function buildTrafficWelcomeReply(subject: string, availableKinds: string[] = []): string {
+  const safeSubject = subject.replace(/\s+/g, " ").trim().slice(0, 120) || "este anúncio";
+  const hasImage = availableKinds.includes("image");
+  const hasVideo = availableKinds.includes("video");
+  const mediaLabel = hasImage && hasVideo ? "fotos e vídeo aprovados"
+    : hasImage ? "fotos aprovadas"
+      : hasVideo ? "um vídeo aprovado"
+        : "";
+  return mediaLabel
+    ? `Vi que tens interesse em ${safeSubject}. Já tenho ${mediaLabel} que posso mostrar aqui. O que queres ver primeiro: fotos/vídeo, localização ou condições de pagamento?`
+    : `Vi que tens interesse em ${safeSubject}. Para te ajudar sem repetir o anúncio, o que queres esclarecer primeiro: localização, condições de pagamento ou algum detalhe específico?`;
+}
+
+export function buildInterestDiscoveryReply(availableKinds: string[] = []): string {
+  const hasMedia = availableKinds.includes("image") || availableKinds.includes("video");
+  return hasMedia
+    ? "Boa — vamos perceber se esta opção faz sentido para ti. Queres começar por ver fotos/vídeo, confirmar a localização ou falar das condições de pagamento?"
+    : "Boa — vamos perceber se esta opção faz sentido para ti. Queres começar pela localização, pelas condições de pagamento ou por algum detalhe específico?";
+}
+
 export function commercialIntent(message: string, offeringNames: string[] = []): string {
   const normalize = (value: string) => value.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().trim();
   const original = normalize(message);
