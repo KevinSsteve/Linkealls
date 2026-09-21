@@ -1,0 +1,293 @@
+Sim. **Agora vocês chegaram ao ponto certo para implementar.** A conversa com o Replit está muito mais precisa do que a primeira análise.
+
+Eu concordo com a decisão de **conversão contextual** e faria apenas alguns ajustes conceituais antes de mandar o próximo prompt ao Replit.
+
+### O princípio central que eu fixaria
+
+> **O Linkealls não deve otimizar para captura de contacto. Deve otimizar para o melhor resultado comercial possível, usando a captura de contacto quando ela for o melhor próximo passo.**
+
+Isso é muito mais poderoso porque torna o agente universal.
+
+```text
+TRÁFEGO
+   ↓
+CONTEXTO
+   ↓
+ENTENDER
+   ↓
+INTENÇÃO
+   ↓
+QUALIFICAR QUANDO NECESSÁRIO
+   ↓
+RESOLVER / RECOMENDAR
+   ↓
+ESCOLHER MELHOR PRÓXIMO PASSO
+   ↓
+CONVERSÃO
+```
+
+E a conversão pode ser:
+
+```text
+CHECKOUT
+WHATSAPP
+VISITA
+ORÇAMENTO
+AGENDAMENTO
+HUMANO
+CATÁLOGO
+ALTERNATIVA
+FOLLOW-UP
+NENHUMA AÇÃO
+```
+
+## Há uma coisa que eu acrescentaria ao que o Replit escreveu
+
+**Não devemos simplesmente trocar "WhatsApp cedo" por "qualificar primeiro" em todos os casos.**
+
+Isso poderia criar outro problema: um agente que faz perguntas demais.
+
+A regra deveria ser:
+
+> **Qualificar apenas quando a qualificação aumentar a probabilidade ou a qualidade da conversão.**
+
+Exemplo:
+
+### Usuário
+
+> "Quero comprar este produto."
+
+Se o checkout está disponível e tudo está claro:
+
+**Não qualifique desnecessariamente.**
+
+→ Checkout.
+
+Mas:
+
+### Usuário
+
+> "Quero uma casa."
+
+Aqui ainda existe muita incerteza.
+
+→ descobrir orçamento/localização/tipo/etc.
+
+Portanto:
+
+**A qualificação é adaptativa, não obrigatória.**
+
+---
+
+# Eu criaria uma hierarquia de decisão
+
+Isso pode ser extremamente importante para o prompt que vamos enviar ao Replit:
+
+```text
+1. O usuário tem uma necessidade imediata que precisa ser respondida?
+   ↓
+   SIM → resolva primeiro
+
+2. A intenção de conversão já está clara?
+   ↓
+   SIM → veja se existe uma ação direta
+
+3. Existe uma ação direta disponível?
+   ↓
+   SIM → execute/sugira a ação
+
+4. Falta informação que pode mudar a recomendação?
+   ↓
+   SIM → faça UMA pergunta útil
+
+5. Existe uma alternativa melhor?
+   ↓
+   SIM → recomende
+
+6. O próximo passo exige intervenção humana/contacto?
+   ↓
+   SIM → pedir contacto/WhatsApp com contexto
+
+7. Não existe próximo passo útil?
+   ↓
+   responda e não force conversão
+```
+
+Isso evita tanto:
+
+**chatbot vendedor agressivo**
+
+quanto:
+
+**chatbot entrevistador que faz 10 perguntas antes de ajudar.**
+
+---
+
+# E o exemplo do T3 fica muito melhor
+
+### Hoje
+
+> Quero saber mais sobre este anúncio.
+
+Agente:
+
+> É um T3 no Zango 3 por 17 milhões...
+
+Depois:
+
+> Envia o teu WhatsApp.
+
+### Com o novo comportamento
+
+> Quero saber mais sobre este anúncio.
+
+Agente:
+
+> É um T3 no Zango 3, última paragem, próximo ao Colégio Espírito Santo, por 17 milhões Kz negociáveis. Tem uma suíte, WC de apoio, cozinha montada, internet instalada e quintal espaçoso. **Procuras especificamente um T3 ou estás aberto a outras opções?**
+
+Usuário:
+
+> T3. Mas só tenho 15 milhões.
+
+O agente percebe:
+
+```text
+intent = BUY
+property = T3
+location = Zango
+budget = 15M
+listed_price = 17M
+constraint = budget
+```
+
+E então:
+
+> Entendi. Este está 2 milhões acima do teu orçamento. **Posso procurar outros T3 até 15 milhões no Zango. Queres manter o Zango ou consideras outras zonas próximas?**
+
+Agora temos uma conversa comercial real.
+
+Se encontrar:
+
+> Encontrei duas opções dentro desse orçamento...
+
+Só depois, se a pessoa quiser visitar:
+
+> Posso encaminhar-te para a equipa para confirmar a disponibilidade e marcar a visita. Queres continuar pelo WhatsApp?
+
+**Aí o WhatsApp faz sentido.**
+
+---
+
+# Isto também cria uma vantagem enorme para o Linkealls
+
+Vocês deixam de vender:
+
+> "Chatbot que recebe leads."
+
+E passam a ter algo muito mais interessante:
+
+> **AI agent that turns traffic into qualified business outcomes.**
+
+Ou, em português:
+
+> **Um agente de IA que transforma tráfego em oportunidades comerciais qualificadas e conduz cada visitante ao próximo passo certo.**
+
+Isso funciona para:
+
+* imobiliárias;
+* ecommerce;
+* restaurantes;
+* clínicas;
+* escolas;
+* SaaS;
+* hotéis;
+* serviços;
+* consultorias;
+* automóveis;
+* qualquer negócio.
+
+---
+
+# E eu faria uma alteração importante no conceito de Lead Score
+
+Não colocaria o score no centro da experiência.
+
+O agente deve primeiro **agir corretamente**.
+
+O score pode existir paralelamente:
+
+```text
+CONVERSA
+   ↓
+SINAIS COMERCIAIS
+   ↓
+MEMÓRIA
+   ↓
+INTENÇÃO
+   ↓
+NEXT BEST ACTION
+   ↓
+CONVERSÃO
+
+        ↘
+       LEAD SCORE
+```
+
+Ou seja:
+
+**score ajuda a empresa; não deve comandar artificialmente a conversa.**
+
+Um lead com score 85 ainda pode simplesmente estar a pedir informação.
+
+---
+
+# Portanto, eu considero a decisão fechada
+
+Eu adotaria oficialmente:
+
+### **Contextual Conversion Policy**
+
+**Default:**
+
+> Não pedir contacto apenas porque o visitante veio de um anúncio.
+
+**Em vez disso:**
+
+> Entender → resolver → qualificar quando necessário → recomendar → converter.
+
+**Exceção:**
+
+> Se a estratégia do negócio explicitamente priorizar captura de contacto, o agente pode solicitar contacto mais cedo.
+
+E acrescentaria uma regra:
+
+> **Never ask a question whose answer will not change the recommendation, qualification, or next action.**
+
+Essa frase é particularmente importante.
+
+---
+
+## Próximo passo
+
+Agora sim, eu escreveria o **prompt definitivo de implementação para o Replit**, mas desta vez não como um prompt conceitual.
+
+Eu faria um **prompt de engenharia**, com:
+
+1. **NON-DESTRUCTIVE RULES**
+2. arquitetura que deve ser preservada;
+3. política de conversão contextual;
+4. nova lógica de decisão;
+5. regras de intenção;
+6. qualificação adaptativa;
+7. uso da memória existente;
+8. regras de WhatsApp;
+9. tratamento de objeções;
+10. alternativas;
+11. handoff;
+12. exemplos de conversas;
+13. casos de teste;
+14. critérios de aceitação;
+15. instrução para **primeiro auditar o código e só depois alterar**;
+16. obrigação de informar quais arquivos/componentes serão modificados antes de fazer mudanças grandes.
+
+**Esse é o prompt que eu mandaria agora ao Replit.**
