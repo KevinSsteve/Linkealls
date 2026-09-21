@@ -1,0 +1,155 @@
+Sim. Olhando para **esse lead especificamente**, eu trataria como um lead que já demonstrou interesse explícito no imóvel — ele clicou em **“Quero saber mais sobre este anúncio”**. Portanto, eu não começaria novamente apresentando a casa inteira.
+
+Meu raciocínio seria:
+
+### 1. O que eu já sei
+
+Do anúncio, já tenho:
+
+* T3 no Zango 3
+* 1 quarto suíte
+* Casa de banho de apoio
+* Cozinha montada
+* Internet instalada
+* Quintal
+* 17.000.000 Kz negociável
+* O anúncio diz que há fotos e vídeo disponíveis
+
+Então **não preciso perguntar coisas que já estão no anúncio**.
+
+### 2. O que ainda não sei
+
+Preciso descobrir rapidamente:
+
+* Se a pessoa realmente está interessada nesse imóvel
+* Se quer **fotos/vídeo**, localização ou mais detalhes
+* Se o preço está dentro do orçamento
+* Se está procurando para morar ou investir
+* Se está pronta para visitar/comprar ou apenas pesquisando
+
+Mas eu não faria um interrogatório.
+
+### 3. Minha primeira resposta
+
+Eu responderia algo como:
+
+> Olá! 👋 Vi que tem interesse no T3 no Zango 3.
+> Posso enviar-lhe as **fotos e o vídeo da casa**.
+>
+> Antes, só para eu ajudá-lo melhor: **o que gostaria de saber primeiro — fotos/vídeo, localização ou condições de pagamento?**
+
+Isso é melhor do que:
+
+> “Olá, temos um T3 no Zango 3 por 17 milhões...”
+
+Porque isso simplesmente **repete o anúncio**.
+
+---
+
+## E aqui está a parte mais importante
+
+Se eu estivesse construindo o **Linkealls como vendedor de IA**, eu não pensaria apenas:
+
+> “Qual mensagem devo enviar?”
+
+Eu pensaria:
+
+> **“Qual é a próxima informação que preciso descobrir para aumentar a probabilidade de levar este lead ao próximo passo?”**
+
+A conversa poderia evoluir assim:
+
+**Lead:** Quero saber mais sobre este anúncio.
+
+**IA:**
+
+> Olá! 👋 Vi que tem interesse no T3 no Zango 3. Posso enviar-lhe as fotos e o vídeo da casa.
+> O que gostaria de ver primeiro: **fotos/vídeo, localização ou condições de pagamento?**
+
+**Lead:** Manda as fotos.
+
+**IA:**
+
+> Claro. Aqui estão as fotos. 👇
+>
+> A casa tem 1 suíte, cozinha montada, quintal e internet instalada.
+> O preço anunciado é **17 milhões Kz, negociável**.
+>
+> **Depois de ver as fotos, gostaria também de receber o vídeo da casa?**
+
+Se disser sim:
+
+**IA:**
+
+> Perfeito. Envio já o vídeo.
+>
+> E para eu perceber se este imóvel realmente faz sentido para si: **os 17 milhões Kz estão dentro do orçamento que pretende investir?**
+
+Agora começamos a descobrir **capacidade de compra**.
+
+Se disser:
+
+> “Sim.”
+
+A conversa muda de estágio:
+
+> Ótimo. 👍 Nesse caso, o próximo passo pode ser conhecer melhor o imóvel.
+> **Gostaria de marcar uma visita ou prefere primeiro receber a localização exata?**
+
+---
+
+### O que eu NÃO faria
+
+Eu evitaria imediatamente:
+
+> “Quer marcar uma visita?”
+
+Porque ainda não entreguei valor suficiente.
+
+Também evitaria:
+
+> “Qual é o seu orçamento?”
+
+como primeira pergunta. É muito cedo e pode parecer uma abordagem agressiva.
+
+E não faria 5 perguntas de uma vez:
+
+> Qual seu nome?
+> Qual seu orçamento?
+> Onde mora?
+> Quando pretende comprar?
+> Vai pagar à vista?
+
+Isso transforma uma conversa natural em um **formulário**.
+
+---
+
+## A lógica que eu usaria no Linkealls
+
+Eu estruturaria a IA mais ou menos assim:
+
+**Anúncio → Interesse → Descoberta → Qualificação → Prova → Próximo passo → Visita → Negociação → Venda**
+
+E cada mensagem teria **um objetivo**.
+
+Por exemplo:
+
+| Estágio              | Objetivo da IA                     |
+| -------------------- | ---------------------------------- |
+| “Quero saber mais”   | Descobrir o que o lead quer        |
+| Pediu fotos          | Entregar + gerar próxima interação |
+| Gostou do imóvel     | Descobrir orçamento/intenção       |
+| Orçamento compatível | Descobrir timing                   |
+| Intenção alta        | Propor visita                      |
+| Marcou visita        | Confirmar compromisso              |
+| Visitou              | Descobrir objeções                 |
+| Interesse confirmado | Conduzir negociação                |
+
+Isso é muito mais interessante para o Linkealls do que simplesmente criar um chatbot que **responde perguntas sobre imóveis**.
+
+O verdadeiro produto seria uma IA que entende:
+
+> **“Onde este lead está no processo de compra e qual deve ser a próxima ação?”**
+
+E, nesse exemplo, eu classificaria o lead inicialmente como **“interesse demonstrado, intenção ainda não qualificada”** — não como comprador pronto.
+
+Esse é exatamente o tipo de raciocínio que eu colocaria no **motor comercial da Linkealls**.
