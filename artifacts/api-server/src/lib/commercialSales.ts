@@ -1,4 +1,5 @@
 import type {
+  CommercialPendingProposal,
   LeadCommercialMemory,
   LeadContactConsentStatus,
   SalesStrategyConfig,
@@ -32,6 +33,38 @@ export function commercialAffirmativeClauses(message: string): string[] {
     .map((clause) => clause.trim()).filter((clause) => clause && !/\bnao\b|\bnem\b|\bsem interesse\b/.test(clause));
 }
 
+export function isAffirmativeConfirmation(message: string): boolean {
+  return /^(?:sim|sim senhor|sim senhora|pode ser|está bem|esta bem|ok|okay|claro|força|forca|podes avançar|podes avancar)[.! ]*$/i
+    .test(message.normalize("NFD").replace(/\p{M}/gu, "").trim());
+}
+
+export function detectResourceRequest(
+  message: string,
+  offeringNames: string[] = [],
+): Omit<CommercialPendingProposal, "createdAt"> | null {
+  const normalized = message.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+  const kind = /\b(video|videos|filme|filmagem)\b/.test(normalized)
+    ? "video" as const
+    : /\b(documento|documentos|pdf|ficha|brochura|brochura)\b/.test(normalized)
+      ? "document" as const
+      : /\b(foto|fotos|imagem|imagens|galeria)\b/.test(normalized)
+        ? "image" as const
+        : /\b(detalhe|detalhes|especifica|especificacoes|informacao|informacoes|mais sobre)\b/.test(normalized)
+          ? "text" as const
+          : null;
+  if (!kind) return null;
+  const offering = offeringNames.find((name) => normalized.includes(name.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase()));
+  const subject = offering ?? "a oferta apresentada";
+  const request = message.trim().slice(0, 600);
+  return {
+    type: "resource_request",
+    kind,
+    subject,
+    request,
+    purpose: `visitor_chat:${kind}:${subject}`.slice(0, 200),
+  };
+}
+
 export function commercialIntent(message: string, offeringNames: string[] = []): string {
   const normalize = (value: string) => value.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().trim();
   const original = normalize(message);
@@ -39,7 +72,8 @@ export function commercialIntent(message: string, offeringNames: string[] = []):
   // Keep negation scoped so "não comprar, só comparar" remains a comparison.
   const affirmative = commercialAffirmativeClauses(message);
   const q = affirmative.join(", ");
-  if (/nao (quero|vou|pretendo) (partilhar|dar|enviar)|sem whatsapp|agora nao/.test(original)) return "contact_refusal";
+  const refusesContact = /nao (quero|vou|pretendo) (partilhar|dar|enviar)|sem whatsapp|agora nao/.test(original);
+  if (refusesContact && !q) return "contact_refusal";
   if (!q && /nao (quero|pretendo|vou)|sem interesse/.test(original)) return "disinterested";
   if (/^(obrigad[oa]|ok|certo|ate logo)[.! ]*$/.test(q)) return "closing";
   if (/\b(?:pesquisar|pesquisando)\b|vou pensar|depois vejo/.test(q) || /\b(so|apenas) (estou a )?(ver|consultar)\b/.test(original)) return "research";
@@ -47,7 +81,7 @@ export function commercialIntent(message: string, offeringNames: string[] = []):
   if (/compar|diferenca entre/.test(q)) return "compare";
   if (/falar com|atendimento humano|quero (o dono|uma pessoa)|continuar (no|pelo) whatsapp|deixar (o meu )?contacto/.test(q)) return "human";
   if (/ja paguei|onde esta.*(pedido|encomenda)|acompanhar|reembolso|estado.*(pedido|encomenda)/.test(q)) return "post_sale";
-  if (/\b(?:quero|vou|pretendo|gostaria de)\s+(?:comprar|levar|pagar)\b|\b(?:finalizar|checkout|posso pagar|avancar com a compra)\b/.test(q)
+  if (/\b(?:quero|vou|pretendo|gostaria de)\s+(?:comprar|avancar|levar|pagar)\b|\b(?:finalizar|checkout|posso pagar|avancar com a compra)\b/.test(q)
     && !/\b(?:saber|explicar|informacao)\b|\bcomo\s+(?:comprar|levar|pagar)\b/.test(q)) return "purchase";
   const groundedCommitment = offeringNames.some((name) => {
     const literal = normalize(name).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -305,5 +339,8 @@ export function commercialMemoryPrompt(memory: LeadCommercialMemory): string {
     `Perguntas já respondidas: ${memory.answeredQuestions.map(safe).join("; ") || "nenhuma"}`,
     `Resumo factual: ${safe(memory.factualSummary) || "sem resumo"}`,
     `Dados em falta: ${memory.missingData.map(safe).join("; ") || "não assinalados"}`,
+    memory.pendingProposal
+      ? `Proposta pendente de confirmação: ${safe(memory.pendingProposal.kind)} sobre ${safe(memory.pendingProposal.subject)}.`
+      : "Proposta pendente: nenhuma.",
   ].join("\n");
 }

@@ -98,3 +98,17 @@ test("visitor content is bounded and explicitly isolated from trusted brain inst
   assert.ok(prompt.length < 14_000, "old interaction content must remain bounded");
   assert.ok(systemInstruction.indexOf("FONTE DE VERDADE") < systemInstruction.indexOf("REGRAS:"));
 });
+
+test("approved resources are explicit context, not a model-created promise", () => {
+  const { systemInstruction } = buildLeadChatContext(
+    { origin: null, chatMessages: [] },
+    { name: "Negócio Seguro", offerings: [], faq: [] },
+    [],
+    "Quero ver fotos",
+    "FACTOS APROVADOS",
+    { resourcesText: "- Fachada: imagem aprovada (image)" },
+  );
+  assert.match(systemInstruction, /RECURSOS APROVADOS DISPONÍVEIS PARA ESTE PEDIDO/);
+  assert.match(systemInstruction, /Fachada: imagem aprovada/);
+  assert.match(systemInstruction, /A aplicação mostra os links aprovados separadamente/);
+});

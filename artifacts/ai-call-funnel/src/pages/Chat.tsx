@@ -16,6 +16,7 @@ import {
   type LeadSessionResponse,
   type TrafficSessionCreative,
   type VisitorAccess,
+  type VisitorResource,
   type WhatsAppHandoff,
 } from "../lib/visitorAccess";
 import { restoreTrafficConversation } from "../lib/trafficConversation";
@@ -46,6 +47,7 @@ interface Message {
   role: BubbleRole;
   text: string;
   ts: string;
+  resources?: VisitorResource[];
 }
 
 type NextAction = {
@@ -61,6 +63,7 @@ interface LeadChatResult {
   contactCaptured?: boolean;
   contact?: LeadContact | null;
   whatsappHandoff?: WhatsAppHandoff | null;
+  resources?: Array<{ id: string; title: string; kind: string; description: string; url: string }>;
 }
 
 type Stage = "chat" | "typing" | "call_incoming" | "call_active" | "call_ended";
@@ -606,6 +609,33 @@ function WhatsAppHandoffCard({
   );
 }
 
+function ResourceLinks({ resources }: { resources: VisitorResource[] }) {
+  if (!resources.length) return null;
+  return (
+    <div className="mb-3 flex flex-col gap-2">
+      {resources.map((resource) => (
+        <a
+          key={resource.id}
+          href={resource.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mx-1 flex items-center gap-3 rounded-2xl p-3 no-underline"
+          style={{ background: "#F3F8F5", border: "1px solid #CFE8D9", color: "var(--ink)" }}
+        >
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl" style={{ background: "#DDF3E7", color: "var(--green)" }}>
+            {resource.kind === "image" ? "IMG" : resource.kind === "video" ? "VID" : resource.kind === "document" ? "PDF" : "TXT"}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[13px] font-semibold">{resource.title}</span>
+            <span className="block truncate text-[12px]" style={{ color: "var(--ink-soft)" }}>{resource.description}</span>
+          </span>
+          <span className="text-[12px] font-semibold" style={{ color: "var(--green)" }}>Abrir</span>
+        </a>
+      ))}
+    </div>
+  );
+}
+
 // ─── Main Chat component ───────────────────────────────────────────────────
 
 export function Chat() {
@@ -666,6 +696,7 @@ export function Chat() {
       role: message.role === "user" ? "user" as const : "bot" as const,
       text: message.text,
       ts: message.ts,
+      resources: message.resources,
     }));
     setMessages(restored);
     chatMsgsRef.current = session.chatMessages;
@@ -866,32 +897,20 @@ export function Chat() {
     }
   }, [messages, stage, isCallMinimized]);
 
-  const addMessage = useCallback((role: BubbleRole, text: string): ChatMessage => {
+  const addMessage = useCallback((role: BubbleRole, text: string, resources?: VisitorResource[]): ChatMessage => {
     const ts = new Date().toISOString();
     const id = `${Date.now()}-${Math.random()}`;
-    setMessages((prev) => [...prev, { id, role, text, ts }]);
-    return { role: role === "user" ? "user" : "bot", text, ts };
+    setMessages((prev) => [...prev, { id, role, text, ts, resources }]);
+    return { role: role === "user" ? "user" : "bot", text, ts, resources };
   }, []);
 
-  const applyContactResult = useCallback((sentText: string, result: LeadChatResult) => {
+  const applyContactResult = useCallback((result: LeadChatResult) => {
     setContactCapturedThisTurn(Boolean(result.contactCaptured));
     if (result.contact) setLeadContact(result.contact);
     setWhatsappHandoff(result.whatsappHandoff ?? null);
-    if (!result.contactCaptured) return;
-    const safeText = "Partilhei o meu WhatsApp.";
-    setMessages((current) => {
-      const next = [...current];
-      for (let index = next.length - 1; index >= 0; index -= 1) {
-        if (next[index]?.role === "user" && next[index]?.text === sentText) {
-          next[index] = { ...next[index]!, text: safeText };
-          break;
-        }
-      }
-      return next;
-    });
-    chatMsgsRef.current = chatMsgsRef.current.map((message) =>
-      message.role === "user" && message.text === sentText ? { ...message, text: safeText } : message
-    );
+    // The server redacts only phone candidates while preserving the user's
+    // commercial request. Do not replace the visible turn with a contact-only
+    // marker, otherwise a product/resource request disappears until reload.
   }, []);
 
   // ── First message ────────────────────────────────────────────────────────
@@ -945,11 +964,11 @@ export function Chat() {
       try {
         const result = await visitorApi(businessSlug ?? "")
           .sendLeadChat<LeadChatResult>(newLeadId!, text);
-        const { reply, products, nextAction: action } = result;
-        addMessage("bot", reply);
+        const { reply, products, nextAction: action, resources } = result;
+        addMessage("bot", reply, resources);
         setChatProducts(products?.length ? products : null);
         setNextAction(action ?? null);
-        applyContactResult(text, result);
+        applyContactResult(result);
       } catch {
         addMessage("bot", "Desculpa, não consegui responder neste momento. Tenta de novo.");
       }
@@ -972,11 +991,11 @@ export function Chat() {
       try {
         const result = await visitorApi(businessSlug ?? "")
           .sendLeadChat<LeadChatResult>(currentLeadId, text);
-        const { reply, products, nextAction: action } = result;
-        addMessage("bot", reply);
+        const { reply, products, nextAction: action, resources } = result;
+        addMessage("bot", reply, resources);
         setChatProducts(products?.length ? products : null);
         setNextAction(action ?? null);
-        applyContactResult(text, result);
+        applyContactResult(result);
       } catch {
         addMessage("bot", "Desculpa, não consegui responder neste momento. Tenta de novo.");
       } finally {
@@ -1299,7 +1318,10 @@ export function Chat() {
               {trafficCreative && <TrafficCreativeCard creative={trafficCreative} />}
 
               {messages.map((m) => (
-                <ChatBubble key={m.id} role={m.role} text={m.text} />
+                 <div key={m.id}>
+                   <ChatBubble role={m.role} text={m.text} />
+                   {m.resources && <ResourceLinks resources={m.resources} />}
+                 </div>
               ))}
               {stage === "chat" && !isBusy && leadId && leadContact?.status === "consented" && whatsappHandoff
                 && (nextAction?.type === "whatsapp" || (contactCapturedThisTurn && (!nextAction || nextAction.type === "none"))) && (

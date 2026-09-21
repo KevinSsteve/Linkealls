@@ -478,6 +478,7 @@ export interface ChatMessage {
   text: string;
   ts: string;
   strategyVersionId?: string;
+  resources?: Array<{ id: string; title: string; kind: string; description: string; url: string }>;
 }
 
 export interface QualificationData {

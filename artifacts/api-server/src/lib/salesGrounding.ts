@@ -7,7 +7,7 @@ export interface GroundingFacts {
 
 const PHONE = /(?:\+?244[\s.-]?)?9[1-5](?:[\s.-]?\d){7}\b/g;
 const MONEY = /\b(?:kz|kwanzas?)\s*[\d][\d\s.,]*|\b[\d][\d\s.,]*\s*(?:kz|kwanzas?)\b/gi;
-const UNSUPPORTED = /\b(?:vou|iremos|vamos|o proprietário|o dono|a equipa)\s+(?:enviar|mandar|partilhar|disponibilizar|confirmar|garantir|reservar|marcar|entregar|dar)\b[^.!?;]{0,180}[.!?]?/gi;
+const UNSUPPORTED = /\b(?:vou|iremos|vamos|o proprietário|o dono|a equipa)\s+(?:enviar|mandar|partilhar|disponibilizar|confirmar|garantir|reservar|marcar|entregar|dar)\b[^.!?;]{0,180}[.!?]?|(?:já pedi|ja pedi|vou encaminhar|posso encaminhar|a equipa vai enviar|a equipa enviará)[^.!?;]{0,180}[.!?]?/gi;
 const CLAIMS = /\b(?:disponível|disponibilidade|garantido|garantia|desconto|promoção|marcação confirmada|visita confirmada|entrega confirmada|reserva confirmada)\b[^.!?;]{0,100}[.!?]?/gi;
 
 function normalize(value: string): string {
@@ -27,7 +27,7 @@ export function sanitizeGroundedText(value: string, facts: GroundingFacts = {}):
   );
   const approved = (facts.approvedPromises ?? []).map(normalize);
   text = text.replace(UNSUPPORTED, (candidate) =>
-    approved.some((item) => normalize(candidate).includes(item)) ? candidate : "Não tenho essa confirmação no contexto. Posso encaminhar esse pedido à equipa."
+    approved.some((item) => normalize(candidate).includes(item)) ? candidate : "Não tenho essa confirmação no contexto."
   );
   const avail = (facts.approvedAvailability ?? []).map(normalize);
   text = text.replace(CLAIMS, (candidate) =>

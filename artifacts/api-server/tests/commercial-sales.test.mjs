@@ -27,7 +27,15 @@ await build({
   outfile: runtimeModulePath,
   logLevel: "silent",
 });
-const { updateCommercialMemory, chooseNextAction, commercialMemoryPrompt, retryCommercialMemoryCas } = await import(pathToFileURL(modulePath).href);
+const {
+  updateCommercialMemory,
+  chooseNextAction,
+  commercialMemoryPrompt,
+  retryCommercialMemoryCas,
+  commercialIntent,
+  detectResourceRequest,
+  isAffirmativeConfirmation,
+} = await import(pathToFileURL(modulePath).href);
 const { applySalesStrategyOverride, orderOfferingsForStrategy, isRuntimeSourceEligible } = await import(pathToFileURL(runtimeModulePath).href);
 after(async () => rm(tempDir, { recursive: true, force: true }));
 
@@ -55,6 +63,25 @@ test("contact refusal is respected without losing the commercial journey", () =>
   });
   assert.equal(action.type, "none");
   assert.match(action.reason, /pergunta livre/i);
+});
+
+test("channel refusal keeps an affirmative purchase intent", () => {
+  assert.equal(commercialIntent("Agora não, quero comprar o Gerador Solar", ["Gerador Solar"]), "purchase");
+  assert.equal(commercialIntent("Não quero WhatsApp, quero avançar com o Gerador Solar", ["Gerador Solar"]), "purchase");
+});
+
+test("resource proposals are explicit and confirmations are narrow", () => {
+  const proposal = detectResourceRequest("Quero ver as fotos do Gerador Solar", ["Gerador Solar"]);
+  assert.deepEqual(proposal, {
+    type: "resource_request",
+    kind: "image",
+    subject: "Gerador Solar",
+    request: "Quero ver as fotos do Gerador Solar",
+    purpose: "visitor_chat:image:Gerador Solar",
+  });
+  assert.equal(isAffirmativeConfirmation("Sim"), true);
+  assert.equal(isAffirmativeConfirmation("Sim, quero comprar"), false);
+  assert.equal(isAffirmativeConfirmation("Sim"), true);
 });
 
 test("automatic CTAs are gated by the approved strategy and runtime capabilities", () => {
@@ -177,6 +204,7 @@ test("first visitor text uses contextual chat and is not replaced by forced call
   assert.doesNotMatch(firstTurn, /Olá! Diz-me o que procuras/);
   assert.doesNotMatch(firstTurn, /setStage\\(\"call_incoming\"\\)/);
   assert.match(firstTurn, /chatMsgsRef\.current\.slice\(0, -1\)/);
+  assert.doesNotMatch(chat, /Partilhei o meu WhatsApp/);
 });
 
 test("normal chat claims one revision before model effects and retention is bounded", async () => {
@@ -201,4 +229,19 @@ test("memory survives the short model window as bounded factual data", () => {
   assert.match(prompt, /pedir orçamento/);
   assert.match(prompt, /Bateria/);
   assert.ok(prompt.length < 3000);
+});
+
+test("pending resource context remains bounded and visible to the model", () => {
+  const memory = {
+    ...empty(),
+    pendingProposal: {
+      type: "resource_request",
+      kind: "image",
+      subject: "Gerador Solar",
+      request: "Quero ver fotos",
+      purpose: "visitor_chat:image:Gerador Solar",
+      createdAt: "2026-09-21T00:00:00.000Z",
+    },
+  };
+  assert.match(commercialMemoryPrompt(memory), /Proposta pendente de confirmação: image sobre Gerador Solar/);
 });

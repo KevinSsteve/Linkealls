@@ -52,9 +52,17 @@ export interface WhatsAppHandoff {
   url: string;
 }
 
+export interface VisitorResource {
+  id: string;
+  title: string;
+  kind: string;
+  description: string;
+  url: string;
+}
+
 export interface LeadSessionResponse {
   leadId: string;
-  chatMessages: Array<{ role: "user" | "bot" | "agent"; text: string; ts: string }>;
+  chatMessages: Array<{ role: "user" | "bot" | "agent"; text: string; ts: string; resources?: VisitorResource[] }>;
   trafficCreative: TrafficSessionCreative | null;
   trafficWelcomeStatus: "pending" | "processing" | "complete" | "failed" | null;
   contact: LeadContact;

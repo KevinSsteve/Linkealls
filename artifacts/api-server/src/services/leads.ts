@@ -15,10 +15,12 @@ import {
   type LeadCommercialMemory,
   salesOutcomeEventsTable,
   leadChatRequestsTable,
+  resourceLibraryTable,
+  resourceRequestsTable,
 } from "@workspace/db";
-import { eq, and, desc, isNull, lt, or, sql } from "drizzle-orm";
+import { eq, and, desc, isNull, lt, lte, gte, or, sql } from "drizzle-orm";
 import { logger } from "../lib/logger.js";
-import { buildLeadChatContext, compactCommercialReply, selectLeadChatProducts } from "../lib/leadChatContext.js";
+import { buildLeadChatContext, compactCommercialReply, selectLeadChatProducts, type LeadChatResource } from "../lib/leadChatContext.js";
 import { getOrCreateProfile } from "./businessProfile.js";
 import { sendPushToOwner } from "./notifications.js";
 import {
@@ -29,7 +31,7 @@ import {
   saveInteractionMemory,
   summarizeOldInteraction,
 } from "./businessBrain.js";
-import { commercialIntent, commercialQuestionAnswered, finalizeCommercialSummary, parseCommercialAmount, commercialMemoryPrompt, chooseNextAction, retryCommercialMemoryCas, updateCommercialMemory, type SalesNextAction } from "../lib/commercialSales.js";
+import { commercialIntent, commercialQuestionAnswered, detectResourceRequest, finalizeCommercialSummary, isAffirmativeConfirmation, parseCommercialAmount, commercialMemoryPrompt, chooseNextAction, retryCommercialMemoryCas, updateCommercialMemory, type SalesNextAction } from "../lib/commercialSales.js";
 import { ensureAutomaticStrategyVersion, deriveAutomaticStrategy, resolveSalesStrategy } from "./salesStrategy.js";
 import { applySalesStrategyOverride, orderOfferingsForStrategy } from "../lib/salesStrategyRuntime.js";
 import { sanitizeGroundedText } from "../lib/salesGrounding.js";
@@ -63,6 +65,132 @@ export interface WhatsAppHandoff {
 function contactWasRequested(lead: Lead): boolean {
   if (lead.contactConsentStatus !== "pending") return false;
   return lead.chatMessages.some((message) => message.role === "bot" && message.contactRequested === true);
+}
+
+function resourceUrl(resource: {
+  kind: string;
+  url: string | null;
+  objectPath: string | null;
+  content: string | null;
+}): string {
+  if (resource.url) return resource.url;
+  if (resource.objectPath) return `/api/storage${resource.objectPath}`;
+  if (resource.content) return `data:text/plain;charset=utf-8,${encodeURIComponent(resource.content)}`;
+  return "";
+}
+
+function resourceText(resource: LeadChatResource): string {
+  return `${resource.title} ${resource.description}`.toLocaleLowerCase("pt-AO");
+}
+
+function resourceMatchesRequest(resource: {
+  kind: string;
+  purpose: string;
+  title: string;
+  description: string;
+}, request: ReturnType<typeof detectResourceRequest>): boolean {
+  if (!request || resource.kind !== request.kind) return false;
+  const haystack = `${resource.purpose} ${resource.title} ${resource.description}`.toLocaleLowerCase("pt-AO");
+  const subject = request.subject.toLocaleLowerCase("pt-AO");
+  return resource.purpose.toLocaleLowerCase("pt-AO").includes("visitor_chat")
+    || subject === "a oferta apresentada"
+    || haystack.includes(subject)
+    || subject.split(/\s+/).filter((word: string) => word.length > 3).some((word: string) => haystack.includes(word));
+}
+
+async function findApprovedChatResources(
+  businessId: number,
+  request: ReturnType<typeof detectResourceRequest>,
+  lead: Lead,
+  offerings: Array<{ name: string; imageUrl?: string }>,
+): Promise<LeadChatResource[]> {
+  if (!request) return [];
+  const now = new Date();
+  const resources: LeadChatResource[] = [];
+  const matchingLibrary = await db.select({
+    id: resourceLibraryTable.id,
+    title: resourceLibraryTable.title,
+    kind: resourceLibraryTable.kind,
+    description: resourceLibraryTable.description,
+    url: resourceLibraryTable.url,
+    objectPath: resourceLibraryTable.objectPath,
+    content: resourceLibraryTable.content,
+    purpose: resourceLibraryTable.purpose,
+  }).from(resourceLibraryTable).where(and(
+    eq(resourceLibraryTable.businessId, businessId),
+    eq(resourceLibraryTable.status, "approved"),
+    eq(resourceLibraryTable.visibility, "public"),
+    or(isNull(resourceLibraryTable.validFrom), lte(resourceLibraryTable.validFrom, now)),
+    or(isNull(resourceLibraryTable.validUntil), gte(resourceLibraryTable.validUntil, now)),
+  )).limit(30);
+  for (const resource of matchingLibrary) {
+    if (!resourceMatchesRequest(resource, request)) continue;
+    const url = resourceUrl(resource);
+    if (!url) continue;
+    resources.push({
+      id: resource.id,
+      title: resource.title,
+      kind: request.kind,
+      description: resource.description,
+      url,
+    });
+  }
+  const wantedOffering = offerings.find((offering) =>
+    offering.name.toLocaleLowerCase("pt-AO") === request.subject.toLocaleLowerCase("pt-AO") && offering.imageUrl,
+  );
+  if (request.kind === "image" && wantedOffering?.imageUrl) {
+    resources.unshift({
+      id: `offering-image:${request.subject}`,
+      title: `Imagem de ${request.subject}`,
+      kind: "image",
+      description: "Imagem aprovada no catálogo.",
+      url: wantedOffering.imageUrl,
+    });
+  }
+  const creative = lead.origin.trafficCreative;
+  if (creative?.mediaUrl && ((request.kind === "image" && creative.mediaType === "image") || (request.kind === "video" && creative.mediaType === "video"))) {
+    resources.unshift({
+      id: `traffic-creative:${creative.id}`,
+      title: "Mídia do anúncio",
+      kind: request.kind,
+      description: "Recurso aprovado no anúncio de origem.",
+      url: creative.mediaUrl,
+    });
+  }
+  return resources.filter((resource, index, list) => list.findIndex((item) => item.url === resource.url) === index).slice(0, 5);
+}
+
+async function registerVisitorResourceRequest(
+  businessId: number,
+  leadId: string,
+  proposal: NonNullable<LeadCommercialMemory["pendingProposal"]>,
+  summary: string,
+): Promise<void> {
+  const source = `visitor_chat:${leadId}`;
+  await db.transaction(async (tx) => {
+    await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${source}:${proposal.purpose}`}, 0))`);
+    const existing = await tx.select({ id: resourceRequestsTable.id })
+      .from(resourceRequestsTable)
+      .where(and(
+        eq(resourceRequestsTable.businessId, businessId),
+        eq(resourceRequestsTable.source, source),
+        eq(resourceRequestsTable.purpose, proposal.purpose),
+        sql`${resourceRequestsTable.status} IN ('open', 'fulfilled')`,
+      )).limit(1);
+    if (existing[0]) return;
+    await tx.insert(resourceRequestsTable).values({
+      businessId,
+      kind: proposal.kind,
+      purpose: proposal.purpose,
+      request: summary.slice(0, 2000),
+      source,
+    });
+    await tx.insert(salesOutcomeEventsTable).values({
+      businessId,
+      leadId,
+      event: "handoff",
+    });
+  });
 }
 
 export function leadContactView(lead: Pick<Lead, "contactConsentStatus" | "contactPhone" | "contactPurpose" | "contactCapturedAt">): LeadContactView {
@@ -594,6 +722,7 @@ export async function chatWithLead(
 ): Promise<{
   reply: string;
   products: Array<{ name: string; price: string; description: string; imageUrl?: string }>;
+  resources: Array<{ id: string; title: string; kind: string; description: string; url: string }>;
   nextAction: SalesNextAction;
   contactCaptured: boolean;
 }> {
@@ -608,6 +737,7 @@ export async function chatWithLead(
       return {
         reply: replayTurn.text,
         products: replayTurn.replay.products,
+        resources: replayTurn.replay.resources ?? replayTurn.resources ?? [],
         nextAction: replayTurn.replay.nextAction as SalesNextAction,
         contactCaptured: replayTurn.replay.contactCaptured ?? false,
       };
@@ -622,6 +752,7 @@ export async function chatWithLead(
       )).limit(1))[0]?.response;
     if (completed) return {
       ...completed,
+      resources: completed.resources ?? [],
       nextAction: completed.nextAction as SalesNextAction,
       contactCaptured: completed.contactCaptured ?? false,
     };
@@ -672,15 +803,20 @@ export async function chatWithLead(
       : {};
   if (extractedPhone) lead = { ...lead, contactPhone: extractedPhone, contactPurpose: LEAD_CONTACT_PURPOSE, contactConsentStatus: "consented", contactConsentedAt: contactNow, contactCapturedAt: contactNow };
   if (refusedContact) lead = { ...lead, contactPhone: null, contactPurpose: LEAD_CONTACT_PURPOSE, contactConsentStatus: "declined", contactConsentedAt: null, contactCapturedAt: contactNow };
-  const safeUserMessage = contactCaptured
-    ? "[O visitante partilhou o WhatsApp com consentimento. O número foi guardado pela aplicação e não é enviado ao modelo.]"
-    : contactDeclined
-      ? "[O visitante recusou partilhar o WhatsApp, mas quer continuar esta conversa por texto.]"
-      : redactAngolanPhoneCandidates(userMessage);
+  // Contact consent is a separate channel fact. Keep the commercial sentence,
+  // only redact phone candidates before it reaches the model or durable chat.
+  const safeUserMessage = redactAngolanPhoneCandidates(userMessage);
   const brain = await loadBusinessBrain(businessId, { leadId, query: safeUserMessage });
   const profile = brain.profile;
   const offeringNames = (profile.offerings ?? []).map((offering) => offering.name);
   const currentIntent = commercialIntent(userMessage, offeringNames);
+  const requestedResource = detectResourceRequest(userMessage, offeringNames);
+  const approvedResources = await findApprovedChatResources(
+    businessId,
+    requestedResource,
+    lead,
+    (profile.offerings ?? []).map((offering) => ({ name: offering.name, imageUrl: offering.imageUrl })),
+  );
 
   const relatedOrders = await db
     .select({
@@ -702,6 +838,39 @@ export async function chatWithLead(
     safeUserMessage,
     (profile.offerings ?? []).map((offering) => offering.name),
   );
+  const pendingProposal = lead.commercialMemory.pendingProposal;
+  const confirmsPendingProposal = Boolean(
+    pendingProposal
+    && pendingProposal.type === "resource_request"
+    && isAffirmativeConfirmation(userMessage),
+  );
+  let resourceRequestRegistered = false;
+  if (confirmsPendingProposal && pendingProposal) {
+    const criteria = [
+      ...updatedMemory.criteria.map((item) => item.value),
+      ...updatedMemory.constraints.map((item) => item.value),
+    ].slice(0, 6);
+    const summary = [
+      `Pedido do visitante: ${redactAngolanPhoneCandidates(pendingProposal.request)}`,
+      `Oferta/assunto: ${pendingProposal.subject}.`,
+      criteria.length ? `Critérios conhecidos: ${criteria.join("; ")}.` : "",
+      "Próximo passo: a equipa deve rever o pedido e responder nesta conversa.",
+    ].filter(Boolean).join(" ");
+    await registerVisitorResourceRequest(businessId, leadId, pendingProposal, summary);
+    resourceRequestRegistered = true;
+    updatedMemory.pendingProposal = undefined;
+    updatedMemory.pendingAction = "owner_handoff";
+    updatedMemory.stage = "handoff";
+    updatedMemory.escalationReason = `Pedido de ${pendingProposal.kind} sobre ${pendingProposal.subject}`;
+  } else if (requestedResource && approvedResources.length === 0) {
+    updatedMemory.pendingProposal = {
+      ...requestedResource,
+      request: redactAngolanPhoneCandidates(requestedResource.request),
+      createdAt: new Date().toISOString(),
+    };
+  } else if (requestedResource && approvedResources.length > 0) {
+    updatedMemory.pendingProposal = undefined;
+  }
   const trustedCreativeId = lead.origin.trafficCreative?.id;
   const trustedCampaignId = lead.origin.trustedCampaign?.id;
   await ensureAutomaticStrategyVersion(businessId, profile);
@@ -752,6 +921,7 @@ export async function chatWithLead(
       (strategyConfig.objective === "contact" && strategyConfig.availableActions.includes("contact")
         && ((resolvedStrategy.strategy?.name !== "Estratégia automática" && Boolean(resolvedStrategy.strategy?.approvedAt))
           || resolvedStrategy.override?.config.objective === "contact")
+        && !requestedResource
         && !["purchase", "post_sale", "closing", "research", "contact_refusal", "disinterested", "alternative", "compare"].includes(currentIntent))
       || (currentIntent === "human" && /whatsapp|deixar.*contacto/i.test(userMessage)
         && strategyConfig.availableActions.includes("contact"))
@@ -761,7 +931,8 @@ export async function chatWithLead(
   // Events describe observed visitor requests, not completed bookings or inferred abandonment.
   const recordTurnOutcome = (products: unknown[]) => {
     const intent = currentIntent;
-    const event = contactDeclined ? "cta_declined" : contactCaptured ? "cta_accepted"
+    const event = resourceRequestRegistered ? "handoff"
+      : contactDeclined ? "cta_declined" : contactCaptured ? "cta_accepted"
       : shouldRequestContact ? "contact_requested"
       : intent === "quote" ? "quote_requested"
       : intent === "visit" ? "visit_requested"
@@ -795,6 +966,9 @@ export async function chatWithLead(
         ? JSON.stringify(resolvedStrategy.override.config).slice(0, 2000)
         : undefined,
       memoryText: commercialMemoryPrompt(updatedMemory),
+      resourcesText: approvedResources.length
+        ? approvedResources.map((resource) => `- ${resource.title}: ${resource.description} (${resource.kind})`).join("\n")
+        : undefined,
     },
   );
 
@@ -806,17 +980,24 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
   );
   if (!generation) {
     const fallbackProducts = selectLeadChatProducts(profile.offerings ?? [], safeUserMessage, parseCommercialAmount(updatedMemory.criteria.find((item) => item.value.startsWith("Orçamento:"))?.value ?? ""), updatedMemory.criteria.map((item) => item.value));
+    const fallbackCore = resourceRequestRegistered
+      ? `Pedido registado sobre ${pendingProposal?.subject ?? "a oferta"}. A equipa vai rever este pedido nesta conversa.`
+      : approvedResources.length
+        ? `Encontrei ${approvedResources.length === 1 ? "este recurso" : "estes recursos"} aprovados sobre ${requestedResource?.subject ?? "a oferta"}.`
+        : requestedResource && updatedMemory.pendingProposal
+          ? `Não encontrei ${requestedResource.kind === "image" ? "uma imagem" : requestedResource.kind === "video" ? "um vídeo" : requestedResource.kind === "document" ? "um documento" : "esse detalhe"} aprovado sobre ${requestedResource.subject}. Posso registar um pedido interno para a equipa rever.`
+          : fallbackProducts.length
+            ? `No catálogo: ${fallbackProducts.slice(0, 2).map((item) => `${item.name} (${item.price})`).join(" e ")}.`
+            : updatedMemory.pendingAction === "owner_handoff" || updatedMemory.escalationReason
+              ? "Não tenho essa informação confirmada. Posso registar o pedido para a equipa rever."
+              : ["closing", "research", "disinterested"].includes(currentIntent)
+                ? "Tudo bem. Estamos por aqui quando precisares."
+                : "Não consegui preparar uma resposta neste momento. Podes tentar novamente?";
     const fallbackReply = withContactRequest(extractedPhone
-      ? "Obrigado. Guardámos o teu WhatsApp com autorização e já podes continuar com a equipa pelo encaminhamento abaixo."
+      ? `Obrigado. Guardámos o teu WhatsApp com autorização. ${fallbackCore}`
       : contactDeclined
-        ? "Tudo bem. Continuamos por aqui sem guardar o teu WhatsApp. Em que mais posso ajudar?"
-        : updatedMemory.pendingAction === "owner_handoff" || updatedMemory.escalationReason
-      ? "Não tenho essa informação confirmada. A equipa pode ajudar."
-      : fallbackProducts.length
-      ? `No catálogo: ${fallbackProducts.slice(0, 2).map((item) => `${item.name} (${item.price})`).join(" e ")}.`
-       : ["closing", "research", "disinterested"].includes(currentIntent)
-         ? "Tudo bem. Estamos por aqui quando precisares."
-         : "Não consegui preparar uma resposta neste momento. Podes tentar novamente?");
+        ? `Tudo bem. Continuamos por aqui sem guardar o teu WhatsApp. ${fallbackCore}`
+        : fallbackCore);
     const candidateFallbackNextAction = chooseNextAction({
       memory: updatedMemory,
       strategy: strategyConfig,
@@ -831,7 +1012,7 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
     const fallbackNextAction = !contactCaptured && !shouldRequestContact
       ? candidateFallbackNextAction
       : { type: "none" as const, reason: "Sem acção explícita nesta mensagem" };
-    const fallbackResponse = { reply: fallbackReply, products: fallbackProducts, nextAction: fallbackNextAction, contactCaptured };
+    const fallbackResponse = { reply: fallbackReply, products: fallbackProducts, resources: approvedResources, nextAction: fallbackNextAction, contactCaptured };
     finalizeCommercialSummary(updatedMemory, fallbackNextAction);
     const fallbackTs = new Date().toISOString();
     const fallbackAppended: ChatMessage[] = [
@@ -843,7 +1024,8 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
         strategyVersionId: resolvedStrategy.strategy?.id,
         contactRequested: shouldRequestContact,
         requestId: options?.requestId,
-        replay: { products: fallbackProducts, nextAction: fallbackNextAction, contactCaptured },
+        replay: { products: fallbackProducts, resources: approvedResources, nextAction: fallbackNextAction, contactCaptured },
+        resources: approvedResources,
       },
     ];
     const fallbackLeadWhere = and(
@@ -987,8 +1169,24 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
   const nextAction = !contactCaptured && !shouldRequestContact
     ? candidateNextAction
     : { type: "none" as const, reason: "Sem acção explícita nesta mensagem" };
-  reply = withContactRequest(compactCommercialReply(reply, userMessage, updatedMemory.answeredQuestions, offeringNames)
-    || (["closing", "research", "disinterested"].includes(currentIntent) ? "Tudo bem. Estamos por aqui quando precisares." : "Posso continuar a ajudar por aqui."));
+  const compactedReply = compactCommercialReply(reply, userMessage, updatedMemory.answeredQuestions, offeringNames)
+    || (["closing", "research", "disinterested"].includes(currentIntent) ? "Tudo bem. Estamos por aqui quando precisares." : "Posso continuar a ajudar por aqui.");
+  const resourceReply = resourceRequestRegistered
+    ? `Pedido registado sobre ${pendingProposal?.subject ?? "a oferta"}. A equipa recebeu o pedido e poderá responder nesta conversa.`
+    : approvedResources.length
+      ? `Encontrei ${approvedResources.length === 1 ? "um recurso aprovado" : "recursos aprovados"} sobre ${requestedResource?.subject ?? "a oferta"}.`
+      : requestedResource && updatedMemory.pendingProposal
+        ? `Não encontrei ${requestedResource.kind === "image" ? "uma imagem" : requestedResource.kind === "video" ? "um vídeo" : requestedResource.kind === "document" ? "um documento" : "esse detalhe"} aprovado sobre ${requestedResource.subject}. Posso registar um pedido interno para a equipa rever.`
+        : null;
+  const interestQuestion = strategyConfig?.essentialQuestions.find((question) =>
+    !commercialQuestionAnswered(question, updatedMemory.answeredQuestions),
+  ) ?? "O que pesa mais para ti nesta opção?";
+  const contextAwareReply = resourceReply
+    ? `${contactCaptured ? "Obrigado. Guardámos o teu WhatsApp com autorização. " : contactDeclined ? "Tudo bem. Continuamos por aqui sem guardar o teu WhatsApp. " : ""}${resourceReply}`
+    : /^interessante\b/i.test(safeUserMessage) && !compactedReply.includes("?")
+      ? `${compactedReply} ${interestQuestion}`
+      : compactedReply;
+  reply = withContactRequest(contextAwareReply);
   finalizeCommercialSummary(updatedMemory, nextAction);
   // Keep this advisory value observable in the response context without
   // allowing it to bypass server checks. It is intentionally not returned as
@@ -1006,7 +1204,8 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
       strategyVersionId: resolvedStrategy.strategy?.id,
       contactRequested: shouldRequestContact,
       requestId: options?.requestId,
-      replay: { products, nextAction, contactCaptured },
+       replay: { products, resources: approvedResources, nextAction, contactCaptured },
+      resources: approvedResources,
     },
   ];
   const leadWhere = businessId !== undefined
@@ -1057,7 +1256,7 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
   if (options?.requestId) {
     await db.update(leadChatRequestsTable).set({
       status: "complete",
-      response: { reply, products, nextAction, contactCaptured },
+       response: { reply, products, resources: approvedResources, nextAction, contactCaptured },
       updatedAt: new Date(),
     }).where(and(
       eq(leadChatRequestsTable.id, options.requestId),
@@ -1088,7 +1287,7 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
     costMicros: Math.min(10_000_000, generation.usage.totalTokens * 2),
   }).catch((err) => logger.warn({ err, businessId }, "Failed to record chat evaluation"));
 
-  return { reply, products, nextAction, contactCaptured };
+  return { reply, products, resources: approvedResources, nextAction, contactCaptured };
 }
 
 export async function correctCommercialMemory(

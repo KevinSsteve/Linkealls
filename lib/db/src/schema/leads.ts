@@ -66,7 +66,9 @@ export interface ChatMessage {
     products: Array<{ name: string; price: string; description: string; imageUrl?: string }>;
     nextAction: { type: string; label?: string; reason: string };
     contactCaptured?: boolean;
+    resources?: Array<{ id: string; title: string; kind: string; description: string; url: string }>;
   };
+  resources?: Array<{ id: string; title: string; kind: string; description: string; url: string }>;
 }
 
 /**
@@ -91,6 +93,16 @@ export interface CommercialObservation {
   provenance: CommercialProvenance;
   updatedAt: string;
 }
+
+export interface CommercialPendingProposal {
+  type: "resource_request";
+  kind: "text" | "link" | "image" | "document" | "video";
+  subject: string;
+  request: string;
+  purpose: string;
+  createdAt: string;
+}
+
 export interface LeadCommercialMemory {
   revision: number;
   currentIntent?: string;
@@ -102,6 +114,7 @@ export interface LeadCommercialMemory {
   objections: Array<{ text: string; status: "pending" | "resolved"; provenance: CommercialProvenance; updatedAt: string }>;
   stage: CommercialStage;
   pendingAction?: string;
+  pendingProposal?: CommercialPendingProposal;
   factualSummary?: string;
   recommendationReason?: string;
   missingData: string[];
