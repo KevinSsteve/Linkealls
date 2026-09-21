@@ -7,7 +7,7 @@ export interface GroundingFacts {
 
 const PHONE = /(?:\+?244[\s.-]?)?9[1-5](?:[\s.-]?\d){7}\b/g;
 const MONEY = /\b(?:kz|kwanzas?)\s*[\d][\d\s.,]*|\b[\d][\d\s.,]*\s*(?:kz|kwanzas?)\b/gi;
-const UNSUPPORTED = /\b(?:vou|iremos|vamos|o proprietário|o dono|a equipa)\s+(?:enviar|mandar|partilhar|disponibilizar|confirmar|garantir|reservar|marcar|entregar|dar)\b[^.!?;]{0,180}[.!?]?|(?:já pedi|ja pedi|vou encaminhar|posso encaminhar|a equipa vai enviar|a equipa enviará)[^.!?;]{0,180}[.!?]?/gi;
+const UNSUPPORTED = /\b(?:vou|iremos|vamos|o proprietário|o dono|a equipa)\s+(?:enviar|mandar|partilhar|disponibilizar|confirmar|garantir|reservar|marcar|entregar|dar)\b[^.!?;]{0,180}[.!?]?|(?:já pedi|ja pedi|vou encaminhar|posso encaminhar|a equipa vai enviar|a equipa enviará|pedido (?:registado|encaminhado)|registei|encaminhei|a equipa recebeu|visita (?:marcada|agendada)|reserva (?:feita|efectuada))[^.!?;]{0,180}[.!?]?/gi;
 const CLAIMS = /\b(?:disponível|disponibilidade|garantido|garantia|desconto|promoção|marcação confirmada|visita confirmada|entrega confirmada|reserva confirmada)\b[^.!?;]{0,100}[.!?]?/gi;
 
 function normalize(value: string): string {
@@ -16,6 +16,18 @@ function normalize(value: string): string {
 
 function numericPrice(value: string): string {
   return value.replace(/[^\d]/g, "");
+}
+
+/** Monetary sentences are rendered from offer-bound facts, not a tenant-wide
+ * bag of numbers. This also prevents swapping prices during comparisons. */
+export function bindOfferingPrices(value: string, offerings: Array<{name: string; price: string}>): string {
+  return value.split(/(?<=[!?])\s+|(?<=\.)\s+(?=[A-ZÀ-Ý])/u).map(sentence => {
+    if (!new RegExp(MONEY.source, "i").test(sentence)) return sentence;
+    const named = offerings.filter(offer => sentence.toLowerCase().includes(offer.name.toLowerCase()));
+    const facts = named.length ? named : offerings.length === 1 ? offerings : [];
+    if (!facts.length) return sentence;
+    return facts.map(offer => `${offer.name}: ${offer.price}.`).join(" ");
+  }).join(" ");
 }
 
 /** Last-mile defense: model output is never trusted as a business fact. */

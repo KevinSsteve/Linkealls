@@ -32,3 +32,4 @@
 - [Chrome Android chat viewport](chrome-android-chat-viewport.md) — confirmed header loss came from default scrollIntoView scrolling the document; test populated history, not empty chats.
 - [Sales strategy boundaries](sales-strategy-boundaries.md) — automatic CTA permissions must not block voluntary purchases; preserve owner corrections and surface conflicting visitor changes.
 - [Resource request resolution](resource-request-resolution.md) — approved resources are delivered in-app; missing resources become confirmable, tenant-scoped, idempotent owner requests without losing the commercial message.
+- [Qualification evidence precedence](qualification-evidence-precedence.md) — call and chat evidence merge without downgrading stronger qualification or overriding owner decisions.

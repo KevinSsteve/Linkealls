@@ -220,5 +220,5 @@ export function compactCommercialReply(text: string, message: string, answered: 
       if (noQuestion || questionUsed || commercialQuestionAnswered(sentence, answered)) return false;
       questionUsed = true;
       return true;
-    }).slice(0, 2).join(" ").trim().slice(0, 320).trim();
+    }).join(" ").trim();
 }

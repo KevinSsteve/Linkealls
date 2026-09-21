@@ -327,6 +327,14 @@ export async function createResource(
   });
   if (!parsed.success) throw new ProfileImprovementError("INVALID_RESOURCE", "Recurso inválido.");
   return db.transaction(async (tx) => {
+    if (requestId) {
+      const request = (await tx.select().from(resourceRequestsTable).where(and(
+        eq(resourceRequestsTable.id, requestId), eq(resourceRequestsTable.businessId, businessId),
+        eq(resourceRequestsTable.status, "open"),
+      )).limit(1))[0];
+      if (!request) throw new ProfileImprovementError("REQUEST_CONFLICT", "O pedido já foi concluído ou cancelado.");
+      parsed.data.purpose = `request:${request.id}`;
+    }
     const resource = (await tx.insert(resourceLibraryTable).values({ businessId, ...parsed.data }).returning())[0]!;
     if (parsed.data.objectPath) {
       const claimed = await tx.update(resourceUploadsTable).set({ claimedResourceId: resource.id }).where(and(

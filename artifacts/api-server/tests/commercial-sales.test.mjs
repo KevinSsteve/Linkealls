@@ -231,7 +231,7 @@ test("normal chat claims one revision before model effects and retention is boun
   assert.match(schema, /lead_chat_request_revision_unique/);
   assert.ok(chatRuntime.indexOf("onConflictDoNothing") < chatRuntime.indexOf("generateSalesDecision"));
   assert.ok(chatRuntime.indexOf("if (!rows[0])") < chatRuntime.indexOf("recordTurnOutcome(products)"));
-  assert.ok(chatRuntime.indexOf("if (!fallbackRows[0])") < chatRuntime.indexOf("recordTurnOutcome(fallbackProducts)"));
+  assert.match(chatRuntime, /generatePlannedConversation/);
   assert.match(chatRuntime, /trafficWelcomeClaimToken[\s\S]*commercialMemory}->>'revision'/);
   assert.match(retention, /COMMERCIAL_DATA_RETENTION_DAYS = 90/);
   assert.match(retention, /delete\(salesOutcomeEventsTable\)/);

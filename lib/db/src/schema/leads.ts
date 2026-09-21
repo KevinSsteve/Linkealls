@@ -104,6 +104,11 @@ export interface CommercialPendingProposal {
 }
 
 export interface LeadCommercialMemory {
+  salesDecision?: {
+    version: string; stage: string; intent: string; action: string; reason: string;
+    evidence: string[]; missingData: string[]; objection: string | null;
+    need: string | null; urgency: string | null; interest: string; outcome: string; updatedAt: string;
+  };
   revision: number;
   currentIntent?: string;
   goal?: CommercialObservation;

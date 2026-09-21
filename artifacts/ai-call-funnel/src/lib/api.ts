@@ -515,6 +515,28 @@ export interface Lead {
   commercialMemory: LeadCommercialMemory;
 }
 
+/**
+ * The latest validated commercial decision made by the sales runtime.
+ * This is optional because leads created before the decision pipeline do not
+ * have a snapshot. Evidence is deliberately separate from the factual outcome
+ * so the owner UI never presents an inference as a confirmed result.
+ */
+export interface SalesDecision {
+  version: string;
+  stage: string;
+  intent: string;
+  action: string;
+  reason: string;
+  evidence: string[];
+  missingData: string[];
+  objection: string | null;
+  need: string | null;
+  urgency: string | null;
+  interest: string;
+  outcome: string;
+  updatedAt: string;
+}
+
 export type CommercialStage = "welcome" | "understand" | "recommend" | "clarify" | "next_step" | "handoff" | "follow_up" | "disinterested";
 export interface LeadCommercialMemory {
   revision: number;
@@ -534,6 +556,7 @@ export interface LeadCommercialMemory {
   strategyVersionId?: string;
   ownerCorrectedFields?: string[];
   visitorChangeRequests?: Array<{ field: string; value: string; updatedAt: string }>;
+  salesDecision?: SalesDecision;
 }
 export interface LeadCommercialCorrection {
   goal?: string;

@@ -86,7 +86,7 @@ test("WhatsApp surface is turn-scoped and does not duplicate the action button",
 });
 test("content-free request events are emitted from both successful persistence branches", async () => {
   const source = await readFile(path.join(root, "src/services/leads.ts"), "utf8");
-  assert.match(source, /recordTurnOutcome\(fallbackProducts\)/);
+  assert.match(source, /generatePlannedConversation/);
   assert.match(source, /recordTurnOutcome\(products\)/);
   assert.match(source, /"quote_requested"/);
   assert.match(source, /"visit_requested"/);

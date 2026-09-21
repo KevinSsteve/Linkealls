@@ -43,6 +43,7 @@ export function detectResourceRequest(
   offeringNames: string[] = [],
 ): Omit<CommercialPendingProposal, "createdAt"> | null {
   const normalized = message.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+  if (/\bnao\b.{0,30}\b(fotos?|imagens?|videos?|documentos?)\b/.test(normalized)) return null;
   const kind = /\b(video|videos|filme|filmagem)\b/.test(normalized)
     ? "video" as const
     : /\b(documento|documentos|pdf|ficha|brochura|brochura)\b/.test(normalized)
@@ -134,6 +135,7 @@ export function commercialBudget(message: string): number | null {
 export function commercialQuestionAnswered(question: string, answered: string[]): boolean {
   const normalize = (value: string) => value.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
   const concepts = [
+    /necessidade|resultado|uso|finalidade|pretende alcançar|pretendes alcançar/,
     /orcamento|investimento|gastar|podes pagar|faixa de preco|valor maximo/,
     /local|zona|bairro|regiao|onde/,
     /prazo|quando|urgencia|para que dia/,

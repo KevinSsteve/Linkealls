@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { GoogleGenAI } from "@google/genai";
-import { generateSalesDecision } from "../lib/openaiSales.js";
+import { generateSalesDecision, interpretSalesConversation } from "../lib/openaiSales.js";
+import { planSalesConversation, generatePlannedConversation, resolveConversationReference } from "../lib/salesConversationSkill.js";
 import {
   db,
   leadsTable,
@@ -31,10 +32,10 @@ import {
   saveInteractionMemory,
   summarizeOldInteraction,
 } from "./businessBrain.js";
-import { buildInterestDiscoveryReply, buildTrafficWelcomeReply, commercialIntent, commercialQuestionAnswered, detectResourceRequest, finalizeCommercialSummary, isAffirmativeConfirmation, parseCommercialAmount, commercialMemoryPrompt, chooseNextAction, retryCommercialMemoryCas, updateCommercialMemory, type SalesNextAction } from "../lib/commercialSales.js";
+import { commercialIntent, commercialQuestionAnswered, detectResourceRequest, finalizeCommercialSummary, isAffirmativeConfirmation, parseCommercialAmount, commercialMemoryPrompt, retryCommercialMemoryCas, updateCommercialMemory, type SalesNextAction } from "../lib/commercialSales.js";
 import { ensureAutomaticStrategyVersion, deriveAutomaticStrategy, resolveSalesStrategy } from "./salesStrategy.js";
 import { applySalesStrategyOverride, orderOfferingsForStrategy } from "../lib/salesStrategyRuntime.js";
-import { sanitizeGroundedText } from "../lib/salesGrounding.js";
+import { sanitizeGroundedText, bindOfferingPrices } from "../lib/salesGrounding.js";
 import {
   extractAngolanMobilePhone,
   isContactRefusal,
@@ -90,12 +91,13 @@ function resourceMatchesRequest(resource: {
   description: string;
 }, request: ReturnType<typeof detectResourceRequest>): boolean {
   if (!request || resource.kind !== request.kind) return false;
-  const haystack = `${resource.purpose} ${resource.title} ${resource.description}`.toLocaleLowerCase("pt-AO");
   const subject = request.subject.toLocaleLowerCase("pt-AO");
-  return resource.purpose.toLocaleLowerCase("pt-AO").includes("visitor_chat")
-    || subject === "a oferta apresentada"
-    || haystack.includes(subject)
-    || subject.split(/\s+/).filter((word: string) => word.length > 3).some((word: string) => haystack.includes(word));
+  // Descriptive text is not an association. Legacy manually-associated
+  // resources must match the complete subject or scoped purpose exactly.
+  const purpose = resource.purpose.trim().toLocaleLowerCase("pt-AO");
+  return subject !== "a oferta apresentada" && (
+    purpose === subject || purpose === `visitor_chat:${request.kind}:${subject}`
+  );
 }
 
 function trafficWelcomeSubject(lead: Lead): string {
@@ -111,8 +113,24 @@ async function findApprovedChatResources(
   offerings: Array<{ name: string; imageUrl?: string }>,
 ): Promise<LeadChatResource[]> {
   if (!request) return [];
+  const contextualSubject = request.subject === "a oferta apresentada"
+    ? lead.origin.trafficCreative
+      ? `traffic_creative:${lead.origin.trafficCreative.id}`
+      : lead.commercialMemory.interests.length === 1
+        ? lead.commercialMemory.interests[0]!.value : request.subject
+    : request.subject;
+  request = { ...request, subject: contextualSubject };
   const now = new Date();
   const resources: LeadChatResource[] = [];
+  const fulfilledRequests = await db.select({ id: resourceRequestsTable.id }).from(resourceRequestsTable).where(and(
+    eq(resourceRequestsTable.businessId, businessId),
+    eq(resourceRequestsTable.status, "fulfilled"),
+    or(and(eq(resourceRequestsTable.source, `visitor_chat:${lead.id}`),
+      eq(resourceRequestsTable.purpose, `visitor_chat:${request.kind}:${contextualSubject}`.slice(0, 200))),
+      ...(lead.origin.trafficCreative && contextualSubject === `traffic_creative:${lead.origin.trafficCreative.id}`
+        ? [eq(resourceRequestsTable.source, `traffic_creative:${lead.origin.trafficCreative.id}`)] : [])),
+  ));
+  const linkedPurposes = new Set(fulfilledRequests.map(item => `request:${item.id}`));
   const matchingLibrary = await db.select({
     id: resourceLibraryTable.id,
     title: resourceLibraryTable.title,
@@ -130,7 +148,7 @@ async function findApprovedChatResources(
     or(isNull(resourceLibraryTable.validUntil), gte(resourceLibraryTable.validUntil, now)),
   )).limit(30);
   for (const resource of matchingLibrary) {
-    if (!resourceMatchesRequest(resource, request)) continue;
+    if (resource.kind !== request.kind || (!linkedPurposes.has(resource.purpose) && !resourceMatchesRequest(resource, request))) continue;
     const url = resourceUrl(resource);
     if (!url) continue;
     resources.push({
@@ -155,7 +173,7 @@ async function findApprovedChatResources(
   }
   const creative = lead.origin.trafficCreative;
   const asksForAdditionalMedia = /\bmais\b/i.test(request.request);
-  if (!asksForAdditionalMedia && creative?.mediaUrl && ((request.kind === "image" && creative.mediaType === "image") || (request.kind === "video" && creative.mediaType === "video"))) {
+  if (!asksForAdditionalMedia && request.subject === `traffic_creative:${creative?.id}` && creative?.mediaUrl && ((request.kind === "image" && creative.mediaType === "image") || (request.kind === "video" && creative.mediaType === "video"))) {
     resources.unshift({
       id: `traffic-creative:${creative.id}`,
       title: "Mídia do anúncio",
@@ -164,7 +182,13 @@ async function findApprovedChatResources(
       url: creative.mediaUrl,
     });
   }
-  return resources.filter((resource, index, list) => list.findIndex((item) => item.url === resource.url) === index).slice(0, 5);
+  const alreadyShown = new Set([
+    ...(creative?.mediaUrl ? [creative.mediaUrl] : []),
+    ...lead.chatMessages.flatMap(message => (message.resources ?? []).map(resource => resource.url)),
+  ]);
+  return resources.filter((resource, index, list) =>
+    (!asksForAdditionalMedia || !alreadyShown.has(resource.url))
+    && list.findIndex((item) => item.url === resource.url) === index).slice(0, 5);
 }
 
 async function registerVisitorResourceRequest(
@@ -172,9 +196,9 @@ async function registerVisitorResourceRequest(
   leadId: string,
   proposal: NonNullable<LeadCommercialMemory["pendingProposal"]>,
   summary: string,
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
 ): Promise<void> {
   const source = `visitor_chat:${leadId}`;
-  await db.transaction(async (tx) => {
     await tx.execute(sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${source}:${proposal.purpose}`}, 0))`);
     const existing = await tx.select({ id: resourceRequestsTable.id })
       .from(resourceRequestsTable)
@@ -197,7 +221,6 @@ async function registerVisitorResourceRequest(
       leadId,
       event: "handoff",
     });
-  });
 }
 
 export function leadContactView(lead: Pick<Lead, "contactConsentStatus" | "contactPhone" | "contactPurpose" | "contactCapturedAt">): LeadContactView {
@@ -506,7 +529,11 @@ export async function getLeadsAnalytics(businessId?: number): Promise<LeadsAnaly
 export async function updateLeadState(id: string, state: LeadState, businessId?: number): Promise<Lead | null> {
   const updated = await db
     .update(leadsTable)
-    .set({ state, updatedAt: new Date() })
+    .set({
+      state,
+      commercialMemory: sql`jsonb_set(${leadsTable.commercialMemory}, '{revision}', to_jsonb(COALESCE((${leadsTable.commercialMemory}->>'revision')::int, 0) + 1))`,
+      updatedAt: new Date(),
+    })
     .where(
       businessId !== undefined
         ? and(eq(leadsTable.id, id), eq(leadsTable.businessId, businessId))
@@ -580,10 +607,6 @@ export async function processCallCompletion(
 ): Promise<void> {
   const startedAt = Date.now();
   const apiKey = process.env["GEMINI_API_KEY"];
-  if (!apiKey) {
-    logger.error("GEMINI_API_KEY not set — skipping lead extraction");
-    return;
-  }
 
   // Scoped fetch — a lead belonging to another business is treated as not found.
   let lead = await getLead(leadId, businessId);
@@ -591,11 +614,20 @@ export async function processCallCompletion(
     logger.warn({ leadId, businessId }, "Lead not found for post-call extraction (or belongs to another business)");
     return;
   }
+  const initialLead = lead;
+  const safeTranscript = redactAngolanPhoneCandidates(callTranscript);
+  // Lifecycle is independent of extraction/provider availability and revision CAS.
+  await db.update(leadsTable).set({
+    callTranscript: safeTranscript.slice(0, 50_000), callEndedAt: new Date(), updatedAt: new Date(),
+  }).where(and(eq(leadsTable.id, leadId), eq(leadsTable.businessId, businessId)));
+  if (!apiKey) {
+    logger.error("GEMINI_API_KEY not set — call saved without qualification extraction");
+    return;
+  }
 
   try {
     const ai = new GoogleGenAI({ apiKey });
 
-    const safeTranscript = redactAngolanPhoneCandidates(callTranscript);
     const prompt = `Analisa esta transcrição de uma chamada de qualificação de leads e extrai informação estruturada.
 
 TRANSCRIÇÃO:
@@ -629,22 +661,58 @@ Responde APENAS com JSON válido, sem texto adicional.`;
     const raw = JSON.parse(text) as unknown;
     const extracted = parseExtractionResult(raw);
 
-    const newState: LeadState =
-      extracted.score >= SCORE_QUALIFY_THRESHOLD ? "qualificado" : lead.state === "em_atendimento" ? "em_atendimento" : lead.state;
-
-    await db
-      .update(leadsTable)
-      .set({
-        callTranscript: safeTranscript.slice(0, 50_000),
-        qualificationData: extracted.qualificationData,
-        aiSummary: extracted.aiSummary,
-        score: extracted.score,
-        whatsappMessage: extracted.whatsappMessage,
-        state: newState,
-        callEndedAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .where(and(eq(leadsTable.id, leadId), eq(leadsTable.businessId, businessId)));
+    let persisted: Lead | null = null;
+    let newlyQualified = false;
+    for (let attempt = 0; attempt < 4 && !persisted; attempt++) {
+      const current = await getLead(leadId, businessId);
+      if (!current) throw new Error("Lead removido durante a extracção");
+      const memory = structuredClone(current.commercialMemory);
+      const corrected = new Set(memory.ownerCorrectedFields ?? []);
+      const qualificationData = { ...current.qualificationData };
+      const protectedMemoryField: Record<string, string> = { interest: "interests", budget: "criteria", timeline: "constraints" };
+      for (const field of ["name", "email", "interest", "budget", "timeline", "location"] as const) {
+        const value = extracted.qualificationData[field];
+        const changedDuringExtraction = current.qualificationData[field] !== initialLead.qualificationData[field];
+        if (value && !changedDuringExtraction && !corrected.has("qualificationData") && !corrected.has(field)
+          && !corrected.has(protectedMemoryField[field] ?? field)) qualificationData[field] = value;
+      }
+      if (!corrected.has("qualificationData") && !corrected.has("extras")) {
+        qualificationData.extras = { ...extracted.qualificationData.extras, ...current.qualificationData.extras };
+      }
+      for (const [field, label, value, concept] of [
+        ["interests", "Interesse da chamada", qualificationData.interest, "necessidade"],
+        ["criteria", "Orçamento", qualificationData.budget, "orçamento"],
+        ["constraints", "Prazo", qualificationData.timeline, "prazo"],
+      ] as const) {
+        if (!value || corrected.has(field)) continue;
+        const observation = `${label}: ${value}`;
+        if (!memory[field].some(item => item.value === observation)) {
+          memory[field] = [...memory[field], { value: observation, provenance: "inferred" as const, updatedAt: new Date().toISOString() }].slice(-15);
+        }
+        if (!corrected.has("answeredQuestions")) memory.answeredQuestions = [...new Set([...memory.answeredQuestions, concept])];
+      }
+      if (!corrected.has("missingData")) memory.missingData = memory.missingData.filter(question =>
+        !commercialQuestionAnswered(question, memory.answeredQuestions));
+      const ownerAuthoritative = ["perdido", "entregue"].includes(current.state) || memory.humanControl === "owner";
+      const supportedScore = qualificationData.interest && (qualificationData.budget || qualificationData.timeline || qualificationData.email)
+        ? extracted.score : Math.min(extracted.score, 59);
+      const score = ownerAuthoritative || corrected.has("score") ? current.score : Math.max(current.score ?? 0, supportedScore);
+      const newState: LeadState = ownerAuthoritative || corrected.has("state") ? current.state
+        : (score ?? 0) >= SCORE_QUALIFY_THRESHOLD ? "qualificado" : current.state;
+      const aiSummary = corrected.has("factualSummary") || corrected.has("aiSummary") ? current.aiSummary
+        : [...new Set([memory.factualSummary || current.aiSummary, extracted.aiSummary].filter(Boolean))].join("\n\n").slice(0, 4000);
+      memory.revision += 1;
+      const rows = await db.update(leadsTable).set({
+        qualificationData, aiSummary, score, state: newState, commercialMemory: memory, updatedAt: new Date(),
+      }).where(and(eq(leadsTable.id, leadId), eq(leadsTable.businessId, businessId),
+        sql`${leadsTable.commercialMemory}->>'revision' = ${String(current.commercialMemory.revision)}`)).returning();
+      if (rows[0]) {
+        persisted = rows[0];
+        newlyQualified = current.state !== "qualificado" && newState === "qualificado";
+      }
+    }
+    if (!persisted) throw new Error("A qualificação não foi persistida após conflitos concorrentes");
+    lead = persisted;
 
     await saveInteractionMemory(
       businessId,
@@ -672,10 +740,10 @@ Responde APENAS com JSON válido, sem texto adicional.`;
       costMicros: estimateGemini3FlashCostMicros(response),
     }).catch((err) => logger.warn({ err, businessId }, "Failed to record post-call evaluation"));
 
-    logger.info({ leadId, score: extracted.score, state: newState }, "Lead extraction complete");
+    logger.info({ leadId, score: persisted.score, state: persisted.state }, "Lead extraction complete");
 
     // Notify SSE subscribers and push when newly qualified
-    if (newState === "qualificado") {
+    if (newlyQualified) {
       notifyLeadQualified(leadId);
       if (lead.businessId !== null) {
         const businessId = lead.businessId;
@@ -816,11 +884,31 @@ export async function chatWithLead(
   const brain = await loadBusinessBrain(businessId, { leadId, query: safeUserMessage });
   const profile = brain.profile;
   const offeringNames = (profile.offerings ?? []).map((offering) => offering.name);
+  const previousBot = [...lead.chatMessages].reverse().find(message => message.role === "bot");
+  const referencedCandidates = previousBot?.replay?.products?.length
+    ? previousBot.replay.products.map(product => product.name)
+    : lead.commercialMemory.interests.map(item => item.value);
+  const originalUserMessage = userMessage;
+  const previousMediaKinds = [...new Set((previousBot?.resources ?? []).map(resource => resource.kind))];
+  const referencedMediaKind = previousMediaKinds.length === 1 && ["image", "video"].includes(previousMediaKinds[0]!)
+    ? previousMediaKinds[0] as "image" | "video"
+    : /fotos|imagens/i.test(previousBot?.text ?? "") && !/vídeo|video/i.test(previousBot?.text ?? "") ? "image"
+      : /vídeo|video/i.test(previousBot?.text ?? "") && !/fotos|imagens/i.test(previousBot?.text ?? "") ? "video" : undefined;
+  userMessage = resolveConversationReference(userMessage, referencedCandidates, offeringNames, referencedMediaKind);
+  if (/^(?:quero|pretendo|vou) comprar[.! ]*$/i.test(userMessage.trim()) && referencedCandidates.length === 1 && offeringNames.includes(referencedCandidates[0]!)) {
+    userMessage = `Quero comprar ${referencedCandidates[0]}`;
+  }
   const currentIntent = commercialIntent(userMessage, offeringNames);
   const isTrafficWelcome = Boolean(options?.trafficWelcomeClaimToken && lead.origin.trafficCreative);
   const isInterestOnly = /^interessante\b[.! ]*$/i.test(safeUserMessage.trim());
   const isTrafficDiscovery = isTrafficWelcome || isInterestOnly;
-  const requestedResource = detectResourceRequest(userMessage, offeringNames);
+  const detectedResource = detectResourceRequest(userMessage, offeringNames);
+  if (detectedResource?.subject === "a oferta apresentada") {
+    detectedResource.subject = lead.origin.trafficCreative ? `traffic_creative:${lead.origin.trafficCreative.id}`
+      : referencedCandidates.length === 1 ? referencedCandidates[0]! : detectedResource.subject;
+    detectedResource.purpose = `visitor_chat:${detectedResource.kind}:${detectedResource.subject}`.slice(0, 200);
+  }
+  const requestedResource = !isTrafficWelcome && detectedResource?.kind !== "text" ? detectedResource : null;
   const resourceLookups = requestedResource
     ? [requestedResource]
     : isTrafficDiscovery
@@ -858,16 +946,20 @@ export async function chatWithLead(
   const safeLead = ownerLeadView(lead);
   const updatedMemory = updateCommercialMemory(
     lead.commercialMemory,
-    safeUserMessage,
+    redactAngolanPhoneCandidates(userMessage),
     (profile.offerings ?? []).map((offering) => offering.name),
   );
   const pendingProposal = lead.commercialMemory.pendingProposal;
+  const lastBotMessage = [...lead.chatMessages].reverse().find(message => message.role === "bot")?.text ?? "";
   const confirmsPendingProposal = Boolean(
     pendingProposal
     && pendingProposal.type === "resource_request"
+    && Date.now() - Date.parse(pendingProposal.createdAt) < 24 * 60 * 60 * 1000
+    && /(?:regist|encaminh).*(?:pedido|equipa)|pedido.*(?:regist|equipa)/i.test(lastBotMessage)
     && isAffirmativeConfirmation(userMessage),
   );
   let resourceRequestRegistered = false;
+  let resourceRequestSummary = "";
   if (confirmsPendingProposal && pendingProposal) {
     const criteria = [
       ...updatedMemory.criteria.map((item) => item.value),
@@ -879,7 +971,7 @@ export async function chatWithLead(
       criteria.length ? `Critérios conhecidos: ${criteria.join("; ")}.` : "",
       "Próximo passo: a equipa deve rever o pedido e responder nesta conversa.",
     ].filter(Boolean).join(" ");
-    await registerVisitorResourceRequest(businessId, leadId, pendingProposal, summary);
+    resourceRequestSummary = summary;
     resourceRequestRegistered = true;
     updatedMemory.pendingProposal = undefined;
     updatedMemory.pendingAction = "owner_handoff";
@@ -912,6 +1004,10 @@ export async function chatWithLead(
       (profile.offerings ?? []).map((offering) => offering.name),
     )
     : deriveAutomaticStrategy(profile);
+  if (trustedCreativeId && !resolvedStrategy.sourceEligible) {
+    approvedResources.splice(0);
+    safeLead.origin = { ...safeLead.origin, trafficCreative: undefined };
+  }
   updatedMemory.strategyVersionId = resolvedStrategy.strategy?.id;
   if (strategyConfig) {
     if (!updatedMemory.ownerCorrectedFields?.includes("missingData")) {
@@ -941,12 +1037,7 @@ export async function chatWithLead(
     && !refusedContact
     && Boolean(profile.phone)
     && (
-      (strategyConfig.objective === "contact" && strategyConfig.availableActions.includes("contact")
-        && ((resolvedStrategy.strategy?.name !== "Estratégia automática" && Boolean(resolvedStrategy.strategy?.approvedAt))
-          || resolvedStrategy.override?.config.objective === "contact")
-        && !requestedResource
-        && !["purchase", "post_sale", "closing", "research", "contact_refusal", "disinterested", "alternative", "compare"].includes(currentIntent))
-      || (currentIntent === "human" && /whatsapp|deixar.*contacto/i.test(userMessage)
+      (currentIntent === "human" && /whatsapp|deixar.*contacto/i.test(userMessage)
         && strategyConfig.availableActions.includes("contact"))
     )
   );
@@ -975,7 +1066,7 @@ export async function chatWithLead(
       || "A equipa pode continuar contigo.";
     return `${firstSentence.slice(0, 220).replace(/[.!?]?$/, ".")} ${contactRequestPrompt}`;
   };
-  const { systemInstruction, prompt } = buildLeadChatContext(
+  const buildCurrentContext = () => buildLeadChatContext(
     safeLead,
     profile,
     relatedOrders,
@@ -994,162 +1085,102 @@ export async function chatWithLead(
         : undefined,
     },
   );
+  let { systemInstruction, prompt } = buildCurrentContext();
 
-  const generation = await generateSalesDecision(
-    systemInstruction,
+  const interpretation = await interpretSalesConversation(
+    `${commercialMemoryPrompt(updatedMemory)}\n${prompt}`, safeUserMessage,
+  );
+  const mentionedOrders = relatedOrders.filter(order => userMessage.toLowerCase().includes(order.offeringName.toLowerCase()));
+  const discussedOrder = mentionedOrders.length === 1 ? mentionedOrders[0]
+    : mentionedOrders.length === 0 && relatedOrders.length === 1 ? relatedOrders[0] : undefined;
+  const selectedOfferings = (profile.offerings ?? []).filter(offering => userMessage.toLowerCase().includes(offering.name.toLowerCase()));
+  const knownPriceReply = currentIntent === "price" && selectedOfferings.length === 1
+    ? `${selectedOfferings[0]!.name}: ${selectedOfferings[0]!.price}.` : null;
+  const buildCurrentPlan = () => planSalesConversation({
+    message: userMessage, memory: updatedMemory, interpretation, strategy: strategyConfig,
+    contactStatus: lead.contactConsentStatus, offerings: offeringNames,
+    hasCatalog: Boolean(profile.catalogEnabled && profile.offerings?.length), hasWhatsApp: Boolean(profile.phone),
+    paid: discussedOrder?.status === "paga", pending: discussedOrder?.status === "pendente",
+    welcome: isTrafficWelcome, resourceCount: approvedResources.length, resourceRequested: Boolean(requestedResource),
+    requestRegistered: resourceRequestRegistered,
+  });
+  let conversationPlan = buildCurrentPlan();
+  updatedMemory.salesDecision = conversationPlan.decision;
+  if (originalUserMessage !== userMessage) {
+    updatedMemory.salesDecision.evidence.push(
+      `Referência declarada: ${safeUserMessage}`,
+      `Candidato validado no catálogo: ${referencedCandidates[0]}`,
+      `Fonte: ${previousBot?.ts ? `bot:${previousBot.ts}` : `commercialMemory:revision:${lead.commercialMemory.revision}`}`,
+    );
+  }
+  for (const [value, label, field, concept] of [
+    [conversationPlan.decision.need, "Necessidade", "criteria", "necessidade"],
+    [conversationPlan.decision.urgency, "Prazo", "constraints", "prazo"],
+  ] as const) {
+    if (!value || updatedMemory.ownerCorrectedFields?.includes(field)) continue;
+    updatedMemory[field] = [
+      ...updatedMemory[field].filter(item => !item.value.startsWith(`${label}:`)),
+      { value: `${label}: ${value}`, provenance: "declared" as const, updatedAt: new Date().toISOString() },
+    ].slice(-15);
+    if (!updatedMemory.ownerCorrectedFields?.includes("answeredQuestions")) {
+      updatedMemory.answeredQuestions = [...new Set([...updatedMemory.answeredQuestions, concept])];
+    }
+  }
+  if (!updatedMemory.ownerCorrectedFields?.includes("missingData")) {
+    updatedMemory.missingData = strategyConfig.essentialQuestions.filter(question =>
+      !commercialQuestionAnswered(question, updatedMemory.answeredQuestions),
+    ).slice(0, 5);
+  }
+  const turnEvidence = updatedMemory.salesDecision.evidence;
+  conversationPlan = buildCurrentPlan();
+  updatedMemory.salesDecision = conversationPlan.decision;
+  updatedMemory.salesDecision.evidence = [...new Set([...updatedMemory.salesDecision.evidence, ...turnEvidence])];
+  ({ systemInstruction, prompt } = buildCurrentContext());
+  const rendered = await generatePlannedConversation(conversationPlan, (instructions) => generateSalesDecision(
+    `${systemInstruction}\n${instructions}`,
     `${prompt}
 
 Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém da equipa de ${profile.name || "este negócio"}, não como a Linkealls. Usa apenas ofertas e factos presentes no contexto. Não menciones um número de telefone, fotos, vídeos ou uma acção do proprietário sem confirmação no contexto.`,
-  );
-  if (!generation) {
-    const fallbackProducts = selectLeadChatProducts(profile.offerings ?? [], safeUserMessage, parseCommercialAmount(updatedMemory.criteria.find((item) => item.value.startsWith("Orçamento:"))?.value ?? ""), updatedMemory.criteria.map((item) => item.value));
-    const fallbackCore = resourceRequestRegistered
-      ? `Pedido registado sobre ${pendingProposal?.subject ?? "a oferta"}. A equipa recebeu o pedido e poderá responder nesta conversa.`
-      : approvedResources.length
-        ? `Encontrei ${approvedResources.length === 1 ? "este recurso" : "estes recursos"} aprovados sobre ${requestedResource?.subject ?? "a oferta"}.`
-        : requestedResource && updatedMemory.pendingProposal
-          ? `Não encontrei ${requestedResource.kind === "image" ? "uma imagem" : requestedResource.kind === "video" ? "um vídeo" : requestedResource.kind === "document" ? "um documento" : "esse detalhe"} aprovado sobre ${requestedResource.subject}. Posso registar um pedido interno para a equipa rever.`
-          : fallbackProducts.length
-            ? `No catálogo: ${fallbackProducts.slice(0, 2).map((item) => `${item.name} (${item.price})`).join(" e ")}.`
-            : updatedMemory.pendingAction === "owner_handoff" || updatedMemory.escalationReason
-              ? "Não tenho essa informação confirmada. Posso registar o pedido para a equipa rever."
-              : ["closing", "research", "disinterested"].includes(currentIntent)
-                ? "Tudo bem. Estamos por aqui quando precisares."
-                : "Não consegui preparar uma resposta neste momento. Podes tentar novamente?";
-    const fallbackReply = withContactRequest(extractedPhone
-      ? `Obrigado. Guardámos o teu WhatsApp com autorização. ${fallbackCore}`
-      : contactDeclined
-        ? `Tudo bem. Continuamos por aqui sem guardar o teu WhatsApp. ${fallbackCore}`
-        : fallbackCore);
-    const candidateFallbackNextAction = chooseNextAction({
-      memory: updatedMemory,
-      strategy: strategyConfig,
-      contactStatus: lead.contactConsentStatus,
-      hasPaidOrder: relatedOrders.some((order) => order.status === "paga"),
-      hasPendingOrder: relatedOrders.some((order) => order.status === "pendente"),
-      hasCatalog: Boolean(profile.catalogEnabled && profile.offerings?.length),
-      hasWhatsApp: Boolean(profile.phone),
-      currentMessage: userMessage,
-      offeringNames,
-    });
-    const fallbackNextAction = !contactCaptured && !shouldRequestContact
-      ? candidateFallbackNextAction
-      : { type: "none" as const, reason: "Sem acção explícita nesta mensagem" };
-    const fallbackResponse = { reply: fallbackReply, products: fallbackProducts, resources: approvedResources, nextAction: fallbackNextAction, contactCaptured };
-    finalizeCommercialSummary(updatedMemory, fallbackNextAction);
-    const fallbackTs = new Date().toISOString();
-    const fallbackAppended: ChatMessage[] = [
-      { role: "user", text: safeUserMessage, ts: fallbackTs, requestId: options?.requestId },
-      {
-        role: "bot",
-        text: fallbackReply,
-        ts: new Date(Date.now() + 1).toISOString(),
-        strategyVersionId: resolvedStrategy.strategy?.id,
-        contactRequested: shouldRequestContact,
-        requestId: options?.requestId,
-        replay: { products: fallbackProducts, resources: approvedResources, nextAction: fallbackNextAction, contactCaptured },
-        resources: approvedResources,
-      },
-    ];
-    const fallbackLeadWhere = and(
-      eq(leadsTable.id, leadId),
-      eq(leadsTable.businessId, businessId),
-      ...(extractedPhone || refusedContact ? [eq(leadsTable.contactConsentStatus, "pending")] : []),
-    );
-    const fallbackGuardedWhere = options?.trafficWelcomeClaimToken
-      ? and(
-        fallbackLeadWhere,
-        eq(leadsTable.trafficWelcomeStatus, "processing"),
-        eq(leadsTable.trafficWelcomeClaimToken, options.trafficWelcomeClaimToken),
-        sql`${leadsTable.commercialMemory}->>'revision' = ${String(lead.commercialMemory.revision)}`,
-      )
-      : and(
-        fallbackLeadWhere,
-        sql`${leadsTable.commercialMemory}->>'revision' = ${String(lead.commercialMemory.revision)}`,
-      );
-    const fallbackRows = await db.update(leadsTable).set({
-      chatMessages: sql`${leadsTable.chatMessages} || ${JSON.stringify(fallbackAppended)}::jsonb`,
-      commercialMemory: updatedMemory,
-      ...contactMutation,
-      ...(options?.trafficWelcomeClaimToken
-        ? {
-          trafficWelcomeStatus: "complete" as const,
-          trafficWelcomeClaimedAt: null,
-          trafficWelcomeClaimToken: null,
-        }
-        : {}),
-      updatedAt: new Date(),
-    }).where(fallbackGuardedWhere).returning({ id: leadsTable.id });
-    if (!fallbackRows[0]) {
-      if (options?.requestId) {
-        await db.delete(leadChatRequestsTable).where(and(
-          eq(leadChatRequestsTable.id, options.requestId),
-          eq(leadChatRequestsTable.businessId, businessId),
-          eq(leadChatRequestsTable.leadId, leadId),
-        )).catch(() => undefined);
-      }
-      throw new Error("A operação desta resposta já não está activa");
-    }
-    if (options?.requestId) {
-      await db.update(leadChatRequestsTable).set({
-        status: "complete",
-        response: fallbackResponse,
-        updatedAt: new Date(),
-      }).where(and(
-        eq(leadChatRequestsTable.id, options.requestId),
-        eq(leadChatRequestsTable.businessId, businessId),
-        eq(leadChatRequestsTable.leadId, leadId),
-      ));
-    }
-    void recordBusinessAiEvaluation({
-      businessId,
-      channel: "chat",
-      scenario: "visitor_chat",
-      outcome: "error",
-      latencyMs: Date.now() - startedAt,
-      inputForHash: safeUserMessage,
-    }).catch(() => undefined);
-    recordTurnOutcome(fallbackProducts);
-    return fallbackResponse;
-  }
+  ), () => ({
+    decision: {
+      reply: knownPriceReply ?? (resourceRequestRegistered ? "O pedido ficou registado para revisão pela equipa."
+        : approvedResources.length ? "Podes abrir os materiais abaixo."
+          : requestedResource ? "Não tenho esse material disponível aqui. Queres que registe um pedido para a equipa?"
+            : conversationPlan.nextAction.type !== "none" ? `Podes usar a opção «${conversationPlan.nextAction.label}» abaixo.`
+              : conversationPlan.decision.action === "qualify_need" ? "O que procuras resolver com esta opção?"
+                : "Não consegui preparar a resposta neste momento. Podes tentar novamente?"),
+      intent: "information" as const, recommendedOfferings: [], nextQuestion: null,
+      handoffReason: null, proposedAction: "none" as const,
+    },
+    usage: { inputTokens: 0, outputTokens: 0, totalTokens: 0 },
+  }));
+  const generation = rendered.value;
+  if (rendered.failed && updatedMemory.salesDecision.outcome === "response_planned") updatedMemory.salesDecision.outcome = "generation_failed";
   const decision = generation.decision;
 
   const groundingFacts = {
     approvedPrices: [
-      ...(profile.offerings ?? []).map((offering) => offering.price),
-      ...(lead.origin.trafficCreative?.preparation?.approvedPrices ?? []),
+      ...(selectedOfferings.length ? selectedOfferings : profile.offerings ?? []).map((offering) => offering.price),
+      ...(safeLead.origin.trafficCreative?.preparation?.approvedPrices ?? []),
     ],
     approvedPhones: lead.contactConsentStatus === "consented" && profile.phone ? [profile.phone] : [],
     approvedAvailability: relatedOrders.map((order) => `${order.status} ${order.fulfillmentStatus}`),
   };
-  const groundedReply = sanitizeGroundedText(decision.reply, groundingFacts);
+  const groundedReply = sanitizeGroundedText(bindOfferingPrices(decision.reply, selectedOfferings.length ? selectedOfferings : profile.offerings ?? []), groundingFacts);
   const groundedQuestion = decision.nextQuestion ? sanitizeGroundedText(decision.nextQuestion, groundingFacts) : null;
   const groundedHandoffReason = decision.handoffReason ? sanitizeGroundedText(decision.handoffReason, groundingFacts) : null;
-  const rawReply = redactAngolanPhoneCandidates(groundedReply);
+  const rawReply = knownPriceReply ?? redactAngolanPhoneCandidates(groundedReply);
   // Keep the WhatsApp-like chat readable even when the model ignores the limit.
   const compactReply = rawReply
     .replace(/\*\*/g, "")
     .replace(/^[-*#]\s*/gm, "")
     .replace(/\n{2,}/g, "\n")
-    .split(/(?<=[.!?])\s+/)
-    .slice(0, 2)
-    .join(" ")
-    .trim()
-    .slice(0, 320)
     .trim();
   let reply = extractedPhone
     ? "Obrigado. O link do WhatsApp da empresa está abaixo."
     : contactDeclined
-      ? "Tudo bem. Continuamos por aqui."
+      ? `Tudo bem, sem guardar o teu contacto. ${compactReply}`
       : compactReply || "Posso ajudar-te com isso. O que procuras exactamente?";
-  if (isTrafficWelcome) {
-    reply = buildTrafficWelcomeReply(
-      trafficWelcomeSubject(lead),
-      approvedResources.map((resource) => resource.kind),
-    );
-  } else if (isInterestOnly) {
-    reply = buildInterestDiscoveryReply(approvedResources.map((resource) => resource.kind));
-  }
   // Model action/intent are advisory only. The server remains the sole authority
   // for capabilities, consent and the actual next action.
   const proposedAction = strategyConfig?.availableActions.includes(
@@ -1159,7 +1190,7 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
     && !["purchase", "human", "closing", "research", "disinterested"].includes(currentIntent)) {
     // Keep the model's single useful question, but never allow it to become a
     // second CTA or an unvalidated contact instruction.
-    reply = `${reply} ${groundedQuestion}`.slice(0, 320).trim();
+    reply = `${reply} ${groundedQuestion}`.trim();
   }
   if (
     groundedHandoffReason
@@ -1174,7 +1205,9 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
     ? orderedOfferings.filter((offering) => decision.recommendedOfferings.some((name) =>
       name.toLocaleLowerCase("pt-AO") === offering.name.toLocaleLowerCase("pt-AO")))
     : [];
-  const explicitlyRequestedProducts = selectLeadChatProducts(orderedOfferings, safeUserMessage, parseCommercialAmount(updatedMemory.criteria.find((item) => item.value.startsWith("Orçamento:"))?.value ?? ""), updatedMemory.criteria.map((item) => item.value));
+  const productMessage = conversationPlan.decision.intent === "compare" ? `Quero comparar ${userMessage}`
+    : conversationPlan.decision.intent === "explore" ? `Mostra opções ${userMessage}` : userMessage;
+  const explicitlyRequestedProducts = selectLeadChatProducts(selectedOfferings.length ? selectedOfferings : orderedOfferings, productMessage, parseCommercialAmount(updatedMemory.criteria.find((item) => item.value.startsWith("Orçamento:"))?.value ?? ""), updatedMemory.criteria.map((item) => item.value));
   const products = explicitlyRequestedProducts.length > 0
     ? (currentIntent !== "purchase" && namedProducts.length > 0 ? namedProducts.filter((item) => explicitlyRequestedProducts.some((allowed) => allowed.name === item.name)).slice(0, 3) : explicitlyRequestedProducts)
     : [];
@@ -1186,39 +1219,22 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
     }
     if (updatedMemory.stage === "understand") updatedMemory.stage = "recommend";
   }
-  const candidateNextAction = chooseNextAction({
-    memory: updatedMemory,
-    strategy: strategyConfig,
-    contactStatus: lead.contactConsentStatus,
-    hasPaidOrder: relatedOrders.some((order) => order.status === "paga"),
-    hasPendingOrder: relatedOrders.some((order) => order.status === "pendente"),
-    hasCatalog: Boolean(profile.catalogEnabled && profile.offerings?.length),
-    hasWhatsApp: Boolean(profile.phone),
-    currentMessage: userMessage,
-    offeringNames,
-  });
+  const candidateNextAction = conversationPlan.nextAction;
   const nextAction = !contactCaptured && !shouldRequestContact
     ? candidateNextAction
     : { type: "none" as const, reason: "Sem acção explícita nesta mensagem" };
   const compactedReply = compactCommercialReply(reply, userMessage, updatedMemory.answeredQuestions, offeringNames)
     || (["closing", "research", "disinterested"].includes(currentIntent) ? "Tudo bem. Estamos por aqui quando precisares." : "Posso continuar a ajudar por aqui.");
   const resourceReply = resourceRequestRegistered
-    ? `Pedido registado sobre ${pendingProposal?.subject ?? "a oferta"}. A equipa recebeu o pedido e poderá responder nesta conversa.`
+    ? "Pedido registado para revisão pela equipa."
     : approvedResources.length
-      ? `Aqui estão ${approvedResources.length === 1 ? "o recurso aprovado" : "os recursos aprovados"} sobre ${requestedResource?.subject ?? "a oferta"}.`
+      ? `Podes abrir ${approvedResources.length === 1 ? "o material" : "os materiais"} abaixo.`
       : requestedResource && updatedMemory.pendingProposal
-        ? `Não encontrei ${requestedResource.kind === "image" ? "uma imagem" : requestedResource.kind === "video" ? "um vídeo" : requestedResource.kind === "document" ? "um documento" : "esse detalhe"} aprovado sobre ${requestedResource.subject}. Posso registar um pedido interno para a equipa rever.`
+        ? `Não tenho ${requestedResource.kind === "image" ? "mais imagens" : requestedResource.kind === "video" ? "um vídeo" : requestedResource.kind === "document" ? "um documento" : "esse detalhe"} para mostrar aqui. Queres que registe um pedido para a equipa rever?`
         : null;
-  const interestQuestion = strategyConfig?.essentialQuestions.find((question) =>
-    !commercialQuestionAnswered(question, updatedMemory.answeredQuestions),
-  ) ?? "O que pesa mais para ti nesta opção?";
-  const contextAwareReply = isTrafficWelcome || isInterestOnly
-    ? reply
-    : resourceReply
+  const contextAwareReply = resourceReply && !isTrafficWelcome && !isInterestOnly
     ? `${contactCaptured ? "Obrigado. Guardámos o teu WhatsApp com autorização. " : contactDeclined ? "Tudo bem. Continuamos por aqui sem guardar o teu WhatsApp. " : ""}${resourceReply}`
-    : /^interessante\b/i.test(safeUserMessage) && !compactedReply.includes("?")
-      ? `${compactedReply} ${interestQuestion}`
-      : compactedReply;
+    : compactedReply;
   reply = withContactRequest(contextAwareReply);
   finalizeCommercialSummary(updatedMemory, nextAction);
   // Keep this advisory value observable in the response context without
@@ -1259,11 +1275,25 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
       leadWhere,
       sql`${leadsTable.commercialMemory}->>'revision' = ${String(lead.commercialMemory.revision)}`,
     );
-  const rows = await db
+  const rows = await db.transaction(async (tx) => {
+  const committed = await tx
     .update(leadsTable)
     .set({
       chatMessages: sql`${leadsTable.chatMessages} || ${JSON.stringify(appended)}::jsonb`,
       commercialMemory: updatedMemory,
+      aiSummary: updatedMemory.factualSummary,
+      score: ["perdido", "entregue"].includes(lead.state) || updatedMemory.ownerCorrectedFields?.includes("score") ? lead.score
+        : Math.max(lead.score ?? 0, conversationPlan.decision.interest === "explicit_purchase" ? 70
+          : updatedMemory.criteria.length >= 2 && updatedMemory.interests.length > 0 ? 60 : 30),
+      state: ["entregue", "perdido", "qualificado"].includes(lead.state) ? lead.state
+        : conversationPlan.decision.interest === "explicit_purchase"
+          || (updatedMemory.criteria.length >= 2 && updatedMemory.interests.length > 0) ? "qualificado" : "em_atendimento",
+      qualificationData: {
+        ...lead.qualificationData,
+        interest: updatedMemory.interests.map(item => item.value).join(", ") || lead.qualificationData.interest,
+        budget: updatedMemory.criteria.find(item => item.value.startsWith("Orçamento:"))?.value ?? lead.qualificationData.budget,
+        timeline: conversationPlan.decision.urgency ?? lead.qualificationData.timeline,
+      },
       ...contactMutation,
       ...(options?.trafficWelcomeClaimToken
         ? {
@@ -1276,6 +1306,11 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
     })
     .where(guardedWhere)
     .returning({ id: leadsTable.id });
+  if (committed[0] && resourceRequestRegistered && pendingProposal) {
+    await registerVisitorResourceRequest(businessId, leadId, pendingProposal, resourceRequestSummary, tx);
+  }
+  return committed;
+  });
   if (!rows[0]) {
     if (options?.requestId) {
       await db.delete(leadChatRequestsTable).where(and(

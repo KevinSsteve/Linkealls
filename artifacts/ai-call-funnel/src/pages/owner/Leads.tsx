@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import {
   ArrowLeft, Search, Phone, MessageCircle, Star,
   ChevronRight, User, DollarSign, Clock, MapPin,
-  FileText, ExternalLink, RefreshCw,
+  FileText, ExternalLink, RefreshCw, Target, AlertTriangle,
+  ListChecks, ArrowRightCircle, BadgeCheck, Lightbulb,
 } from "lucide-react";
-import { businessApi, type Lead, type LeadState } from "../../lib/api";
+import { businessApi, type Lead, type LeadState, type SalesDecision } from "../../lib/api";
 import { useBusinessSlug } from "../../hooks/useBusinessSlug";
 import { OwnerNav } from "../../components/owner/OwnerNav";
 import { C } from "../../theme";
@@ -52,6 +53,121 @@ function getLeadContact(lead: Lead) {
 function scoreColor(score: number) {
   if (score >= 80) return "#2E7D32"; if (score >= 60) return "#00838F";
   if (score >= 40) return "#E65100"; return "#C62828";
+}
+
+const SALES_STAGE_LABELS: Record<string, string> = {
+  discovery: "Descoberta",
+  interest: "Interesse",
+  qualification: "Qualificação",
+  consideration: "Consideração",
+  objection: "Tratamento de objecção",
+  negotiation: "Negociação",
+  purchase: "Compra",
+  post_sale: "Pós-venda",
+  reactivation: "Reactivação",
+};
+
+const SALES_ACTION_LABELS: Record<string, string> = {
+  none: "Aguardar atendimento do dono",
+  answer_question: "Responder ao pedido",
+  ask_question: "Fazer uma pergunta útil",
+  show_catalog: "Mostrar o catálogo",
+  show_product: "Mostrar produto",
+  show_service: "Mostrar serviço",
+  send_company_contact: "Partilhar contacto do negócio",
+  request_customer_contact: "Pedir contacto com consentimento",
+  send_location: "Partilhar localização",
+  send_media: "Partilhar fotos ou vídeo aprovado",
+  recommend_product: "Recomendar uma opção",
+  compare_products: "Comparar opções",
+  qualify_need: "Esclarecer a necessidade",
+  qualify_budget: "Esclarecer o orçamento",
+  qualify_timing: "Esclarecer o prazo",
+  handle_objection: "Responder à objecção",
+  propose_visit: "Propor uma visita",
+  propose_call: "Propor uma chamada",
+  create_follow_up: "Preparar acompanhamento",
+  reactivate_lead: "Retomar a conversa",
+  handoff_to_human: "Passar para atendimento humano",
+  close_sale: "Concluir a venda confirmada",
+};
+
+const SALES_INTEREST_LABELS: Record<string, string> = {
+  unqualified: "Demonstrado, ainda não qualificado",
+  explicit_purchase: "Compra pedida explicitamente",
+};
+
+const SALES_OBJECTION_LABELS: Record<string, string> = {
+  price: "Preço",
+  trust: "Confiança",
+  timing: "Prazo",
+  comparison: "Comparação",
+  need: "Necessidade",
+  location: "Localização",
+  conditions: "Condições",
+  other: "Outra dúvida ou objecção",
+};
+
+const SALES_OUTCOME_LABELS: Record<string, string> = {
+  response_planned: "Resposta planeada",
+  resources_available: "Recursos aprovados disponibilizados",
+  request_registered: "Pedido interno registado",
+  payment_confirmed: "Pagamento confirmado",
+};
+
+function safeDecisionLabel(labels: Record<string, string>, value: string, fallback: string): string {
+  return labels[value.trim().toLowerCase()] ?? fallback;
+}
+
+function SalesDecisionSummary({ decision }: { decision: SalesDecision }) {
+  const stage = safeDecisionLabel(SALES_STAGE_LABELS, decision.stage, "Etapa comercial actualizada");
+  const action = safeDecisionLabel(SALES_ACTION_LABELS, decision.action, "Próximo passo definido pela IA");
+  const interest = safeDecisionLabel(SALES_INTEREST_LABELS, decision.interest, "Interesse registado");
+  const objection = decision.objection
+    ? safeDecisionLabel(SALES_OBJECTION_LABELS, decision.objection, "Outra dúvida ou objecção")
+    : null;
+  const outcome = safeDecisionLabel(SALES_OUTCOME_LABELS, decision.outcome, "Actualização factual registada");
+
+  return (
+    <InfoCard title="Situação comercial">
+      <DetailRow icon={Target} label="Etapa" value={stage} />
+      <DetailRow icon={Lightbulb} label="Necessidade" value={decision.need || "Ainda por identificar"} />
+      <DetailRow icon={Star} label="Interesse" value={interest} />
+      {decision.urgency && <DetailRow icon={Clock} label="Urgência declarada" value={decision.urgency} />}
+      <DetailRow icon={AlertTriangle} label="Objecção" value={objection || "Nenhuma objecção registada"} />
+      <DetailRow
+        icon={ListChecks}
+        label="Dados em falta"
+        value={decision.missingData.length ? decision.missingData.join(" · ") : "Nenhum dado essencial em falta"}
+      />
+      <DetailRow icon={ArrowRightCircle} label="Próximo passo" value={action} />
+      {decision.reason && <DetailRow icon={Lightbulb} label="Motivo do próximo passo" value={decision.reason} />}
+      <div className="pt-2" style={{ borderTop: `1px solid ${C.border}` }}>
+        <DetailRow icon={BadgeCheck} label="Resultado factual registado" value={outcome} />
+        <div className="mt-2 pl-7">
+          <p className="text-[11px]" style={{ color: C.text3 }}>Evidência declarada na conversa</p>
+          {decision.evidence.length ? (
+            <>
+              <ul className="mt-1 space-y-1">
+                {decision.evidence.map((item, index) => (
+                  <li key={`${item}-${index}`} className="text-[13px] leading-relaxed" style={{ color: C.text2 }}>
+                    • “{item}”
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-1.5 text-[11px] leading-relaxed" style={{ color: C.text3 }}>
+                Apoia a interpretação da conversa; por si só não confirma compra nem pagamento.
+              </p>
+            </>
+          ) : (
+            <p className="mt-1 text-[13px] italic" style={{ color: C.text3 }}>
+              Nenhuma evidência textual registada neste turno.
+            </p>
+          )}
+        </div>
+      </div>
+    </InfoCard>
+  );
 }
 
 // ─── Lead Row ────────────────────────────────────────────────────────────────
@@ -214,6 +330,11 @@ function LeadDetail({ lead: initialLead, onBack, onStateChange, api }: {
             <p className="text-[13px] italic" style={{ color: C.text3 }}>Sem dados extraídos ainda</p>
           )}
         </InfoCard>
+
+        {/* Validated sales decision; absent on leads created before this runtime. */}
+        {lead.commercialMemory.salesDecision && (
+          <SalesDecisionSummary decision={lead.commercialMemory.salesDecision} />
+        )}
 
         {/* AI Summary */}
         {lead.aiSummary && (
