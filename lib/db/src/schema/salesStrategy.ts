@@ -97,7 +97,7 @@ export const salesOutcomeEventsTable = pgTable("sales_outcome_events", {
   strategyVersionId: uuid("strategy_version_id"),
   sourceType: text("source_type"),
   sourceId: uuid("source_id"),
-  event: text("event").$type<"welcome" | "recommendation" | "cta_accepted" | "cta_declined" | "checkout" | "payment_confirmed" | "handoff" | "resumed">().notNull(),
+  event: text("event").$type<"welcome" | "recommendation" | "cta_accepted" | "cta_declined" | "checkout" | "payment_confirmed" | "handoff" | "resumed" | "quote_requested" | "visit_requested" | "appointment_requested" | "contact_requested" | "continuation">().notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (table) => [index("sales_outcome_business_idx").on(table.businessId, table.createdAt)]);
 

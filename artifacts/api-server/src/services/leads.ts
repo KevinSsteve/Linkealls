@@ -18,7 +18,7 @@ import {
 } from "@workspace/db";
 import { eq, and, desc, isNull, lt, or, sql } from "drizzle-orm";
 import { logger } from "../lib/logger.js";
-import { buildLeadChatContext, selectLeadChatProducts } from "../lib/leadChatContext.js";
+import { buildLeadChatContext, compactCommercialReply, selectLeadChatProducts } from "../lib/leadChatContext.js";
 import { getOrCreateProfile } from "./businessProfile.js";
 import { sendPushToOwner } from "./notifications.js";
 import {
@@ -29,7 +29,7 @@ import {
   saveInteractionMemory,
   summarizeOldInteraction,
 } from "./businessBrain.js";
-import { commercialMemoryPrompt, chooseNextAction, retryCommercialMemoryCas, updateCommercialMemory, type SalesNextAction } from "../lib/commercialSales.js";
+import { commercialIntent, commercialQuestionAnswered, finalizeCommercialSummary, parseCommercialAmount, commercialMemoryPrompt, chooseNextAction, retryCommercialMemoryCas, updateCommercialMemory, type SalesNextAction } from "../lib/commercialSales.js";
 import { ensureAutomaticStrategyVersion, deriveAutomaticStrategy, resolveSalesStrategy } from "./salesStrategy.js";
 import { applySalesStrategyOverride, orderOfferingsForStrategy } from "../lib/salesStrategyRuntime.js";
 import { sanitizeGroundedText } from "../lib/salesGrounding.js";
@@ -63,10 +63,6 @@ export interface WhatsAppHandoff {
 function contactWasRequested(lead: Lead): boolean {
   if (lead.contactConsentStatus !== "pending") return false;
   return lead.chatMessages.some((message) => message.role === "bot" && message.contactRequested === true);
-}
-
-function currentTurnSupportsAction(message: string): boolean {
-  return /\b(produto|produtos|serviço|serviços|catálogo|catalogo|preço|preços|comprar|compra|pagamento|orçamento|orcamento|marcação|marcacao|visita|falar com|dono|equipa|whatsapp|contacto|acompanhar pedido)\b/i.test(message);
 }
 
 export function leadContactView(lead: Pick<Lead, "contactConsentStatus" | "contactPhone" | "contactPurpose" | "contactCapturedAt">): LeadContactView {
@@ -683,6 +679,8 @@ export async function chatWithLead(
       : redactAngolanPhoneCandidates(userMessage);
   const brain = await loadBusinessBrain(businessId, { leadId, query: safeUserMessage });
   const profile = brain.profile;
+  const offeringNames = (profile.offerings ?? []).map((offering) => offering.name);
+  const currentIntent = commercialIntent(userMessage, offeringNames);
 
   const relatedOrders = await db
     .select({
@@ -726,9 +724,7 @@ export async function chatWithLead(
   if (strategyConfig) {
     if (!updatedMemory.ownerCorrectedFields?.includes("missingData")) {
       updatedMemory.missingData = strategyConfig.essentialQuestions.filter((question) =>
-        !updatedMemory.answeredQuestions.some((answered) =>
-          question.toLocaleLowerCase("pt-AO").includes(answered.toLocaleLowerCase("pt-AO")),
-        ),
+        !commercialQuestionAnswered(question, updatedMemory.answeredQuestions),
       ).slice(0, 5);
     }
   }
@@ -753,20 +749,37 @@ export async function chatWithLead(
     && !refusedContact
     && Boolean(profile.phone)
     && (
-      options?.requestContactConsent === true
-      || updatedMemory.pendingAction === "owner_handoff"
-      || updatedMemory.pendingAction === "quote_request"
-      || updatedMemory.pendingAction === "appointment_request"
-      || updatedMemory.pendingAction === "visit_request"
-      || Boolean(updatedMemory.escalationReason)
+      (strategyConfig.objective === "contact" && strategyConfig.availableActions.includes("contact")
+        && ((resolvedStrategy.strategy?.name !== "Estratégia automática" && Boolean(resolvedStrategy.strategy?.approvedAt))
+          || resolvedStrategy.override?.config.objective === "contact")
+        && !["purchase", "post_sale", "closing", "research", "contact_refusal", "disinterested", "alternative", "compare"].includes(currentIntent))
+      || (currentIntent === "human" && /whatsapp|deixar.*contacto/i.test(userMessage)
+        && strategyConfig.availableActions.includes("contact"))
     )
   );
   const contactRequestPrompt = "Para continuarmos no WhatsApp, envia o teu número ou diz “Agora não”.";
+  // Events describe observed visitor requests, not completed bookings or inferred abandonment.
+  const recordTurnOutcome = (products: unknown[]) => {
+    const intent = currentIntent;
+    const event = contactDeclined ? "cta_declined" : contactCaptured ? "cta_accepted"
+      : shouldRequestContact ? "contact_requested"
+      : intent === "quote" ? "quote_requested"
+      : intent === "visit" ? "visit_requested"
+      : intent === "appointment" ? "appointment_requested"
+      : intent === "human" ? "handoff"
+      : options?.trafficWelcomeClaimToken ? "welcome"
+      : products.length ? "recommendation" : "continuation";
+    void db.insert(salesOutcomeEventsTable).values({
+      businessId, leadId, strategyVersionId: resolvedStrategy.strategy?.id,
+      sourceType: trustedCreativeId ? "traffic_creative" : trustedCampaignId ? "campaign" : undefined,
+      sourceId: trustedCreativeId ?? trustedCampaignId, event,
+    }).catch((err) => logger.warn({ err, businessId, leadId }, "Failed to record privacy-safe sales event"));
+  };
   const withContactRequest = (text: string): string => {
     if (!shouldRequestContact) return text;
     const firstSentence = text.replace(/\s+/g, " ").trim().split(/(?<=[.!?])\s+/)[0]
       || "A equipa pode continuar contigo.";
-    return `${firstSentence.replace(/[.!?]?$/, ".")} ${contactRequestPrompt}`.slice(0, 360);
+    return `${firstSentence.slice(0, 220).replace(/[.!?]?$/, ".")} ${contactRequestPrompt}`;
   };
   const { systemInstruction, prompt } = buildLeadChatContext(
     safeLead,
@@ -792,7 +805,7 @@ export async function chatWithLead(
 Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém da equipa de ${profile.name || "este negócio"}, não como a Linkealls. Usa apenas ofertas e factos presentes no contexto. Não menciones um número de telefone, fotos, vídeos ou uma acção do proprietário sem confirmação no contexto.`,
   );
   if (!generation) {
-    const fallbackProducts = selectLeadChatProducts(profile.offerings ?? [], safeUserMessage);
+    const fallbackProducts = selectLeadChatProducts(profile.offerings ?? [], safeUserMessage, parseCommercialAmount(updatedMemory.criteria.find((item) => item.value.startsWith("Orçamento:"))?.value ?? ""), updatedMemory.criteria.map((item) => item.value));
     const fallbackReply = withContactRequest(extractedPhone
       ? "Obrigado. Guardámos o teu WhatsApp com autorização e já podes continuar com a equipa pelo encaminhamento abaixo."
       : contactDeclined
@@ -800,8 +813,10 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
         : updatedMemory.pendingAction === "owner_handoff" || updatedMemory.escalationReason
       ? "Não tenho essa informação confirmada. A equipa pode ajudar."
       : fallbackProducts.length
-      ? `Temos ${fallbackProducts.slice(0, 2).map((item) => `${item.name} (${item.price})`).join(" e ")}. O que é mais importante para ti nesta escolha?`
-      : "Quero ajudar-te a encontrar a opção certa. O que procuras exactamente?");
+      ? `No catálogo: ${fallbackProducts.slice(0, 2).map((item) => `${item.name} (${item.price})`).join(" e ")}.`
+       : ["closing", "research", "disinterested"].includes(currentIntent)
+         ? "Tudo bem. Estamos por aqui quando precisares."
+         : "Não consegui preparar uma resposta neste momento. Podes tentar novamente?");
     const candidateFallbackNextAction = chooseNextAction({
       memory: updatedMemory,
       strategy: strategyConfig,
@@ -810,11 +825,14 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
       hasPendingOrder: relatedOrders.some((order) => order.status === "pendente"),
       hasCatalog: Boolean(profile.catalogEnabled && profile.offerings?.length),
       hasWhatsApp: Boolean(profile.phone),
+      currentMessage: userMessage,
+      offeringNames,
     });
-    const fallbackNextAction = !contactCaptured && currentTurnSupportsAction(userMessage)
+    const fallbackNextAction = !contactCaptured && !shouldRequestContact
       ? candidateFallbackNextAction
       : { type: "none" as const, reason: "Sem acção explícita nesta mensagem" };
     const fallbackResponse = { reply: fallbackReply, products: fallbackProducts, nextAction: fallbackNextAction, contactCaptured };
+    finalizeCommercialSummary(updatedMemory, fallbackNextAction);
     const fallbackTs = new Date().toISOString();
     const fallbackAppended: ChatMessage[] = [
       { role: "user", text: safeUserMessage, ts: fallbackTs, requestId: options?.requestId },
@@ -886,6 +904,7 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
       latencyMs: Date.now() - startedAt,
       inputForHash: safeUserMessage,
     }).catch(() => undefined);
+    recordTurnOutcome(fallbackProducts);
     return fallbackResponse;
   }
   const decision = generation.decision;
@@ -923,14 +942,15 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
   const proposedAction = strategyConfig?.availableActions.includes(
     decision.proposedAction as (typeof strategyConfig.availableActions)[number],
   ) ? decision.proposedAction : "none";
-  if (groundedQuestion && !reply.includes("?")) {
+  if (groundedQuestion && !reply.includes("?") && !contactCaptured && !contactDeclined && !shouldRequestContact
+    && !["purchase", "human", "closing", "research", "disinterested"].includes(currentIntent)) {
     // Keep the model's single useful question, but never allow it to become a
     // second CTA or an unvalidated contact instruction.
     reply = `${reply} ${groundedQuestion}`.slice(0, 320).trim();
   }
   if (
     groundedHandoffReason
-    && (decision.intent === "human" || proposedAction === "owner_handoff")
+    && currentIntent === "human"
     && !updatedMemory.ownerCorrectedFields?.includes("escalationReason")
   ) {
     updatedMemory.escalationReason = groundedHandoffReason.slice(0, 300);
@@ -941,9 +961,9 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
     ? orderedOfferings.filter((offering) => decision.recommendedOfferings.some((name) =>
       name.toLocaleLowerCase("pt-AO") === offering.name.toLocaleLowerCase("pt-AO")))
     : [];
-  const explicitlyRequestedProducts = selectLeadChatProducts(orderedOfferings, safeUserMessage);
+  const explicitlyRequestedProducts = selectLeadChatProducts(orderedOfferings, safeUserMessage, parseCommercialAmount(updatedMemory.criteria.find((item) => item.value.startsWith("Orçamento:"))?.value ?? ""), updatedMemory.criteria.map((item) => item.value));
   const products = explicitlyRequestedProducts.length > 0
-    ? (namedProducts.length > 0 ? namedProducts.slice(0, 3) : explicitlyRequestedProducts)
+    ? (currentIntent !== "purchase" && namedProducts.length > 0 ? namedProducts.filter((item) => explicitlyRequestedProducts.some((allowed) => allowed.name === item.name)).slice(0, 3) : explicitlyRequestedProducts)
     : [];
   if (products.length > 0) {
     if (!updatedMemory.ownerCorrectedFields?.includes("recommendationReason")) {
@@ -961,11 +981,15 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
     hasPendingOrder: relatedOrders.some((order) => order.status === "pendente"),
     hasCatalog: Boolean(profile.catalogEnabled && profile.offerings?.length),
     hasWhatsApp: Boolean(profile.phone),
+    currentMessage: userMessage,
+    offeringNames,
   });
-  const nextAction = !contactCaptured && currentTurnSupportsAction(userMessage)
+  const nextAction = !contactCaptured && !shouldRequestContact
     ? candidateNextAction
     : { type: "none" as const, reason: "Sem acção explícita nesta mensagem" };
-  reply = withContactRequest(reply);
+  reply = withContactRequest(compactCommercialReply(reply, userMessage, updatedMemory.answeredQuestions, offeringNames)
+    || (["closing", "research", "disinterested"].includes(currentIntent) ? "Tudo bem. Estamos por aqui quando precisares." : "Posso continuar a ajudar por aqui."));
+  finalizeCommercialSummary(updatedMemory, nextAction);
   // Keep this advisory value observable in the response context without
   // allowing it to bypass server checks. It is intentionally not returned as
   // nextAction, which is generated from consent and real capabilities.
@@ -1042,25 +1066,7 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
     ));
   }
 
-  const outcomeEvent = options?.trafficWelcomeClaimToken
-    ? "welcome"
-    : updatedMemory.stage === "handoff"
-      ? "handoff"
-      : products.length > 0
-        ? "recommendation"
-        : lead.chatMessages.length > 0 && lead.chatMessages.at(-1)?.role !== "user"
-          ? "resumed"
-          : null;
-  if (outcomeEvent) {
-    void db.insert(salesOutcomeEventsTable).values({
-      businessId,
-      leadId,
-      strategyVersionId: resolvedStrategy.strategy?.id,
-      sourceType: trustedCreativeId ? "traffic_creative" : trustedCampaignId ? "campaign" : undefined,
-      sourceId: trustedCreativeId ?? trustedCampaignId,
-      event: outcomeEvent,
-    }).catch((err) => logger.warn({ err, businessId, leadId }, "Failed to record privacy-safe sales event"));
-  }
+  recordTurnOutcome(products);
 
   const memorySummary = summarizeOldInteraction([...safeLead.chatMessages, ...appended]);
   if (memorySummary) {

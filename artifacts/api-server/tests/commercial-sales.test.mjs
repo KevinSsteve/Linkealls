@@ -53,8 +53,8 @@ test("contact refusal is respected without losing the commercial journey", () =>
     memory: empty(), contactStatus: "declined", hasPaidOrder: false, hasPendingOrder: false,
     hasCatalog: true, hasWhatsApp: true, strategy: strategy("catalog"),
   });
-  assert.equal(action.type, "catalog");
-  assert.match(action.reason, /contacto foi recusado/i);
+  assert.equal(action.type, "none");
+  assert.match(action.reason, /pergunta livre/i);
 });
 
 test("automatic CTAs are gated by the approved strategy and runtime capabilities", () => {
@@ -186,7 +186,8 @@ test("normal chat claims one revision before model effects and retention is boun
   const chatRuntime = leads.slice(leads.indexOf("export async function chatWithLead"), leads.indexOf("export async function correctCommercialMemory"));
   assert.match(schema, /lead_chat_request_revision_unique/);
   assert.ok(chatRuntime.indexOf("onConflictDoNothing") < chatRuntime.indexOf("generateSalesDecision"));
-  assert.ok(chatRuntime.indexOf("if (!rows[0])") < chatRuntime.indexOf("const outcomeEvent"));
+  assert.ok(chatRuntime.indexOf("if (!rows[0])") < chatRuntime.indexOf("recordTurnOutcome(products)"));
+  assert.ok(chatRuntime.indexOf("if (!fallbackRows[0])") < chatRuntime.indexOf("recordTurnOutcome(fallbackProducts)"));
   assert.match(chatRuntime, /trafficWelcomeClaimToken[\s\S]*commercialMemory}->>'revision'/);
   assert.match(retention, /COMMERCIAL_DATA_RETENTION_DAYS = 90/);
   assert.match(retention, /delete\(salesOutcomeEventsTable\)/);

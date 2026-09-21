@@ -624,6 +624,7 @@ export function Chat() {
   const [conversationError, setConversationError] = useState<string | null>(null);
   const [leadContact, setLeadContact] = useState<LeadContact | null>(null);
   const [whatsappHandoff, setWhatsappHandoff] = useState<WhatsAppHandoff | null>(null);
+  const [contactCapturedThisTurn, setContactCapturedThisTurn] = useState(false);
   const [welcomeRetry, setWelcomeRetry] = useState(0);
   const [trackingOrderId, setTrackingOrderId] = useState<string | null>(null);
   const [tracking, setTracking] = useState<OrderTracking | null>(null);
@@ -674,6 +675,7 @@ export function Chat() {
     setTrafficWelcomeStatus(session.trafficWelcomeStatus);
     setLeadContact(session.contact ?? null);
     setWhatsappHandoff(session.whatsappHandoff ?? null);
+    setContactCapturedThisTurn(false);
     setCallTriggered(restored.length > 0 || Boolean(session.trafficCreative));
   }, []);
 
@@ -872,6 +874,7 @@ export function Chat() {
   }, []);
 
   const applyContactResult = useCallback((sentText: string, result: LeadChatResult) => {
+    setContactCapturedThisTurn(Boolean(result.contactCaptured));
     if (result.contact) setLeadContact(result.contact);
     setWhatsappHandoff(result.whatsappHandoff ?? null);
     if (!result.contactCaptured) return;
@@ -898,6 +901,7 @@ export function Chat() {
       setStage("typing");
       setChatProducts(null);
       setNextAction(null);
+      setContactCapturedThisTurn(false);
       await new Promise((r) => setTimeout(r, isB2BMode ? 600 : 1200));
 
       // A scoped lead is a hard prerequisite for the call flow — without it
@@ -961,6 +965,7 @@ export function Chat() {
   const handleChatSend = useCallback(
     async (text: string, currentLeadId: string) => {
       setIsBusy(true);
+      setContactCapturedThisTurn(false);
       setStage("typing");
       setChatProducts(null);
       setNextAction(null);
@@ -1018,6 +1023,12 @@ export function Chat() {
       void refreshTracking();
       return;
     }
+    if (nextAction.type === "checkout" && chatProducts?.length === 1) {
+      setBuyModalOffering({ ...chatProducts[0]! });
+      setChatProducts(null);
+      setNextAction(null);
+      return;
+    }
     const prompts: Record<string, string> = {
       catalog: "Mostra-me as opções mais adequadas.",
       checkout: "Quero avançar com a compra. Vamos confirmar o produto e a quantidade.",
@@ -1028,7 +1039,7 @@ export function Chat() {
       visit_request: "Quero pedir uma visita.",
     };
     setInputValue(prompts[nextAction.type] ?? "");
-  }, [businessSlug, leadId, nextAction, refreshTracking, whatsappHandoff]);
+  }, [businessSlug, leadId, nextAction, refreshTracking, whatsappHandoff, chatProducts]);
 
   // ── Call flow ────────────────────────────────────────────────────────────
   const handleAccept = useCallback(() => {
@@ -1290,7 +1301,8 @@ export function Chat() {
               {messages.map((m) => (
                 <ChatBubble key={m.id} role={m.role} text={m.text} />
               ))}
-              {leadId && leadContact?.status === "consented" && whatsappHandoff && (
+              {stage === "chat" && !isBusy && leadId && leadContact?.status === "consented" && whatsappHandoff
+                && (nextAction?.type === "whatsapp" || (contactCapturedThisTurn && (!nextAction || nextAction.type === "none"))) && (
                 <WhatsAppHandoffCard
                   handoff={whatsappHandoff}
                   onClick={() => {
@@ -1371,7 +1383,7 @@ export function Chat() {
               />
             )}
 
-            {!isCallActive && nextAction && nextAction.type !== "none" && (
+            {!isCallActive && nextAction && nextAction.type !== "none" && nextAction.type !== "whatsapp" && (
               <div className="relative px-3 pb-2">
                 <button
                   type="button"

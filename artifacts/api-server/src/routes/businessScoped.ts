@@ -845,7 +845,7 @@ export function createBusinessScopedRouter(): Router {
           id,
           "Quero saber mais sobre este anúncio",
           bid(res),
-          { trafficWelcomeClaimToken: claimToken, requestContactConsent: true },
+          { trafficWelcomeClaimToken: claimToken },
         );
         res.json({ started: true, status: "complete", ...result });
       } catch (err) {

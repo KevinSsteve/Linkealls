@@ -5,7 +5,7 @@ export const OPENAI_SALES_MODEL = "gpt-6-astra";
 
 const decisionSchema = z.object({
   reply: z.string().trim().min(1).max(1600),
-  intent: z.enum(["explore", "product", "price", "objection", "purchase", "quote", "appointment", "visit", "human", "post_sale"]),
+  intent: z.enum(["explore", "product", "price", "objection", "purchase", "quote", "appointment", "visit", "human", "post_sale", "information", "compare", "alternative", "research", "disinterested", "closing"]),
   recommendedOfferings: z.array(z.string().trim().min(1).max(200)).max(3).default([]),
   nextQuestion: z.string().trim().max(300).nullable().default(null),
   handoffReason: z.string().trim().max(500).nullable().default(null),
@@ -28,7 +28,7 @@ const responseFormat = {
       additionalProperties: false,
       properties: {
         reply: { type: "string" },
-        intent: { type: "string", enum: ["explore", "product", "price", "objection", "purchase", "quote", "appointment", "visit", "human", "post_sale"] },
+        intent: { type: "string", enum: ["explore", "product", "price", "objection", "purchase", "quote", "appointment", "visit", "human", "post_sale", "information", "compare", "alternative", "research", "disinterested", "closing"] },
         recommendedOfferings: { type: "array", items: { type: "string" }, maxItems: 3 },
         nextQuestion: { type: ["string", "null"] },
         handoffReason: { type: ["string", "null"] },

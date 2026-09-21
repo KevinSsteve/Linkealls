@@ -93,6 +93,7 @@ export interface CommercialObservation {
 }
 export interface LeadCommercialMemory {
   revision: number;
+  currentIntent?: string;
   goal?: CommercialObservation;
   interests: CommercialObservation[];
   criteria: CommercialObservation[];
