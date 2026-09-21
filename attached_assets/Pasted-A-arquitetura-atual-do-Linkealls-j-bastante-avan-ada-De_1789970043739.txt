@@ -1,0 +1,802 @@
+A arquitetura atual do Linkealls já é bastante avançada. Depois de analisar o que já existe, não devemos reconstruir o sistema nem criar motores duplicados.
+
+O problema principal não é falta de arquitetura. O principal problema é que o agente ainda não está aproveitando plenamente a arquitetura, a memória comercial, o Intent, o Next Best Action e os demais recursos que já existem.
+
+Portanto, antes de qualquer implementação, a direção deve ser:
+
+NÃO RECONSTRUIR O SISTEMA.
+NÃO CRIAR MOTORES DUPLICADOS.
+NÃO SUBSTITUIR A ARQUITETURA EXISTENTE.
+NÃO REMOVER FUNCIONALIDADES EXISTENTES.
+
+O objetivo é REFINAR A INTELIGÊNCIA CONVERSACIONAL do agente existente.
+
+A arquitetura atual já possui:
+
+- Traffic / origem
+- Ad Context
+- Business Context
+- User Context
+- Commercial Memory
+- Intent + regras + IA
+- Next Best Action
+- Catálogo
+- Checkout
+- WhatsApp com consentimento
+- Quote Request
+- Appointment Request
+- Visit Request
+- Owner Handoff
+- Order Tracking
+- Qualificação pós-chamada
+- Lead Scoring
+- Human Control
+
+Devemos aproveitar tudo isso.
+
+O principal objetivo agora é fazer o Linkealls deixar de se comportar como um chatbot/FAQ e passar a se comportar como um verdadeiro AI Conversion Agent.
+
+O agente deve pensar:
+
+"Qual é o caminho mais provável para este visitante se tornar cliente?"
+
+E não simplesmente:
+
+"Como faço este lead chegar ao WhatsApp?"
+
+O WhatsApp é apenas UM dos possíveis destinos.
+
+Dependendo do contexto, o melhor próximo passo pode ser:
+
+- responder uma dúvida;
+- fazer uma pergunta de qualificação;
+- recomendar um produto;
+- recomendar uma alternativa;
+- mostrar catálogo;
+- pedir orçamento;
+- marcar uma visita;
+- marcar uma consulta;
+- avançar para checkout;
+- encaminhar para WhatsApp;
+- encaminhar para um vendedor;
+- acompanhar um pedido;
+- colocar o lead em nurture;
+- ou simplesmente encerrar a conversa.
+
+A regra principal deve ser:
+
+NEVER OPTIMIZE FOR CONTACT CAPTURE WHEN A BETTER CONVERSION ACTION IS AVAILABLE.
+
+O objetivo é gerar resultado comercial, não simplesmente coletar números de telefone.
+
+--------------------------------------------------
+1. NÃO CRIAR UMA NOVA ARQUITETURA
+--------------------------------------------------
+
+Não criar um novo Intent Engine se já existe lógica de intenção.
+
+Não criar uma nova Commercial Memory se já existe memória comercial.
+
+Não criar um novo Next Best Action se já existe esse sistema.
+
+Não criar um novo sistema de WhatsApp.
+
+Não criar um novo checkout.
+
+Não substituir o sistema de Lead Scoring existente.
+
+Não migrar o banco de dados sem necessidade.
+
+Não reconstruir a aplicação.
+
+Primeiro inspecione o código existente e identifique exatamente onde essas capacidades já estão implementadas.
+
+Depois refine o comportamento utilizando os componentes existentes.
+
+--------------------------------------------------
+2. O PRINCIPAL PROBLEMA A RESOLVER
+--------------------------------------------------
+
+O agente atualmente consegue entender o anúncio e responder perguntas, mas pode estar tentando converter para WhatsApp cedo demais.
+
+Exemplo atual:
+
+Usuário:
+"Quero saber mais sobre este anúncio."
+
+Agente:
+"É um T3 no Zango 3, por 17 milhões..."
+
+Até aqui está correto.
+
+Mas depois não devemos automaticamente fazer:
+
+"Para continuarmos no WhatsApp, envie o seu número."
+
+O agente primeiro deve determinar se existe uma oportunidade de qualificação ou conversão melhor.
+
+Por exemplo:
+
+Usuário:
+"Quero saber mais sobre este anúncio."
+
+Agente:
+"É um T3 no Zango 3, última paragem, próximo ao Colégio Espírito Santo, por 17 milhões Kz negociáveis. Tem uma suíte, WC de apoio, cozinha montada, internet instalada e quintal espaçoso. Procuras especificamente um T3?"
+
+Usuário:
+"Sim, mas só tenho 15 milhões."
+
+O agente deve reconhecer automaticamente:
+
+property_type = T3
+budget = 15M
+current_property_price = 17M
+intent = BUY
+constraint = budget
+current_offer = not ideal fit
+
+E não simplesmente encaminhar para WhatsApp.
+
+Uma resposta melhor seria:
+
+"Entendi. Este está um pouco acima do teu orçamento. Procuras apenas no Zango ou também consideras outras zonas? Posso procurar opções até 15 milhões."
+
+Isso é qualificação e conversão inteligente.
+
+--------------------------------------------------
+3. USAR A COMMERCIAL MEMORY EXISTENTE
+--------------------------------------------------
+
+A memória comercial já possui conceitos como:
+
+- goal
+- interests
+- criteria
+- constraints
+- objections
+- missingData
+- stage
+- pendingAction
+
+Use esses dados continuamente.
+
+O agente deve saber:
+
+1. O que já sabe.
+2. O que foi explicitamente declarado.
+3. O que foi inferido.
+4. O que foi confirmado.
+5. O que veio do proprietário/negócio.
+6. O que ainda falta.
+7. Qual informação realmente importa para a próxima decisão.
+
+Não perguntar novamente aquilo que já foi informado.
+
+--------------------------------------------------
+4. DECLARED / INFERRED / CONFIRMED / OWNER
+--------------------------------------------------
+
+Preservar e utilizar a distinção existente entre:
+
+- declared
+- inferred
+- confirmed
+- owner
+
+Exemplo:
+
+Usuário:
+"Tenho 15 milhões."
+
+Isso deve ser tratado como informação declarada.
+
+Se a IA pensar:
+
+"Provavelmente procura uma casa para a família."
+
+Isso é uma inferência.
+
+Se o usuário responder:
+
+"Sim, é para mim e para a minha esposa."
+
+Agora temos confirmação.
+
+Informações fornecidas pelo proprietário/negócio devem ter autoridade própria.
+
+Não tratar uma inferência da IA como equivalente a uma informação explicitamente declarada pelo usuário ou pelo negócio.
+
+--------------------------------------------------
+5. QUALIFICAÇÃO PROGRESSIVA
+--------------------------------------------------
+
+O objetivo não é fazer o máximo de perguntas.
+
+O objetivo é obter o máximo de informação comercial útil com o mínimo de fricção.
+
+Nunca transforme a conversa em formulário.
+
+Nunca faça várias perguntas desnecessárias na mesma mensagem.
+
+Preferir uma pergunta importante por vez.
+
+Uma pergunta só deve ser feita quando a resposta puder mudar:
+
+- a recomendação;
+- o produto;
+- a oferta;
+- a próxima ação;
+- a qualificação;
+- o destino;
+- ou a probabilidade de conversão.
+
+Se a informação já estiver disponível, não pergunte novamente.
+
+Exemplo:
+
+Usuário:
+"Procuro um T3 no Zango até 15 milhões para morar com a minha esposa."
+
+Extrair automaticamente:
+
+property_type = T3
+location = Zango
+budget = 15M
+purpose = own_residence
+household = couple
+
+Não perguntar novamente:
+
+"Qual imóvel procuras?"
+"Qual é o teu orçamento?"
+"Em que zona procuras?"
+
+Uma única mensagem já forneceu várias informações importantes.
+
+--------------------------------------------------
+6. INFORMATION GAIN PER TURN
+--------------------------------------------------
+
+O agente deve otimizar:
+
+INFORMATION GAIN PER CONVERSATIONAL TURN
+
+e não:
+
+NUMBER OF QUESTIONS ASKED
+
+A conversa deve ser eficiente.
+
+Quanto mais informação o usuário fornecer espontaneamente, menos perguntas o agente deve fazer.
+
+--------------------------------------------------
+7. INTENT
+--------------------------------------------------
+
+A intenção deve ser atualizada dinamicamente.
+
+O agente deve diferenciar, por exemplo:
+
+INFORMATION
+BROWSE
+COMPARE
+BUY
+BOOK
+QUOTE
+VISIT
+SUPPORT
+CONTACT_HUMAN
+JUST_RESEARCHING
+NOT_INTERESTED
+UNKNOWN
+
+Exemplo:
+
+"Quanto custa?"
+
+Pode ser INFORMATION.
+
+"Posso pagar hoje?"
+
+Pode ser BUY.
+
+"Tem outro produto mais barato?"
+
+Pode ser DISCOVERY / ALTERNATIVE.
+
+"Posso visitar amanhã?"
+
+Pode ser VISIT.
+
+A intenção deve mudar conforme a conversa evolui.
+
+--------------------------------------------------
+8. NEXT BEST ACTION
+--------------------------------------------------
+
+O Next Best Action existente deve ser tratado como uma das partes centrais do agente.
+
+Depois de cada mensagem relevante, o sistema deve avaliar:
+
+- O que já sabemos?
+- Qual é a intenção atual?
+- Qual é o estágio?
+- Existe uma necessidade ainda não resolvida?
+- Existe uma objeção?
+- Existe uma oportunidade de recomendação?
+- Existe uma alternativa melhor?
+- O usuário está pronto para conversão?
+- Qual é a menor próxima ação útil?
+- Qual ação tem maior probabilidade de gerar um resultado comercial?
+
+Possíveis ações:
+
+ANSWER
+ASK_QUALIFICATION
+RECOMMEND
+SHOW_ALTERNATIVES
+CAPTURE_CONTACT
+SEND_WHATSAPP
+CALL
+BOOK_APPOINTMENT
+SEND_TO_CHECKOUT
+CONNECT_HUMAN
+NURTURE
+END_CONVERSATION
+
+Não perguntar algo apenas porque existe um campo vazio na memória.
+
+Perguntar apenas quando essa informação for relevante para a próxima decisão.
+
+--------------------------------------------------
+9. CONTACT CAPTURE
+--------------------------------------------------
+
+Não pedir WhatsApp ou telefone cedo demais.
+
+Primeiro:
+
+1. Entender o usuário.
+2. Entender a intenção.
+3. Responder à necessidade.
+4. Identificar oportunidade comercial.
+5. Qualificar quando necessário.
+6. Definir o próximo passo.
+7. Só então solicitar contacto se isso facilitar a conversão.
+
+Sempre explicar o valor do próximo passo.
+
+Em vez de:
+
+"Envie o seu WhatsApp."
+
+Preferir:
+
+"Posso encaminhar-te diretamente para a equipa no WhatsApp para verificarem a disponibilidade e combinarem a visita. Queres continuar por lá?"
+
+O sistema deve continuar respeitando o consentimento existente.
+
+--------------------------------------------------
+10. ALTERNATIVE DISCOVERY
+--------------------------------------------------
+
+Quando o produto ou serviço atual não corresponde às necessidades do usuário, o agente deve procurar alternativas se o negócio possuir alternativas disponíveis.
+
+Exemplo:
+
+Produto atual:
+17M
+
+Orçamento:
+15M
+
+Em vez de:
+
+"Este custa 17M."
+
+Preferir:
+
+"Este está um pouco acima do teu orçamento. Posso procurar outras opções até 15 milhões. Queres manter o Zango ou também consideras outras zonas?"
+
+Isso deve funcionar para qualquer indústria.
+
+--------------------------------------------------
+11. UNIVERSALIDADE
+--------------------------------------------------
+
+Não implementar lógica específica apenas para imobiliário.
+
+O motor deve funcionar para:
+
+- imobiliárias
+- ecommerce
+- restaurantes
+- clínicas
+- escolas
+- empresas SaaS
+- consultorias
+- oficinas
+- salões
+- serviços profissionais
+- agências
+- lojas
+- qualquer negócio
+
+A arquitetura deve continuar genérica.
+
+O que muda por negócio deve ser:
+
+- catálogo;
+- oferta;
+- campos de qualificação;
+- critérios;
+- regras;
+- scoring;
+- objeções;
+- ações disponíveis;
+- destinos.
+
+O motor conversacional permanece universal.
+
+--------------------------------------------------
+12. EXEMPLO ECOMMERCE
+--------------------------------------------------
+
+Usuário:
+"Tem em preto?"
+
+Agente:
+"Sim, há disponibilidade em preto. Procuras a versão de 128 GB ou 256 GB?"
+
+Usuário:
+"128."
+
+Agente:
+"Perfeito. O de 128 GB está disponível por X. Queres finalizar a compra agora ou preferes falar com a equipa?"
+
+O agente não precisa perguntar informações irrelevantes.
+
+--------------------------------------------------
+13. EXEMPLO RESTAURANTE
+--------------------------------------------------
+
+Usuário:
+"Quanto custa o combo familiar?"
+
+Agente:
+"O combo familiar custa X e serve aproximadamente X pessoas. É para entrega ou levantamento?"
+
+Usuário:
+"Entrega."
+
+Agente:
+"Perfeito. Em que zona será a entrega?"
+
+A pergunta seguinte existe porque afeta diretamente a conversão.
+
+--------------------------------------------------
+14. EXEMPLO SAAS
+--------------------------------------------------
+
+Usuário:
+"Quanto custa?"
+
+Agente:
+"Posso indicar o plano mais adequado. Vais usar a plataforma sozinho ou para uma empresa?"
+
+Usuário:
+"Empresa."
+
+Agente:
+"Entendi. Quantas pessoas vão utilizar a plataforma?"
+
+A qualificação acontece progressivamente.
+
+--------------------------------------------------
+15. OBJEÇÕES
+--------------------------------------------------
+
+O agente deve identificar objeções como:
+
+- muito caro;
+- não agora;
+- preciso pensar;
+- preciso falar com alguém;
+- localização errada;
+- produto errado;
+- quero algo mais barato;
+- quero comparar;
+- não tenho certeza;
+- não quero fornecer contacto.
+
+Sempre que possível, responder com uma alternativa útil.
+
+Exemplo:
+
+Usuário:
+"Está muito caro."
+
+Agente:
+"Entendo. Queres que procure uma opção dentro de um orçamento mais baixo?"
+
+Não encerrar automaticamente.
+
+--------------------------------------------------
+16. NÃO SER INSISTENTE
+--------------------------------------------------
+
+Se o usuário disser:
+
+"Obrigado"
+"Ok"
+"Depois vejo"
+"Agora não"
+"Estou apenas a pesquisar"
+
+respeitar.
+
+Não reiniciar automaticamente a venda.
+
+Exemplo:
+
+"De nada 😊 Quando quiseres continuar, estamos por aqui."
+
+O agente deve saber quando terminar.
+
+--------------------------------------------------
+17. CONVERSÃO NÃO É SINÓNIMO DE WHATSAPP
+--------------------------------------------------
+
+O Linkealls deve entender que o objetivo final depende do negócio.
+
+Pode ser:
+
+VISITOR
+→ DISCOVERY
+→ QUALIFICATION
+→ RECOMMENDATION
+→ CHECKOUT
+
+Ou:
+
+VISITOR
+→ DISCOVERY
+→ QUALIFICATION
+→ WHATSAPP
+
+Ou:
+
+VISITOR
+→ NEED
+→ QUALIFICATION
+→ BOOKING
+
+Ou:
+
+VISITOR
+→ QUALIFICATION
+→ HUMAN SALES
+
+Ou:
+
+VISITOR
+→ INFORMATION
+→ NURTURE
+
+Não forçar todos os usuários para WhatsApp.
+
+--------------------------------------------------
+18. USAR O CONTEXTO DO ANÚNCIO
+--------------------------------------------------
+
+O Ad Context existente deve continuar sendo usado.
+
+O agente deve saber:
+
+- qual anúncio trouxe o visitante;
+- qual produto/serviço foi promovido;
+- preço;
+- características;
+- campanha;
+- origem;
+- objetivo;
+- informações aprovadas.
+
+O usuário não deve precisar repetir aquilo que acabou de ver no anúncio.
+
+--------------------------------------------------
+19. NÃO INVENTAR INFORMAÇÕES
+--------------------------------------------------
+
+Preservar todas as salvaguardas existentes.
+
+Nunca inventar:
+
+- preços;
+- disponibilidade;
+- descontos;
+- horários;
+- características;
+- políticas;
+- inventário;
+- garantias;
+- informações do negócio.
+
+Se a informação não existir, o agente deve dizer isso e encaminhar adequadamente.
+
+--------------------------------------------------
+20. HUMAN HANDOFF
+--------------------------------------------------
+
+Quando o lead precisar de um humano, utilizar o sistema de handoff existente.
+
+Ao transferir, gerar ou atualizar um resumo útil.
+
+Exemplo:
+
+LEAD SUMMARY
+
+Status: HOT
+Intent: BUY
+Interest: T3
+Budget: 15M Kz
+Location: Zango
+Timeline: This month
+Objection: Current property above budget
+Preferred next step: WhatsApp
+Contact consent: YES
+
+Resumo:
+
+"Lead procura um T3 no Zango, com orçamento aproximado de 15M Kz. O imóvel atual está acima do orçamento. Está aberto a alternativas e demonstra interesse em avançar este mês."
+
+O vendedor não deve precisar ler toda a conversa para entender o lead.
+
+--------------------------------------------------
+21. NÃO ALTERAR A UI DESNECESSARIAMENTE
+--------------------------------------------------
+
+O objetivo desta fase é refinar o comportamento do agente.
+
+Não redesenhar a aplicação inteira.
+
+Não substituir componentes visuais existentes sem necessidade.
+
+Não alterar fluxos que já funcionam.
+
+Só fazer mudanças de UI quando forem necessárias para suportar uma melhoria real na conversão ou experiência.
+
+--------------------------------------------------
+22. NÃO ALTERAR O QUE JÁ FUNCIONA
+--------------------------------------------------
+
+Preservar:
+
+- Ad Context;
+- Business Context;
+- User Context;
+- Commercial Memory;
+- consentimento;
+- WhatsApp;
+- checkout;
+- catálogo;
+- owner handoff;
+- human control;
+- next best action;
+- regras server-side;
+- segurança;
+- validações;
+- attribution;
+- lead tracking.
+
+O trabalho é de REFINAMENTO, não de reconstrução.
+
+--------------------------------------------------
+23. TESTES
+--------------------------------------------------
+
+Antes de considerar a implementação concluída, testar pelo menos:
+
+1. Usuário curioso.
+2. Usuário pronto para comprar.
+3. Usuário com orçamento insuficiente.
+4. Usuário procurando alternativa.
+5. Usuário apenas pesquisando.
+6. Usuário que recusa WhatsApp.
+7. Usuário que quer falar com humano.
+8. Usuário que muda de preferência.
+9. Usuário que fornece várias informações numa única mensagem.
+10. Usuário que diz apenas "Obrigado".
+11. Usuário vindo de anúncio.
+12. Usuário perguntando algo fora do anúncio.
+13. Usuário sem informação suficiente.
+14. Usuário comparando produtos.
+15. Usuário pronto para checkout.
+
+Para cada cenário verificar:
+
+- intenção;
+- memória atualizada;
+- dados extraídos;
+- perguntas feitas;
+- pendingAction;
+- nextBestAction;
+- destino;
+- comportamento de conversão;
+- experiência natural.
+
+--------------------------------------------------
+24. CRITÉRIO PRINCIPAL DE SUCESSO
+--------------------------------------------------
+
+O agente deve parecer menos como:
+
+"Um chatbot que tenta obter o meu contacto."
+
+E mais como:
+
+"Um assistente comercial que entende o que estou procurando e me ajuda a chegar ao próximo passo certo."
+
+A experiência ideal é:
+
+USER
+↓
+"Eu quero isto."
+
+AGENT
+↓
+"Entendi o que procuras."
+
+AGENT
+↓
+"Tenho esta opção / estas alternativas."
+
+AGENT
+↓
+"Para avançarmos, o melhor próximo passo é isto."
+
+USER
+↓
+CONVERSION
+
+--------------------------------------------------
+25. PRINCÍPIO FINAL
+--------------------------------------------------
+
+O objetivo NÃO é construir um chatbot mais inteligente.
+
+O objetivo é tornar o Linkealls melhor em:
+
+UNDERSTANDING
++
+QUALIFICATION
++
+RECOMMENDATION
++
+CONVERSION
++
+HANDOFF
+
+utilizando a arquitetura que já existe.
+
+A pergunta central que o agente deve responder em cada turno é:
+
+"Given everything I know about this visitor, what is the best next action to move this person closer to a successful business outcome while minimizing friction?"
+
+Não destruir a arquitetura atual.
+
+Não duplicar sistemas existentes.
+
+Não reconstruir funcionalidades que já existem.
+
+Refinar o cérebro conversacional existente.
+
+Antes de alterar o código:
+
+1. Inspecione a implementação atual.
+2. Identifique onde cada uma dessas capacidades já existe.
+3. Explique brevemente quais componentes serão reutilizados.
+4. Identifique exatamente quais partes precisam ser refinadas.
+5. Só então implemente as mudanças mínimas necessárias.
+
+O resultado deve ser uma evolução do agente atual, não uma nova aplicação.
