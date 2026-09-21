@@ -1323,8 +1323,9 @@ export function Chat() {
                    {m.resources && <ResourceLinks resources={m.resources} />}
                  </div>
               ))}
-              {stage === "chat" && !isBusy && leadId && leadContact?.status === "consented" && whatsappHandoff
-                && (nextAction?.type === "whatsapp" || (contactCapturedThisTurn && (!nextAction || nextAction.type === "none"))) && (
+              {stage === "chat" && !isBusy && leadId && whatsappHandoff
+                && (nextAction?.type === "whatsapp" ||
+                  (leadContact?.status === "consented" && contactCapturedThisTurn && (!nextAction || nextAction.type === "none"))) && (
                 <WhatsAppHandoffCard
                   handoff={whatsappHandoff}
                   onClick={() => {

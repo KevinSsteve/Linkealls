@@ -80,10 +80,10 @@ export function deriveAutomaticStrategy(profile: {
     escalationRules: ["Encaminhar quando faltar um facto aprovado ou o cliente pedir a equipa."],
     stageConditions: ["Responder primeiro; fazer no máximo uma pergunta relevante.", "Não confirmar marcação, visita ou entrega sem capacidade real."],
     availableActions: highValue
-      ? ["catalog", "visit_request", "contact", "owner_handoff"]
+      ? ["catalog", "visit_request", "contact", "whatsapp", "owner_handoff"]
       : service
         ? ["quote_request", "contact", "owner_handoff"]
-        : ["catalog", "checkout", "contact", "owner_handoff"],
+        : ["catalog", "checkout", "contact", "whatsapp", "owner_handoff"],
     tone: profile.toneOfVoice?.trim() || undefined,
   };
 }

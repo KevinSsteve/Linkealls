@@ -173,6 +173,7 @@ export function updateCommercialMemory(
   let stage = current.stage;
   let goal = current.goal;
   let pendingAction = current.pendingAction;
+  const previousPendingAction = current.pendingAction;
   let escalationReason = current.escalationReason;
   let interests = [...current.interests];
   let objections = [...current.objections];
@@ -228,10 +229,20 @@ export function updateCommercialMemory(
     criteria = [observation(`Local: ${location[1].trim()}`, "declared", now), ...criteria.filter((item) => !item.value.startsWith("Local:"))];
     answeredQuestions = [...new Set([...answeredQuestions, "localização"])];
   }
-  const timeline = text.match(/\b(hoje|amanhã|esta semana|este mês|urgente|sem pressa)\b/i);
-  if (timeline?.[1]) {
+  const visitDay = text.match(/\b(hoje|amanhã|esta semana|este mês)\b/i);
+  const visitTime = text.match(/\b(\d{1,2}(?::\d{2})?\s*h(?:oras?)?)\b/i);
+  const timeline = text.match(/\b(urgente|sem pressa)\b/i);
+  if (visitDay?.[1] || visitTime?.[1] || timeline?.[1]) {
     explicitFields.add("constraints");
-    constraints = [observation(`Prazo: ${timeline[1]}`, "declared", now), ...constraints.filter((item) => !item.value.startsWith("Prazo:"))];
+    constraints = [
+      ...(visitDay?.[1] ? [observation(`Data da visita: ${visitDay[1]}`, "declared", now)] : []),
+      ...(visitTime?.[1] ? [observation(`Hora da visita: ${visitTime[1]}`, "declared", now)] : []),
+      ...(timeline?.[1] ? [observation(`Prazo: ${timeline[1]}`, "declared", now)] : []),
+      ...constraints.filter((item) =>
+        !(visitDay?.[1] && item.value.startsWith("Data da visita:"))
+        && !(visitTime?.[1] && item.value.startsWith("Hora da visita:"))
+        && !(timeline?.[1] && item.value.startsWith("Prazo:"))),
+    ];
     answeredQuestions = [...new Set([...answeredQuestions, "prazo"])];
   }
   const intent = commercialIntent(text, offeringNames);
@@ -239,13 +250,29 @@ export function updateCommercialMemory(
   // Current declarations, not stale keyword matches, control automatic actions.
   pendingAction = actions[intent];
   explicitFields.add("pendingAction");
+  // A date or time supplied in response to a visit/quote question is a
+  // continuation of that request, not a new free-information intent.
+  if (!pendingAction && ["information", "contact_refusal"].includes(intent)
+    && ["visit_request", "appointment_request", "quote_request"].includes(previousPendingAction ?? "")
+    && (/\bhoje|amanhã|amanha|esta semana|este mês|este mes\b/i.test(text)
+      || /\b\d{1,2}(?::\d{2})?\s*h(?:oras?)?\b/i.test(text)
+      || /^(?:sim|pode ser|está bem|esta bem|ok)[.! ]*$/i.test(text.trim()))) {
+    pendingAction = previousPendingAction;
+    explicitFields.add("pendingAction");
+  }
+  if (intent === "contact_refusal"
+    && ["visit_request", "appointment_request", "quote_request", "checkout"].includes(previousPendingAction ?? "")) {
+    pendingAction = previousPendingAction;
+    explicitFields.add("pendingAction");
+  }
   if (pendingAction) {
     explicitFields.add("goal");
     explicitFields.add("stage");
   }
   // Do not turn a budget declaration into a request for a quotation.
-  if (!pendingAction) goal = current.goal;
-  else goal = observation({ purchase: "comprar", quote: "pedir orçamento", visit: "pedir visita", appointment: "pedir marcação", human: "falar com a equipa", post_sale: "acompanhar pedido" }[intent]!, "declared", now);
+  const declaredGoal = { purchase: "comprar", quote: "pedir orçamento", visit: "pedir visita", appointment: "pedir marcação", human: "falar com uma pessoa responsável", post_sale: "acompanhar pedido" }[intent];
+  if (!pendingAction || !declaredGoal) goal = current.goal;
+  else goal = observation(declaredGoal, "declared", now);
   if (!pendingAction) escalationReason = undefined;
   if (["closing", "research", "contact_refusal"].includes(intent)) stage = "understand";
   else if (intent === "disinterested") stage = "disinterested";
@@ -313,8 +340,9 @@ export function chooseNextAction(input: {
   if (input.currentMessage !== undefined) {
     const intent = commercialIntent(input.currentMessage, input.offeringNames ?? memory.interests.map((item) => item.value));
     if (["closing", "research", "contact_refusal", "disinterested", "information", "price", "objection"].includes(intent)) return { type: "none", reason: "Responder à necessidade actual sem forçar conversão" };
-    if (intent === "human" && /whatsapp/i.test(input.currentMessage) && permits("whatsapp") && input.hasWhatsApp && input.contactStatus === "consented") {
-      return { type: "whatsapp", label: "Continuar no WhatsApp", reason: "O cliente pediu este canal e autorizou o contacto" };
+    const refusedWhatsApp = /(?:\b(?:não|nao)\s+(?:quero|pretendo|desejo)(?:\s+\p{L}+){0,3}\s+whatsapp\b|\b(?:não|nao)\s+(?:pelo|no|via)\s+whatsapp\b|\bsem\s+(?:o\s+)?whatsapp\b)/iu.test(input.currentMessage);
+    if (intent === "human" && !refusedWhatsApp && permits("whatsapp") && input.hasWhatsApp) {
+      return { type: "whatsapp", label: "Continuar no WhatsApp", reason: "O cliente pediu o WhatsApp público da empresa" };
     }
     if (["alternative", "compare", "explore"].includes(intent)) return permits("catalog") && input.hasCatalog
       ? { type: "catalog", label: "Ver opções", reason: "Comparar opções relevantes" }

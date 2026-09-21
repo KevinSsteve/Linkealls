@@ -249,3 +249,56 @@ test("missing extraction provider still persists call lifecycle and transcript",
  assert.equal(store.rows.leadsTable[0].callTranscript,"Chamada concluída.");
  assert.ok(store.rows.leadsTable[0].callEndedAt);
 });
+
+test("visit flow keeps its objective through Sim -> Hoje -> 17h and requests consent once",async()=>{
+ reset();
+ store.profile.phone="923456789";
+ store.strategy.availableActions=["visit_request","contact","owner_handoff"];
+ await chatWithLead("lead","Quero marcar uma visita",1);
+ await chatWithLead("lead","Sim",1);
+ await chatWithLead("lead","Hoje",1);
+ const response=await chatWithLead("lead","17h",1);
+ const lead=store.rows.leadsTable[0];
+ assert.equal(lead.contactConsentStatus,"pending");
+ assert.equal(lead.commercialMemory.pendingAction,"visit_request");
+ assert.ok(lead.commercialMemory.constraints.some(item=>item.value==="Data da visita: Hoje"));
+ assert.ok(lead.commercialMemory.constraints.some(item=>item.value==="Hora da visita: 17h"));
+ assert.equal(lead.chatMessages.at(-1).contactRequested,true);
+ assert.match(response.reply,/número|contacto/i);
+ assert.doesNotMatch(response.reply,/equipa responsável|aguarda|espera/i);
+});
+
+test("visit contact refusal is preserved and never re-asks",async()=>{
+ reset();
+ store.profile.phone="923456789";
+ store.strategy.availableActions=["visit_request","contact","owner_handoff"];
+ await chatWithLead("lead","Quero marcar uma visita",1);
+ await chatWithLead("lead","Hoje",1);
+ await chatWithLead("lead","17h",1);
+ await chatWithLead("lead","Agora não",1);
+ const refused=store.rows.leadsTable[0];
+ assert.equal(refused.contactConsentStatus,"declined");
+ assert.equal(refused.commercialMemory.pendingAction,"visit_request");
+ const response=await chatWithLead("lead","Ainda quero a visita",1);
+ assert.equal(store.rows.leadsTable[0].chatMessages.at(-1).contactRequested,false);
+ assert.doesNotMatch(response.reply,/envia o teu número|dar seguimento/i);
+ assert.equal(store.rows.leadsTable[0].commercialMemory.pendingAction,"visit_request");
+});
+
+test("product ad purchase goes to checkout and an owner request uses public WhatsApp handoff",async()=>{
+ reset();
+ store.profile.phone="923456789";
+ store.strategy.availableActions=["catalog","checkout","whatsapp","owner_handoff"];
+ let response=await chatWithLead("lead","Quero comprar Produto B",1);
+ assert.equal(response.nextAction.type,"checkout");
+ assert.deepEqual(response.products.map(p=>p.name),["Produto B"]);
+ response=await chatWithLead("lead","Quero falar com o proprietário",1);
+ assert.equal(response.nextAction.type,"whatsapp");
+ assert.equal(store.rows.leadsTable[0].contactConsentStatus,"pending");
+ response=await chatWithLead("lead","Não quero WhatsApp; quero falar com o dono por aqui",1);
+ assert.equal(response.nextAction.type,"owner_handoff");
+ response=await chatWithLead("lead","Quero falar com o dono por aqui, sem WhatsApp",1);
+ assert.equal(response.nextAction.type,"owner_handoff");
+ response=await chatWithLead("lead","Não quero continuar no WhatsApp; quero falar com o dono por aqui",1);
+ assert.equal(response.nextAction.type,"owner_handoff");
+});

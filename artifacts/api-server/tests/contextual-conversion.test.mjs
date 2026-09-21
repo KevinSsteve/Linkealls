@@ -137,8 +137,8 @@ test("explicit consented WhatsApp beats generic human handoff with capability ga
     hasPaidOrder: false, hasPendingOrder: false,
   };
   assert.equal(sales.chooseNextAction(input).type, "whatsapp");
-  assert.notEqual(sales.chooseNextAction({ ...input, contactStatus: "pending" }).type, "whatsapp");
-  assert.notEqual(sales.chooseNextAction({ ...input, contactStatus: "declined" }).type, "whatsapp");
+  assert.equal(sales.chooseNextAction({ ...input, contactStatus: "pending" }).type, "whatsapp");
+  assert.equal(sales.chooseNextAction({ ...input, contactStatus: "declined" }).type, "whatsapp");
   assert.notEqual(sales.chooseNextAction({ ...input, hasWhatsApp: false }).type, "whatsapp");
   assert.notEqual(sales.chooseNextAction({ ...input, strategy: { availableActions: ["owner_handoff"] } }).type, "whatsapp");
   assert.equal(sales.chooseNextAction({ ...input, memory: { ...input.memory, humanControl: "owner" } }).type, "none");

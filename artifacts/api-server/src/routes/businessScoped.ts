@@ -202,7 +202,6 @@ function clearVisitorRecoveryCookie(res: Response, slug: string): void {
 }
 
 function visitorWhatsAppHandoff(res: Response, lead: import("@workspace/db").Lead) {
-  if (lead.contactConsentStatus !== "consented") return null;
   const profile = res.locals["businessProfile"] as {
     name?: string | null;
     phone?: string | null;

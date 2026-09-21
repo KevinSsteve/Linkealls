@@ -36,3 +36,9 @@ Measure observed requests separately from fulfilment or inferred intent.
 Resolve overlapping intent at clause level, and ground implicit commitments in the approved catalogue.
 
 **Why:** “Não comprar, só comparar” rejects a purchase, not the conversation. “Fico com [oferta]” can be a purchase without the verb comprar, but generic “quero saber” cannot. A specifically requested, consented WhatsApp channel must outrank the broader human-handoff category; permission to use a channel and intent to use it are both required.
+
+The assistant speaks as a member of the business and actively guides each qualified journey to one validated next step.
+
+**Why:** Referring to “the responsible team” as a third party or repeatedly saying confirmation is pending makes the assistant passive and leaves the visitor without a concrete action.
+
+**How to apply:** After answering, guide product intent to catalogue/checkout, a complete visit/appointment preference to structured contact consent when contact is absent, and an owner request to the business’s public WhatsApp when available. Respect explicit channel refusal and never call an unconfirmed visit confirmed.

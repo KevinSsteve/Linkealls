@@ -332,7 +332,6 @@ export async function recordLeadWhatsAppClick(id: string, businessId: number): P
     .where(and(
       eq(leadsTable.id, id),
       eq(leadsTable.businessId, businessId),
-      eq(leadsTable.contactConsentStatus, "consented"),
     ))
     .returning({ id: leadsTable.id });
   return Boolean(rows[0]);
@@ -949,6 +948,9 @@ export async function chatWithLead(
     redactAngolanPhoneCandidates(userMessage),
     (profile.offerings ?? []).map((offering) => offering.name),
   );
+  const effectiveRequestIntent = currentIntent === "information" && updatedMemory.pendingAction
+    ? ({ visit_request: "visit", appointment_request: "appointment", quote_request: "quote" } as Record<string, string>)[updatedMemory.pendingAction] ?? currentIntent
+    : currentIntent;
   const pendingProposal = lead.commercialMemory.pendingProposal;
   const lastBotMessage = [...lead.chatMessages].reverse().find(message => message.role === "bot")?.text ?? "";
   const confirmsPendingProposal = Boolean(
@@ -969,7 +971,7 @@ export async function chatWithLead(
       `Pedido do visitante: ${redactAngolanPhoneCandidates(pendingProposal.request)}`,
       `Oferta/assunto: ${pendingProposal.subject}.`,
       criteria.length ? `Critérios conhecidos: ${criteria.join("; ")}.` : "",
-      "Próximo passo: a equipa deve rever o pedido e responder nesta conversa.",
+      "Próximo passo: nós revemos o pedido e respondemos nesta conversa.",
     ].filter(Boolean).join(" ");
     resourceRequestSummary = summary;
     resourceRequestRegistered = true;
@@ -1030,6 +1032,16 @@ export async function chatWithLead(
     strategyConfig.expectedIntent ? `Intenção esperada da origem (não sobrepor declaração explícita): ${strategyConfig.expectedIntent}` : "",
     strategyConfig.sourceCta ? `Texto da CTA aprovada: ${strategyConfig.sourceCta}` : "",
   ].filter(Boolean).join("\n") : undefined;
+  // A visit/appointment preference is actionable once the visitor has given
+  // both the day and a time. A quote is actionable once the offer/need and
+  // one decision criterion are known. Ask for follow-up permission then,
+  // rather than leaving the visitor waiting for an unspecified team.
+  const hasVisitPreference = ["visit", "appointment"].includes(effectiveRequestIntent)
+    && updatedMemory.constraints.some(item => /^Data da visita:/i.test(item.value))
+    && updatedMemory.constraints.some(item => /^Hora da visita:/i.test(item.value));
+  const hasQuotePreference = effectiveRequestIntent === "quote"
+    && updatedMemory.interests.length > 0
+    && (updatedMemory.criteria.length > 0 || updatedMemory.constraints.length > 0);
   const shouldRequestContact = (
     lead.contactConsentStatus === "pending"
     && !requestedContact
@@ -1037,11 +1049,13 @@ export async function chatWithLead(
     && !refusedContact
     && Boolean(profile.phone)
     && (
-      (currentIntent === "human" && /whatsapp|deixar.*contacto/i.test(userMessage)
+      ((currentIntent === "human" && /deixar.*contacto/i.test(userMessage)
         && strategyConfig.availableActions.includes("contact"))
+        || ((hasVisitPreference || hasQuotePreference)
+          && strategyConfig.availableActions.includes("contact")))
     )
   );
-  const contactRequestPrompt = "Para continuarmos no WhatsApp, envia o teu número ou diz “Agora não”.";
+  const contactRequestPrompt = "Para nós darmos seguimento, envia o teu número ou diz “Agora não”.";
   // Events describe observed visitor requests, not completed bookings or inferred abandonment.
   const recordTurnOutcome = (products: unknown[]) => {
     const intent = currentIntent;
@@ -1063,7 +1077,7 @@ export async function chatWithLead(
   const withContactRequest = (text: string): string => {
     if (!shouldRequestContact) return text;
     const firstSentence = text.replace(/\s+/g, " ").trim().split(/(?<=[.!?])\s+/)[0]
-      || "A equipa pode continuar contigo.";
+      || "Nós podemos continuar contigo.";
     return `${firstSentence.slice(0, 220).replace(/[.!?]?$/, ".")} ${contactRequestPrompt}`;
   };
   const buildCurrentContext = () => buildLeadChatContext(
@@ -1138,14 +1152,14 @@ export async function chatWithLead(
   ({ systemInstruction, prompt } = buildCurrentContext());
   const rendered = await generatePlannedConversation(conversationPlan, (instructions) => generateSalesDecision(
     `${systemInstruction}\n${instructions}`,
-    `${prompt}
+     `${prompt}
 
-Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém da equipa de ${profile.name || "este negócio"}, não como a Linkealls. Usa apenas ofertas e factos presentes no contexto. Não menciones um número de telefone, fotos, vídeos ou uma acção do proprietário sem confirmação no contexto.`,
+ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém da equipa de ${profile.name || "este negócio"}, não como a Linkealls. Fala em nome do negócio ("nós"), nunca trates a equipa como uma entidade terceira, nunca convides a pessoa a esperar ou a aguardar indefinidamente. Usa apenas ofertas e factos presentes no contexto. Não menciones um número de telefone, fotos, vídeos ou uma acção do proprietário sem confirmação no contexto.`,
   ), () => ({
     decision: {
-      reply: knownPriceReply ?? (resourceRequestRegistered ? "O pedido ficou registado para revisão pela equipa."
+      reply: knownPriceReply ?? (resourceRequestRegistered ? "O teu pedido ficou registado e vamos revê-lo."
         : approvedResources.length ? "Podes abrir os materiais abaixo."
-          : requestedResource ? "Não tenho esse material disponível aqui. Queres que registe um pedido para a equipa?"
+          : requestedResource ? "Não tenho esse material disponível aqui. Queres que registe um pedido para rever?"
             : conversationPlan.nextAction.type !== "none" ? `Podes usar a opção «${conversationPlan.nextAction.label}» abaixo.`
               : conversationPlan.decision.action === "qualify_need" ? "O que procuras resolver com esta opção?"
                 : "Não consegui preparar a resposta neste momento. Podes tentar novamente?"),
@@ -1175,6 +1189,12 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
     .replace(/\*\*/g, "")
     .replace(/^[-*#]\s*/gm, "")
     .replace(/\n{2,}/g, "\n")
+    // Keep model wording in the business voice even when the provider emits
+    // the old passive handoff copy.
+    .replace(/\bconfirmação\s+(?:da\s+)?equipa\s+responsável(?:\s+pelo\s+imóvel)?\b/gi, "nossa confirmação")
+    .replace(/\b(?:a\s+)?equipa\s+responsável\b/gi, "nós")
+    .replace(/\ba\s+equipa\s+vai\b/gi, "vamos")
+    .replace(/\b(?:aguarda|espera)\s+(?:aqui|por nós|pela nossa resposta)\b/gi, "continuamos contigo por aqui")
     .trim();
   let reply = extractedPhone
     ? "Obrigado. O link do WhatsApp da empresa está abaixo."
@@ -1226,11 +1246,11 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
   const compactedReply = compactCommercialReply(reply, userMessage, updatedMemory.answeredQuestions, offeringNames)
     || (["closing", "research", "disinterested"].includes(currentIntent) ? "Tudo bem. Estamos por aqui quando precisares." : "Posso continuar a ajudar por aqui.");
   const resourceReply = resourceRequestRegistered
-    ? "Pedido registado para revisão pela equipa."
+    ? "O teu pedido ficou registado e vamos revê-lo."
     : approvedResources.length
       ? `Podes abrir ${approvedResources.length === 1 ? "o material" : "os materiais"} abaixo.`
       : requestedResource && updatedMemory.pendingProposal
-        ? `Não tenho ${requestedResource.kind === "image" ? "mais imagens" : requestedResource.kind === "video" ? "um vídeo" : requestedResource.kind === "document" ? "um documento" : "esse detalhe"} para mostrar aqui. Queres que registe um pedido para a equipa rever?`
+        ? `Não tenho ${requestedResource.kind === "image" ? "mais imagens" : requestedResource.kind === "video" ? "um vídeo" : requestedResource.kind === "document" ? "um documento" : "esse detalhe"} para mostrar aqui. Queres que registe um pedido para rever?`
         : null;
   const contextAwareReply = resourceReply && !isTrafficWelcome && !isInterestOnly
     ? `${contactCaptured ? "Obrigado. Guardámos o teu WhatsApp com autorização. " : contactDeclined ? "Tudo bem. Continuamos por aqui sem guardar o teu WhatsApp. " : ""}${resourceReply}`

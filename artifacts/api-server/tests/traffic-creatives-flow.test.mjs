@@ -590,7 +590,7 @@ test("contact access is business-scoped and visitors may decline without blockin
   assert.equal(declined.statusCode, 200);
   assert.equal(declined.body.contact.status, "declined");
   assert.equal(declined.body.contact.phone, null);
-  assert.equal(declined.body.whatsappHandoff, null);
+  assert.ok(declined.body.whatsappHandoff);
 
   const chat = await invoke("post", "/leads/:id/chat", {
     params: { id: opened.body.leadId },
