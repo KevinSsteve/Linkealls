@@ -86,6 +86,7 @@ test("consented lead contact stays separate from payment phones and WhatsApp URL
   assert.match(visitor, /Authorization: `Visitor \$\{access\.visitorToken\}`/);
   assert.doesNotMatch(chat, /function ContactCaptureCard/);
   assert.match(chat, /applyContactResult/);
-  assert.match(service, /contactRequested: botRequestsWhatsApp/);
+  assert.match(service, /contactRequested: shouldRequestContact/);
+  assert.doesNotMatch(service, /function botRequestsWhatsApp/);
   assert.match(service, /const refusedContact = requestedContact && isContactRefusal/);
 });

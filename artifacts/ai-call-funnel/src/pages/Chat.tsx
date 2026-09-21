@@ -609,16 +609,9 @@ function WhatsAppHandoffCard({
 // ─── Main Chat component ───────────────────────────────────────────────────
 
 export function Chat() {
-  const initialMessage = (() => {
-    try {
-      return new URLSearchParams(window.location.search).get("message") ?? "Quero saber mais sobre isso";
-    } catch {
-      return "Quero saber mais sobre isso";
-    }
-  })();
   const businessSlug = useBusinessSlug();
 
-  const [inputValue, setInputValue] = useState(initialMessage);
+  const [inputValue, setInputValue] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [stage, setStage] = useState<Stage>("chat");
   const [isBusy, setIsBusy] = useState(false);
@@ -731,8 +724,8 @@ export function Chat() {
           products?: ProductCard[];
           nextAction?: NextAction;
         }>(leadId);
-        if (welcome.products?.length) setChatProducts(welcome.products);
-        if (welcome.nextAction) setNextAction(welcome.nextAction);
+        setChatProducts(welcome.products?.length ? welcome.products : null);
+        setNextAction(welcome.nextAction?.type && welcome.nextAction.type !== "none" ? welcome.nextAction : null);
 
         for (let attempt = 0; attempt < 20 && !cancelled; attempt += 1) {
           const access = loadCurrentVisitorAccess(businessSlug);
@@ -789,7 +782,7 @@ export function Chat() {
       setTracking(null);
       setCallTriggered(false);
       setConversationError(null);
-      setInputValue("Quero saber mais sobre isso");
+      setInputValue("");
     } catch {
       setConversationError("Não foi possível terminar a conversa. Tenta novamente.");
     } finally {
@@ -903,6 +896,8 @@ export function Chat() {
     async (text: string) => {
       setIsBusy(true);
       setStage("typing");
+      setChatProducts(null);
+      setNextAction(null);
       await new Promise((r) => setTimeout(r, isB2BMode ? 600 : 1200));
 
       // A scoped lead is a hard prerequisite for the call flow — without it
@@ -967,6 +962,8 @@ export function Chat() {
     async (text: string, currentLeadId: string) => {
       setIsBusy(true);
       setStage("typing");
+      setChatProducts(null);
+      setNextAction(null);
       try {
         const result = await visitorApi(businessSlug ?? "")
           .sendLeadChat<LeadChatResult>(currentLeadId, text);

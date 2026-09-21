@@ -62,13 +62,11 @@ export interface WhatsAppHandoff {
 
 function contactWasRequested(lead: Lead): boolean {
   if (lead.contactConsentStatus !== "pending") return false;
-  const lastBot = [...lead.chatMessages].reverse().find((message) => message.role === "bot");
-  return lastBot?.contactRequested === true;
+  return lead.chatMessages.some((message) => message.role === "bot" && message.contactRequested === true);
 }
 
-function botRequestsWhatsApp(text: string): boolean {
-  return /\b(?:partilh|compartilh|indic|envi|deix)\w*\b[^.!?]{0,100}\b(?:whatsapp|número|numero|contacto)\b/i.test(text)
-    || /\bqual\s+(?:é\s+)?o\s+(?:teu|seu)\s+whatsapp\b/i.test(text);
+function currentTurnSupportsAction(message: string): boolean {
+  return /\b(produto|produtos|serviço|serviços|catálogo|catalogo|preço|preços|comprar|compra|pagamento|orçamento|orcamento|marcação|marcacao|visita|falar com|dono|equipa|whatsapp|contacto|acompanhar pedido)\b/i.test(message);
 }
 
 export function leadContactView(lead: Pick<Lead, "contactConsentStatus" | "contactPhone" | "contactPurpose" | "contactCapturedAt">): LeadContactView {
@@ -748,6 +746,28 @@ export async function chatWithLead(
     strategyConfig.expectedIntent ? `Intenção esperada da origem (não sobrepor declaração explícita): ${strategyConfig.expectedIntent}` : "",
     strategyConfig.sourceCta ? `Texto da CTA aprovada: ${strategyConfig.sourceCta}` : "",
   ].filter(Boolean).join("\n") : undefined;
+  const shouldRequestContact = (
+    lead.contactConsentStatus === "pending"
+    && !requestedContact
+    && !extractedPhone
+    && !refusedContact
+    && Boolean(profile.phone)
+    && (
+      options?.requestContactConsent === true
+      || updatedMemory.pendingAction === "owner_handoff"
+      || updatedMemory.pendingAction === "quote_request"
+      || updatedMemory.pendingAction === "appointment_request"
+      || updatedMemory.pendingAction === "visit_request"
+      || Boolean(updatedMemory.escalationReason)
+    )
+  );
+  const contactRequestPrompt = "Para continuarmos no WhatsApp, envia o teu número ou diz “Agora não”.";
+  const withContactRequest = (text: string): string => {
+    if (!shouldRequestContact) return text;
+    const firstSentence = text.replace(/\s+/g, " ").trim().split(/(?<=[.!?])\s+/)[0]
+      || "A equipa pode continuar contigo.";
+    return `${firstSentence.replace(/[.!?]?$/, ".")} ${contactRequestPrompt}`.slice(0, 360);
+  };
   const { systemInstruction, prompt } = buildLeadChatContext(
     safeLead,
     profile,
@@ -773,16 +793,16 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
   );
   if (!generation) {
     const fallbackProducts = selectLeadChatProducts(profile.offerings ?? [], safeUserMessage);
-    const fallbackReply = extractedPhone
+    const fallbackReply = withContactRequest(extractedPhone
       ? "Obrigado. Guardámos o teu WhatsApp com autorização e já podes continuar com a equipa pelo encaminhamento abaixo."
       : contactDeclined
         ? "Tudo bem. Continuamos por aqui sem guardar o teu WhatsApp. Em que mais posso ajudar?"
         : updatedMemory.pendingAction === "owner_handoff" || updatedMemory.escalationReason
-      ? "Não tenho essa informação confirmada. Posso pedir à nossa equipa para responder. Compartilhe connosco o seu WhatsApp ou diga “Agora não” para continuar por aqui."
+      ? "Não tenho essa informação confirmada. A equipa pode ajudar."
       : fallbackProducts.length
       ? `Temos ${fallbackProducts.slice(0, 2).map((item) => `${item.name} (${item.price})`).join(" e ")}. O que é mais importante para ti nesta escolha?`
-      : "Quero ajudar-te a encontrar a opção certa. O que procuras exactamente?";
-    const fallbackNextAction = chooseNextAction({
+      : "Quero ajudar-te a encontrar a opção certa. O que procuras exactamente?");
+    const candidateFallbackNextAction = chooseNextAction({
       memory: updatedMemory,
       strategy: strategyConfig,
       contactStatus: lead.contactConsentStatus,
@@ -791,6 +811,9 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
       hasCatalog: Boolean(profile.catalogEnabled && profile.offerings?.length),
       hasWhatsApp: Boolean(profile.phone),
     });
+    const fallbackNextAction = !contactCaptured && currentTurnSupportsAction(userMessage)
+      ? candidateFallbackNextAction
+      : { type: "none" as const, reason: "Sem acção explícita nesta mensagem" };
     const fallbackResponse = { reply: fallbackReply, products: fallbackProducts, nextAction: fallbackNextAction, contactCaptured };
     const fallbackTs = new Date().toISOString();
     const fallbackAppended: ChatMessage[] = [
@@ -800,7 +823,7 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
         text: fallbackReply,
         ts: new Date(Date.now() + 1).toISOString(),
         strategyVersionId: resolvedStrategy.strategy?.id,
-        contactRequested: botRequestsWhatsApp(fallbackReply),
+        contactRequested: shouldRequestContact,
         requestId: options?.requestId,
         replay: { products: fallbackProducts, nextAction: fallbackNextAction, contactCaptured },
       },
@@ -885,12 +908,16 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
     .replace(/^[-*#]\s*/gm, "")
     .replace(/\n{2,}/g, "\n")
     .split(/(?<=[.!?])\s+/)
-    .slice(0, 5)
+    .slice(0, 2)
     .join(" ")
     .trim()
-    .slice(0, 720)
+    .slice(0, 320)
     .trim();
-  let reply = compactReply || "Posso ajudar-te com isso. O que procuras exactamente?";
+  let reply = extractedPhone
+    ? "Obrigado. O link do WhatsApp da empresa está abaixo."
+    : contactDeclined
+      ? "Tudo bem. Continuamos por aqui."
+      : compactReply || "Posso ajudar-te com isso. O que procuras exactamente?";
   // Model action/intent are advisory only. The server remains the sole authority
   // for capabilities, consent and the actual next action.
   const proposedAction = strategyConfig?.availableActions.includes(
@@ -899,7 +926,7 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
   if (groundedQuestion && !reply.includes("?")) {
     // Keep the model's single useful question, but never allow it to become a
     // second CTA or an unvalidated contact instruction.
-    reply = `${reply} ${groundedQuestion}`.slice(0, 720).trim();
+    reply = `${reply} ${groundedQuestion}`.slice(0, 320).trim();
   }
   if (
     groundedHandoffReason
@@ -914,9 +941,10 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
     ? orderedOfferings.filter((offering) => decision.recommendedOfferings.some((name) =>
       name.toLocaleLowerCase("pt-AO") === offering.name.toLocaleLowerCase("pt-AO")))
     : [];
-  const products = namedProducts.length > 0
-    ? namedProducts.slice(0, 3)
-    : selectLeadChatProducts(orderedOfferings, safeUserMessage);
+  const explicitlyRequestedProducts = selectLeadChatProducts(orderedOfferings, safeUserMessage);
+  const products = explicitlyRequestedProducts.length > 0
+    ? (namedProducts.length > 0 ? namedProducts.slice(0, 3) : explicitlyRequestedProducts)
+    : [];
   if (products.length > 0) {
     if (!updatedMemory.ownerCorrectedFields?.includes("recommendationReason")) {
       updatedMemory.recommendationReason = updatedMemory.interests.length
@@ -925,7 +953,7 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
     }
     if (updatedMemory.stage === "understand") updatedMemory.stage = "recommend";
   }
-  const nextAction = chooseNextAction({
+  const candidateNextAction = chooseNextAction({
     memory: updatedMemory,
     strategy: strategyConfig,
     contactStatus: lead.contactConsentStatus,
@@ -934,6 +962,10 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
     hasCatalog: Boolean(profile.catalogEnabled && profile.offerings?.length),
     hasWhatsApp: Boolean(profile.phone),
   });
+  const nextAction = !contactCaptured && currentTurnSupportsAction(userMessage)
+    ? candidateNextAction
+    : { type: "none" as const, reason: "Sem acção explícita nesta mensagem" };
+  reply = withContactRequest(reply);
   // Keep this advisory value observable in the response context without
   // allowing it to bypass server checks. It is intentionally not returned as
   // nextAction, which is generated from consent and real capabilities.
@@ -948,7 +980,7 @@ Devolve apenas o objecto estruturado pedido. A resposta deve soar como alguém d
       text: reply,
       ts: new Date(Date.now() + 1).toISOString(),
       strategyVersionId: resolvedStrategy.strategy?.id,
-      contactRequested: botRequestsWhatsApp(reply),
+      contactRequested: shouldRequestContact,
       requestId: options?.requestId,
       replay: { products, nextAction, contactCaptured },
     },

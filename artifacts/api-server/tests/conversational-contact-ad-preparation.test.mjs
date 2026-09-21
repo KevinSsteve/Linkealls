@@ -76,7 +76,9 @@ test("public UI has no phone form and chat response refreshes contact state", ()
   assert.match(leadSource, /contactWasRequested\(lead\)/);
   assert.match(leadSource, /const refusedContact = requestedContact && isContactRefusal\(userMessage\)/);
   assert.match(leadSource, /requestedContact && !refusedContact \? extractAngolanMobilePhone/);
-  assert.match(leadSource, /\\b\\(\\?:partilh\\|compartilh/);
+  assert.match(leadSource, /contactRequested: shouldRequestContact/);
+  assert.doesNotMatch(leadSource, /function botRequestsWhatsApp/);
+  assert.match(leadSource, /explicitlyRequestedProducts\.length > 0/);
   assert.match(leadSource, /eq\(leadsTable\.contactConsentStatus, "pending"\)/);
   assert.doesNotMatch(leadSource.match(/function contactWasRequested[\\s\\S]*?\\n\\}/)?.[0] ?? "", /pendingAction|escalationReason/);
   assert.match(routeSource, /safeChatMessages[\s\S]*redactAngolanPhoneCandidates/);
