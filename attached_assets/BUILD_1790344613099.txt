@@ -1,0 +1,53 @@
+2026-09-25T13:47:46.164Z [INFO]: # Build environment configured with Standard build compute type: 8GiB Memory, 4vCPUs, 128GB Disk Space
+2026-09-25T13:47:46.690Z [INFO]: # Cloning repository: git@github.com:KevinSsteve/Linkealls.git
+2026-09-25T13:47:47.957Z [INFO]: 
+2026-09-25T13:47:47.958Z [INFO]: Cloning into 'Linkealls'...
+2026-09-25T13:47:47.958Z [INFO]: # Checking for Git submodules at: /codebuild/output/src2036028085/src/Linkealls/.gitmodules
+2026-09-25T13:47:47.966Z [INFO]: # Retrieving environment cache...
+2026-09-25T13:47:48.009Z [WARNING]: ! Unable to write cache: {"code":"ERR_BAD_REQUEST","message":"Request failed with status code 404"})}
+2026-09-25T13:47:48.010Z [INFO]: ---- Setting Up SSM Secrets ----
+2026-09-25T13:47:48.010Z [INFO]: SSM params {"Path":"/amplify/d3atnzupa7dz67/main/","WithDecryption":true}
+2026-09-25T13:47:48.061Z [WARNING]: !Failed to set up process.env.secrets
+2026-09-25T13:47:48.744Z [INFO]: # No package override configuration found.
+2026-09-25T13:47:48.747Z [INFO]: # Retrieving cache...
+2026-09-25T13:47:48.798Z [INFO]: # Retrieved cache
+2026-09-25T13:47:52.757Z [INFO]: ## Starting Backend Build
+                                 ## Checking for associated backend environment...
+                                 ## No backend environment association found, continuing...
+                                 ## Completed Backend Build
+2026-09-25T13:47:52.764Z [INFO]: {"backendDuration": 0}
+                                 ## Starting Frontend Build
+                                 # Starting phase: preBuild
+                                 # Executing command: npm install -g pnpm
+2026-09-25T13:48:14.269Z [INFO]: added 2 packages in 16s
+2026-09-25T13:48:14.279Z [INFO]: # Executing command: pnpm install
+2026-09-25T13:48:14.375Z [INFO]: Scope: all 10 workspace projects
+2026-09-25T13:48:14.400Z [INFO]: . preinstall$ sh -c 'rm -f package-lock.json yarn.lock; case "$npm_config_user_agent" in pnpm/*) ;; *) echo "Use pnpm instead" >&2; exit 1 ;; esac'
+2026-09-25T13:48:14.405Z [INFO]: . preinstall: Done
+2026-09-25T13:48:14.486Z [INFO]: ? Verifying lockfile against supply-chain policies (611 entries)...
+2026-09-25T13:48:14.628Z [INFO]: Packages are hard linked from the content-addressable store to the virtual store.
+                                 Content-addressable store is at: /codebuild/output/src2036028085/src/.pnpm-store/v11
+                                 Virtual store is at:             node_modules/.pnpm
+2026-09-25T13:48:15.146Z [INFO]: Downloading react-icons@5.7.0: 0.00 B/22.76 MB
+2026-09-25T13:48:16.150Z [INFO]: Progress: resolved 609, reused 0, downloaded 351, added 320
+2026-09-25T13:48:17.085Z [INFO]: ✓ Lockfile passes supply-chain policies (611 entries in 2.6s)
+                                 Lockfile is up to date, resolution step is skipped
+2026-09-25T13:48:17.387Z [INFO]: Packages: +609
+                                 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+2026-09-25T13:48:17.414Z [INFO]: Progress: resolved 609, reused 0, downloaded 609, added 609, done
+2026-09-25T13:48:17.506Z [INFO]: dependencies:
+                                 + @replit/connectors-sdk 0.4.1
+                                 devDependencies:
+                                 + prettier 3.9.5
+                                 + typescript 5.9.3
+2026-09-25T13:48:17.561Z [WARNING]: Error: ERR_PNPM_IGNORED_BUILDS
+2026-09-25T13:48:17.561Z [WARNING]: × installing dependencies
+                                    ╰─▶ Ignored build scripts: @google/genai@1.52.0, esbuild@0.27.3,
+                                    protobufjs@7.6.5
+                                    help: Run "pnpm approve-builds" to pick which dependencies should be allowed
+                                    to run scripts.
+2026-09-25T13:48:17.576Z [ERROR]: !!! Build failed
+2026-09-25T13:48:17.576Z [ERROR]: !!! Error: Command failed with exit code 1
+2026-09-25T13:48:17.577Z [INFO]: # Starting environment caching...
+2026-09-25T13:48:17.577Z [INFO]: # Environment caching completed
+
