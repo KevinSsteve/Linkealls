@@ -68,12 +68,6 @@ catalog:
 
 autoInstallPeers: false
 
-onlyBuiltDependencies:
-  - '@swc/core'
-  - esbuild
-  - msw
-  - unrs-resolver
-
 overrides:
   # drizzle-kit uses esbuild internally on an older version that's vulnerable, this overrides it
   "@esbuild-kit/esm-loader": "npm:tsx@^4.21.0"
@@ -89,3 +83,11 @@ overrides:
   postcss: "8.5.28"
   "postcss>nanoid": "3.3.19"
   qs: "6.16.0"
+
+allowBuilds:
+  '@google/genai': true
+  '@swc/core': true
+  esbuild: true
+  msw: true
+  protobufjs: true
+  unrs-resolver: true
