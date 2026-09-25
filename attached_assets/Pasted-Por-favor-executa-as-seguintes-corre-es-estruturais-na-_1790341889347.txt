@@ -1,0 +1,17 @@
+Por favor, executa as seguintes correções estruturais na configuração dos pacotes do workspace. O objetivo é preparar o ambiente para deploy em produção e integrações de backend, garantindo que o código compila corretamente fora do ambiente cloud atual.
+
+1. Desbloqueio de Plataforma (Lockfile):
+No `package.json` da raiz do projeto, remove inteiramente o bloco `pnpm.overrides` (ou `overrides`) que atribui o valor `'-'` aos binários nativos de compilação (como esbuild, rollup, tailwindcss). Após a remoção, apaga fisicamente o arquivo `pnpm-lock.yaml` e executa `pnpm install` na raiz para gerar um novo lockfile que suporte pipelines de CI/CD, macOS e Windows.
+
+2. Reestruturação de Dependências no Frontend:
+No arquivo `package.json` do pacote `@workspace/ai-call-funnel`, as bibliotecas vitais estão misturadas. Cria um objeto `"dependencies"` e move para lá todos os pacotes de runtime da aplicação (ex: `react`, `react-dom`, `@tanstack/react-query`, `lucide-react`, `wouter` e todos os componentes `@radix-ui/*`). Mantém em `"devDependencies"` apenas as ferramentas de build (Vite, Tailwind, TypeScript, @types/*).
+
+3. Resolução de Contexto do TypeScript:
+Ainda no `package.json` do `@workspace/ai-call-funnel`, adiciona a dependência `"typescript": "~5.9.3"` dentro de `"devDependencies"`. Isto garantirá que o teu script `"typecheck"` consiga encontrar o binário `tsc` localmente, sem falhas de hoisting durante as builds de deploy.
+
+4. Correção do Tailwind v4 com Radix UI:
+O frontend está a utilizar o pacote de animações errado para os componentes Radix. Executa no terminal: `pnpm remove tw-animate-css --filter @workspace/ai-call-funnel` e logo a seguir executa `pnpm add tailwindcss-animate --filter @workspace/ai-call-funnel`. Em seguida, abre o arquivo CSS global do frontend e certifica-te de que o plugin é carregado utilizando a sintaxe do Tailwind v4. O arquivo deve ter:
+@import "tailwindcss";
+@plugin "tailwindcss-animate";
+
+Informa-me assim que estas 4 etapas estiverem concluídas ou se o terminal retornar algum conflito.
